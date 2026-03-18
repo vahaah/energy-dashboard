@@ -1,0 +1,17 @@
+DESCRIPTION >
+    Returns commodity price history between start and end dates.
+    Optional commodity filter.
+
+NODE endpoint
+SQL >
+    %
+    SELECT date, commodity, price, currency, unit
+    FROM commodity_prices
+    WHERE date >= {{Date(start, '2026-01-01')}}
+      AND date <= {{Date(end, '2099-01-01')}}
+      {% if defined(commodity) %}
+        AND commodity = {{String(commodity, '')}}
+      {% end %}
+    ORDER BY date ASC, commodity ASC
+
+TYPE endpoint

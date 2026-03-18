@@ -1,0 +1,9 @@
+SCHEMA >
+    `date` Date `json:$.date`,
+    `commodity` String `json:$.commodity`,
+    `price` Float32 `json:$.price`,
+    `currency` String `json:$.currency`,
+    `unit` String `json:$.unit`
+
+ENGINE "ReplacingMergeTree"
+ENGINE_SORTING_KEY "date, commodity"

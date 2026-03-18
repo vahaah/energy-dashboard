@@ -1,0 +1,11 @@
+DESCRIPTION >
+    Returns the most recent energy snapshot (grid status)
+
+NODE endpoint
+SQL >
+    SELECT *
+    FROM energy_snapshots
+    ORDER BY timestamp DESC
+    LIMIT 1
+
+TYPE endpoint

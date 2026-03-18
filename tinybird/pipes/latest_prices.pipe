@@ -1,0 +1,20 @@
+DESCRIPTION >
+    Returns the latest price for each commodity
+
+NODE endpoint
+SQL >
+    SELECT
+        commodity,
+        price,
+        currency,
+        unit,
+        date
+    FROM commodity_prices
+    WHERE (commodity, date) IN (
+        SELECT commodity, max(date) AS date
+        FROM commodity_prices
+        GROUP BY commodity
+    )
+    ORDER BY commodity ASC
+
+TYPE endpoint

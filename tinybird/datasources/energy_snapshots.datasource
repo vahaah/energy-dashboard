@@ -1,0 +1,27 @@
+SCHEMA >
+    `timestamp` DateTime `json:$.timestamp`,
+    `carbon_intensity` Float32 `json:$.carbon_intensity`,
+    `carbon_forecast` Float32 `json:$.carbon_forecast`,
+    `carbon_index` String `json:$.carbon_index`,
+    `demand_mw` Float32 `json:$.demand_mw`,
+    `price_gbp_mwh` Float32 `json:$.price_gbp_mwh`,
+    `gen_gas_pct` Float32 `json:$.gen_gas_pct`,
+    `gen_coal_pct` Float32 `json:$.gen_coal_pct`,
+    `gen_nuclear_pct` Float32 `json:$.gen_nuclear_pct`,
+    `gen_wind_pct` Float32 `json:$.gen_wind_pct`,
+    `gen_solar_pct` Float32 `json:$.gen_solar_pct`,
+    `gen_hydro_pct` Float32 `json:$.gen_hydro_pct`,
+    `gen_biomass_pct` Float32 `json:$.gen_biomass_pct`,
+    `gen_imports_pct` Float32 `json:$.gen_imports_pct`,
+    `gen_other_pct` Float32 `json:$.gen_other_pct`,
+    `gen_gas_mw` Float32 `json:$.gen_gas_mw`,
+    `gen_coal_mw` Float32 `json:$.gen_coal_mw`,
+    `gen_nuclear_mw` Float32 `json:$.gen_nuclear_mw`,
+    `gen_wind_mw` Float32 `json:$.gen_wind_mw`,
+    `gen_solar_mw` Float32 `json:$.gen_solar_mw`,
+    `gen_hydro_mw` Float32 `json:$.gen_hydro_mw`,
+    `gen_biomass_mw` Float32 `json:$.gen_biomass_mw`,
+    `gen_other_mw` Float32 `json:$.gen_other_mw`
+
+ENGINE "ReplacingMergeTree"
+ENGINE_SORTING_KEY "timestamp"

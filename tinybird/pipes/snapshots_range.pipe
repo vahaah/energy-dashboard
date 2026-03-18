@@ -1,0 +1,76 @@
+DESCRIPTION >
+    Returns energy snapshots within a time range.
+    Params: start (DateTime), end (DateTime), granularity ('hour' | 'day' | 'week')
+
+NODE endpoint
+SQL >
+    %
+    {% if defined(granularity) and granularity == 'day' %}
+        SELECT
+            toStartOfDay(timestamp) AS timestamp,
+            avg(carbon_intensity) AS carbon_intensity,
+            avg(carbon_forecast) AS carbon_forecast,
+            any(carbon_index) AS carbon_index,
+            avg(demand_mw) AS demand_mw,
+            avg(price_gbp_mwh) AS price_gbp_mwh,
+            avg(gen_gas_pct) AS gen_gas_pct,
+            avg(gen_coal_pct) AS gen_coal_pct,
+            avg(gen_nuclear_pct) AS gen_nuclear_pct,
+            avg(gen_wind_pct) AS gen_wind_pct,
+            avg(gen_solar_pct) AS gen_solar_pct,
+            avg(gen_hydro_pct) AS gen_hydro_pct,
+            avg(gen_biomass_pct) AS gen_biomass_pct,
+            avg(gen_imports_pct) AS gen_imports_pct,
+            avg(gen_other_pct) AS gen_other_pct,
+            avg(gen_gas_mw) AS gen_gas_mw,
+            avg(gen_coal_mw) AS gen_coal_mw,
+            avg(gen_nuclear_mw) AS gen_nuclear_mw,
+            avg(gen_wind_mw) AS gen_wind_mw,
+            avg(gen_solar_mw) AS gen_solar_mw,
+            avg(gen_hydro_mw) AS gen_hydro_mw,
+            avg(gen_biomass_mw) AS gen_biomass_mw,
+            avg(gen_other_mw) AS gen_other_mw
+        FROM energy_snapshots
+        WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
+          AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
+        GROUP BY timestamp
+        ORDER BY timestamp ASC
+    {% elif defined(granularity) and granularity == 'week' %}
+        SELECT
+            toStartOfWeek(timestamp) AS timestamp,
+            avg(carbon_intensity) AS carbon_intensity,
+            avg(carbon_forecast) AS carbon_forecast,
+            any(carbon_index) AS carbon_index,
+            avg(demand_mw) AS demand_mw,
+            avg(price_gbp_mwh) AS price_gbp_mwh,
+            avg(gen_gas_pct) AS gen_gas_pct,
+            avg(gen_coal_pct) AS gen_coal_pct,
+            avg(gen_nuclear_pct) AS gen_nuclear_pct,
+            avg(gen_wind_pct) AS gen_wind_pct,
+            avg(gen_solar_pct) AS gen_solar_pct,
+            avg(gen_hydro_pct) AS gen_hydro_pct,
+            avg(gen_biomass_pct) AS gen_biomass_pct,
+            avg(gen_imports_pct) AS gen_imports_pct,
+            avg(gen_other_pct) AS gen_other_pct,
+            avg(gen_gas_mw) AS gen_gas_mw,
+            avg(gen_coal_mw) AS gen_coal_mw,
+            avg(gen_nuclear_mw) AS gen_nuclear_mw,
+            avg(gen_wind_mw) AS gen_wind_mw,
+            avg(gen_solar_mw) AS gen_solar_mw,
+            avg(gen_hydro_mw) AS gen_hydro_mw,
+            avg(gen_biomass_mw) AS gen_biomass_mw,
+            avg(gen_other_mw) AS gen_other_mw
+        FROM energy_snapshots
+        WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
+          AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
+        GROUP BY timestamp
+        ORDER BY timestamp ASC
+    {% else %}
+        SELECT *
+        FROM energy_snapshots
+        WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
+          AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
+        ORDER BY timestamp ASC
+    {% end %}
+
+TYPE endpoint
