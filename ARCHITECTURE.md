@@ -84,7 +84,7 @@ Engine: `ReplacingMergeTree`
 
 ## Env Vars (Vercel)
 ```
-TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co
+TINYBIRD_URL=https://api.eu-central-1.aws.tinybird.co
 TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY

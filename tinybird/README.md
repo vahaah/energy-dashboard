@@ -56,7 +56,7 @@ cp .env.example .env.local
 
 Fill in:
 ```
-TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co  # or your region
+TINYBIRD_URL=https://api.eu-central-1.aws.tinybird.co  # or your region
 TINYBIRD_TOKEN=p.eyJ...           # admin token (for cron ingestion)
 TINYBIRD_READ_TOKEN=p.eyJ...      # dashboard_read token (for pipe queries)
 ```

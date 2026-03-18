@@ -112,7 +112,7 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
-Requires `TINYBIRD_API_URL` and `TINYBIRD_TOKEN` in `.env.local`. Uses `DEMO_KEY` for EIA by default.
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local`. Uses `DEMO_KEY` for EIA by default.
 
 ### 7. Deploy to Vercel
 
@@ -121,7 +121,7 @@ vercel deploy
 ```
 
 Set environment variables in Vercel dashboard:
-- `TINYBIRD_API_URL`
+- `TINYBIRD_URL`
 - `TINYBIRD_TOKEN`
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`

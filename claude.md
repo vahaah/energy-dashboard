@@ -4,7 +4,7 @@
 
 Real-time UK electricity grid dashboard combined with global oil and gas commodity prices. Built with Next.js 16 (App Router), Tailwind CSS v4, and Tinybird (ClickHouse) for time-series data storage.
 
-**Live at:** Hosted on Vercel  
+**Live at:** Hosted on Vercel
 **Repo:** `vahaah/energy-dashboard`
 
 ## Tech Stack
@@ -110,7 +110,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 
 ```env
 # Required
-TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co
+TINYBIRD_URL=https://api.eu-central-1.aws.tinybird.co
 TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY
@@ -199,7 +199,7 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
-The script reads `TINYBIRD_API_URL` and `TINYBIRD_TOKEN` from `.env.local`. Data sources:
+The script reads `TINYBIRD_URL` and `TINYBIRD_TOKEN` from `.env.local`. Data sources:
 - Carbon Intensity API — intensity + generation mix (14-day max per request, aggregated hourly)
 - Elexon BMRS — system prices, demand, generation by fuel
 - EIA — Brent, WTI, Henry Hub daily (up to 5000 rows)

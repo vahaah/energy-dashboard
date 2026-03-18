@@ -2,12 +2,12 @@
  * Tinybird client for both ingestion (Events API) and querying (Pipe endpoints).
  *
  * Env vars:
- *   TINYBIRD_API_URL  — e.g. https://api.eu-central-1.aws.tinybird.co
+ *   TINYBIRD_URL  — e.g. https://api.eu-central-1.aws.tinybird.co
  *   TINYBIRD_TOKEN    — admin token (write + read) used by cron
  *   TINYBIRD_READ_TOKEN — (optional) read-only token for pipe queries; falls back to TINYBIRD_TOKEN
  */
 
-const apiUrl = () => process.env.TINYBIRD_API_URL ?? "https://api.eu-central-1.aws.tinybird.co";
+const apiUrl = () => process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 const writeToken = () => process.env.TINYBIRD_TOKEN ?? "";
 const readToken = () => process.env.TINYBIRD_READ_TOKEN ?? process.env.TINYBIRD_TOKEN ?? "";
 

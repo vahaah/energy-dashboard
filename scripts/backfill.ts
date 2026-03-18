@@ -10,7 +10,7 @@
  *   npx tsx scripts/backfill.ts --days 7 --only snapshots
  *
  * Env vars required:
- *   TINYBIRD_API_URL, TINYBIRD_TOKEN (or set in .env.local)
+ *   TINYBIRD_URL, TINYBIRD_TOKEN (or set in .env.local)
  *   EIA_API_KEY (defaults to DEMO_KEY)
  *
  * Data sources:
@@ -24,11 +24,11 @@ import { config } from "dotenv";
 import { resolve } from "path";
 
 // Load .env.local from project root
-config({ path: resolve(import.meta.dirname ?? ".", "../.env.local") });
+config({ path: resolve(import.meta.dirname ?? ".", ".env.local") });
 
 // ─── Config ──────────────────────────────────────────────────
 
-const API_URL = process.env.TINYBIRD_API_URL ?? "https://api.eu-central-1.aws.tinybird.co";
+const API_URL = process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 const TOKEN = process.env.TINYBIRD_TOKEN ?? "";
 const EIA_KEY = process.env.EIA_API_KEY ?? "DEMO_KEY";
 

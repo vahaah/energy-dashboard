@@ -27,7 +27,7 @@ See `.env.example`. The code uses:
 
 | Variable | Purpose | How to get |
 |----------|---------|------------|
-| `TINYBIRD_API_URL` | Tinybird region host | From Tinybird workspace settings |
+| `TINYBIRD_URL` | Tinybird region host | From Tinybird workspace settings |
 | `TINYBIRD_TOKEN` | Admin token for cron + backfill ingestion | `tb --cloud token ls` → Workspace admin token |
 | `TINYBIRD_READ_TOKEN` | Read-only token for pipe queries | `tb --cloud token ls` → `dashboard_read` (auto-created by deployment) |
 | `EIA_API_KEY` | US EIA API key | `DEMO_KEY` works for dev |
@@ -67,7 +67,7 @@ npx tsx scripts/backfill.ts --days 7 --dry-run # Preview only
 npx tsx scripts/backfill.ts --only prices      # Only commodity prices
 npx tsx scripts/backfill.ts --only snapshots   # Only grid snapshots
 ```
-Requires `TINYBIRD_API_URL` and `TINYBIRD_TOKEN` in `.env.local`.
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local`.
 
 ### Data flow
 External APIs → `/api/cron` (hourly) → Tinybird → Server Component (ISR 5min) → Client Dashboard
