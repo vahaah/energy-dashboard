@@ -1,3 +1,5 @@
+TOKEN ingest_token APPEND
+
 SCHEMA >
     `timestamp` DateTime `json:$.timestamp`,
     `carbon_intensity` Float32 `json:$.carbon_intensity`,

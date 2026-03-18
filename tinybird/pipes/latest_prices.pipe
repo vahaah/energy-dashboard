@@ -1,3 +1,5 @@
+TOKEN dashboard_read READ
+
 DESCRIPTION >
     Returns the latest price for each commodity
 

@@ -1,3 +1,5 @@
+TOKEN dashboard_read READ
+
 DESCRIPTION >
     Returns energy snapshots within a time range.
     Params: start (DateTime), end (DateTime), granularity ('hour' | 'day' | 'week')
