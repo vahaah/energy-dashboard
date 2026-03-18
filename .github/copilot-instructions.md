@@ -82,7 +82,14 @@ contentStyle={{
 - Datasources defined in `tinybird/datasources/*.datasource`
 - Pipes (query endpoints) in `tinybird/pipes/*.pipe`
 - Both tables use `ReplacingMergeTree` for dedup
-- Client in `src/lib/tinybird.ts`: `ingestEvent()` for writes, `queryPipe()` for reads
+- Client in `src/lib/tinybird.ts`: `ingestRows()` for writes, `queryPipe()` for reads
+- Backfill script: `npx tsx scripts/backfill.ts --days 30` (reads `.env.local`)
+
+## Rate Limiting
+
+- All `/api/*` routes rate-limited to 60 req/min per IP via `src/lib/rate-limit.ts`
+- Production: uses `@upstash/ratelimit` + `@upstash/redis` (needs `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`)
+- Development: in-memory Map fallback (no Redis needed)
 
 ## Do Not
 

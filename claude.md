@@ -91,6 +91,9 @@ tinybird/
     ├── latest_prices.pipe      # Latest price per commodity
     └── prices_range.pipe       # Price history between start/end
 
+scripts/
+└── backfill.ts         # Historical data backfill (npx tsx scripts/backfill.ts)
+
 vercel.json          # Cron config: /api/cron runs at minute 0 every hour
 ARCHITECTURE.md      # Detailed data model and architecture docs
 ```
@@ -106,17 +109,27 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 ## Environment Variables
 
 ```env
+# Required
 TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co
 TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY
 CRON_SECRET=<random-secret-for-vercel-cron>
+
+# Optional — production rate limiting
+UPSTASH_REDIS_REST_URL=<from-upstash-console>
+UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 ```
 
 ### How tokens work
-- `TINYBIRD_TOKEN` — Workspace admin token. Used by `/api/cron` to ingest data via Events API.
+- `TINYBIRD_TOKEN` — Workspace admin token. Used by `/api/cron` and `scripts/backfill.ts` to ingest data via Events API.
 - `TINYBIRD_READ_TOKEN` — Auto-generated `dashboard_read` token (defined via `TOKEN dashboard_read READ` in pipe files). Used by the Server Component to query pipe endpoints. Falls back to `TINYBIRD_TOKEN` if not set.
 - Tokens are created via `tb --cloud deploy` (Tinybird Forward requires resource-scoped tokens in data files, not via CLI `token create`).
+
+### Upstash Redis
+- Used by `src/lib/rate-limit.ts` for distributed rate limiting in production.
+- Without Upstash, rate limiting falls back to an in-memory Map (resets on cold start, not shared across serverless instances).
+- Sign up at https://console.upstash.com → create a Redis database → copy REST URL and REST Token.
 
 ## Conventions
 
@@ -169,6 +182,27 @@ CRON_SECRET=<random-secret-for-vercel-cron>
 - Edit `src/app/api/cron/route.ts`
 - The cron schedule is in `vercel.json` (currently `0 * * * *` = every hour)
 - Always handle API failures gracefully — partial data is better than no data
+
+### Backfill historical data
+```bash
+# Last 30 days (default)
+npx tsx scripts/backfill.ts --days 30
+
+# Custom range
+npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
+
+# Dry run (preview only)
+npx tsx scripts/backfill.ts --days 7 --dry-run
+
+# Backfill only prices or only snapshots
+npx tsx scripts/backfill.ts --days 90 --only prices
+npx tsx scripts/backfill.ts --days 30 --only snapshots
+```
+
+The script reads `TINYBIRD_API_URL` and `TINYBIRD_TOKEN` from `.env.local`. Data sources:
+- Carbon Intensity API — intensity + generation mix (14-day max per request, aggregated hourly)
+- Elexon BMRS — system prices, demand, generation by fuel
+- EIA — Brent, WTI, Henry Hub daily (up to 5000 rows)
 
 ### Deploy
 ```bash

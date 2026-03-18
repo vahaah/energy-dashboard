@@ -93,7 +93,28 @@ Hit the cron endpoint manually to populate your first snapshot:
 curl http://localhost:3000/api/cron
 ```
 
-### 6. Deploy to Vercel
+### 6. Backfill historical data (optional)
+
+Load historical data from all sources into Tinybird:
+
+```bash
+# Last 30 days (default)
+npx tsx scripts/backfill.ts --days 30
+
+# Custom date range
+npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
+
+# Dry run (preview without ingesting)
+npx tsx scripts/backfill.ts --days 7 --dry-run
+
+# Backfill only prices or only grid snapshots
+npx tsx scripts/backfill.ts --days 90 --only prices
+npx tsx scripts/backfill.ts --days 30 --only snapshots
+```
+
+Requires `TINYBIRD_API_URL` and `TINYBIRD_TOKEN` in `.env.local`. Uses `DEMO_KEY` for EIA by default.
+
+### 7. Deploy to Vercel
 
 ```bash
 vercel deploy
@@ -105,6 +126,8 @@ Set environment variables in Vercel dashboard:
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`
 - `CRON_SECRET`
+- `UPSTASH_REDIS_REST_URL` (optional — for production rate limiting)
+- `UPSTASH_REDIS_REST_TOKEN` (optional — for production rate limiting)
 
 The cron job runs automatically every hour via `vercel.json`.
 
@@ -131,10 +154,11 @@ Returns oil & gas commodity prices.
 
 ### Rate Limiting
 
-- **60 requests per minute** per IP address
+- **60 requests per minute** per IP address (sliding window)
 - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
 - Returns `429 Too Many Requests` with `Retry-After` header when exceeded
-- Production uses Upstash Redis; dev uses in-memory store
+- **Production:** Uses [Upstash Redis](https://console.upstash.com) for distributed rate limiting across serverless instances. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` environment variables.
+- **Development:** Falls back to an in-memory store (no Redis needed, resets on server restart)
 
 ## Data Model
 
