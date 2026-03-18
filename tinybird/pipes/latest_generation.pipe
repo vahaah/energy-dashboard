@@ -1,0 +1,22 @@
+DESCRIPTION >
+    Returns the latest 5-minute generation snapshot (all fuel types).
+    Used for KPI cards and the generation breakdown table.
+
+TOKEN dashboard_read READ
+
+NODE latest_ts
+SQL >
+    SELECT max(timestamp) AS latest FROM generation_5min
+
+NODE endpoint
+SQL >
+    SELECT
+        g.timestamp,
+        g.fuel_type,
+        g.generation_mw,
+        g.source
+    FROM generation_5min g
+    WHERE g.timestamp = (SELECT latest FROM latest_ts)
+    ORDER BY g.generation_mw DESC
+
+TYPE endpoint

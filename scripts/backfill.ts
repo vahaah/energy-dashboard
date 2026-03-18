@@ -8,16 +8,23 @@
  *   npx tsx scripts/backfill.ts --days 90 --dry-run
  *   npx tsx scripts/backfill.ts --days 7 --only prices
  *   npx tsx scripts/backfill.ts --days 7 --only snapshots
+ *   npx tsx scripts/backfill.ts --days 30 --only generation
  *
  * Env vars required:
  *   TINYBIRD_URL, TINYBIRD_TOKEN (or set in .env.local)
  *   EIA_API_KEY (defaults to DEMO_KEY)
+ *   OIL_PRICE_API_KEY (optional — for TTF + LNG)
+ *   FRED_API_KEY (optional — for TTF + LNG monthly history)
  *
  * Data sources:
  *   1. Carbon Intensity API  — /intensity/{from}/{to} + /generation/{from}/{to}
  *      Max 14 days per request, half-hourly → aggregated to hourly
  *   2. Elexon BMRS — system prices, demand (ITSDO), generation (AGPT) per date
- *   3. EIA — Brent, WTI, Henry Hub daily prices (up to 5000 rows = ~20 years)
+ *   3. Elexon FUELINST — 5-min generation by fuel type → generation_5min
+ *   4. NESO — embedded solar/wind from distribution networks → generation_5min
+ *   5. EIA — Brent, WTI, Henry Hub daily prices (up to 5000 rows = ~20 years)
+ *   6. OilPriceAPI — EU TTF gas, LNG Asia JKM → commodity_prices
+ *   7. FRED — monthly TTF + LNG (deep history) → commodity_prices
  */
 
 import { config } from "dotenv";
@@ -31,6 +38,8 @@ config({ path: resolve(import.meta.dirname ?? ".", ".env.local") });
 const API_URL = process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 const TOKEN = process.env.TINYBIRD_TOKEN ?? "";
 const EIA_KEY = process.env.EIA_API_KEY ?? "DEMO_KEY";
+const OIL_API_KEY = process.env.OIL_PRICE_API_KEY ?? "";
+const FRED_KEY = process.env.FRED_API_KEY ?? "";
 
 if (!TOKEN) {
   console.error("❌ TINYBIRD_TOKEN is not set. Add it to .env.local or export it.");
@@ -47,7 +56,7 @@ function getArg(name: string): string | undefined {
 const hasFlag = (name: string) => args.includes(`--${name}`);
 
 const dryRun = hasFlag("dry-run");
-const only = getArg("only"); // "snapshots" | "prices" | undefined (both)
+const only = getArg("only"); // "snapshots" | "prices" | "generation" | undefined (all)
 const daysArg = getArg("days");
 const fromArg = getArg("from");
 const toArg = getArg("to");
@@ -77,9 +86,9 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJSON<T>(url: string): Promise<T | null> {
+async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, options);
     if (!res.ok) {
       console.warn(`   ⚠ ${res.status} ${res.statusText} for ${url.slice(0, 100)}`);
       return null;
@@ -318,13 +327,116 @@ async function backfillSnapshots() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// BACKFILL: 5-min Generation (FUELINST + NESO)
+// ═══════════════════════════════════════════════════════════════
+
+async function backfillGeneration() {
+  console.log("⚡ Backfilling 5-min generation (FUELINST + NESO)...\n");
+
+  const current = new Date(startDate);
+  let totalRows = 0;
+
+  while (current < endDate) {
+    const dayStr = fmt(current);
+    const nextDay = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+
+    process.stdout.write(`   ${dayStr} `);
+
+    // ── FUELINST — 5-min generation by fuel ──────────────
+    const fuelFrom = `${dayStr}T00:00:00Z`;
+    const fuelTo = `${fmt(nextDay)}T00:00:00Z`;
+
+    interface FuelInstRow {
+      startTime: string;
+      fuelType: string;
+      generation: number;
+    }
+
+    const fuelData = await fetchJSON<FuelInstRow[]>(
+      `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${fuelFrom}&publishDateTimeTo=${fuelTo}`
+    );
+
+    const rows: Record<string, unknown>[] = [];
+
+    if (fuelData && fuelData.length > 0) {
+      for (const row of fuelData) {
+        rows.push({
+          timestamp: row.startTime.replace("T", " ").replace("Z", "").slice(0, 19),
+          fuel_type: row.fuelType.toLowerCase(),
+          generation_mw: row.generation,
+          source: "fuelinst",
+        });
+      }
+    }
+
+    // ── NESO — Embedded solar & wind ─────────────────────
+    interface NesoRecord {
+      SETTLEMENT_DATE: string;
+      SETTLEMENT_PERIOD: string;
+      EMBEDDED_SOLAR_GENERATION?: string;
+      EMBEDDED_WIND_GENERATION?: string;
+    }
+
+    const nesoData = await fetchJSON<{ result: { records: NesoRecord[] } }>(
+      `https://api.neso.energy/api/3/action/datastore_search_sql?sql=SELECT * FROM "177f6fa4-ae49-4182-81ea-0c6b35f26ca6" WHERE "SETTLEMENT_DATE"='${dayStr}' AND "FORECAST_ACTUAL_INDICATOR"='A' ORDER BY "SETTLEMENT_PERIOD" ASC`
+    );
+
+    const nesoRecords = nesoData?.result?.records ?? [];
+    for (const rec of nesoRecords) {
+      const sp = parseInt(rec.SETTLEMENT_PERIOD ?? "0");
+      const hours = Math.floor((sp - 1) / 2);
+      const mins = ((sp - 1) % 2) * 30;
+      const ts = `${dayStr} ${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+
+      const solar = parseFloat(rec.EMBEDDED_SOLAR_GENERATION ?? "0");
+      if (solar > 0) {
+        rows.push({
+          timestamp: ts,
+          fuel_type: "embedded_solar",
+          generation_mw: solar,
+          source: "neso",
+        });
+      }
+
+      const wind = parseFloat(rec.EMBEDDED_WIND_GENERATION ?? "0");
+      if (wind > 0) {
+        rows.push({
+          timestamp: ts,
+          fuel_type: "embedded_wind",
+          generation_mw: wind,
+          source: "neso",
+        });
+      }
+    }
+
+    // Ingest in batches of 500
+    if (rows.length > 0) {
+      for (let i = 0; i < rows.length; i += 500) {
+        const batch = rows.slice(i, i + 500);
+        await ingestRows("generation_5min", batch);
+      }
+      totalRows += rows.length;
+      process.stdout.write(`✓ ${rows.length} rows\n`);
+    } else {
+      process.stdout.write(`— no data\n`);
+    }
+
+    await sleep(400);
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  console.log(`\n   Total: ${totalRows} generation rows ingested\n`);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // BACKFILL: Commodity Prices (daily)
 // ═══════════════════════════════════════════════════════════════
 
 async function backfillPrices() {
   console.log("🛢️  Backfilling commodity prices...\n");
 
-  const commodities = [
+  // ── EIA prices ─────────────────────────────────────────────
+  const eiaCommodities = [
     { series: "PET.RBRTE.D", commodity: "brent_crude", unit: "$/BBL" },
     { series: "PET.RWTC.D", commodity: "wti_crude", unit: "$/BBL" },
     { series: "NG.RNGWHHD.D", commodity: "henry_hub_gas", unit: "$/MMBTU" },
@@ -332,7 +444,7 @@ async function backfillPrices() {
 
   let totalRows = 0;
 
-  for (const { series, commodity, unit } of commodities) {
+  for (const { series, commodity, unit } of eiaCommodities) {
     process.stdout.write(`   ${commodity}: `);
 
     // EIA v2 seriesid with start/end date range — returns up to 5000 rows
@@ -377,6 +489,50 @@ async function backfillPrices() {
     await sleep(500); // EIA rate limit with DEMO_KEY
   }
 
+  // ── FRED — monthly TTF + LNG history ──────────────────────
+  // OilPriceAPI free tier only supports /latest, not /historical.
+  // FRED provides reliable monthly data for EU gas (PNGASEUUSDM) and Asia LNG (PNGASJPUSDM).
+  if (FRED_KEY) {
+    const fredSeries = [
+      { id: "PNGASEUUSDM", commodity: "eu_natural_gas", unit: "$/MMBTU" },
+      { id: "PNGASJPUSDM", commodity: "lng_asia", unit: "$/MMBTU" },
+    ];
+
+    for (const { id, commodity, unit } of fredSeries) {
+      process.stdout.write(`   ${commodity} (FRED): `);
+
+      interface FredObs {
+        date: string;
+        value: string;
+      }
+
+      const json = await fetchJSON<{ observations: FredObs[] }>(
+        `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=asc&observation_start=${fmt(startDate)}&observation_end=${fmt(endDate)}`
+      );
+
+      const obs = (json?.observations ?? []).filter((o) => o.value !== ".");
+      const rows = obs.map((o) => ({
+        date: o.date,
+        commodity,
+        price: parseFloat(o.value),
+        currency: "USD",
+        unit,
+      }));
+
+      if (rows.length > 0) {
+        for (let i = 0; i < rows.length; i += 500) {
+          await ingestRows("commodity_prices", rows.slice(i, i + 500));
+        }
+        totalRows += rows.length;
+        console.log(`✓ ${rows.length} months`);
+      } else {
+        console.log(`— no data`);
+      }
+
+      await sleep(500);
+    }
+  }
+
   console.log(`\n   Total: ${totalRows} price rows ingested\n`);
 }
 
@@ -389,6 +545,10 @@ async function main() {
 
   if (!only || only === "snapshots") {
     await backfillSnapshots();
+  }
+
+  if (!only || only === "generation") {
+    await backfillGeneration();
   }
 
   if (!only || only === "prices") {

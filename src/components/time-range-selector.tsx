@@ -12,6 +12,7 @@ const OPTIONS: { value: TimeRange; label: string }[] = [
   { value: "7d", label: "7d" },
   { value: "30d", label: "30d" },
   { value: "90d", label: "90d" },
+  { value: "1y", label: "1y" },
 ];
 
 export function TimeRangeSelector({ value, onChange }: Props) {

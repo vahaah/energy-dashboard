@@ -33,6 +33,12 @@ export function CommodityChart({ data }: Props) {
 
   const commodities = [...new Set(data.map((d) => d.commodity))];
 
+  // Count data points per commodity to show dots for sparse series
+  const countByCommodity = new Map<string, number>();
+  for (const row of data) {
+    countByCommodity.set(row.commodity, (countByCommodity.get(row.commodity) ?? 0) + 1);
+  }
+
   return (
     <div className="h-72">
       <ResponsiveContainer width="100%" height="100%">
@@ -65,17 +71,20 @@ export function CommodityChart({ data }: Props) {
             }}
           />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-          {commodities.map((c) => (
-            <Line
-              key={c}
-              type="monotone"
-              dataKey={c}
-              stroke={COMMODITY_COLORS[c] ?? "#71717a"}
-              strokeWidth={2}
-              dot={false}
-              name={COMMODITY_LABELS[c] ?? c}
-            />
-          ))}
+          {commodities.map((c) => {
+            const count = countByCommodity.get(c) ?? 0;
+            return (
+              <Line
+                key={c}
+                type="monotone"
+                dataKey={c}
+                stroke={COMMODITY_COLORS[c] ?? "#71717a"}
+                strokeWidth={2}
+                dot={count <= 5 ? { r: 3 } : false}
+                name={COMMODITY_LABELS[c] ?? c}
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
     </div>

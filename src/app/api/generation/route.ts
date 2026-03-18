@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { queryPipe } from "@/lib/tinybird";
-import type { EnergySnapshot } from "@/lib/types";
+import type { Generation5min } from "@/lib/types";
 
 /**
- * GET /api/snapshots?range=24h|7d|30d|90d
+ * GET /api/generation?range=24h|7d|30d|90d|1y
  *
- * Public API — returns energy snapshots for the given time range.
+ * Public API — returns generation data from FUELINST + NESO.
+ * Automatically aggregates to hourly/daily for larger ranges.
  * Rate limited via middleware (60 req/min per IP).
  */
 export async function GET(request: NextRequest) {
@@ -19,10 +20,11 @@ export async function GET(request: NextRequest) {
   switch (range) {
     case "7d":
       start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      granularity = "hour";
       break;
     case "30d":
       start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      granularity = "day";
+      granularity = "hour";
       break;
     case "90d":
       start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       start = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
       granularity = "day";
       break;
-    default: // 24h
+    default: // 24h — full 5-min resolution
       start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       break;
   }
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
   };
   if (granularity) params.granularity = granularity;
 
-  const data = await queryPipe<EnergySnapshot>("snapshots_range", params);
+  const data = await queryPipe<Generation5min>("generation_5min_range", params);
 
   return NextResponse.json({ data, range, count: data.length });
 }

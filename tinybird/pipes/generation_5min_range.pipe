@@ -1,0 +1,50 @@
+DESCRIPTION >
+    Returns generation data for a time range, optionally filtered by fuel type.
+    Supports granularity: 5min (default), hour, day.
+
+TOKEN dashboard_read READ
+
+NODE endpoint
+SQL >
+    %
+    {% if defined(granularity) and granularity == 'hour' %}
+        SELECT
+            toStartOfHour(timestamp) AS timestamp,
+            fuel_type,
+            avg(generation_mw) AS generation_mw,
+            any(source) AS source
+        FROM generation_5min
+        WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        {% if defined(fuel_type) %}
+            AND fuel_type = {{String(fuel_type)}}
+        {% end %}
+        GROUP BY timestamp, fuel_type
+        ORDER BY timestamp ASC, fuel_type ASC
+    {% elif defined(granularity) and granularity == 'day' %}
+        SELECT
+            toStartOfDay(timestamp) AS timestamp,
+            fuel_type,
+            avg(generation_mw) AS generation_mw,
+            any(source) AS source
+        FROM generation_5min
+        WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        {% if defined(fuel_type) %}
+            AND fuel_type = {{String(fuel_type)}}
+        {% end %}
+        GROUP BY timestamp, fuel_type
+        ORDER BY timestamp ASC, fuel_type ASC
+    {% else %}
+        SELECT
+            timestamp,
+            fuel_type,
+            generation_mw,
+            source
+        FROM generation_5min
+        WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        {% if defined(fuel_type) %}
+            AND fuel_type = {{String(fuel_type)}}
+        {% end %}
+        ORDER BY timestamp ASC, fuel_type ASC
+    {% end %}
+
+TYPE endpoint

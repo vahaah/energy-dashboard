@@ -1,3 +1,5 @@
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+
 interface KpiCardProps {
   label: string;
   value: string;
@@ -5,9 +7,10 @@ interface KpiCardProps {
   detail?: string;
   color?: string;
   icon?: React.ReactNode;
+  tooltip?: string;
 }
 
-export function KpiCard({ label, value, unit, detail, color, icon }: KpiCardProps) {
+export function KpiCard({ label, value, unit, detail, color, icon, tooltip }: KpiCardProps) {
   const isEmpty = value === "—";
 
   return (
@@ -17,6 +20,7 @@ export function KpiCard({ label, value, unit, detail, color, icon }: KpiCardProp
         <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
           {label}
         </p>
+        {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       <div className="flex items-baseline gap-1.5">
         {isEmpty ? (

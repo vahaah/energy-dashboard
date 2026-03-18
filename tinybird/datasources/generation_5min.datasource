@@ -1,0 +1,14 @@
+DESCRIPTION >
+    5-minute generation data from Elexon FUELINST and NESO embedded forecasts.
+    Each row is one fuel type at one 5-minute timestamp.
+
+TOKEN ingest_token APPEND
+
+SCHEMA >
+    `timestamp` DateTime `json:$.timestamp`,
+    `fuel_type` String `json:$.fuel_type`,
+    `generation_mw` Float32 `json:$.generation_mw`,
+    `source` String `json:$.source`
+
+ENGINE "ReplacingMergeTree"
+ENGINE_SORTING_KEY "timestamp, fuel_type"

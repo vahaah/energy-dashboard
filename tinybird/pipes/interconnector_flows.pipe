@@ -1,0 +1,27 @@
+DESCRIPTION >
+    Returns interconnector flow data (fuel_type starting with 'INT') from generation_5min.
+    Positive = import to GB, negative = export from GB.
+
+TOKEN dashboard_read READ
+
+NODE endpoint
+SQL >
+    %
+    SELECT
+        timestamp,
+        fuel_type AS interconnector,
+        generation_mw,
+        CASE
+            WHEN generation_mw >= 0 THEN 'import'
+            ELSE 'export'
+        END AS direction
+    FROM generation_5min
+    WHERE fuel_type LIKE 'INT%'
+    {% if defined(start) and defined(end) %}
+        AND timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+    {% else %}
+        AND timestamp = (SELECT max(timestamp) FROM generation_5min WHERE fuel_type LIKE 'INT%')
+    {% end %}
+    ORDER BY timestamp ASC, interconnector ASC
+
+TYPE endpoint

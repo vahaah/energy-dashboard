@@ -18,7 +18,22 @@ interface Props {
   data: EnergySnapshot[];
 }
 
-const FUELS = ["wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "other"] as const;
+const FUELS = [
+  "embedded_wind", "embedded_solar",
+  "wind", "solar", "nuclear", "hydro", "biomass", "gas", "coal", "imports", "other",
+] as const;
+
+const EXTENDED_LABELS: Record<string, string> = {
+  ...FUEL_LABELS,
+  embedded_solar: "Embedded Solar",
+  embedded_wind: "Embedded Wind",
+};
+
+const EXTENDED_COLORS: Record<string, string> = {
+  ...FUEL_COLORS,
+  embedded_solar: "#fbbf24",
+  embedded_wind: "#22d3ee",
+};
 
 export function GenerationStackChart({ data }: Props) {
   const chartData = data.map((d) => ({
@@ -32,6 +47,8 @@ export function GenerationStackChart({ data }: Props) {
     coal: d.gen_coal_pct,
     imports: d.gen_imports_pct,
     other: d.gen_other_pct,
+    embedded_solar: 0,
+    embedded_wind: 0,
   }));
 
   return (
@@ -54,7 +71,7 @@ export function GenerationStackChart({ data }: Props) {
             labelFormatter={(t) => format(new Date(t as string), "dd MMM HH:mm")}
             formatter={(value, name) => [
               `${(typeof value === "number" ? value : 0).toFixed(1)}%`,
-              FUEL_LABELS[String(name)] ?? name,
+              EXTENDED_LABELS[String(name)] ?? name,
             ]}
             contentStyle={{
               backgroundColor: "rgba(0,0,0,0.85)",
@@ -71,10 +88,10 @@ export function GenerationStackChart({ data }: Props) {
               type="monotone"
               dataKey={fuel}
               stackId="1"
-              stroke={FUEL_COLORS[fuel]}
-              fill={FUEL_COLORS[fuel]}
+              stroke={EXTENDED_COLORS[fuel] ?? FUEL_COLORS[fuel]}
+              fill={EXTENDED_COLORS[fuel] ?? FUEL_COLORS[fuel]}
               fillOpacity={0.8}
-              name={FUEL_LABELS[fuel]}
+              name={EXTENDED_LABELS[fuel] ?? fuel}
             />
           ))}
         </AreaChart>

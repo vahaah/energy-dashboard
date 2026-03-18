@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { EnergySnapshot, CommodityPrice, TimeRange } from "@/lib/types";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import type {
+  EnergySnapshot,
+  CommodityPrice,
+  Generation5min,
+  TimeRange,
+} from "@/lib/types";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
@@ -10,6 +16,9 @@ import { DemandChart } from "@/components/charts/demand-chart";
 import { GenerationMixChart } from "@/components/charts/generation-mix-chart";
 import { GenerationStackChart } from "@/components/charts/generation-stack-chart";
 import { CommodityChart } from "@/components/charts/commodity-chart";
+import { GenerationTable } from "@/components/charts/generation-table";
+import { InterconnectorChart } from "@/components/charts/interconnector-chart";
+import { TransfersChart } from "@/components/charts/transfers-chart";
 import { carbonIndexColor } from "@/lib/colors";
 import {
   Zap,
@@ -21,28 +30,39 @@ import {
   Activity,
   TrendingUp,
   Database,
+  ArrowLeftRight,
+  Gauge,
 } from "lucide-react";
 
 interface Props {
   initialSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
+  initialGeneration?: Generation5min[];
 }
 
-export function Dashboard({ initialSnapshots, initialPrices }: Props) {
+export function Dashboard({
+  initialSnapshots,
+  initialPrices,
+  initialGeneration,
+}: Props) {
   const [range, setRange] = useState<TimeRange>("24h");
   const [snapshots, setSnapshots] = useState<EnergySnapshot[]>(initialSnapshots);
   const [prices, setPrices] = useState<CommodityPrice[]>(initialPrices);
+  const [generation, setGeneration] = useState<Generation5min[]>(
+    initialGeneration ?? []
+  );
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const fetchData = useCallback(async (r: TimeRange) => {
     setLoading(true);
     try {
-      const [snapRes, priceRes] = await Promise.all([
+      const priceRange =
+        r === "1y" ? "1y" : r === "90d" ? "90d" : "90d";
+      const [snapRes, priceRes, genRes] = await Promise.all([
         fetch(`/api/snapshots?range=${r}`),
-        fetch(
-          `/api/prices?range=${r === "24h" || r === "7d" ? "30d" : r === "30d" ? "30d" : "90d"}`
-        ),
+        fetch(`/api/prices?range=${priceRange}`),
+        fetch(`/api/generation?range=${r}`),
       ]);
       if (snapRes.ok) {
         const { data } = await snapRes.json();
@@ -51,6 +71,10 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
       if (priceRes.ok) {
         const { data } = await priceRes.json();
         setPrices(data);
+      }
+      if (genRes.ok) {
+        const { data } = await genRes.json();
+        setGeneration(data);
       }
       setLastUpdated(new Date());
     } finally {
@@ -71,16 +95,66 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
   }, [range, fetchData]);
 
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-  const latestBrent = prices.find((p) => p.commodity === "brent_crude");
-  const latestWti =
-    prices.find(
-      (p) => p.commodity === "wti_crude" && p.date === (latestBrent?.date ?? "")
-    ) ?? prices.filter((p) => p.commodity === "wti_crude").pop();
-  const latestGas =
-    prices.find(
-      (p) =>
-        p.commodity === "henry_hub_gas" && p.date === (latestBrent?.date ?? "")
-    ) ?? prices.filter((p) => p.commodity === "henry_hub_gas").pop();
+
+  // Single-pass lookup: last occurrence of each commodity (most recent)
+  const latestPriceBy = useMemo(() => {
+    const map = new Map<string, CommodityPrice>();
+    for (const p of prices) map.set(p.commodity, p);
+    return map;
+  }, [prices]);
+  const latestBrent = latestPriceBy.get("brent_crude");
+  const latestWti = latestPriceBy.get("wti_crude");
+  const latestGas = latestPriceBy.get("henry_hub_gas");
+  const latestEuGas = latestPriceBy.get("eu_natural_gas");
+  const latestLng = latestPriceBy.get("lng_asia");
+
+  // Period averages for non-24h ranges
+  const isAvgView = range !== "24h";
+  const avgStats = useMemo(() => {
+    if (!isAvgView || snapshots.length === 0) return null;
+    const avg = (arr: number[]) =>
+      arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    return {
+      carbon: Math.round(avg(snapshots.map((s) => s.carbon_intensity))),
+      demand: avg(snapshots.map((s) => s.demand_mw)),
+      price: avg(snapshots.map((s) => s.price_gbp_mwh)),
+    };
+  }, [isAvgView, snapshots]);
+
+  // Derive generation totals and net transfers from 5-min data
+  const genLatest = useMemo(() => {
+    if (generation.length === 0) return [];
+    // Get the latest timestamp
+    const latestTs = generation.reduce(
+      (max, g) => (g.timestamp > max ? g.timestamp : max),
+      ""
+    );
+    return generation.filter((g) => g.timestamp === latestTs);
+  }, [generation]);
+
+  // Single-pass split: generation sources vs interconnectors
+  const { genSources, genInterconnectors, totalGenMw, netTransfersMw } =
+    useMemo(() => {
+      const sources: Generation5min[] = [];
+      const ics: Generation5min[] = [];
+      let genSum = 0;
+      let icSum = 0;
+      for (const g of genLatest) {
+        if (g.fuel_type.startsWith("INT")) {
+          ics.push(g);
+          icSum += g.generation_mw;
+        } else {
+          sources.push(g);
+          genSum += g.generation_mw;
+        }
+      }
+      return {
+        genSources: sources,
+        genInterconnectors: ics,
+        totalGenMw: genSum,
+        netTransfersMw: icSum,
+      };
+    }, [genLatest]);
 
   const genMixData: Record<string, number> = latest
     ? {
@@ -98,6 +172,7 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
 
   const hasData = snapshots.length > 0;
   const hasPrices = prices.length > 0;
+  const hasGeneration = generation.length > 0;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
@@ -129,7 +204,10 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
                 className={`w-4 h-4 text-zinc-500 ${loading ? "animate-spin" : ""}`}
               />
             </button>
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-600 tabular-nums hidden md:block">
+            <span
+              className="text-[11px] text-zinc-400 dark:text-zinc-600 tabular-nums hidden md:block"
+              suppressHydrationWarning
+            >
               {lastUpdated.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -140,45 +218,121 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-5 space-y-5">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* KPI Row 1 — Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KpiCard
             label="Carbon Intensity"
-            value={latest ? String(Math.round(latest.carbon_intensity)) : "—"}
+            value={
+              isAvgView && avgStats
+                ? String(avgStats.carbon)
+                : latest
+                  ? String(Math.round(latest.carbon_intensity))
+                  : "—"
+            }
             unit="gCO₂/kWh"
-            detail={latest ? latest.carbon_index : undefined}
-            color={latest ? carbonIndexColor(latest.carbon_index) : undefined}
+            detail={
+              isAvgView
+                ? `${range} average`
+                : latest
+                  ? latest.carbon_index
+                  : undefined
+            }
+            color={
+              !isAvgView && latest
+                ? carbonIndexColor(latest.carbon_index)
+                : undefined
+            }
             icon={<Wind className="w-3.5 h-3.5" />}
+            tooltip="Grams of CO₂ emitted per kWh of electricity generated. Lower is cleaner."
           />
           <KpiCard
             label="Demand"
-            value={latest ? `${(latest.demand_mw / 1000).toFixed(1)}` : "—"}
+            value={
+              isAvgView && avgStats
+                ? `${(avgStats.demand / 1000).toFixed(1)}`
+                : latest
+                  ? `${(latest.demand_mw / 1000).toFixed(1)}`
+                  : "—"
+            }
             unit="GW"
+            detail={isAvgView ? `${range} average` : undefined}
             icon={<Activity className="w-3.5 h-3.5" />}
+            tooltip="Total electricity demand on the transmission system in gigawatts."
+          />
+          <KpiCard
+            label="Generation"
+            value={
+              totalGenMw > 0 ? `${(totalGenMw / 1000).toFixed(1)}` : "—"
+            }
+            unit="GW"
+            icon={<Gauge className="w-3.5 h-3.5" />}
+            tooltip="Total electricity generation across all fuel types including embedded solar and wind."
+          />
+          <KpiCard
+            label="Transfers"
+            value={
+              genInterconnectors.length > 0
+                ? `${netTransfersMw >= 0 ? "+" : ""}${(netTransfersMw / 1000).toFixed(2)}`
+                : "—"
+            }
+            unit="GW"
+            detail={netTransfersMw >= 0 ? "net import" : "net export"}
+            color={netTransfersMw >= 0 ? "#22c55e" : "#ef4444"}
+            icon={<ArrowLeftRight className="w-3.5 h-3.5" />}
+            tooltip="Net electricity imported (+) or exported (-) via undersea interconnectors to Europe and Ireland."
           />
           <KpiCard
             label="Elec. Price"
-            value={latest ? `£${latest.price_gbp_mwh.toFixed(0)}` : "—"}
+            value={
+              isAvgView && avgStats
+                ? `£${avgStats.price.toFixed(0)}`
+                : latest
+                  ? `£${latest.price_gbp_mwh.toFixed(0)}`
+                  : "—"
+            }
             unit="/MWh"
+            detail={isAvgView ? `${range} average` : undefined}
             icon={<Zap className="w-3.5 h-3.5" />}
+            tooltip="Elexon system buy price in £ per megawatt-hour. The wholesale cost of electricity."
           />
+        </div>
+
+        {/* KPI Row 2 — Commodities */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KpiCard
             label="Brent Crude"
             value={latestBrent ? `$${latestBrent.price.toFixed(2)}` : "—"}
             unit="/bbl"
             icon={<Droplets className="w-3.5 h-3.5" />}
+            tooltip="International oil benchmark, priced in USD per barrel. Used as reference for ~2/3 of global oil trades."
           />
           <KpiCard
             label="WTI Crude"
             value={latestWti ? `$${latestWti.price.toFixed(2)}` : "—"}
             unit="/bbl"
             icon={<Droplets className="w-3.5 h-3.5" />}
+            tooltip="West Texas Intermediate — US oil benchmark, priced in USD per barrel."
           />
           <KpiCard
             label="Henry Hub Gas"
             value={latestGas ? `$${latestGas.price.toFixed(2)}` : "—"}
             unit="/MMBtu"
             icon={<Flame className="w-3.5 h-3.5" />}
+            tooltip="US natural gas benchmark, priced in USD per million British thermal units."
+          />
+          <KpiCard
+            label="EU Gas (TTF)"
+            value={latestEuGas ? `$${latestEuGas.price.toFixed(2)}` : "—"}
+            unit="/MMBtu"
+            icon={<Flame className="w-3.5 h-3.5" />}
+            tooltip="Dutch TTF — European natural gas benchmark. Key indicator for UK gas prices."
+          />
+          <KpiCard
+            label="LNG Asia (JKM)"
+            value={latestLng ? `$${latestLng.price.toFixed(2)}` : "—"}
+            unit="/MMBtu"
+            icon={<Flame className="w-3.5 h-3.5" />}
+            tooltip="Japan Korea Marker — Asian LNG benchmark. Affects global LNG shipping and UK spot prices."
           />
         </div>
 
@@ -187,6 +341,7 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
           {/* Carbon Intensity */}
           <ChartCard
             title="Carbon Intensity"
+            tooltip="Tracks grams of CO₂ per kWh over time. Drops when wind/solar generation increases."
             icon={<Wind className="w-4 h-4 text-emerald-500" />}
           >
             {hasData ? (
@@ -199,6 +354,7 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
           {/* Electricity Price */}
           <ChartCard
             title="System Price (£/MWh)"
+            tooltip="Wholesale electricity price from Elexon. Prices spike during high demand or low wind."
             icon={<Zap className="w-4 h-4 text-amber-500" />}
           >
             {hasData ? (
@@ -211,6 +367,7 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
           {/* Demand */}
           <ChartCard
             title="Demand (MW)"
+            tooltip="Total system demand. Peaks in winter evenings, dips overnight and in summer."
             icon={<BarChart3 className="w-4 h-4 text-blue-500" />}
           >
             {hasData ? <DemandChart data={snapshots} /> : <EmptyState />}
@@ -219,6 +376,7 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
           {/* Generation Mix (pie) */}
           <ChartCard
             title="Generation Mix (Latest)"
+            tooltip="Current share of each fuel type in the generation mix."
             icon={<Flame className="w-4 h-4 text-orange-500" />}
           >
             {latest ? (
@@ -228,9 +386,40 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
             )}
           </ChartCard>
 
+          {/* Generation Table + Interconnectors — full width */}
+          <ChartCard
+            title="Generation Breakdown"
+            tooltip="Detailed per-source generation in GW and % of demand, including embedded solar and wind from distribution networks."
+            icon={<Gauge className="w-4 h-4 text-violet-500" />}
+            fullWidth
+          >
+            {genSources.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
+                    By Source
+                  </h3>
+                  <GenerationTable
+                    data={genSources}
+                    demandMw={latest?.demand_mw}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
+                    Interconnectors
+                  </h3>
+                  <InterconnectorChart data={genInterconnectors} />
+                </div>
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </ChartCard>
+
           {/* Generation Stack over time */}
           <ChartCard
             title="Generation Mix Over Time"
+            tooltip="How the fuel mix changes throughout the day. Wind/solar follow weather patterns; gas fills the gaps."
             icon={<TrendingUp className="w-4 h-4 text-cyan-500" />}
             fullWidth
           >
@@ -241,9 +430,24 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
             )}
           </ChartCard>
 
+          {/* Transfers Over Time */}
+          <ChartCard
+            title="Net Transfers Over Time"
+            tooltip="Net electricity flow via interconnectors. Positive = GB importing, negative = GB exporting."
+            icon={<ArrowLeftRight className="w-4 h-4 text-emerald-500" />}
+            fullWidth
+          >
+            {hasGeneration ? (
+              <TransfersChart data={generation} />
+            ) : (
+              <EmptyState />
+            )}
+          </ChartCard>
+
           {/* Commodity Prices */}
           <ChartCard
-            title="Oil & Gas Prices (USD)"
+            title="Energy Commodity Prices (USD)"
+            tooltip="Oil and gas benchmark prices that influence UK electricity costs."
             icon={<Droplets className="w-4 h-4 text-orange-400" />}
             fullWidth
           >
@@ -262,12 +466,16 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
               GET /api/snapshots?range=24h
             </code>
             <code className="bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded text-zinc-600 dark:text-zinc-400 font-mono text-[11px]">
+              GET /api/generation?range=24h
+            </code>
+            <code className="bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded text-zinc-600 dark:text-zinc-400 font-mono text-[11px]">
               GET /api/prices?range=30d
             </code>
             <span className="sm:ml-auto">Rate limit: 60 req/min</span>
           </div>
           <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-2">
-            Data: Carbon Intensity API, Elexon BMRS, US EIA. Updated hourly.
+            Contains BMRS data &copy; Elexon Limited. NESO Data Portal. Carbon
+            Intensity API. US EIA. FRED. OilPriceAPI. Updated hourly.
           </p>
         </footer>
       </main>
@@ -279,11 +487,13 @@ export function Dashboard({ initialSnapshots, initialPrices }: Props) {
 function ChartCard({
   title,
   icon,
+  tooltip,
   children,
   fullWidth,
 }: {
   title: string;
   icon?: React.ReactNode;
+  tooltip?: string;
   children: React.ReactNode;
   fullWidth?: boolean;
 }) {
@@ -298,6 +508,7 @@ function ChartCard({
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           {title}
         </h2>
+        {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       {children}
     </section>

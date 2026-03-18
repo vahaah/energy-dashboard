@@ -149,7 +149,92 @@ export async function GET(request: Request) {
     errors.push(`Tinybird ingest (energy_snapshots): ${e}`);
   }
 
-  // ── 3. EIA — Oil & Gas Prices ───────────────────────────
+  // ── 3 & 4. FUELINST + NESO — parallel fetch ────────────
+  const fuelInstFrom = new Date(now.getTime() - 65 * 60 * 1000).toISOString();
+  const fuelInstTo = now.toISOString();
+  const nesoToday = now.toISOString().slice(0, 10);
+
+  const [fuelInstResult, nesoResult] = await Promise.allSettled([
+    fetch(
+      `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${fuelInstFrom}&publishDateTimeTo=${fuelInstTo}`
+    ),
+    fetch(
+      `https://api.neso.energy/api/3/action/datastore_search_sql?sql=SELECT * FROM "177f6fa4-ae49-4182-81ea-0c6b35f26ca6" WHERE "SETTLEMENT_DATE"='${nesoToday}' AND "FORECAST_ACTUAL_INDICATOR"='A' ORDER BY "SETTLEMENT_PERIOD" DESC LIMIT 2`
+    ),
+  ]);
+
+  // Process FUELINST
+  if (fuelInstResult.status === "fulfilled" && fuelInstResult.value.ok) {
+    try {
+      const fuelInstData: Array<{
+        startTime: string;
+        fuelType: string;
+        generation: number;
+      }> = await fuelInstResult.value.json();
+
+      if (fuelInstData.length > 0) {
+        const genRows = fuelInstData.map((row) => ({
+          timestamp: row.startTime.replace("T", " ").replace("Z", "").slice(0, 19),
+          fuel_type: row.fuelType.toLowerCase(),
+          generation_mw: row.generation,
+          source: "fuelinst",
+        }));
+        await ingestRows("generation_5min", genRows);
+      }
+    } catch (e) {
+      errors.push(`FUELINST: ${e}`);
+    }
+  } else if (fuelInstResult.status === "rejected") {
+    errors.push(`FUELINST: ${fuelInstResult.reason}`);
+  }
+
+  // Process NESO
+  if (nesoResult.status === "fulfilled" && nesoResult.value.ok) {
+    try {
+      const nesoJson = await nesoResult.value.json();
+      const records: Array<Record<string, string>> = nesoJson?.result?.records ?? [];
+
+      if (records.length > 0) {
+        const rec = records[0];
+        const settlementPeriod = parseInt(rec.SETTLEMENT_PERIOD ?? "0");
+        const hours = Math.floor((settlementPeriod - 1) / 2);
+        const mins = ((settlementPeriod - 1) % 2) * 30;
+        const nesoTimestamp = `${nesoToday} ${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+
+        const nesoRows: Record<string, unknown>[] = [];
+
+        const embeddedSolar = parseFloat(rec.EMBEDDED_SOLAR_GENERATION ?? "0");
+        if (embeddedSolar > 0) {
+          nesoRows.push({
+            timestamp: nesoTimestamp,
+            fuel_type: "embedded_solar",
+            generation_mw: embeddedSolar,
+            source: "neso",
+          });
+        }
+
+        const embeddedWind = parseFloat(rec.EMBEDDED_WIND_GENERATION ?? "0");
+        if (embeddedWind > 0) {
+          nesoRows.push({
+            timestamp: nesoTimestamp,
+            fuel_type: "embedded_wind",
+            generation_mw: embeddedWind,
+            source: "neso",
+          });
+        }
+
+        if (nesoRows.length > 0) {
+          await ingestRows("generation_5min", nesoRows);
+        }
+      }
+    } catch (e) {
+      errors.push(`NESO embedded: ${e}`);
+    }
+  } else if (nesoResult.status === "rejected") {
+    errors.push(`NESO embedded: ${nesoResult.reason}`);
+  }
+
+  // ── 5. EIA — Oil & Gas Prices ───────────────────────────
   const eiaKey = process.env.EIA_API_KEY ?? "DEMO_KEY";
   const commodities = [
     { series: "PET.RBRTE.D", commodity: "brent_crude", unit: "$/BBL" },

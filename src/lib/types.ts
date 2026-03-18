@@ -95,9 +95,25 @@ export interface EIAPriceData {
   units: string;
 }
 
+// ─── 5-minute generation (FUELINST + NESO) ─────────────────
+
+export interface Generation5min {
+  timestamp: string;
+  fuel_type: string;
+  generation_mw: number;
+  source: string;
+}
+
+export interface InterconnectorFlow {
+  timestamp: string;
+  interconnector: string;
+  generation_mw: number;
+  direction: "import" | "export";
+}
+
 // ─── Dashboard view types ───────────────────────────────────
 
-export type TimeRange = "24h" | "7d" | "30d" | "90d";
+export type TimeRange = "24h" | "7d" | "30d" | "90d" | "1y";
 
 export interface GenerationMixItem {
   fuel: string;
