@@ -25,6 +25,7 @@ export function GenerationTable({ data, demandMw }: Props) {
       gw: mw / 1000,
       pct: demand > 0 ? (mw / demand) * 100 : 0,
     }))
+    .filter(({ mw }) => Math.abs(mw) >= 25)
     .sort((a, b) => b.mw - a.mw);
 
   return (

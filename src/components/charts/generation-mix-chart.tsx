@@ -2,6 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { FUEL_COLORS, FUEL_LABELS } from "@/lib/colors";
+import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 
 interface Props {
   data: Record<string, number>; // { gas: 18.5, wind: 34.1, ... }
@@ -18,7 +19,7 @@ export function GenerationMixChart({ data }: Props) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="h-72">
+    <ResponsiveChartFrame className="h-72">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -37,6 +38,7 @@ export function GenerationMixChart({ data }: Props) {
           </Pie>
           <Tooltip
             formatter={(value) => `${value}%`}
+            wrapperStyle={{ zIndex: 320 }}
             contentStyle={{
               backgroundColor: "rgba(0,0,0,0.85)",
               border: "none",
@@ -52,6 +54,6 @@ export function GenerationMixChart({ data }: Props) {
           />
         </PieChart>
       </ResponsiveContainer>
-    </div>
+    </ResponsiveChartFrame>
   );
 }

@@ -3,6 +3,7 @@
 import type { Generation5min } from "@/lib/types";
 import { INTERCONNECTOR_COLORS, INTERCONNECTOR_LABELS } from "@/lib/colors";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { normalizeFuelType } from "@/lib/dashboard-model";
 
 interface Props {
   data: Generation5min[];
@@ -12,11 +13,13 @@ export function InterconnectorChart({ data }: Props) {
   // Aggregate by interconnector (data is pre-filtered to INT* types)
   const byIC = new Map<string, number>();
   for (const row of data) {
-    byIC.set(row.fuel_type, (byIC.get(row.fuel_type) ?? 0) + row.generation_mw);
+    const interconnector = normalizeFuelType(row.fuel_type);
+    byIC.set(interconnector, (byIC.get(interconnector) ?? 0) + row.generation_mw);
   }
 
   const sorted = Array.from(byIC.entries())
     .map(([ic, mw]) => ({ ic, mw, gw: mw / 1000 }))
+    .filter(({ mw }) => Math.abs(mw) >= 25)
     .sort((a, b) => Math.abs(b.mw) - Math.abs(a.mw));
 
   const netTransfer = sorted.reduce((sum, { mw }) => sum + mw, 0);

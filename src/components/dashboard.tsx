@@ -1,14 +1,29 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryStates } from "nuqs";
 import type {
-  EnergySnapshot,
   CommodityPrice,
+  EnergySnapshot,
   Generation5min,
-  TimeRange,
 } from "@/lib/types";
+import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
+import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
+import {
+  buildRangeSummary,
+  normalizeFuelType,
+  splitLatestGenerationRows,
+} from "@/lib/dashboard-model";
+import {
+  COMMODITY_COLORS,
+  COMMODITY_LABELS,
+  FUELINST_LABELS,
+  carbonIndexColor,
+} from "@/lib/colors";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
@@ -18,514 +33,1129 @@ import { GenerationStackChart } from "@/components/charts/generation-stack-chart
 import { CommodityChart } from "@/components/charts/commodity-chart";
 import { GenerationTable } from "@/components/charts/generation-table";
 import { InterconnectorChart } from "@/components/charts/interconnector-chart";
-import { TransfersChart } from "@/components/charts/transfers-chart";
-import { carbonIndexColor } from "@/lib/colors";
+import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
+import { InterconnectorFlowsChart } from "@/components/charts/interconnector-flows-chart";
 import {
-  Zap,
-  Flame,
-  Wind,
-  BarChart3,
-  RefreshCw,
-  Droplets,
   Activity,
-  TrendingUp,
-  Database,
+  ArrowDownRight,
   ArrowLeftRight,
+  ArrowUpRight,
+  CalendarDays,
+  Check,
+  Copy,
+  Droplets,
   Gauge,
+  Layers3,
+  LineChart,
+  RefreshCw,
+  Wind,
+  Zap,
 } from "lucide-react";
 
+const GLOBAL_RANGE_OPTIONS = [
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+  { value: "30d", label: "30d" },
+  { value: "90d", label: "90d" },
+  { value: "1y", label: "1y" },
+] as const;
+
+const COMMODITY_RANGE_OPTIONS = [
+  { value: "30d", label: "30d" },
+  { value: "90d", label: "90d" },
+  { value: "1y", label: "1y" },
+] as const;
+
 interface Props {
+  searchParams: DashboardSearchParams;
+  selectedDate: string;
+  todayDate: string;
   initialSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
-  initialGeneration?: Generation5min[];
+  generationHistory: Generation5min[];
+  latestGeneration: Generation5min[];
 }
 
 export function Dashboard({
+  searchParams,
+  selectedDate,
+  todayDate,
   initialSnapshots,
   initialPrices,
-  initialGeneration,
+  generationHistory,
+  latestGeneration,
 }: Props) {
-  const [range, setRange] = useState<TimeRange>("24h");
-  const [snapshots, setSnapshots] = useState<EnergySnapshot[]>(initialSnapshots);
-  const [prices, setPrices] = useState<CommodityPrice[]>(initialPrices);
-  const [generation, setGeneration] = useState<Generation5min[]>(
-    initialGeneration ?? []
+  const router = useRouter();
+  const [copied, setCopied] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [selectedCommodities, setSelectedCommodities] = useState<string[]>([
+    "brent_crude",
+    "wti_crude",
+    "henry_hub_gas",
+    "eu_natural_gas",
+    "lng_asia",
+  ]);
+  const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
+    history: "push",
+    shallow: false,
+    scroll: false,
+    startTransition,
+  });
+
+  const range = urlState.range ?? searchParams.range;
+  const commodityRange = urlState.commodityRange ?? searchParams.commodityRange;
+  const focus = urlState.focus ?? searchParams.focus;
+  const activeDate = urlState.date ?? searchParams.date ?? selectedDate ?? todayDate;
+
+  useEffect(() => {
+    if (focus === "overview") return;
+    const section = document.getElementById(`section-${focus}`);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focus]);
+
+  const latestSnapshot =
+    initialSnapshots.length > 0 ? initialSnapshots[initialSnapshots.length - 1] : null;
+  const rangeSummary = useMemo(
+    () => buildRangeSummary(initialSnapshots),
+    [initialSnapshots]
   );
-  const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const latestGenerationSplit = useMemo(
+    () => splitLatestGenerationRows(latestGeneration),
+    [latestGeneration]
+  );
 
-  const fetchData = useCallback(async (r: TimeRange) => {
-    setLoading(true);
-    try {
-      const priceRange =
-        r === "1y" ? "1y" : r === "90d" ? "90d" : "90d";
-      const [snapRes, priceRes, genRes] = await Promise.all([
-        fetch(`/api/snapshots?range=${r}`),
-        fetch(`/api/prices?range=${priceRange}`),
-        fetch(`/api/generation?range=${r}`),
-      ]);
-      if (snapRes.ok) {
-        const { data } = await snapRes.json();
-        setSnapshots(data);
-      }
-      if (priceRes.ok) {
-        const { data } = await priceRes.json();
-        setPrices(data);
-      }
-      if (genRes.ok) {
-        const { data } = await genRes.json();
-        setGeneration(data);
-      }
-      setLastUpdated(new Date());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (range !== "24h" || initialSnapshots.length === 0) {
-      fetchData(range);
-    }
-  }, [range, fetchData, initialSnapshots.length]);
-
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => fetchData(range), 300_000);
-    return () => clearInterval(interval);
-  }, [range, fetchData]);
-
-  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-
-  // Single-pass lookup: last occurrence of each commodity (most recent)
-  const latestPriceBy = useMemo(() => {
-    const map = new Map<string, CommodityPrice>();
-    for (const p of prices) map.set(p.commodity, p);
-    return map;
-  }, [prices]);
-  const latestBrent = latestPriceBy.get("brent_crude");
-  const latestWti = latestPriceBy.get("wti_crude");
-  const latestGas = latestPriceBy.get("henry_hub_gas");
-  const latestEuGas = latestPriceBy.get("eu_natural_gas");
-  const latestLng = latestPriceBy.get("lng_asia");
-
-  // Period averages for non-24h ranges
-  const isAvgView = range !== "24h";
-  const avgStats = useMemo(() => {
-    if (!isAvgView || snapshots.length === 0) return null;
-    const avg = (arr: number[]) =>
-      arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-    return {
-      carbon: Math.round(avg(snapshots.map((s) => s.carbon_intensity))),
-      demand: avg(snapshots.map((s) => s.demand_mw)),
-      price: avg(snapshots.map((s) => s.price_gbp_mwh)),
-    };
-  }, [isAvgView, snapshots]);
-
-  // Derive generation totals and net transfers from 5-min data
-  const genLatest = useMemo(() => {
-    if (generation.length === 0) return [];
-    // Get the latest timestamp
-    const latestTs = generation.reduce(
-      (max, g) => (g.timestamp > max ? g.timestamp : max),
-      ""
-    );
-    return generation.filter((g) => g.timestamp === latestTs);
-  }, [generation]);
-
-  // Single-pass split: generation sources vs interconnectors
-  const { genSources, genInterconnectors, totalGenMw, netTransfersMw } =
-    useMemo(() => {
-      const sources: Generation5min[] = [];
-      const ics: Generation5min[] = [];
-      let genSum = 0;
-      let icSum = 0;
-      for (const g of genLatest) {
-        if (g.fuel_type.startsWith("INT")) {
-          ics.push(g);
-          icSum += g.generation_mw;
-        } else {
-          sources.push(g);
-          genSum += g.generation_mw;
-        }
-      }
-      return {
-        genSources: sources,
-        genInterconnectors: ics,
-        totalGenMw: genSum,
-        netTransfersMw: icSum,
-      };
-    }, [genLatest]);
-
-  const genMixData: Record<string, number> = latest
+  const latestMixData: Record<string, number> = latestSnapshot
     ? {
-        gas: latest.gen_gas_pct,
-        coal: latest.gen_coal_pct,
-        nuclear: latest.gen_nuclear_pct,
-        wind: latest.gen_wind_pct,
-        solar: latest.gen_solar_pct,
-        hydro: latest.gen_hydro_pct,
-        biomass: latest.gen_biomass_pct,
-        imports: latest.gen_imports_pct,
-        other: latest.gen_other_pct,
+        gas: latestSnapshot.gen_gas_pct,
+        coal: latestSnapshot.gen_coal_pct,
+        nuclear: latestSnapshot.gen_nuclear_pct,
+        wind: latestSnapshot.gen_wind_pct,
+        solar: latestSnapshot.gen_solar_pct,
+        hydro: latestSnapshot.gen_hydro_pct,
+        biomass: latestSnapshot.gen_biomass_pct,
+        imports: latestSnapshot.gen_imports_pct,
+        other: latestSnapshot.gen_other_pct,
       }
     : {};
 
-  const hasData = snapshots.length > 0;
-  const hasPrices = prices.length > 0;
-  const hasGeneration = generation.length > 0;
+  const topSources = useMemo(
+    () =>
+      [...latestGenerationSplit.sources].sort(
+        (left, right) => right.generation_mw - left.generation_mw
+      ),
+    [latestGenerationSplit.sources]
+  );
+  const topSource = topSources[0] ?? null;
+
+  const commodityStats = useMemo(() => {
+    const groups = new Map<string, CommodityPrice[]>();
+    for (const price of initialPrices) {
+      if (!groups.has(price.commodity)) {
+        groups.set(price.commodity, []);
+      }
+      groups.get(price.commodity)!.push(price);
+    }
+
+    return Array.from(groups.entries()).map(([commodity, rows]) => {
+      const sortedRows = [...rows].sort(
+        (left, right) =>
+          new Date(left.date).getTime() - new Date(right.date).getTime()
+      );
+      const first = sortedRows[0];
+      const latest = sortedRows[sortedRows.length - 1];
+      const absoluteDelta = latest ? latest.price - first.price : 0;
+      const percentageDelta =
+        first && first.price !== 0 ? (absoluteDelta / first.price) * 100 : 0;
+
+      return {
+        commodity,
+        latest,
+        absoluteDelta,
+        percentageDelta,
+      };
+    });
+  }, [initialPrices]);
+
+  const carbonDelta = rangeSummary.carbon.deltaFromAverage;
+  const demandDelta = rangeSummary.demand.deltaFromAverage;
+  const priceDelta = rangeSummary.price.deltaFromAverage;
+  const activeInterconnectors = latestGenerationSplit.interconnectors.filter(
+    (row) => Math.abs(row.generation_mw) >= 25
+  ).length;
+  const importShare =
+    latestSnapshot && latestSnapshot.demand_mw > 0
+      ? (latestGenerationSplit.netTransfersMw / latestSnapshot.demand_mw) * 100
+      : 0;
+
+  const briefingLine = [
+    carbonDelta < 0
+      ? `Carbon is ${Math.abs(carbonDelta)} g cleaner than the ${range} average`
+      : carbonDelta > 0
+        ? `Carbon is ${carbonDelta} g above the ${range} average`
+        : `Carbon is tracking the ${range} average`,
+    topSource
+      ? `${formatFuelLabel(topSource.fuel_type)} leads supply at ${formatGigawatts(
+          topSource.generation_mw
+        )} GW`
+      : "Generation leadership is unavailable",
+    Math.abs(latestGenerationSplit.netTransfersMw) < 25
+      ? "cross-border flows are broadly balanced"
+      : latestGenerationSplit.netTransfersMw > 0
+        ? `Britain is importing ${formatGigawatts(
+            latestGenerationSplit.netTransfersMw,
+            2
+          )} GW`
+        : `Britain is exporting ${formatGigawatts(
+            Math.abs(latestGenerationSplit.netTransfersMw),
+            2
+          )} GW`,
+  ].join(", ");
+
+  const insightCards = [
+    {
+      title: "Carbon stance",
+      value:
+        carbonDelta === 0
+          ? "In line"
+          : carbonDelta < 0
+            ? `${Math.abs(carbonDelta)} g cleaner`
+            : `${carbonDelta} g hotter`,
+      detail: `Range low ${rangeSummary.carbon.min} g · high ${rangeSummary.carbon.max} g`,
+      tone: carbonDelta <= 0 ? "emerald" : "amber",
+      icon: <Wind className="w-4 h-4" />,
+    },
+    {
+      title: "Demand pressure",
+      value:
+        demandDelta === 0
+          ? "At trend"
+          : demandDelta > 0
+            ? `${formatGigawatts(demandDelta)} GW above`
+            : `${formatGigawatts(Math.abs(demandDelta))} GW below`,
+      detail: `Peak ${formatGigawatts(rangeSummary.demand.max)} GW · low ${formatGigawatts(
+        rangeSummary.demand.min
+      )} GW`,
+      tone: demandDelta > 0 ? "blue" : "sky",
+      icon: <Activity className="w-4 h-4" />,
+    },
+    {
+      title: "Price regime",
+      value:
+        priceDelta === 0
+          ? "At trend"
+          : priceDelta > 0
+            ? `£${priceDelta} above avg`
+            : `£${Math.abs(priceDelta)} below avg`,
+      detail: `Range £${rangeSummary.price.min} to £${rangeSummary.price.max}/MWh`,
+      tone: priceDelta > 0 ? "rose" : "emerald",
+      icon: <Zap className="w-4 h-4" />,
+    },
+    {
+      title: "Import dependency",
+      value:
+        Math.abs(latestGenerationSplit.netTransfersMw) < 25
+          ? "Balanced"
+          : `${formatSignedPercentage(importShare)} of demand`,
+      detail: `${activeInterconnectors} active links in the latest dispatch frame`,
+      tone: latestGenerationSplit.netTransfersMw >= 0 ? "cyan" : "violet",
+      icon: <ArrowLeftRight className="w-4 h-4" />,
+    },
+  ] as const;
+
+  const hasSnapshots = initialSnapshots.length > 0;
+  const hasLatestGeneration = latestGenerationSplit.sources.length > 0;
+  const hasInterconnectorHistory = generationHistory.some((row) =>
+    normalizeFuelType(row.fuel_type).startsWith("int")
+  );
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-zinc-200 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
-              <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
-            </div>
-            <div className="leading-tight min-w-0">
-              <h1 className="text-xs sm:text-sm font-semibold tracking-tight truncate">
-                Energy Grid Monitor
-              </h1>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-500 hidden sm:block">
-                UK Grid + Global Commodity Prices
-              </p>
+    <div className="min-h-screen overflow-x-hidden bg-[#04070f] text-zinc-100">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-[-10%] top-[-12%] h-80 w-80 rounded-full bg-emerald-500/12 blur-3xl" />
+        <div className="absolute right-[-12%] top-[12%] h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute bottom-[-16%] left-[20%] h-96 w-96 rounded-full bg-amber-500/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_42%),linear-gradient(180deg,rgba(8,15,30,0.88),rgba(4,7,15,1))]" />
+      </div>
+
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050915]/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/12">
+                <Zap className="h-5 w-5 text-emerald-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
+                  Operations Briefing
+                </p>
+                <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                  Energy Grid Monitor
+                </h1>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <TimeRangeSelector value={range} onChange={setRange} />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <TimeRangeSelector
+              value={range}
+              onChange={(nextRange) => {
+                void setUrlState({
+                  range: nextRange,
+                  date: nextRange === "24h" ? activeDate : urlState.date ?? searchParams.date,
+                });
+              }}
+              options={GLOBAL_RANGE_OPTIONS}
+              pending={isPending}
+            />
+            {range === "24h" ? (
+              <label className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-zinc-200">
+                <CalendarDays className="h-4 w-4 text-emerald-200" />
+                <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+                  Day
+                </span>
+                <input
+                  type="date"
+                  value={activeDate}
+                  max={todayDate}
+                  onChange={(event) => {
+                    void setUrlState({ date: event.target.value || todayDate });
+                  }}
+                  disabled={isPending}
+                  className="min-w-[9.5rem] bg-transparent text-sm text-zinc-100 outline-none [color-scheme:dark]"
+                />
+              </label>
+            ) : null}
             <button
-              onClick={() => fetchData(range)}
-              disabled={loading}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-              title="Refresh data"
+              type="button"
+              onClick={() => startTransition(() => router.refresh())}
+              disabled={isPending}
+              className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-60"
             >
-              <RefreshCw
-                className={`w-4 h-4 text-zinc-500 ${loading ? "animate-spin" : ""}`}
-              />
+              <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
+              Refresh
             </button>
-            <span
-              className="text-[11px] text-zinc-400 dark:text-zinc-600 tabular-nums hidden md:block"
-              suppressHydrationWarning
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1400);
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10"
             >
-              {lastUpdated.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+              {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
+              {copied ? "Copied" : "Share view"}
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-5 space-y-5">
-        {/* KPI Row 1 — Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <KpiCard
-            label="Carbon Intensity"
-            value={
-              isAvgView && avgStats
-                ? String(avgStats.carbon)
-                : latest
-                  ? String(Math.round(latest.carbon_intensity))
-                  : "—"
-            }
-            unit="gCO₂/kWh"
-            detail={
-              isAvgView
-                ? `${range} average`
-                : latest
-                  ? latest.carbon_index
-                  : undefined
-            }
-            color={
-              !isAvgView && latest
-                ? carbonIndexColor(latest.carbon_index)
-                : undefined
-            }
-            icon={<Wind className="w-3.5 h-3.5" />}
-            tooltip="Grams of CO₂ emitted per kWh of electricity generated. Lower is cleaner."
-          />
-          <KpiCard
-            label="Demand"
-            value={
-              isAvgView && avgStats
-                ? `${(avgStats.demand / 1000).toFixed(1)}`
-                : latest
-                  ? `${(latest.demand_mw / 1000).toFixed(1)}`
-                  : "—"
-            }
-            unit="GW"
-            detail={isAvgView ? `${range} average` : undefined}
-            icon={<Activity className="w-3.5 h-3.5" />}
-            tooltip="Total electricity demand on the transmission system in gigawatts."
-          />
-          <KpiCard
-            label="Generation"
-            value={
-              totalGenMw > 0 ? `${(totalGenMw / 1000).toFixed(1)}` : "—"
-            }
-            unit="GW"
-            icon={<Gauge className="w-3.5 h-3.5" />}
-            tooltip="Total electricity generation across all fuel types including embedded solar and wind."
-          />
-          <KpiCard
-            label="Transfers"
-            value={
-              genInterconnectors.length > 0
-                ? `${netTransfersMw >= 0 ? "+" : ""}${(netTransfersMw / 1000).toFixed(2)}`
-                : "—"
-            }
-            unit="GW"
-            detail={netTransfersMw >= 0 ? "net import" : "net export"}
-            color={netTransfersMw >= 0 ? "#22c55e" : "#ef4444"}
-            icon={<ArrowLeftRight className="w-3.5 h-3.5" />}
-            tooltip="Net electricity imported (+) or exported (-) via undersea interconnectors to Europe and Ireland."
-          />
-          <KpiCard
-            label="Elec. Price"
-            value={
-              isAvgView && avgStats
-                ? `£${avgStats.price.toFixed(0)}`
-                : latest
-                  ? `£${latest.price_gbp_mwh.toFixed(0)}`
-                  : "—"
-            }
-            unit="/MWh"
-            detail={isAvgView ? `${range} average` : undefined}
-            icon={<Zap className="w-3.5 h-3.5" />}
-            tooltip="Elexon system buy price in £ per megawatt-hour. The wholesale cost of electricity."
-          />
-        </div>
+      <main className="mx-auto flex max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <section
+          id="section-overview"
+          className="relative grid gap-5 rounded-[28px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_40px_120px_rgba(0,0,0,0.35)] backdrop-blur sm:p-6 lg:grid-cols-[1.5fr_1fr]"
+        >
+          {isPending ? (
+            <OverviewSectionSkeleton />
+          ) : (
+            <>
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge label="UK grid + market context" tone="emerald" />
+                  <Badge label="Shareable URL state" tone="sky" />
+                  <Badge label={`${range} power view`} tone="violet" />
+                  <Badge label={`${commodityRange} commodity view`} tone="amber" />
+                </div>
 
-        {/* KPI Row 2 — Commodities */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <KpiCard
-            label="Brent Crude"
-            value={latestBrent ? `$${latestBrent.price.toFixed(2)}` : "—"}
-            unit="/bbl"
-            icon={<Droplets className="w-3.5 h-3.5" />}
-            tooltip="International oil benchmark, priced in USD per barrel. Used as reference for ~2/3 of global oil trades."
-          />
-          <KpiCard
-            label="WTI Crude"
-            value={latestWti ? `$${latestWti.price.toFixed(2)}` : "—"}
-            unit="/bbl"
-            icon={<Droplets className="w-3.5 h-3.5" />}
-            tooltip="West Texas Intermediate — US oil benchmark, priced in USD per barrel."
-          />
-          <KpiCard
-            label="Henry Hub Gas"
-            value={latestGas ? `$${latestGas.price.toFixed(2)}` : "—"}
-            unit="/MMBtu"
-            icon={<Flame className="w-3.5 h-3.5" />}
-            tooltip="US natural gas benchmark, priced in USD per million British thermal units."
-          />
-          <KpiCard
-            label="EU Gas (TTF)"
-            value={latestEuGas ? `$${latestEuGas.price.toFixed(2)}` : "—"}
-            unit="/MMBtu"
-            icon={<Flame className="w-3.5 h-3.5" />}
-            tooltip="Dutch TTF — European natural gas benchmark. Key indicator for UK gas prices."
-          />
-          <KpiCard
-            label="LNG Asia (JKM)"
-            value={latestLng ? `$${latestLng.price.toFixed(2)}` : "—"}
-            unit="/MMBtu"
-            icon={<Flame className="w-3.5 h-3.5" />}
-            tooltip="Japan Korea Marker — Asian LNG benchmark. Affects global LNG shipping and UK spot prices."
-          />
-        </div>
+                <div className="space-y-3">
+                  <h2 className="max-w-3xl text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                    Britain&apos;s electricity system, recut as a live briefing instead of a card wall.
+                  </h2>
+                  <p className="max-w-3xl text-sm leading-7 text-zinc-300 sm:text-base">
+                    {briefingLine}. The top layer explains what matters now; the deeper sections keep the raw
+                    curves, source mix, transfer behavior, and commodity context available for power users.
+                  </p>
+                </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Carbon Intensity */}
-          <ChartCard
-            title="Carbon Intensity"
-            tooltip="Tracks grams of CO₂ per kWh over time. Drops when wind/solar generation increases."
-            icon={<Wind className="w-4 h-4 text-emerald-500" />}
-          >
-            {hasData ? (
-              <CarbonIntensityChart data={snapshots} />
-            ) : (
-              <EmptyState />
-            )}
-          </ChartCard>
-
-          {/* Electricity Price */}
-          <ChartCard
-            title="System Price (£/MWh)"
-            tooltip="Wholesale electricity price from Elexon. Prices spike during high demand or low wind."
-            icon={<Zap className="w-4 h-4 text-amber-500" />}
-          >
-            {hasData ? (
-              <ElectricityPriceChart data={snapshots} />
-            ) : (
-              <EmptyState />
-            )}
-          </ChartCard>
-
-          {/* Demand */}
-          <ChartCard
-            title="Demand (MW)"
-            tooltip="Total system demand. Peaks in winter evenings, dips overnight and in summer."
-            icon={<BarChart3 className="w-4 h-4 text-blue-500" />}
-          >
-            {hasData ? <DemandChart data={snapshots} /> : <EmptyState />}
-          </ChartCard>
-
-          {/* Generation Mix (pie) */}
-          <ChartCard
-            title="Generation Mix (Latest)"
-            tooltip="Current share of each fuel type in the generation mix."
-            icon={<Flame className="w-4 h-4 text-orange-500" />}
-          >
-            {latest ? (
-              <GenerationMixChart data={genMixData} />
-            ) : (
-              <EmptyState />
-            )}
-          </ChartCard>
-
-          {/* Generation Table + Interconnectors — full width */}
-          <ChartCard
-            title="Generation Breakdown"
-            tooltip="Detailed per-source generation in GW and % of demand, including embedded solar and wind from distribution networks."
-            icon={<Gauge className="w-4 h-4 text-violet-500" />}
-            fullWidth
-          >
-            {genSources.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
-                    By Source
-                  </h3>
-                  <GenerationTable
-                    data={genSources}
-                    demandMw={latest?.demand_mw}
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <HeroFact
+                    label="Current carbon"
+                    value={latestSnapshot ? `${Math.round(latestSnapshot.carbon_intensity)} gCO₂/kWh` : "—"}
+                    detail={
+                      latestSnapshot ? `${latestSnapshot.carbon_index} · avg ${rangeSummary.carbon.average} g` : "Awaiting data"
+                    }
+                  />
+                  <HeroFact
+                    label="Domestic generation"
+                    value={`${formatGigawatts(latestGenerationSplit.totalGenerationMw)} GW`}
+                    detail={
+                      topSource
+                        ? `${formatFuelLabel(topSource.fuel_type)} leading`
+                        : "Awaiting latest dispatch"
+                    }
+                  />
+                  <HeroFact
+                    label="Transfer stance"
+                    value={
+                      Math.abs(latestGenerationSplit.netTransfersMw) < 25
+                        ? "Balanced"
+                        : `${formatGigawatts(
+                            Math.abs(latestGenerationSplit.netTransfersMw),
+                            2
+                          )} GW ${latestGenerationSplit.netTransfersMw > 0 ? "import" : "export"}`
+                    }
+                    detail={`${activeInterconnectors} active interconnectors`}
+                  />
+                  <HeroFact
+                    label="Power price"
+                    value={latestSnapshot ? `£${Math.round(latestSnapshot.price_gbp_mwh)}/MWh` : "—"}
+                    detail={`Range avg £${rangeSummary.price.average}/MWh`}
                   />
                 </div>
-                <div>
-                  <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
-                    Interconnectors
-                  </h3>
-                  <InterconnectorChart data={genInterconnectors} />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {insightCards.map((card) => (
+                  <InsightCard key={card.title} {...card} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {isPending ? (
+            <KpiGridSkeleton />
+          ) : (
+            <>
+              <KpiCard
+                label="Carbon Intensity"
+                value={latestSnapshot ? String(Math.round(latestSnapshot.carbon_intensity)) : "—"}
+                unit="gCO₂/kWh"
+                detail={
+                  latestSnapshot
+                    ? `${latestSnapshot.carbon_index} · ${formatSignedNumber(carbonDelta)} vs avg`
+                    : undefined
+                }
+                color={latestSnapshot ? carbonIndexColor(latestSnapshot.carbon_index) : undefined}
+                icon={<Wind className="h-3.5 w-3.5" />}
+                tooltip="Current carbon intensity, benchmarked against the selected window average."
+              />
+              <KpiCard
+                label="Demand"
+                value={latestSnapshot ? formatGigawatts(latestSnapshot.demand_mw) : "—"}
+                unit="GW"
+                detail={`${formatSignedNumber(formatGigawattsNumber(demandDelta))} vs avg`}
+                icon={<Activity className="h-3.5 w-3.5" />}
+                tooltip="Transmission demand right now versus the selected window."
+              />
+              <KpiCard
+                label="Domestic Supply"
+                value={formatGigawatts(latestGenerationSplit.totalGenerationMw)}
+                unit="GW"
+                detail={
+                  topSource ? `${formatFuelLabel(topSource.fuel_type)} leading` : "Awaiting dispatch"
+                }
+                icon={<Gauge className="h-3.5 w-3.5" />}
+                tooltip="Latest domestic generation across fuel and embedded renewable sources."
+              />
+              <KpiCard
+                label="Net Transfers"
+                value={
+                  Math.abs(latestGenerationSplit.netTransfersMw) < 25
+                    ? "0.00"
+                    : `${Math.abs(latestGenerationSplit.netTransfersMw / 1000).toFixed(2)}`
+                }
+                unit="GW"
+                detail={
+                  latestGenerationSplit.netTransfersMw > 0
+                    ? "import"
+                    : latestGenerationSplit.netTransfersMw < 0
+                      ? "export"
+                      : "balanced"
+                }
+                color={latestGenerationSplit.netTransfersMw >= 0 ? "#34d399" : "#f97316"}
+                icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
+                tooltip="Net import/export stance based on the latest interconnector frame."
+              />
+              <KpiCard
+                label="System Price"
+                value={latestSnapshot ? `£${Math.round(latestSnapshot.price_gbp_mwh)}` : "—"}
+                unit="/MWh"
+                detail={`${formatSignedNumber(priceDelta)} vs avg`}
+                icon={<Zap className="h-3.5 w-3.5" />}
+                tooltip="System buy price versus the selected range average."
+              />
+            </>
+          )}
+        </section>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <SectionCard
+            id="section-carbon"
+            title="Carbon pulse"
+            icon={<Wind className="h-4 w-4 text-emerald-300" />}
+            tooltip="How clean the grid is through the selected window, with forecast context."
+            active={focus === "carbon"}
+          >
+            {isPending ? (
+              <ChartSectionSkeleton heightClassName="h-64" />
+            ) : hasSnapshots ? (
+              <CarbonIntensityChart data={initialSnapshots} range={range} />
+            ) : (
+              <EmptyState label="No carbon data available" />
+            )}
+          </SectionCard>
+
+          <SectionCard
+            id="section-price"
+            title="System price"
+            icon={<Zap className="h-4 w-4 text-amber-300" />}
+            tooltip="Wholesale power pricing over the selected window."
+            active={focus === "price"}
+          >
+            {isPending ? (
+              <ChartSectionSkeleton heightClassName="h-64" />
+            ) : hasSnapshots ? (
+              <ElectricityPriceChart data={initialSnapshots} range={range} />
+            ) : (
+              <EmptyState label="No price data available" />
+            )}
+          </SectionCard>
+
+          <SectionCard
+            id="section-generation"
+            title="Generation desk"
+            icon={<Layers3 className="h-4 w-4 text-sky-300" />}
+            tooltip="Current supply stack plus demand coverage, with source-by-source context."
+            active={focus === "generation"}
+            fullWidth
+          >
+            {isPending ? (
+              <GenerationDeskSkeleton />
+            ) : hasSnapshots && hasLatestGeneration ? (
+              <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                <div className="space-y-6">
+                  <DemandBalanceChart data={initialSnapshots} range={range} />
+                  <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                          Latest mix
+                        </p>
+                        <InfoTooltip text="Uses the latest snapshot percentages to keep high-level categories stable across ranges." />
+                      </div>
+                      <GenerationMixChart data={latestMixData} />
+                    </div>
+                    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                            By source
+                          </p>
+                          <p className="mt-1 text-sm text-zinc-300">
+                            Dispatch scaled against current demand.
+                          </p>
+                        </div>
+                      </div>
+                      <GenerationTable
+                        data={latestGenerationSplit.sources}
+                        demandMw={latestSnapshot?.demand_mw}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-blue-300" />
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                        Demand profile
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-300">
+                        Demand path for the selected power window.
+                      </p>
+                    </div>
+                  </div>
+                  <DemandChart data={initialSnapshots} range={range} />
                 </div>
               </div>
             ) : (
-              <EmptyState />
+              <EmptyState label="No generation data available" />
             )}
-          </ChartCard>
+          </SectionCard>
 
-          {/* Generation Stack over time */}
-          <ChartCard
-            title="Generation Mix Over Time"
-            tooltip="How the fuel mix changes throughout the day. Wind/solar follow weather patterns; gas fills the gaps."
-            icon={<TrendingUp className="w-4 h-4 text-cyan-500" />}
+          <SectionCard
+            title="Generation mix over time"
+            icon={<LineChart className="h-4 w-4 text-cyan-300" />}
+            tooltip="How the generation stack shifts through the selected range, including embedded solar and wind."
             fullWidth
           >
-            {hasData ? (
-              <GenerationStackChart data={snapshots} />
+            {isPending ? (
+              <ChartSectionSkeleton heightClassName="h-72" fullWidth />
+            ) : generationHistory.length > 0 ? (
+              <GenerationStackChart data={generationHistory} range={range} />
             ) : (
-              <EmptyState />
+              <EmptyState label="No generation history available" />
             )}
-          </ChartCard>
+          </SectionCard>
 
-          {/* Transfers Over Time */}
-          <ChartCard
-            title="Net Transfers Over Time"
-            tooltip="Net electricity flow via interconnectors. Positive = GB importing, negative = GB exporting."
-            icon={<ArrowLeftRight className="w-4 h-4 text-emerald-500" />}
+          <SectionCard
+            id="section-transfers"
+            title="Transmission desk"
+            icon={<ArrowLeftRight className="h-4 w-4 text-cyan-300" />}
+            tooltip="Current interconnector stance plus connector-level history."
+            active={focus === "transfers"}
             fullWidth
           >
-            {hasGeneration ? (
-              <TransfersChart data={generation} />
+            {isPending ? (
+              <TransfersDeskSkeleton />
+            ) : hasInterconnectorHistory ? (
+              <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="mb-3">
+                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                      Latest connector book
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-300">
+                      Positive bars are imports into Great Britain.
+                    </p>
+                  </div>
+                  <InterconnectorChart data={latestGenerationSplit.interconnectors} />
+                </div>
+                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="mb-3">
+                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                      Connector history
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-300">
+                      Each line is one link, making import/export swings visible without losing per-link detail.
+                    </p>
+                  </div>
+                  <InterconnectorFlowsChart data={generationHistory} range={range} />
+                </div>
+              </div>
             ) : (
-              <EmptyState />
+              <EmptyState label="No interconnector history available" />
             )}
-          </ChartCard>
+          </SectionCard>
 
-          {/* Commodity Prices */}
-          <ChartCard
-            title="Energy Commodity Prices (USD)"
-            tooltip="Oil and gas benchmark prices that influence UK electricity costs."
-            icon={<Droplets className="w-4 h-4 text-orange-400" />}
+          <SectionCard
+            id="section-commodities"
+            title="Commodity desk"
+            icon={<Droplets className="h-4 w-4 text-amber-300" />}
+            tooltip="Oil and gas context with its own slower market horizon."
+            active={focus === "commodities"}
             fullWidth
+            headerRight={
+              <TimeRangeSelector
+                value={commodityRange}
+                onChange={(nextRange) => {
+                  void setUrlState({ commodityRange: nextRange });
+                }}
+                options={COMMODITY_RANGE_OPTIONS}
+                pending={isPending}
+                compact
+              />
+            }
           >
-            {hasPrices ? <CommodityChart data={prices} /> : <EmptyState />}
-          </ChartCard>
+            {isPending ? (
+              <CommodityDeskSkeleton />
+            ) : (
+              <>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {commodityStats.map(({ commodity }) => {
+                    const active = selectedCommodities.includes(commodity);
+                    return (
+                      <button
+                        key={commodity}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCommodities((current) => {
+                            if (current.includes(commodity)) {
+                              return current.length === 1
+                                ? current
+                                : current.filter((value) => value !== commodity);
+                            }
+                            return [...current, commodity];
+                          });
+                        }}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          active
+                            ? "border-white/20 text-white"
+                            : "border-white/8 text-zinc-400 hover:text-zinc-100"
+                        }`}
+                        style={
+                          active
+                            ? {
+                                backgroundColor: `${COMMODITY_COLORS[commodity] ?? "#64748b"}20`,
+                                borderColor: `${COMMODITY_COLORS[commodity] ?? "#64748b"}66`,
+                              }
+                            : undefined
+                        }
+                      >
+                        {COMMODITY_LABELS[commodity] ?? commodity}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  {commodityStats.map(({ commodity, latest, absoluteDelta, percentageDelta }) => (
+                    <CommodityStatCard
+                      key={commodity}
+                      commodity={commodity}
+                      latest={latest}
+                      absoluteDelta={absoluteDelta}
+                      percentageDelta={percentageDelta}
+                    />
+                  ))}
+                </div>
+
+                {initialPrices.length > 0 ? (
+                  <CommodityChart
+                    data={initialPrices}
+                    range={commodityRange}
+                    selectedSeries={selectedCommodities}
+                  />
+                ) : (
+                  <EmptyState label="No commodity data available" />
+                )}
+              </>
+            )}
+          </SectionCard>
         </div>
 
-        {/* Footer */}
-        <footer className="border-t border-zinc-200 dark:border-zinc-800/60 pt-4 pb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-[11px] text-zinc-400 dark:text-zinc-600">
-            <div className="flex items-center gap-1.5">
-              <Database className="w-3 h-3" />
-              <span>Public API</span>
+        <footer className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
+          <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                Methodology
+              </p>
+              <p className="mt-2 text-sm leading-7 text-zinc-300">
+                Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, and NESO. Commodity context comes from
+                EIA, FRED, and OilPriceAPI. Power and market ranges are intentionally decoupled because intraday grid behavior
+                and commodity settlement cadence move on different clocks.
+              </p>
             </div>
-            <code className="bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded text-zinc-600 dark:text-zinc-400 font-mono text-[11px]">
-              GET /api/snapshots?range=24h
-            </code>
-            <code className="bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded text-zinc-600 dark:text-zinc-400 font-mono text-[11px]">
-              GET /api/generation?range=24h
-            </code>
-            <code className="bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded text-zinc-600 dark:text-zinc-400 font-mono text-[11px]">
-              GET /api/prices?range=30d
-            </code>
-            <span className="sm:ml-auto">Rate limit: 60 req/min</span>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
+                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+                  GET /api/snapshots?range={range}
+                </code>
+                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+                  GET /api/generation?range={range}
+                </code>
+                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+                  GET /api/prices?range={commodityRange}
+                </code>
+              </div>
+              <p className="text-xs text-zinc-500">
+                URL state is canonical for the selected range, commodity horizon, and section focus. Rate limit remains 60 requests per minute.
+              </p>
+            </div>
           </div>
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-600 mt-2">
-            Contains BMRS data &copy; Elexon Limited. NESO Data Portal. Carbon
-            Intensity API. US EIA. FRED. OilPriceAPI. Updated hourly.
-          </p>
         </footer>
       </main>
     </div>
   );
 }
 
-/* ─── Reusable chart card ─── */
-function ChartCard({
+function SectionCard({
+  id,
   title,
   icon,
   tooltip,
+  headerRight,
   children,
-  fullWidth,
+  fullWidth = false,
+  active = false,
 }: {
+  id?: string;
   title: string;
   icon?: React.ReactNode;
   tooltip?: string;
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
   fullWidth?: boolean;
+  active?: boolean;
 }) {
   return (
     <section
-      className={`rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/50 p-4 sm:p-5 ${
-        fullWidth ? "lg:col-span-2" : ""
+      id={id}
+      className={`relative min-w-0 rounded-[28px] border bg-white/[0.035] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)] ${
+        fullWidth ? "xl:col-span-2" : ""
+      } ${
+        active
+          ? "border-emerald-300/30 shadow-[0_24px_80px_rgba(16,185,129,0.12)]"
+          : "border-white/10"
       }`}
     >
-      <div className="flex items-center gap-2 mb-4">
-        {icon}
-        <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {title}
-        </h2>
-        {tooltip && <InfoTooltip text={tooltip} />}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          {icon ? (
+            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+              {icon}
+            </div>
+          ) : null}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight text-white">{title}</h2>
+              {tooltip ? <InfoTooltip text={tooltip} /> : null}
+            </div>
+          </div>
+        </div>
+        {headerRight}
       </div>
       {children}
     </section>
   );
 }
 
-/* ─── Empty state ─── */
-function EmptyState() {
+function OverviewSectionSkeleton() {
   return (
-    <div className="h-56 flex flex-col items-center justify-center gap-2">
-      <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800/60 flex items-center justify-center">
-        <BarChart3 className="w-5 h-5 text-zinc-400 dark:text-zinc-600" />
+    <>
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-7 w-36 rounded-full" />
+          <Skeleton className="h-7 w-32 rounded-full" />
+          <Skeleton className="h-7 w-28 rounded-full" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full max-w-3xl" />
+          <Skeleton className="h-4 w-full max-w-2xl" />
+          <Skeleton className="h-4 w-3/4 max-w-2xl" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <HeroFactSkeleton key={`hero-${index}`} />
+          ))}
+        </div>
       </div>
-      <p className="text-sm text-zinc-400 dark:text-zinc-600">No data yet</p>
-      <p className="text-[11px] text-zinc-300 dark:text-zinc-700">
-        The cron job collects data every hour
-      </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <InsightCardSkeleton key={`insight-${index}`} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function KpiGridSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <KpiCardSkeleton key={`kpi-${index}`} />
+      ))}
+    </>
+  );
+}
+
+function ChartSectionSkeleton({
+  heightClassName,
+  fullWidth = false,
+}: {
+  heightClassName: string;
+  fullWidth?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <Skeleton className={`${heightClassName} w-full rounded-[24px]`} />
+      <div className={`grid gap-3 ${fullWidth ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        {Array.from({ length: fullWidth ? 3 : 2 }).map((_, index) => (
+          <Skeleton key={`chart-detail-${index}`} className="h-10 w-full rounded-2xl" />
+        ))}
+      </div>
     </div>
   );
+}
+
+function GenerationDeskSkeleton() {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="space-y-6">
+        <Skeleton className="h-80 w-full rounded-[24px]" />
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+            <div className="mb-3 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <Skeleton className="h-72 w-full rounded-[24px]" />
+          </div>
+          <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+            <div className="mb-3 space-y-2">
+              <Skeleton className="h-3 w-18" />
+              <Skeleton className="h-3 w-44" />
+            </div>
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={`source-row-${index}`} className="grid grid-cols-[1.5fr_0.7fr_0.8fr] gap-3">
+                  <Skeleton className="h-4 w-full rounded-lg" />
+                  <Skeleton className="h-4 w-full rounded-lg" />
+                  <Skeleton className="h-4 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+        <div className="mb-3 space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-52" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-[24px]" />
+      </div>
+    </div>
+  );
+}
+
+function TransfersDeskSkeleton() {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+        <div className="mb-3 space-y-2">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-3 w-52" />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={`connector-${index}`} className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-4 w-28 rounded-lg" />
+                <Skeleton className="h-4 w-16 rounded-lg" />
+              </div>
+              <Skeleton className="h-4 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+        <div className="mb-3 space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-64" />
+        </div>
+        <Skeleton className="h-72 w-full rounded-[24px]" />
+      </div>
+    </div>
+  );
+}
+
+function CommodityDeskSkeleton() {
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={`commodity-chip-${index}`} className="h-8 w-32 rounded-full" />
+        ))}
+      </div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <CommodityStatCardSkeleton key={`commodity-stat-${index}`} />
+        ))}
+      </div>
+      <Skeleton className="h-72 w-full rounded-[24px]" />
+    </>
+  );
+}
+
+function HeroFactSkeleton() {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="mt-3 h-7 w-28" />
+      <Skeleton className="mt-2 h-3 w-36" />
+    </div>
+  );
+}
+
+function InsightCardSkeleton() {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <Skeleton className="h-4 w-4 rounded-full" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+      <Skeleton className="h-8 w-24" />
+      <Skeleton className="mt-2 h-3 w-40" />
+    </div>
+  );
+}
+
+function KpiCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-4 rounded-full" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+      <div className="mt-3 flex items-baseline gap-2">
+        <Skeleton className="h-8 w-16" />
+        <Skeleton className="h-4 w-12" />
+      </div>
+      <Skeleton className="mt-2 h-3 w-28" />
+    </div>
+  );
+}
+
+function CommodityStatCardSkeleton() {
+  return (
+    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-2.5 w-2.5 rounded-full" />
+      </div>
+      <Skeleton className="mt-3 h-8 w-24" />
+      <Skeleton className="mt-2 h-4 w-32" />
+      <Skeleton className="mt-2 h-3 w-20" />
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  value,
+  detail,
+  tone,
+  icon,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  tone: "emerald" | "amber" | "blue" | "sky" | "rose" | "cyan" | "violet";
+  icon: React.ReactNode;
+}) {
+  const toneClasses: Record<string, string> = {
+    emerald: "border-emerald-400/20 bg-emerald-400/[0.08]",
+    amber: "border-amber-400/20 bg-amber-400/[0.08]",
+    blue: "border-blue-400/20 bg-blue-400/[0.08]",
+    sky: "border-sky-400/20 bg-sky-400/[0.08]",
+    rose: "border-rose-400/20 bg-rose-400/[0.08]",
+    cyan: "border-cyan-400/20 bg-cyan-400/[0.08]",
+    violet: "border-violet-400/20 bg-violet-400/[0.08]",
+  };
+
+  return (
+    <div className={`rounded-3xl border p-4 ${toneClasses[tone]}`}>
+      <div className="mb-4 flex items-center gap-2 text-sm text-zinc-300">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <p className="text-2xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{detail}</p>
+    </div>
+  );
+}
+
+function CommodityStatCard({
+  commodity,
+  latest,
+  absoluteDelta,
+  percentageDelta,
+}: {
+  commodity: string;
+  latest: CommodityPrice | undefined;
+  absoluteDelta: number;
+  percentageDelta: number;
+}) {
+  const rising = absoluteDelta >= 0;
+  const deltaColor = rising ? "text-emerald-300" : "text-rose-300";
+
+  return (
+    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+          {COMMODITY_LABELS[commodity] ?? commodity}
+        </p>
+        <span
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: COMMODITY_COLORS[commodity] ?? "#64748b" }}
+        />
+      </div>
+      <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+        {latest ? `$${latest.price.toFixed(2)}` : "—"}
+      </p>
+      <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
+        {rising ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+        <span>
+          {formatSignedCurrency(absoluteDelta)} · {formatSignedPercentage(percentageDelta)}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-zinc-500">{latest ? normalizeUnit(latest.unit) : "No current value"}</p>
+    </div>
+  );
+}
+
+function HeroFact({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
+      <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">{label}</p>
+      <p className="mt-3 text-xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-sm text-zinc-400">{detail}</p>
+    </div>
+  );
+}
+
+function Badge({ label, tone }: { label: string; tone: "emerald" | "sky" | "violet" | "amber" }) {
+  const toneMap: Record<string, string> = {
+    emerald: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
+    sky: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+    violet: "border-violet-300/25 bg-violet-300/10 text-violet-100",
+    amber: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+  };
+
+  return (
+    <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${toneMap[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-white/10 bg-black/15 text-sm text-zinc-500">
+      {label}
+    </div>
+  );
+}
+
+function formatFuelLabel(fuelType: string): string {
+  return FUELINST_LABELS[normalizeFuelType(fuelType)] ?? fuelType.toUpperCase();
+}
+
+function formatGigawatts(valueMw: number, digits = 1): string {
+  return (valueMw / 1000).toFixed(digits);
+}
+
+function formatGigawattsNumber(valueMw: number, digits = 1): number {
+  return Number(formatGigawatts(valueMw, digits));
+}
+
+function formatSignedCurrency(value: number): string {
+  const prefix = value >= 0 ? "+" : "−";
+  return `${prefix}$${Math.abs(value).toFixed(2)}`;
+}
+
+function formatSignedPercentage(value: number): string {
+  const prefix = value >= 0 ? "+" : "−";
+  return `${prefix}${Math.abs(value).toFixed(1)}%`;
+}
+
+function formatSignedNumber(value: number): string {
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
+}
+
+function normalizeUnit(unit: string): string {
+  return unit.replace("BBL", "bbl").replace("MMBTU", "MMBtu");
 }

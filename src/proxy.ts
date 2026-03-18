@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/**
- * Middleware: rate limiting for /api/* routes (except cron, which has its own auth).
- * Uses in-memory counting at the edge. For production Upstash,
- * rate limiting is handled inside the route handlers.
- *
- * This middleware adds CORS headers so the API is publicly consumable.
- */
-
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
 const store = new Map<string, { count: number; resetAt: number }>();
@@ -29,15 +21,13 @@ function checkLimit(ip: string): { allowed: boolean; remaining: number } {
   };
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip cron route (has its own Bearer auth)
   if (pathname === "/api/cron") {
     return NextResponse.next();
   }
 
-  // Only rate-limit API routes
   if (!pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
@@ -48,8 +38,6 @@ export function middleware(request: NextRequest) {
     "anonymous";
 
   const { allowed, remaining } = checkLimit(ip);
-
-  // CORS + rate limit headers
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -57,7 +45,6 @@ export function middleware(request: NextRequest) {
   headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
   headers.set("X-RateLimit-Remaining", String(remaining));
 
-  // Handle preflight
   if (request.method === "OPTIONS") {
     return new NextResponse(null, { status: 204, headers });
   }
@@ -70,7 +57,6 @@ export function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  // Append headers to actual response
   headers.forEach((value, key) => response.headers.set(key, value));
   return response;
 }

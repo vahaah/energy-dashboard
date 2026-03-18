@@ -74,25 +74,29 @@ export const FUELINST_LABELS: Record<string, string> = {
 
 /** Interconnector colors by country */
 export const INTERCONNECTOR_COLORS: Record<string, string> = {
-  INTFR: "#3b82f6",   // France — blue
-  INTIRL: "#22c55e",   // Ireland — green
-  INTNED: "#f97316",   // Netherlands — orange
-  INTEW: "#22c55e",    // East-West (Ireland) — green
-  INTNEM: "#f59e0b",   // Belgium (Nemo) — amber
-  INTNSL: "#06b6d4",   // Norway (North Sea Link) — cyan
-  INTELEC: "#f59e0b",  // Belgium (via Eleclink) — amber
-  INTVKL: "#ec4899",   // Denmark (Viking Link) — pink
+  intfr: "#3b82f6",    // France — blue
+  intirl: "#22c55e",   // Ireland — green
+  intned: "#f97316",   // Netherlands — orange
+  intew: "#16a34a",    // East-West (Ireland) — green
+  intnem: "#f59e0b",   // Belgium (Nemo) — amber
+  intnsl: "#06b6d4",   // Norway (North Sea Link) — cyan
+  intelec: "#eab308",  // Belgium (via Eleclink) — amber
+  intvkl: "#ec4899",   // Denmark (Viking Link) — pink
+  intifa2: "#60a5fa",  // France (IFA2)
+  intgrnl: "#a3e635",  // Greenlink
 };
 
 export const INTERCONNECTOR_LABELS: Record<string, string> = {
-  INTFR: "France (IFA)",
-  INTIRL: "Ireland (Moyle)",
-  INTNED: "Netherlands (BritNed)",
-  INTEW: "Ireland (East-West)",
-  INTNEM: "Belgium (Nemo)",
-  INTNSL: "Norway (NSL)",
-  INTELEC: "Belgium (Eleclink)",
-  INTVKL: "Denmark (Viking Link)",
+  intfr: "France (IFA)",
+  intirl: "Ireland (Moyle)",
+  intned: "Netherlands (BritNed)",
+  intew: "Ireland (East-West)",
+  intnem: "Belgium (Nemo)",
+  intnsl: "Norway (NSL)",
+  intelec: "Belgium (Eleclink)",
+  intvkl: "Denmark (Viking Link)",
+  intifa2: "France (IFA2)",
+  intgrnl: "Greenlink",
 };
 
 /** Carbon index → color */

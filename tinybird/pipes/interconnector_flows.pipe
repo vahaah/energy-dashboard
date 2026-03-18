@@ -16,11 +16,15 @@ SQL >
             ELSE 'export'
         END AS direction
     FROM generation_5min
-    WHERE fuel_type LIKE 'INT%'
+    WHERE startsWith(lower(fuel_type), 'int')
     {% if defined(start) and defined(end) %}
         AND timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
     {% else %}
-        AND timestamp = (SELECT max(timestamp) FROM generation_5min WHERE fuel_type LIKE 'INT%')
+        AND timestamp = (
+            SELECT max(timestamp)
+            FROM generation_5min
+            WHERE startsWith(lower(fuel_type), 'int')
+        )
     {% end %}
     ORDER BY timestamp ASC, interconnector ASC
 

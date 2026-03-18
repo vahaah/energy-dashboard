@@ -121,3 +121,13 @@ export interface GenerationMixItem {
   mw: number;
   color: string;
 }
+
+export type CommodityRange = "30d" | "90d" | "1y";
+
+export type DashboardFocus =
+  | "overview"
+  | "carbon"
+  | "price"
+  | "generation"
+  | "transfers"
+  | "commodities";

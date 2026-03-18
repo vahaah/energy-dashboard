@@ -5,6 +5,13 @@ import type {
   CommodityPrice,
   Generation5min,
 } from "@/lib/types";
+import { loadDashboardSearchParams } from "@/lib/dashboard-search-params.server";
+import {
+  getEffectiveDashboardDate,
+  getGenerationQueryParams,
+  getPricesQueryParams,
+  getSnapshotsQueryParams,
+} from "@/lib/dashboard-data";
 
 /**
  * Main page — Server Component.
@@ -16,26 +23,45 @@ import type {
  */
 export const revalidate = 300; // ISR: regenerate every 5 min
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   let snapshots: EnergySnapshot[] = [];
   let prices: CommodityPrice[] = [];
-  let generation: Generation5min[] = [];
+  let generationHistory: Generation5min[] = [];
+  let latestGeneration: Generation5min[] = [];
+  const dashboardSearchParams = await loadDashboardSearchParams(searchParams);
+  let selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date);
+  let todayDate = selectedDate;
 
   try {
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date, now);
+    todayDate = getEffectiveDashboardDate(null, now);
 
-    [snapshots, prices, generation] = await Promise.all([
-      queryPipe<EnergySnapshot>("snapshots_range", {
-        start: yesterday.toISOString().replace("T", " ").slice(0, 19),
-        end: now.toISOString().replace("T", " ").slice(0, 19),
-      }),
-      queryPipe<CommodityPrice>("prices_range", {
-        start: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10),
-        end: now.toISOString().slice(0, 10),
-      }),
+    [snapshots, prices, generationHistory, latestGeneration] = await Promise.all([
+      queryPipe<EnergySnapshot>(
+        "snapshots_range",
+        getSnapshotsQueryParams(
+          dashboardSearchParams.range,
+          now,
+          dashboardSearchParams.date
+        )
+      ),
+      queryPipe<CommodityPrice>(
+        "prices_range",
+        getPricesQueryParams(dashboardSearchParams.commodityRange, now)
+      ),
+      queryPipe<Generation5min>(
+        "generation_5min_range",
+        getGenerationQueryParams(
+          dashboardSearchParams.range,
+          now,
+          dashboardSearchParams.date
+        )
+      ).catch(() => []),
       queryPipe<Generation5min>("latest_generation", {}).catch(() => []),
     ]);
   } catch {
@@ -47,9 +73,13 @@ export default async function Home() {
 
   return (
     <Dashboard
+      searchParams={dashboardSearchParams}
+      selectedDate={selectedDate}
+      todayDate={todayDate}
       initialSnapshots={snapshots}
       initialPrices={prices}
-      initialGeneration={generation}
+      generationHistory={generationHistory}
+      latestGeneration={latestGeneration}
     />
   );
 }

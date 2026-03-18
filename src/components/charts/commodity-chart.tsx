@@ -10,15 +10,18 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { format } from "date-fns";
-import type { CommodityPrice } from "@/lib/types";
+import type { CommodityPrice, CommodityRange } from "@/lib/types";
 import { COMMODITY_COLORS, COMMODITY_LABELS } from "@/lib/colors";
+import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 
 interface Props {
   data: CommodityPrice[];
+  range: CommodityRange;
+  selectedSeries: string[];
 }
 
-export function CommodityChart({ data }: Props) {
+export function CommodityChart({ data, range, selectedSeries }: Props) {
   // Pivot: one row per date with columns per commodity
   const byDate = new Map<string, Record<string, number | string>>();
   for (const row of data) {
@@ -31,7 +34,9 @@ export function CommodityChart({ data }: Props) {
     (a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
   );
 
-  const commodities = [...new Set(data.map((d) => d.commodity))];
+  const commodities = [...new Set(data.map((d) => d.commodity))].filter((commodity) =>
+    selectedSeries.includes(commodity)
+  );
 
   // Count data points per commodity to show dots for sparse series
   const countByCommodity = new Map<string, number>();
@@ -40,13 +45,13 @@ export function CommodityChart({ data }: Props) {
   }
 
   return (
-    <div className="h-72">
+    <ResponsiveChartFrame className="h-72">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
             dataKey="date"
-            tickFormatter={(d) => format(new Date(d), "dd MMM")}
+            tickFormatter={(d) => formatChartTick(String(d), range)}
             tick={{ fontSize: 11, fill: "#71717a" }}
             stroke="#27272a"
           />
@@ -61,7 +66,8 @@ export function CommodityChart({ data }: Props) {
             }}
           />
           <Tooltip
-            labelFormatter={(d) => format(new Date(d as string), "dd MMM yyyy")}
+            labelFormatter={(d) => formatChartTooltip(d as string, range)}
+            wrapperStyle={{ zIndex: 320 }}
             contentStyle={{
               backgroundColor: "rgba(0,0,0,0.85)",
               border: "none",
@@ -87,6 +93,6 @@ export function CommodityChart({ data }: Props) {
           })}
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </ResponsiveChartFrame>
   );
 }

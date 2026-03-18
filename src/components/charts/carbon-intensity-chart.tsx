@@ -10,14 +10,16 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { format } from "date-fns";
-import type { EnergySnapshot } from "@/lib/types";
+import type { EnergySnapshot, TimeRange } from "@/lib/types";
+import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 
 interface Props {
   data: EnergySnapshot[];
+  range: TimeRange;
 }
 
-export function CarbonIntensityChart({ data }: Props) {
+export function CarbonIntensityChart({ data, range }: Props) {
   const chartData = data.map((d) => ({
     time: d.timestamp,
     actual: Math.round(d.carbon_intensity),
@@ -25,7 +27,7 @@ export function CarbonIntensityChart({ data }: Props) {
   }));
 
   return (
-    <div className="h-64">
+    <ResponsiveChartFrame className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <defs>
@@ -37,7 +39,7 @@ export function CarbonIntensityChart({ data }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
             dataKey="time"
-            tickFormatter={(t) => format(new Date(t), "HH:mm")}
+            tickFormatter={(t) => formatChartTick(String(t), range)}
             tick={{ fontSize: 11, fill: "#71717a" }}
             stroke="#27272a"
           />
@@ -47,7 +49,8 @@ export function CarbonIntensityChart({ data }: Props) {
             label={{ value: "gCO₂/kWh", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#71717a" } }}
           />
           <Tooltip
-            labelFormatter={(t) => format(new Date(t as string), "dd MMM HH:mm")}
+            labelFormatter={(t) => formatChartTooltip(t as string, range)}
+            wrapperStyle={{ zIndex: 320 }}
             contentStyle={{
               backgroundColor: "rgba(0,0,0,0.85)",
               border: "none",
@@ -76,6 +79,6 @@ export function CarbonIntensityChart({ data }: Props) {
           />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </ResponsiveChartFrame>
   );
 }
