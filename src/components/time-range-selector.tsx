@@ -16,15 +16,15 @@ const OPTIONS: { value: TimeRange; label: string }[] = [
 
 export function TimeRangeSelector({ value, onChange }: Props) {
   return (
-    <div className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-0.5">
+    <div className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/50 p-0.5 gap-0.5">
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
             value === opt.value
-              ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm"
-              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+              ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm"
+              : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
           }`}
         >
           {opt.label}
