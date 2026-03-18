@@ -85,8 +85,13 @@ Engine: `ReplacingMergeTree`
 ## Env Vars (Vercel)
 ```
 TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co
-TINYBIRD_TOKEN=<your-tinybird-admin-token>
-TINYBIRD_DATASOURCE_TOKEN=<read-only-token-for-pipes>
+TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
+TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY
 CRON_SECRET=<random-secret-for-vercel-cron>
 ```
+
+### How to get tokens
+
+1. `TINYBIRD_TOKEN` — Use the workspace admin token (from `tb --cloud token ls` or Tinybird UI → Tokens).
+2. `TINYBIRD_READ_TOKEN` — Auto-generated when you deploy. The `TOKEN dashboard_read READ` directive in each pipe file creates a `dashboard_read` token. Find it with `tb --cloud token ls` after deploying.

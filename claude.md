@@ -107,11 +107,16 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 
 ```env
 TINYBIRD_API_URL=https://api.eu-central-1.aws.tinybird.co
-TINYBIRD_TOKEN=<admin-token>
-TINYBIRD_DATASOURCE_TOKEN=<read-token-for-pipes>
+TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
+TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY
 CRON_SECRET=<random-secret-for-vercel-cron>
 ```
+
+### How tokens work
+- `TINYBIRD_TOKEN` — Workspace admin token. Used by `/api/cron` to ingest data via Events API.
+- `TINYBIRD_READ_TOKEN` — Auto-generated `dashboard_read` token (defined via `TOKEN dashboard_read READ` in pipe files). Used by the Server Component to query pipe endpoints. Falls back to `TINYBIRD_TOKEN` if not set.
+- Tokens are created via `tb --cloud deploy` (Tinybird Forward requires resource-scoped tokens in data files, not via CLI `token create`).
 
 ## Conventions
 

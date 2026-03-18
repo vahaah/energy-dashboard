@@ -58,9 +58,19 @@ See [`tinybird/README.md`](./tinybird/README.md) for full instructions.
 
 ```bash
 pip install tinybird-cli
-tb auth
-cd tinybird && tb push --force
+tb login
+cd tinybird && tb --cloud deploy
 ```
+
+After deployment, get your tokens:
+
+```bash
+tb --cloud token ls
+```
+
+You need two values:
+- **Workspace admin token** → set as `TINYBIRD_TOKEN` (cron uses this to ingest)
+- **`dashboard_read` token** → set as `TINYBIRD_READ_TOKEN` (dashboard uses this to query pipes)
 
 ### 3. Configure environment
 

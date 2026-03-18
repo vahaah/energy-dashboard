@@ -21,6 +21,20 @@ npm run build   # Production build
 npm run lint    # ESLint
 ```
 
+## Environment Variables
+
+See `.env.example`. The code in `src/lib/tinybird.ts` uses:
+
+| Variable | Purpose | How to get |
+|----------|---------|------------|
+| `TINYBIRD_API_URL` | Tinybird region host | From Tinybird workspace settings |
+| `TINYBIRD_TOKEN` | Admin token for cron ingestion | `tb --cloud token ls` → Workspace admin token |
+| `TINYBIRD_READ_TOKEN` | Read-only token for pipe queries | `tb --cloud token ls` → `dashboard_read` (auto-created by deployment) |
+| `EIA_API_KEY` | US EIA API key | `DEMO_KEY` works for dev |
+| `CRON_SECRET` | Vercel cron auth | Any random secret |
+
+**Token creation:** Resource-scoped tokens (`dashboard_read`, `ingest_token`) are defined via `TOKEN` directives in `.pipe` and `.datasource` files. They are created automatically by `tb --cloud deploy`. You cannot create them via `tb token create static` in Tinybird Forward.
+
 ## Key Patterns
 
 ### Adding a feature
@@ -35,8 +49,12 @@ npm run lint    # ESLint
 - Dark mode: `@custom-variant dark (&:is(.dark *))` — class-based, NOT media query
 - Theme tokens: `@theme inline { ... }`
 
+### Tinybird deployment
+```bash
+cd tinybird
+tb --cloud deploy    # Deploy datasources, pipes, and tokens
+tb --cloud token ls  # List generated tokens
+```
+
 ### Data flow
 External APIs → `/api/cron` (hourly) → Tinybird → Server Component (ISR 5min) → Client Dashboard
-
-### Environment
-See `.env.example` for all required variables. `DEMO_KEY` works for EIA API during development.
