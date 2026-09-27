@@ -34,7 +34,7 @@ export function InterconnectorChart({ data }: Props) {
 
           return (
             <div key={ic} className="flex items-center gap-3">
-              <div className="w-36 text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+              <div className="flex w-36 items-center gap-1.5 text-sm text-gray-900">
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: INTERCONNECTOR_COLORS[ic] ?? "#94a3b8" }}
@@ -42,7 +42,7 @@ export function InterconnectorChart({ data }: Props) {
                 {INTERCONNECTOR_LABELS[ic] ?? ic}
               </div>
               <div className="flex-1 flex items-center gap-2">
-                <div className="flex-1 h-4 bg-zinc-100 dark:bg-zinc-800 rounded relative overflow-hidden">
+                <div className="relative h-4 flex-1 overflow-hidden rounded bg-gray-200">
                   <div
                     className={`absolute top-0 h-full rounded ${
                       isImport ? "left-0" : "right-0"
@@ -54,7 +54,7 @@ export function InterconnectorChart({ data }: Props) {
                     }}
                   />
                 </div>
-                <div className="w-20 text-right text-sm tabular-nums text-zinc-700 dark:text-zinc-300 flex items-center justify-end gap-1">
+                <div className="flex w-20 items-center justify-end gap-1 text-right font-mono text-sm tabular-nums text-gray-1000">
                   {isImport ? (
                     <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
                   ) : (
@@ -68,8 +68,8 @@ export function InterconnectorChart({ data }: Props) {
         })}
       </div>
 
-      <div className="border-t border-zinc-200 dark:border-zinc-800 pt-2 flex items-center justify-between text-sm">
-        <span className="text-zinc-500 dark:text-zinc-400">Net Transfers</span>
+      <div className="flex items-center justify-between border-t border-gray-alpha-400 pt-2 text-sm">
+        <span className="text-gray-900">Net Transfers</span>
         <span className={`font-medium tabular-nums ${netTransfer >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
           {netTransfer >= 0 ? "+" : ""}{(netTransfer / 1000).toFixed(2)} GW
           {netTransfer >= 0 ? " import" : " export"}

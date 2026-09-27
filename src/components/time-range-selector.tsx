@@ -17,28 +17,27 @@ export function TimeRangeSelector<T extends string>({
 }: Props<T>) {
   return (
     <div
-      className={`inline-flex rounded-full border border-white/12 bg-white/6 p-1 gap-1 ${
+      className={`inline-flex items-center rounded-full border border-gray-alpha-400 bg-background-200 ${
         pending ? "opacity-70" : ""
       }`}
+      role="group"
     >
       {options.map((opt) => (
         <button
           key={opt.value}
+          type="button"
+          aria-pressed={value === opt.value}
           onClick={() => onChange(opt.value)}
-          className={`rounded-full transition-all duration-150 ${
-            value === opt.value
-              ? "bg-emerald-400/18 text-emerald-200 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.3)]"
-              : "text-zinc-400 hover:text-zinc-100"
-          }`}
           disabled={pending}
+          className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-3 font-medium motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 focus-visible:ring-offset-background-100 ${
+            compact ? "text-xs" : "text-sm"
+          } ${
+            value === opt.value
+              ? "bg-gray-100 text-gray-1000"
+              : "text-gray-900 hover:text-gray-1000"
+          }`}
         >
-          <span
-            className={`block ${
-              compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
-            } font-medium`}
-          >
-            {opt.label}
-          </span>
+          {opt.label}
         </button>
       ))}
     </div>

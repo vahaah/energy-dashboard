@@ -39,7 +39,7 @@ export function TransfersChart({ data }: Props) {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-56 flex items-center justify-center text-sm text-zinc-400 dark:text-zinc-600">
+      <div className="flex h-56 items-center justify-center text-sm text-gray-900">
         No transfer data available
       </div>
     );

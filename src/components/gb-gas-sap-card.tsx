@@ -29,7 +29,7 @@ export function GbGasSapCard({
   return (
     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+        <p className="text-xs text-gray-900">
           {COMMODITY_CARD_LABELS[GB_GAS_SAP_COMMODITY]}
         </p>
         <span
@@ -37,10 +37,10 @@ export function GbGasSapCard({
           style={{ backgroundColor: COMMODITY_COLORS[GB_GAS_SAP_COMMODITY] }}
         />
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-white tabular-nums">
+      <p className="mt-3 font-mono text-2xl font-semibold tracking-tight text-gray-1000 tabular-nums">
         {latest ? formatSapPencePerTherm(latest.price) : "—"}
       </p>
-      <p className="mt-1 text-sm text-zinc-300 tabular-nums">
+      <p className="mt-1 font-mono text-sm text-gray-1000 tabular-nums">
         {latest ? formatSapGbpPerMwh(latest.price) : "No current value"}
       </p>
       <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
@@ -49,17 +49,17 @@ export function GbGasSapCard({
           {formatSignedThermDelta(thermDelta)} · {formatSignedPercentage(percentageDelta)}
         </span>
       </div>
-      <p className="mt-3 text-xs leading-5 text-zinc-400">
+      <p className="mt-3 text-xs leading-5 text-gray-900">
         The average price of gas traded on National Gas&apos;s On-the-day Commodity Market for that
         gas day.
       </p>
-      <p className="mt-2 text-xs text-zinc-500">
+      <p className="mt-2 text-xs text-gray-900">
         Source:{" "}
         <a
           href={NATIONAL_GAS_DATA_PORTAL_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-zinc-300 underline decoration-white/20 underline-offset-2 hover:text-white"
+          className="text-gray-1000 underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
         >
           {NATIONAL_GAS_SOURCE_LABEL}
         </a>

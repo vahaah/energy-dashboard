@@ -15,44 +15,36 @@ export function KpiCard({ label, value, unit, detail, asOf, color, icon, tooltip
   const isEmpty = value === "—";
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-4 flex flex-col gap-1">
+    <div className="flex flex-col gap-1 rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
       <div className="flex items-center gap-1.5">
-        {icon && <span className="text-zinc-400 dark:text-zinc-500">{icon}</span>}
-        <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-          {label}
-        </p>
-        {tooltip && <InfoTooltip text={tooltip} />}
+        {icon ? <span className="text-gray-900">{icon}</span> : null}
+        <p className="text-xs text-gray-900">{label}</p>
+        {tooltip ? <InfoTooltip text={tooltip} label={`What is ${label}?`} /> : null}
       </div>
       {asOf ? (
-        <p className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">as of {asOf}</p>
+        <p className="font-mono text-xs tabular-nums text-gray-900">as of {asOf}</p>
       ) : null}
       <div className="flex items-baseline gap-1.5">
         {isEmpty ? (
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold tabular-nums text-zinc-300 dark:text-zinc-700">
+            <span className="font-mono text-2xl font-semibold tabular-nums text-gray-800">
               —
             </span>
-            {unit && (
-              <span className="text-sm text-zinc-300 dark:text-zinc-700">{unit}</span>
-            )}
+            {unit ? <span className="text-sm text-gray-800">{unit}</span> : null}
           </div>
         ) : (
           <>
             <span
-              className="text-2xl font-semibold tabular-nums"
+              className="font-mono text-2xl font-semibold tabular-nums"
               style={color ? { color } : undefined}
             >
               {value}
             </span>
-            {unit && (
-              <span className="text-sm text-zinc-400 dark:text-zinc-500">{unit}</span>
-            )}
+            {unit ? <span className="ml-1 text-sm text-gray-900">{unit}</span> : null}
           </>
         )}
       </div>
-      {detail && (
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 capitalize">{detail}</p>
-      )}
+      {detail ? <p className="text-xs text-gray-900">{detail}</p> : null}
     </div>
   );
 }
