@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getSettlementPeriod,
+  listRecentSettlementPeriods,
   listSettlementPeriods,
   periodsInSettlementDay,
   settlementPeriodToUtc,
@@ -60,5 +61,17 @@ describe("settlement periods follow UK local time", () => {
     expect(getSettlementPeriod(new Date("2026-10-25T00:30:00.000Z")).settlementPeriod).toBe(4);
     expect(getSettlementPeriod(new Date("2026-10-25T01:30:00.000Z")).settlementPeriod).toBe(6);
     expect(periods[49]?.startUtc.toISOString()).toBe("2026-10-25T23:30:00.000Z");
+  });
+
+  it("only includes completed settlement periods so the in-progress one is not ingested", () => {
+    const at = new Date("2026-09-27T10:08:00.000Z");
+    const recent = listRecentSettlementPeriods(at, 2.5 * 60 * 60 * 1000);
+    const last = recent.at(-1);
+
+    expect(last?.startUtc.toISOString()).toBe("2026-09-27T09:30:00.000Z");
+    expect(last?.endUtc.toISOString()).toBe("2026-09-27T10:00:00.000Z");
+    expect(recent.some((period) => period.startUtc.toISOString() === "2026-09-27T10:00:00.000Z")).toBe(
+      false
+    );
   });
 });

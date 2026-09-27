@@ -203,7 +203,7 @@ UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 # Last 30 days (default)
 npx tsx scripts/backfill.ts --days 30
 
-# Custom range
+# Custom UK settlement-date range (inclusive YYYY-MM-DD, not UTC midnights)
 npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
 
 # Dry run (preview only)
@@ -214,6 +214,8 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
+`--from` / `--to` are inclusive UK settlement dates. `--to 2026-09-27` during BST must not include 28 Sep.
+
 The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data sources:
 - Carbon Intensity + Elexon — half-hourly UK settlement periods, including 46/50-period clock-change days
 - FUELINST + NESO embedded wind + Sheffield PV Live
@@ -221,6 +223,38 @@ The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data
 - FRED monthly TTF/LNG in $/MMBtu (kept separate from OilPriceAPI `eu_ttf` EUR/MWh)
 
 After deploying Nullable snapshot columns and the new pipes, re-run snapshot + generation backfill to replace historical `0` placeholders and the old UTC-mapped prices.
+
+### Cleanup leftover future generation rows
+
+Preview, then delete only after review (do not run from CI or agents):
+
+```sql
+SELECT timestamp, fuel_type, source, generation_mw
+FROM generation_5min
+WHERE timestamp > now()
+ORDER BY timestamp;
+
+DELETE FROM generation_5min WHERE timestamp > now();
+```
+
+`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null).
+
+### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
+
+Daily OilPriceAPI leftovers (EUR/MWh values labelled `$/MMBtu`) must not sit on the FRED monthly series. Preview, then delete only non-1st-of-month `eu_natural_gas` rows:
+
+```bash
+npx tsx scripts/cleanup-mislabelled-ttf.ts
+npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
+```
+
+```sql
+DELETE FROM commodity_prices
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1;
+```
+
+The homepage, `/api/prices`, and `/api/health` already drop those rows. Do not run `--execute` from CI or agents.
 
 ### Deploy
 ```bash

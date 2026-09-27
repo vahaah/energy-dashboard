@@ -78,7 +78,7 @@ export function listRecentSettlementPeriods(
 
   for (const settlementDate of dates) {
     for (const period of listSettlementPeriods(settlementDate)) {
-      if (period.endUtc.getTime() > start.getTime() && period.startUtc.getTime() <= at.getTime()) {
+      if (period.endUtc.getTime() > start.getTime() && period.endUtc.getTime() <= at.getTime()) {
         periods.push(period);
       }
     }

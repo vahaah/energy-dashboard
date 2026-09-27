@@ -105,7 +105,7 @@ Load historical data from all sources into Tinybird:
 # Last 30 days (default)
 npx tsx scripts/backfill.ts --days 30
 
-# Custom date range
+# Custom UK settlement-date range (inclusive YYYY-MM-DD, not UTC midnights)
 npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
 
 # Dry run (preview without ingesting)
@@ -116,7 +116,73 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
+`--from` / `--to` are inclusive **UK settlement dates**. Do not pass UTC midnights — `--to 2026-09-27` during BST must not ingest 28 Sep.
+
 Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
+
+### Cleanup leftover future generation rows
+
+NESO day-ahead forecasts were ingested with timestamps after `now()`. Latest pipes and `/api/health` ignore those rows, but they still sit in `generation_5min` until deleted.
+
+Preview (safe):
+
+```sql
+SELECT timestamp, fuel_type, source, generation_mw
+FROM generation_5min
+WHERE timestamp > now()
+ORDER BY timestamp
+```
+
+Delete only after reviewing the preview. Do not run this from CI or agents:
+
+```sql
+DELETE FROM generation_5min WHERE timestamp > now()
+```
+
+Incomplete just-started snapshot rows can stay. `latest_snapshot` now requires non-null `demand_mw` and `price_gbp_mwh`. Preview leftovers with:
+
+```sql
+SELECT timestamp, demand_mw, price_gbp_mwh
+FROM energy_snapshots FINAL
+WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
+ORDER BY timestamp DESC
+```
+
+### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
+
+Old ingest wrote OilPriceAPI Dutch TTF (EUR/MWh, e.g. 81.89 on 2026-09-27) onto `eu_natural_gas`, which is FRED monthly $/MMBtu. That produces bogus % changes. The UI and `/api/prices` now drop non-canonical rows (`eu_natural_gas` must be USD $/MMBTU on the 1st of the month; `eu_ttf` is EUR/MWh).
+
+Preview, then delete daily leftovers only. FRED month-start rows stay. Do not run `--execute` from CI or agents:
+
+```bash
+npx tsx scripts/cleanup-mislabelled-ttf.ts
+npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
+```
+
+Equivalent SQL:
+
+```sql
+SELECT date, commodity, price, currency, unit
+FROM commodity_prices FINAL
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1
+ORDER BY date;
+
+DELETE FROM commodity_prices
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1;
+```
+
+Inspect 1st-of-month collisions separately (do not auto-delete):
+
+```sql
+SELECT date, commodity, price, currency, unit
+FROM commodity_prices FINAL
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) = 1
+  AND (price > 40 OR currency != 'USD')
+ORDER BY date;
+```
 
 ### 7. Deploy to Vercel
 
@@ -159,7 +225,7 @@ Returns oil & gas commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/M
 
 ### `GET /api/health`
 
-Freshness of snapshots, FUELINST, embedded generation, and prices. Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
+Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds follow ingest cadence (`/api/cron` hourly → 2.5h; `/api/cron-prices` every 6h → 4d). Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
 
 ### Rate Limiting
 

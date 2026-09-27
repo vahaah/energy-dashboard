@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { parseCommodityRange } from "@/lib/api-params";
 import { badRequest, upstreamError } from "@/lib/api-route";
+import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
 import { getPricesQueryParams } from "@/lib/dashboard-data";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice } from "@/lib/types";
@@ -27,7 +28,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await queryPipe<CommodityPrice>("prices_range", params);
+    const data = filterCanonicalCommodityPrices(
+      await queryPipe<CommodityPrice>("prices_range", params)
+    );
     return NextResponse.json({ data, range: rangeResult.value, count: data.length });
   } catch (error) {
     return upstreamError(error);

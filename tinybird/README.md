@@ -97,8 +97,8 @@ All pipes have `TOKEN dashboard_read READ` for secure query access.
 
 | Pipe | Description | Params |
 |------|-------------|--------|
-| `latest_snapshot` | Most recent grid snapshot (`FINAL`) | — |
+| `latest_snapshot` | Most recent completed snapshot with non-null demand and price (`FINAL`, `timestamp <= now()`) | — |
 | `snapshots_range` | Snapshots in time range (`FINAL`, `avg` skips nulls) | `start`, `end`, `granularity` (hour/day/week) |
-| `latest_generation` | Latest reading **per fuel type** | — |
-| `latest_prices` | Latest price per commodity (`argMax`) | — |
-| `prices_range` | Price history in date range (`GROUP BY date, commodity`) | `start`, `end`, `commodity` (optional) |
+| `latest_generation` | Latest reading **per fuel type**, ignoring future timestamps | — |
+| `latest_prices` | Latest price per commodity (`FINAL` then `argMax`) | — |
+| `prices_range` | Price history in date range (`FINAL`, last ingest wins) | `start`, `end`, `commodity` (optional) |

@@ -1,4 +1,4 @@
-import { fetchJson } from "@/lib/http";
+import { fetchJson, type CollectionResult, type SourceStatus } from "@/lib/http";
 import {
   addUtcDays,
   formatTinybirdDateTime,
@@ -38,7 +38,8 @@ export function fuelInstRowsToIngest(
 
 export function nesoRecordsToIngest(
   records: NesoRecord[],
-  fuel: "embedded_wind" | "embedded_solar" = "embedded_wind"
+  fuel: "embedded_wind" | "embedded_solar" = "embedded_wind",
+  now?: Date
 ): Record<string, unknown>[] {
   const preferred = new Map<string, { indicator: string; value: number; timestamp: string }>();
 
@@ -62,9 +63,12 @@ export function nesoRecordsToIngest(
       continue;
     }
 
-    const timestamp = formatTinybirdDateTime(
-      settlementPeriodToUtc(settlementDate, settlementPeriod)
-    );
+    const startUtc = settlementPeriodToUtc(settlementDate, settlementPeriod);
+    if (now && startUtc.getTime() > now.getTime()) {
+      continue;
+    }
+
+    const timestamp = formatTinybirdDateTime(startUtc);
     const indicator = record.FORECAST_ACTUAL_INDICATOR ?? "F";
     const existing = preferred.get(timestamp);
     if (!existing || (existing.indicator !== "A" && indicator === "A")) {
@@ -81,10 +85,19 @@ export function nesoRecordsToIngest(
 }
 
 export function pvLiveRowsToIngest(
-  rows: PvLiveResponse["data"]
+  rows: PvLiveResponse["data"],
+  now?: Date
 ): Record<string, unknown>[] {
   return rows
-    .filter(([, , generation]) => generation != null && !Number.isNaN(generation))
+    .filter(([, datetimeGmt, generation]) => {
+      if (generation == null || Number.isNaN(generation)) {
+        return false;
+      }
+      if (!now) {
+        return true;
+      }
+      return parseUtcDateTime(datetimeGmt).getTime() <= now.getTime();
+    })
     .map(([, datetimeGmt, generation]) => ({
       timestamp: formatTinybirdDateTime(parseUtcDateTime(datetimeGmt)),
       fuel_type: "embedded_solar",
@@ -93,7 +106,48 @@ export function pvLiveRowsToIngest(
     }));
 }
 
-export async function collectRecentGeneration(now: Date): Promise<Record<string, unknown>[]> {
+export type { CollectionResult };
+
+// generation_5min is long-format ReplacingMergeTree on (timestamp, fuel_type).
+// A failed source emits no rows, so it cannot overwrite another fuel's values.
+export function mergeSettledGeneration(parts: Array<{
+  source: string;
+  rows?: Record<string, unknown>[];
+  error?: string;
+}>): CollectionResult {
+  const rows: Record<string, unknown>[] = [];
+  const sources: SourceStatus[] = [];
+
+  for (const part of parts) {
+    if (part.error) {
+      sources.push({ source: part.source, ok: false, error: part.error });
+      continue;
+    }
+
+    const partRows = part.rows ?? [];
+    rows.push(...partRows);
+    sources.push({ source: part.source, ok: true, rows: partRows.length });
+  }
+
+  return { rows, sources };
+}
+
+async function settleSource<T>(
+  source: string,
+  work: () => Promise<T>,
+  toRows: (value: T) => Record<string, unknown>[]
+): Promise<{ source: string; rows?: Record<string, unknown>[]; error?: string }> {
+  try {
+    return { source, rows: toRows(await work()) };
+  } catch (error) {
+    return {
+      source,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function collectRecentGeneration(now: Date): Promise<CollectionResult> {
   const from = new Date(now.getTime() - 65 * 60 * 1000);
   const today = getLondonDate(now);
   const yesterday = addUtcDays(today, -1);
@@ -107,28 +161,40 @@ export async function collectRecentGeneration(now: Date): Promise<Record<string,
     'ORDER BY "SETTLEMENT_DATE","SETTLEMENT_PERIOD"',
   ].join(" ");
 
-  const [fuelInst, neso, pvLive] = await Promise.all([
-    fetchJson<FuelInstRow[]>(
-      `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
+  const parts = await Promise.all([
+    settleSource(
+      "fuelinst",
+      () =>
+        fetchJson<FuelInstRow[]>(
+          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
+        ),
+      (rows) => fuelInstRowsToIngest(rows ?? [])
     ),
-    fetchJson<{ result?: { records?: NesoRecord[] } }>(
-      `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+    settleSource(
+      "neso",
+      () =>
+        fetchJson<{ result?: { records?: NesoRecord[] } }>(
+          `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+        ),
+      (json) => nesoRecordsToIngest(json.result?.records ?? [], "embedded_wind", now)
     ),
-    fetchJson<PvLiveResponse>(
-      `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${pvFrom.toISOString()}&end=${now.toISOString()}`
+    settleSource(
+      "pvlive",
+      () =>
+        fetchJson<PvLiveResponse>(
+          `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${pvFrom.toISOString()}&end=${now.toISOString()}`
+        ),
+      (json) => pvLiveRowsToIngest(json.data ?? [], now)
     ),
   ]);
 
-  return [
-    ...fuelInstRowsToIngest(fuelInst ?? []),
-    ...nesoRecordsToIngest(neso.result?.records ?? [], "embedded_wind"),
-    ...pvLiveRowsToIngest(pvLive.data ?? []),
-  ];
+  return mergeSettledGeneration(parts);
 }
 
 export async function collectGenerationForSettlementDate(
-  settlementDate: string
-): Promise<Record<string, unknown>[]> {
+  settlementDate: string,
+  now?: Date
+): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
@@ -141,21 +207,32 @@ export async function collectGenerationForSettlementDate(
     'ORDER BY "SETTLEMENT_PERIOD"',
   ].join(" ");
 
-  const [fuelInst, neso, pvLive] = await Promise.all([
-    fetchJson<FuelInstRow[]>(
-      `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${to.toISOString()}`
+  const parts = await Promise.all([
+    settleSource(
+      "fuelinst",
+      () =>
+        fetchJson<FuelInstRow[]>(
+          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${to.toISOString()}`
+        ),
+      (rows) => fuelInstRowsToIngest(rows ?? [])
     ),
-    fetchJson<{ result?: { records?: NesoRecord[] } }>(
-      `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+    settleSource(
+      "neso",
+      () =>
+        fetchJson<{ result?: { records?: NesoRecord[] } }>(
+          `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+        ),
+      (json) => nesoRecordsToIngest(json.result?.records ?? [], "embedded_wind", now)
     ),
-    fetchJson<PvLiveResponse>(
-      `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${from.toISOString()}&end=${to.toISOString()}`
+    settleSource(
+      "pvlive",
+      () =>
+        fetchJson<PvLiveResponse>(
+          `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${from.toISOString()}&end=${to.toISOString()}`
+        ),
+      (json) => pvLiveRowsToIngest(json.data ?? [], now)
     ),
   ]);
 
-  return [
-    ...fuelInstRowsToIngest(fuelInst ?? []),
-    ...nesoRecordsToIngest(neso.result?.records ?? [], "embedded_wind"),
-    ...pvLiveRowsToIngest(pvLive.data ?? []),
-  ];
+  return mergeSettledGeneration(parts);
 }

@@ -1,4 +1,9 @@
-import { fetchJson } from "@/lib/http";
+import {
+  collectionIfSourcesOk,
+  fetchJson,
+  type CollectionResult,
+  type SourceStatus,
+} from "@/lib/http";
 import { mapElexonFuel } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
@@ -38,32 +43,33 @@ function indexByTimestamp<T>(
   return map;
 }
 
-export async function fetchCarbonWindows(fromIso: string, toIso: string): Promise<{
-  intensityByTime: Map<string, IntensityRow>;
-  mixByTime: Map<string, Record<string, number>>;
-}> {
-  const [intensity, generation] = await Promise.all([
-    fetchJson<CarbonIntensityResponse>(
-      `https://api.carbonintensity.org.uk/intensity/${fromIso}/${toIso}`
-    ),
-    fetchJson<{ data: MixRow[] }>(
-      `https://api.carbonintensity.org.uk/generation/${fromIso}/${toIso}`
-    ),
-  ]);
-
+function mixByTimestamp(rows: MixRow[]): Map<string, Record<string, number>> {
   const mixByTime = new Map<string, Record<string, number>>();
-  for (const row of generation.data ?? []) {
+  for (const row of rows) {
     const mix: Record<string, number> = {};
     for (const item of row.generationmix) {
       mix[item.fuel] = item.perc;
     }
     mixByTime.set(hourKey(parseUtcDateTime(row.from)), mix);
   }
+  return mixByTime;
+}
 
-  return {
-    intensityByTime: indexByTimestamp(intensity.data ?? [], (row) => row.from),
-    mixByTime,
-  };
+export async function fetchCarbonIntensity(
+  fromIso: string,
+  toIso: string
+): Promise<IntensityRow[]> {
+  const json = await fetchJson<CarbonIntensityResponse>(
+    `https://api.carbonintensity.org.uk/intensity/${fromIso}/${toIso}`
+  );
+  return json.data ?? [];
+}
+
+export async function fetchCarbonMix(fromIso: string, toIso: string): Promise<MixRow[]> {
+  const json = await fetchJson<{ data: MixRow[] }>(
+    `https://api.carbonintensity.org.uk/generation/${fromIso}/${toIso}`
+  );
+  return json.data ?? [];
 }
 
 export async function fetchSystemPrices(settlementDate: string): Promise<ElexonSystemPrice[]> {
@@ -159,60 +165,132 @@ export function buildSnapshotRowsForPeriods(
   });
 }
 
-export async function collectRecentSnapshots(now: Date): Promise<Record<string, unknown>[]> {
+type SettledFetch<T> = { source: string; value?: T; error?: string };
+
+async function settleFetch<T>(source: string, work: () => Promise<T>): Promise<SettledFetch<T>> {
+  try {
+    return { source, value: await work() };
+  } catch (error) {
+    return {
+      source,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function statusFromFetch<T>(
+  result: SettledFetch<T>,
+  count: (value: T) => number
+): SourceStatus {
+  if (result.error || result.value === undefined) {
+    return { source: result.source, ok: false, error: result.error ?? "source failed" };
+  }
+  return { source: result.source, ok: true, rows: count(result.value) };
+}
+
+function snapshotMapsFromFetches(parts: {
+  intensity: IntensityRow[];
+  mix: MixRow[];
+  prices: ElexonSystemPrice[];
+  demand: ElexonDemand[];
+  generation: ElexonGeneration[];
+}): {
+  intensityByTime: Map<string, IntensityRow>;
+  mixByTime: Map<string, Record<string, number>>;
+  priceByTime: Map<string, number>;
+  demandByTime: Map<string, number>;
+  genMwByTime: Map<string, Record<string, number>>;
+} {
+  return {
+    intensityByTime: indexByTimestamp(parts.intensity, (row) => row.from),
+    mixByTime: mixByTimestamp(parts.mix),
+    priceByTime: priceByPeriod(parts.prices),
+    demandByTime: demandByPeriod(parts.demand),
+    genMwByTime: generationMwByPeriod(parts.generation),
+  };
+}
+
+export function snapshotCollectionFromSources(
+  periods: SettlementPeriod[],
+  sources: {
+    intensityByTime: Map<string, IntensityRow>;
+    mixByTime: Map<string, Record<string, number>>;
+    priceByTime: Map<string, number>;
+    demandByTime: Map<string, number>;
+    genMwByTime: Map<string, Record<string, number>>;
+  },
+  statuses: SourceStatus[]
+): CollectionResult {
+  return collectionIfSourcesOk(buildSnapshotRowsForPeriods(periods, sources), statuses);
+}
+
+async function collectSnapshotsForPeriods(
+  periods: SettlementPeriod[],
+  fromIso: string,
+  toIso: string,
+  priceDates: string[]
+): Promise<CollectionResult> {
+  const carbonFrom = fromIso.replace(".000", "");
+  const carbonTo = toIso.replace(".000", "");
+
+  const [intensity, mix, prices, demand, generation] = await Promise.all([
+    settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
+    settleFetch("carbon_mix", () => fetchCarbonMix(carbonFrom, carbonTo)),
+    settleFetch("prices", async () => {
+      const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date)));
+      return sets.flat();
+    }),
+    settleFetch("demand", () => fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso)),
+    settleFetch("generation_mw", () => fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso)),
+  ]);
+
+  const statuses = [
+    statusFromFetch(intensity, (rows) => rows.length),
+    statusFromFetch(mix, (rows) => rows.length),
+    statusFromFetch(prices, (rows) => rows.length),
+    statusFromFetch(demand, (rows) => rows.length),
+    statusFromFetch(generation, (rows) => rows.length),
+  ];
+
+  return snapshotCollectionFromSources(
+    periods,
+    snapshotMapsFromFetches({
+      intensity: intensity.value ?? [],
+      mix: mix.value ?? [],
+      prices: prices.value ?? [],
+      demand: demand.value ?? [],
+      generation: generation.value ?? [],
+    }),
+    statuses
+  );
+}
+
+export async function collectRecentSnapshots(now: Date): Promise<CollectionResult> {
   const periods = listRecentSettlementPeriods(now, 2.5 * 60 * 60 * 1000);
   if (periods.length === 0) {
-    return [];
+    return { rows: [], sources: [] };
   }
 
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
-  const fromIso = from.toISOString();
-  const toIso = to.toISOString();
   const dates = [...new Set(periods.map((period) => period.settlementDate))];
 
-  const [carbon, priceSets, demandRows, genRows] = await Promise.all([
-    fetchCarbonWindows(
-      from.toISOString().replace(".000", ""),
-      to.toISOString().replace(".000", "")
-    ),
-    Promise.all(dates.map((date) => fetchSystemPrices(date))),
-    fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso),
-    fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso),
-  ]);
-
-  return buildSnapshotRowsForPeriods(periods, {
-    intensityByTime: carbon.intensityByTime,
-    mixByTime: carbon.mixByTime,
-    priceByTime: priceByPeriod(priceSets.flat()),
-    demandByTime: demandByPeriod(demandRows),
-    genMwByTime: generationMwByPeriod(genRows),
-  });
+  return collectSnapshotsForPeriods(periods, from.toISOString(), to.toISOString(), dates);
 }
 
 export async function collectSnapshotsForSettlementDate(
   settlementDate: string
-): Promise<Record<string, unknown>[]> {
+): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
-  const ciFrom = from.toISOString().replace(".000Z", "Z");
-  const ciTo = to.toISOString().replace(".000Z", "Z");
 
-  const [carbon, prices, demandRows, genRows] = await Promise.all([
-    fetchCarbonWindows(ciFrom, ciTo),
-    fetchSystemPrices(settlementDate),
-    fetchElexonWindow<ElexonDemand>("ITSDO", from.toISOString(), to.toISOString()),
-    fetchElexonWindow<ElexonGeneration>("AGPT", from.toISOString(), to.toISOString()),
-  ]);
-
-  return buildSnapshotRowsForPeriods(periods, {
-    intensityByTime: carbon.intensityByTime,
-    mixByTime: carbon.mixByTime,
-    priceByTime: priceByPeriod(prices),
-    demandByTime: demandByPeriod(demandRows),
-    genMwByTime: generationMwByPeriod(genRows),
-  });
+  return collectSnapshotsForPeriods(
+    periods,
+    from.toISOString(),
+    to.toISOString(),
+    [settlementDate]
+  );
 }
 
 export function currentHalfHourTimestamp(now: Date): string {

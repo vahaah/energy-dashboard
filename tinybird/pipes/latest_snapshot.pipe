@@ -1,14 +1,18 @@
 TOKEN dashboard_read READ
 
 DESCRIPTION >
-    Returns the most recent energy snapshot (grid status).
-    FINAL forces ReplacingMergeTree dedup before the latest-row pick.
+    Most recent completed energy snapshot with core settled fields.
+    Skips future timestamps and rows that only have null demand/price so a
+    just-started period cannot blank the KPI layer.
 
 NODE endpoint
 SQL >
     SELECT *
-    FROM energy_snapshots FINAL
-    ORDER BY timestamp DESC
+    FROM energy_snapshots AS s FINAL
+    WHERE s.timestamp <= now()
+      AND s.demand_mw IS NOT NULL
+      AND s.price_gbp_mwh IS NOT NULL
+    ORDER BY s.timestamp DESC
     LIMIT 1
 
 TYPE endpoint

@@ -1,3 +1,4 @@
+import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
 import { fetchJson } from "@/lib/http";
 import type { EIAPriceData } from "@/lib/types";
 
@@ -102,4 +103,8 @@ export function mergePriceRows(preferred: PriceRow[], fallback: PriceRow[]): Pri
     }
   }
   return merged;
+}
+
+export function rejectCrossWiredPriceRows(rows: PriceRow[]): PriceRow[] {
+  return filterCanonicalCommodityPrices(rows);
 }
