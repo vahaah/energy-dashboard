@@ -9,9 +9,12 @@ import type {
   Generation5min,
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
-import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
 import {
-  buildHeadlineMetrics,
+  dashboardSearchParamParsers,
+  dateParamForRange,
+} from "@/lib/dashboard-search-params";
+import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
+import {
   buildRangeSummary,
   headlineAsOf,
   normalizeFuelType,
@@ -77,24 +80,20 @@ interface Props {
   searchParams: DashboardSearchParams;
   selectedDate: string;
   todayDate: string;
-  dataAsOf: string | null;
+  facts: LatestFacts;
   initialSnapshots: EnergySnapshot[];
-  headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
-  latestGeneration: Generation5min[];
 }
 
 export function Dashboard({
   searchParams,
   selectedDate,
   todayDate,
-  dataAsOf,
+  facts,
   initialSnapshots,
-  headlineSnapshots,
   initialPrices,
   generationHistory,
-  latestGeneration,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -121,22 +120,46 @@ export function Dashboard({
   }, [focus]);
 
   const headline = useMemo(
-    () => buildHeadlineMetrics(headlineSnapshots),
-    [headlineSnapshots]
+    () => ({
+      referenceTimestamp: facts.referenceTimestamp,
+      carbon: {
+        value: facts.carbon.value,
+        timestamp: facts.carbon.periodStartUtc,
+        index: facts.carbon.index,
+      },
+      demand: {
+        value: facts.demand.value,
+        timestamp: facts.demand.periodStartUtc,
+      },
+      price: {
+        value: facts.price.value,
+        timestamp: facts.price.periodStartUtc,
+      },
+      mixSnapshot: facts.mixSnapshot,
+    }),
+    [facts]
   );
   const rangeSummary = useMemo(
     () => buildRangeSummary(initialSnapshots),
     [initialSnapshots]
   );
   const latestGenerationSplit = useMemo(
-    () => splitLatestGenerationRows(latestGeneration),
-    [latestGeneration]
+    () => splitLatestGenerationRows(facts.generationRows),
+    [facts.generationRows]
   );
 
   const latestMixData = headline.mixSnapshot ? mixFromSnapshot(headline.mixSnapshot) : {};
   const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
   const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
   const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
+  const generationAsOf = headlineAsOf(
+    facts.generationMw.value == null ? null : facts.generationMw.periodStartUtc,
+    headline.referenceTimestamp
+  );
+  const transfersAsOf = headlineAsOf(
+    facts.netImportsMw.value == null ? null : facts.netImportsMw.periodStartUtc,
+    headline.referenceTimestamp
+  );
   const mixAsOf = headlineAsOf(
     headline.mixSnapshot?.timestamp ?? null,
     headline.referenceTimestamp
@@ -149,7 +172,7 @@ export function Dashboard({
       ),
     [latestGenerationSplit.sources]
   );
-  const topSource = topSources[0] ?? null;
+  const topSource = facts.generationMw.value == null ? null : (topSources[0] ?? null);
 
   const commodityStats = useMemo(() => {
     const groups = new Map<string, CommodityPrice[]>();
@@ -185,13 +208,16 @@ export function Dashboard({
   const carbonDelta = rangeSummary.carbon.deltaFromAverage ?? 0;
   const demandDelta = rangeSummary.demand.deltaFromAverage ?? 0;
   const priceDelta = rangeSummary.price.deltaFromAverage ?? 0;
+  const transferStance = transferStanceFrom(facts.netImportsMw.value);
   const activeInterconnectors = latestGenerationSplit.interconnectors.filter(
     (row) => Math.abs(row.generation_mw) >= 25
   ).length;
   const importShare =
-    headline.demand.value != null && headline.demand.value > 0
-      ? (latestGenerationSplit.netTransfersMw / headline.demand.value) * 100
-      : 0;
+    transferStance.kind !== "unknown" &&
+    headline.demand.value != null &&
+    headline.demand.value > 0
+      ? (transferStance.mw / headline.demand.value) * 100
+      : null;
 
   const briefingLine = [
     carbonDelta < 0
@@ -204,17 +230,7 @@ export function Dashboard({
           topSource.generation_mw
         )} GW`
       : "Generation leadership is unavailable",
-    Math.abs(latestGenerationSplit.netTransfersMw) < 25
-      ? "cross-border flows are broadly balanced"
-      : latestGenerationSplit.netTransfersMw > 0
-        ? `Britain is importing ${formatGigawatts(
-            latestGenerationSplit.netTransfersMw,
-            2
-          )} GW`
-        : `Britain is exporting ${formatGigawatts(
-            Math.abs(latestGenerationSplit.netTransfersMw),
-            2
-          )} GW`,
+    transferBriefing(transferStance),
   ].join(", ");
 
   const insightCards = [
@@ -258,12 +274,12 @@ export function Dashboard({
     },
     {
       title: "Import dependency",
-      value:
-        Math.abs(latestGenerationSplit.netTransfersMw) < 25
-          ? "Balanced"
-          : `${formatSignedPercentage(importShare)} of demand`,
-      detail: `${activeInterconnectors} active links in the latest dispatch frame`,
-      tone: latestGenerationSplit.netTransfersMw >= 0 ? "cyan" : "violet",
+      value: transferInsightValue(transferStance, importShare),
+      detail:
+        transferStance.kind === "unknown"
+          ? "No interconnector observations"
+          : `${activeInterconnectors} active links in the latest dispatch frame`,
+      tone: transferStance.kind === "export" ? "violet" : "cyan",
       icon: <ArrowLeftRight className="w-4 h-4" />,
     },
   ] as const;
@@ -298,7 +314,7 @@ export function Dashboard({
                   Grid
                 </h1>
                 <p className="mt-1 text-xs text-zinc-400">
-                  {dataAsOf ? `Data as of ${dataAsOf}` : "Awaiting first ingest"}
+                  {facts.headerStamp}
                 </p>
               </div>
             </div>
@@ -310,7 +326,10 @@ export function Dashboard({
               onChange={(nextRange) => {
                 void setUrlState({
                   range: nextRange,
-                  date: nextRange === "24h" ? activeDate : urlState.date ?? searchParams.date,
+                  date: dateParamForRange(
+                    nextRange,
+                    urlState.date ?? searchParams.date
+                  ),
                 });
               }}
               options={GLOBAL_RANGE_OPTIONS}
@@ -320,11 +339,12 @@ export function Dashboard({
               <label className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-zinc-200">
                 <CalendarDays className="h-4 w-4 text-emerald-200" />
                 <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-                  Day
+                  Date
                 </span>
                 <input
                   type="date"
                   value={activeDate}
+                  min={facts.coverageStart}
                   max={todayDate}
                   onChange={(event) => {
                     void setUrlState({ date: event.target.value || todayDate });
@@ -366,6 +386,16 @@ export function Dashboard({
         >
           {isPending ? (
             <OverviewSectionSkeleton />
+          ) : facts.empty && facts.emptyState ? (
+            <div className="rounded-lg border border-zinc-700/80 p-6 text-sm text-zinc-300 lg:col-span-2">
+              <p>{facts.emptyState.message}</p>
+              <a
+                href={facts.emptyState.href}
+                className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10"
+              >
+                {facts.emptyState.action}
+              </a>
+            </div>
           ) : (
             <>
               <div className="space-y-5">
@@ -403,24 +433,27 @@ export function Dashboard({
                   />
                   <HeroFact
                     label="Domestic generation"
-                    value={`${formatGigawatts(latestGenerationSplit.totalGenerationMw)} GW`}
+                    value={
+                      facts.generationMw.value == null
+                        ? "—"
+                        : `${formatHeadlineGw(facts.generationMw.value)} GW`
+                    }
                     detail={
                       topSource
                         ? `${formatFuelLabel(topSource.fuel_type)} leading`
                         : "Awaiting latest dispatch"
                     }
+                    asOf={generationAsOf}
                   />
                   <HeroFact
                     label="Transfer stance"
-                    value={
-                      Math.abs(latestGenerationSplit.netTransfersMw) < 25
-                        ? "Balanced"
-                        : `${formatGigawatts(
-                            Math.abs(latestGenerationSplit.netTransfersMw),
-                            2
-                          )} GW ${latestGenerationSplit.netTransfersMw > 0 ? "import" : "export"}`
+                    value={transferHeroValue(transferStance)}
+                    detail={
+                      transferStance.kind === "unknown"
+                        ? "No interconnector observations"
+                        : `${activeInterconnectors} active interconnectors`
                     }
-                    detail={`${activeInterconnectors} active interconnectors`}
+                    asOf={transfersAsOf}
                   />
                   <HeroFact
                     label="Imbalance price"
@@ -444,6 +477,7 @@ export function Dashboard({
           )}
         </section>
 
+        {facts.empty && !isPending ? null : (
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {isPending ? (
             <KpiGridSkeleton />
@@ -484,30 +518,24 @@ export function Dashboard({
               />
               <KpiCard
                 label="Domestic Supply"
-                value={formatGigawatts(latestGenerationSplit.totalGenerationMw)}
+                value={formatHeadlineGw(facts.generationMw.value)}
                 unit="GW"
                 detail={
                   topSource ? `${formatFuelLabel(topSource.fuel_type)} leading` : "Awaiting dispatch"
                 }
+                asOf={generationAsOf}
                 icon={<Gauge className="h-3.5 w-3.5" />}
                 tooltip="Latest domestic generation across fuel and embedded renewable sources."
               />
               <KpiCard
                 label="Net Transfers"
-                value={
-                  Math.abs(latestGenerationSplit.netTransfersMw) < 25
-                    ? "0.00"
-                    : `${Math.abs(latestGenerationSplit.netTransfersMw / 1000).toFixed(2)}`
-                }
+                value={transferKpiValue(transferStance)}
                 unit="GW"
-                detail={
-                  latestGenerationSplit.netTransfersMw > 0
-                    ? "import"
-                    : latestGenerationSplit.netTransfersMw < 0
-                      ? "export"
-                      : "balanced"
+                detail={transferKpiDetail(transferStance)}
+                asOf={transfersAsOf}
+                color={
+                  transferStance.kind === "export" ? "#f97316" : "#34d399"
                 }
-                color={latestGenerationSplit.netTransfersMw >= 0 ? "#34d399" : "#f97316"}
                 icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
                 tooltip="Net import/export stance based on the latest interconnector frame."
               />
@@ -527,6 +555,7 @@ export function Dashboard({
             </>
           )}
         </section>
+        )}
 
         <div className="grid gap-4 xl:grid-cols-2">
           <SectionCard
@@ -1207,6 +1236,107 @@ function mixFromSnapshot(snapshot: EnergySnapshot): Record<string, number> {
     }
   }
   return mix;
+}
+
+type TransferStance =
+  | { kind: "unknown" }
+  | { kind: "balanced"; mw: number }
+  | { kind: "import"; mw: number }
+  | { kind: "export"; mw: number };
+
+function transferStanceFrom(netImportsMw: number | null): TransferStance {
+  if (netImportsMw == null) {
+    return { kind: "unknown" };
+  }
+  if (Math.abs(netImportsMw) < 25) {
+    return { kind: "balanced", mw: netImportsMw };
+  }
+  return netImportsMw > 0
+    ? { kind: "import", mw: netImportsMw }
+    : { kind: "export", mw: netImportsMw };
+}
+
+function transferBriefing(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "cross-border transfer stance is unknown";
+    case "balanced":
+      return "cross-border flows are broadly balanced";
+    case "import":
+      return `Britain is importing ${formatGigawatts(stance.mw, 2)} GW`;
+    case "export":
+      return `Britain is exporting ${formatGigawatts(Math.abs(stance.mw), 2)} GW`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferHeroValue(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "Unknown";
+    case "balanced":
+      return "Balanced";
+    case "import":
+    case "export":
+      return `${formatGigawatts(Math.abs(stance.mw), 2)} GW ${stance.kind}`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferInsightValue(stance: TransferStance, importShare: number | null): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "Unknown";
+    case "balanced":
+      return "Balanced";
+    case "import":
+    case "export":
+      if (importShare == null) {
+        return stance.kind;
+      }
+      return `${formatSignedPercentage(importShare)} of demand`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferKpiValue(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "—";
+    case "balanced":
+      return "0.00";
+    case "import":
+    case "export":
+      return formatGigawatts(Math.abs(stance.mw), 2);
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferKpiDetail(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "unknown";
+    case "balanced":
+    case "import":
+    case "export":
+      return stance.kind;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
 }
 
 function formatOptionalNumber(value: number | null): string {

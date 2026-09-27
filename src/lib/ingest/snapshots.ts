@@ -27,7 +27,7 @@ export function buildSnapshotRow(input: SnapshotSources): Record<string, unknown
 
   const row: Record<string, unknown> = {
     timestamp: formatTinybirdDateTime(input.timestamp),
-    carbon_intensity: carbon ? nullableNumber(carbon.actual ?? carbon.forecast) : null,
+    carbon_intensity: carbon ? nullableNumber(carbon.actual) : null,
     carbon_forecast: carbon ? nullableNumber(carbon.forecast) : null,
     carbon_index: carbon?.index ?? "unknown",
     demand_mw: nullableNumber(input.demandMw),

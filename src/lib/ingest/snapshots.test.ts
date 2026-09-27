@@ -16,6 +16,17 @@ describe("snapshot nulls", () => {
     expect(row.gen_wind_mw).toBeNull();
   });
 
+  it("writes carbon actual only and never copies the forecast into carbon_intensity", () => {
+    const row = buildSnapshotRow({
+      timestamp: new Date("2026-09-27T16:30:00.000Z"),
+      carbon: { actual: null, forecast: 48, index: "low" },
+    });
+
+    expect(row.carbon_intensity).toBeNull();
+    expect(row.carbon_forecast).toBe(48);
+    expect(row.carbon_index).toBe("low");
+  });
+
   it("keeps a real zero generation share when the mix arrived", () => {
     const row = buildSnapshotRow({
       timestamp: new Date("2026-09-27T08:00:00.000Z"),

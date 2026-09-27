@@ -46,8 +46,18 @@ function get24hQueryParams(
   };
 }
 
-export function getHeadlineSnapshotsQueryParams(now = new Date()): QueryParams {
-  return getSnapshotsQueryParams("24h", now);
+export function getHeadlineSnapshotsQueryParams(
+  now = new Date(),
+  selectedDate?: string | null
+): QueryParams {
+  return getSnapshotsQueryParams("24h", now, selectedDate);
+}
+
+export function getHeadlineGenerationQueryParams(
+  now = new Date(),
+  selectedDate?: string | null
+): QueryParams {
+  return getGenerationQueryParams("24h", now, selectedDate);
 }
 
 export function getSnapshotsQueryParams(

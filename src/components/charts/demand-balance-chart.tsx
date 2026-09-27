@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Area,
   CartesianGrid,
   ComposedChart,
   Legend,
@@ -34,16 +33,13 @@ export function DemandBalanceChart({ data, range }: Props) {
       snapshot.gen_other_mw,
     ];
     const present = domesticParts.filter((value): value is number => value != null);
-    const domesticGenerationMw = present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
-    const demandMw = snapshot.demand_mw;
-    const netImportsMw =
-      demandMw == null || domesticGenerationMw == null ? null : demandMw - domesticGenerationMw;
+    const domesticGenerationMw =
+      present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
 
     return {
       time: snapshot.timestamp,
-      demandMw,
+      demandMw: snapshot.demand_mw,
       domesticGenerationMw,
-      netImportsMw,
     };
   });
 
@@ -74,7 +70,6 @@ export function DemandBalanceChart({ data, range }: Props) {
               const labelMap: Record<string, string> = {
                 demandMw: "Demand",
                 domesticGenerationMw: "Domestic generation",
-                netImportsMw: "Net imports",
               };
 
               return [
@@ -93,16 +88,6 @@ export function DemandBalanceChart({ data, range }: Props) {
           />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
           <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />
-          <Area
-            type="monotone"
-            dataKey="netImportsMw"
-            fill="#10b981"
-            fillOpacity={0.18}
-            stroke="#10b981"
-            strokeWidth={2}
-            name="Net imports"
-            connectNulls={false}
-          />
           <Line
             type="monotone"
             dataKey="demandMw"

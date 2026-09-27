@@ -1,7 +1,5 @@
 import { Dashboard } from "@/components/dashboard";
 import { filterPublicCommodityPrices } from "@/lib/commodity-series";
-import { latestObservedTimestamp } from "@/lib/health";
-import { formatLondonClock, parseUtcDateTime } from "@/lib/london-time";
 import { queryPipe } from "@/lib/tinybird";
 import type {
   EnergySnapshot,
@@ -9,13 +7,15 @@ import type {
   Generation5min,
 } from "@/lib/types";
 import { loadDashboardSearchParams } from "@/lib/dashboard-search-params.server";
+import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import {
-  getEffectiveDashboardDate,
+  getHeadlineGenerationQueryParams,
   getGenerationQueryParams,
   getHeadlineSnapshotsQueryParams,
   getPricesQueryParams,
   getSnapshotsQueryParams,
 } from "@/lib/dashboard-data";
+import { getLatestFacts } from "@/lib/facts";
 
 /**
  * Main page — Server Component.
@@ -36,40 +36,60 @@ export default async function Home({
   let headlineSnapshots: EnergySnapshot[] = [];
   let prices: CommodityPrice[] = [];
   let generationHistory: Generation5min[] = [];
-  let latestGeneration: Generation5min[] = [];
+  let headlineGeneration: Generation5min[] = [];
   const dashboardSearchParams = await loadDashboardSearchParams(searchParams);
   const now = new Date();
-  const selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date, now);
-  const todayDate = getEffectiveDashboardDate(null, now);
+  const dateResolution = resolveDashboardDate(
+    dashboardSearchParams.date,
+    now,
+    dashboardSearchParams.range
+  );
+  const headlineDate =
+    dateResolution.status === "historical" ? dateResolution.date : null;
+  const skipGrid = dateResolution.status === "empty";
+  const noSnapshots: EnergySnapshot[] = [];
+  const noGeneration: Generation5min[] = [];
 
   try {
-    [snapshots, headlineSnapshots, prices, generationHistory, latestGeneration] = await Promise.all([
-      queryPipe<EnergySnapshot>(
-        "snapshots_range",
-        getSnapshotsQueryParams(
-          dashboardSearchParams.range,
-          now,
-          dashboardSearchParams.date
-        )
-      ),
-      queryPipe<EnergySnapshot>(
-        "snapshots_range",
-        getHeadlineSnapshotsQueryParams(now)
-      ).catch(() => []),
-      queryPipe<CommodityPrice>(
-        "prices_range",
-        getPricesQueryParams(dashboardSearchParams.commodityRange, now)
-      ),
-      queryPipe<Generation5min>(
-        "generation_5min_range",
-        getGenerationQueryParams(
-          dashboardSearchParams.range,
-          now,
-          dashboardSearchParams.date
-        )
-      ).catch(() => []),
-      queryPipe<Generation5min>("latest_generation", {}).catch(() => []),
-    ]);
+    [snapshots, headlineSnapshots, prices, generationHistory, headlineGeneration] =
+      await Promise.all([
+        skipGrid
+          ? Promise.resolve(noSnapshots)
+          : queryPipe<EnergySnapshot>(
+              "snapshots_range",
+              getSnapshotsQueryParams(
+                dashboardSearchParams.range,
+                now,
+                headlineDate
+              )
+            ),
+        skipGrid
+          ? Promise.resolve(noSnapshots)
+          : queryPipe<EnergySnapshot>(
+              "snapshots_range",
+              getHeadlineSnapshotsQueryParams(now, headlineDate)
+            ).catch(() => noSnapshots),
+        queryPipe<CommodityPrice>(
+          "prices_range",
+          getPricesQueryParams(dashboardSearchParams.commodityRange, now)
+        ),
+        skipGrid
+          ? Promise.resolve(noGeneration)
+          : queryPipe<Generation5min>(
+              "generation_5min_range",
+              getGenerationQueryParams(
+                dashboardSearchParams.range,
+                now,
+                headlineDate
+              )
+            ).catch(() => noGeneration),
+        skipGrid
+          ? Promise.resolve(noGeneration)
+          : queryPipe<Generation5min>(
+              "generation_5min_range",
+              getHeadlineGenerationQueryParams(now, headlineDate)
+            ).catch(() => noGeneration),
+      ]);
   } catch {
     // Tinybird not configured yet — render with empty data
     console.log(
@@ -77,32 +97,22 @@ export default async function Home({
     );
   }
 
+  const facts = getLatestFacts({
+    resolution: dateResolution,
+    snapshots: headlineSnapshots,
+    generation: headlineGeneration,
+    now,
+  });
+
   return (
     <Dashboard
       searchParams={dashboardSearchParams}
-      selectedDate={selectedDate}
-      todayDate={todayDate}
-      dataAsOf={latestDataAsOf(headlineSnapshots, latestGeneration, now)}
+      selectedDate={dateResolution.date}
+      todayDate={dateResolution.today}
+      facts={facts}
       initialSnapshots={snapshots}
-      headlineSnapshots={headlineSnapshots}
       initialPrices={filterPublicCommodityPrices(prices)}
       generationHistory={generationHistory}
-      latestGeneration={latestGeneration}
     />
   );
-}
-
-function latestDataAsOf(
-  snapshots: EnergySnapshot[],
-  generation: Generation5min[],
-  now: Date
-): string | null {
-  const latest = latestObservedTimestamp(
-    [snapshots.at(-1)?.timestamp, ...generation.map((row) => row.timestamp)],
-    now
-  );
-  if (!latest) {
-    return null;
-  }
-  return formatLondonClock(parseUtcDateTime(latest));
 }

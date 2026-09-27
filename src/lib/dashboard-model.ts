@@ -60,7 +60,6 @@ export const GENERATION_STACK_FUELS = [
   "embedded_wind",
   "embedded_solar",
   "wind",
-  "solar",
   "nuclear",
   "hydro",
   "biomass",
@@ -71,6 +70,11 @@ export const GENERATION_STACK_FUELS = [
 ] as const;
 
 export type GenerationStackFuel = (typeof GENERATION_STACK_FUELS)[number];
+
+const EMBEDDED_STACK_FUELS: ReadonlySet<GenerationStackFuel> = new Set([
+  "embedded_wind",
+  "embedded_solar",
+]);
 
 export type GenerationStackPoint = {
   time: number;
@@ -185,8 +189,8 @@ export function buildGenerationStackSeries(
       continue;
     }
 
-    const fuel = mapGenerationFuelToStackKey(row.fuel_type) as GenerationStackFuel;
-    if (!GENERATION_STACK_FUELS.includes(fuel)) {
+    const fuel = mapGenerationFuelToStackKey(row.fuel_type);
+    if (!isGenerationStackFuel(fuel)) {
       continue;
     }
 
@@ -195,6 +199,7 @@ export function buildGenerationStackSeries(
 
   return Array.from(byBucket.entries())
     .sort(([left], [right]) => left - right)
+    .filter(([, values]) => stackBucketHasTransmissionFuel(values))
     .map(([time, values]) => {
       const total = GENERATION_STACK_FUELS.reduce(
         (sum, fuel) => sum + Number(values[fuel] ?? 0),
@@ -424,4 +429,27 @@ function getGenerationBucketSizeMs(range: TimeRange): number {
 
 function parseGenerationTimestamp(value: string): number {
   return new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z").getTime();
+}
+
+function isGenerationStackFuel(fuel: string): fuel is GenerationStackFuel {
+  for (const stackFuel of GENERATION_STACK_FUELS) {
+    if (stackFuel === fuel) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function stackBucketHasTransmissionFuel(
+  values: Partial<Record<GenerationStackFuel, number>>
+): boolean {
+  for (const fuel of GENERATION_STACK_FUELS) {
+    if (EMBEDDED_STACK_FUELS.has(fuel)) {
+      continue;
+    }
+    if (Number(values[fuel] ?? 0) !== 0) {
+      return true;
+    }
+  }
+  return false;
 }

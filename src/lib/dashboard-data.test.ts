@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEffectiveDashboardDate,
   getGenerationQueryParams,
+  getHeadlineGenerationQueryParams,
   getHeadlineSnapshotsQueryParams,
   getInterconnectorQueryParams,
   getSnapshotsQueryParams,
@@ -59,10 +60,25 @@ describe("dashboard data query params", () => {
     });
   });
 
+  it("does not apply a leftover date to multi-day chart windows", () => {
+    const now = new Date("2026-09-27T12:05:00.000Z");
+
+    expect(getSnapshotsQueryParams("7d", now, "2026-09-20")).toEqual(
+      getSnapshotsQueryParams("7d", now)
+    );
+    expect(getGenerationQueryParams("30d", now, "2015-01-01")).toEqual(
+      getGenerationQueryParams("30d", now)
+    );
+  });
+
   it("keeps headline KPIs on unaggregated rolling 24h even when charts are daily", () => {
     const now = new Date("2026-09-27T12:05:00.000Z");
 
     expect(getHeadlineSnapshotsQueryParams(now)).toEqual({
+      start: "2026-09-26 12:05:00",
+      end: "2026-09-27 12:05:00",
+    });
+    expect(getHeadlineGenerationQueryParams(now)).toEqual({
       start: "2026-09-26 12:05:00",
       end: "2026-09-27 12:05:00",
     });
@@ -74,6 +90,19 @@ describe("dashboard data query params", () => {
     expect(getSnapshotsQueryParams("90d", now).granularity).toBe("day");
     expect(getSnapshotsQueryParams("1y", now).granularity).toBe("day");
     expect(getHeadlineSnapshotsQueryParams(now)).not.toHaveProperty("granularity");
+  });
+
+  it("uses the selected historical UK day for headline snapshots and generation", () => {
+    const now = new Date("2026-09-27T12:05:00.000Z");
+
+    expect(getHeadlineSnapshotsQueryParams(now, "2026-09-20")).toEqual({
+      start: "2026-09-19 23:00:00",
+      end: "2026-09-20 22:59:59",
+    });
+    expect(getHeadlineGenerationQueryParams(now, "2026-09-20")).toEqual({
+      start: "2026-09-19 23:00:00",
+      end: "2026-09-20 22:59:59",
+    });
   });
 
   it("uses the UK date for the date picker default", () => {

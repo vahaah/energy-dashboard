@@ -73,10 +73,9 @@ export function listRecentSettlementPeriods(
   lookbackMs: number
 ): SettlementPeriod[] {
   const start = new Date(at.getTime() - lookbackMs);
-  const dates = new Set<string>([getLondonDate(start), getLondonDate(at)]);
   const periods: SettlementPeriod[] = [];
 
-  for (const settlementDate of dates) {
+  for (const settlementDate of londonDatesSpanned(start, at)) {
     for (const period of listSettlementPeriods(settlementDate)) {
       if (period.endUtc.getTime() > start.getTime() && period.endUtc.getTime() <= at.getTime()) {
         periods.push(period);
@@ -85,6 +84,19 @@ export function listRecentSettlementPeriods(
   }
 
   return periods.sort((left, right) => left.startUtc.getTime() - right.startUtc.getTime());
+}
+
+function londonDatesSpanned(start: Date, end: Date): string[] {
+  const dates: string[] = [];
+  let cursor = getLondonDate(start);
+  const last = getLondonDate(end);
+
+  while (cursor <= last) {
+    dates.push(cursor);
+    cursor = addUtcDays(cursor, 1);
+  }
+
+  return dates;
 }
 
 export function settlementTimestamp(period: SettlementPeriod): string {
