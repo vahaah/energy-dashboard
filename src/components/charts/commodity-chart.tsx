@@ -11,7 +11,12 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import type { CommodityPrice, CommodityRange } from "@/lib/types";
+import type {
+  CommodityChartSeries,
+  CommodityPrice,
+  CommodityRange,
+  CommodityScale,
+} from "@/lib/types";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import {
   buildCommodityChartSeries,
@@ -23,8 +28,6 @@ import {
   scaleAxisLabel,
   scaleCaption,
   tooltipRowsAtTime,
-  type CommodityChartSeries,
-  type CommodityScale,
 } from "@/lib/commodity-chart-model";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { TimeRangeSelector } from "@/components/time-range-selector";

@@ -4,35 +4,14 @@ import {
   commodityChartValue,
   GB_GAS_SAP_COMMODITY,
 } from "@/lib/gb-gas-sap";
-import type { CommodityPrice } from "@/lib/types";
-
-export type CommodityScale = "index" | "native";
-
-export type CommodityChartPoint = {
-  date: string;
-  time: number;
-  value: number;
-  native: number;
-  unit: string;
-  commodity: string;
-};
-
-export type CommodityChartSeries = {
-  commodity: string;
-  label: string;
-  color: string;
-  monthly: boolean;
-  points: CommodityChartPoint[];
-};
-
-export type CommodityTooltipRow = {
-  commodity: string;
-  label: string;
-  color: string;
-  native: number;
-  unit: string;
-  date: string;
-};
+import type {
+  CommodityChartPoint,
+  CommodityChartSeries,
+  CommodityPrice,
+  CommodityScale,
+  CommodityTooltipRow,
+  CommodityYAxis,
+} from "@/lib/types";
 
 export const COMMODITY_SCALE_OPTIONS = [
   { value: "index", label: "Indexed" },
@@ -156,12 +135,6 @@ export function indexLogAxis(
   }
   return { domain: [first, last], ticks };
 }
-
-export type CommodityYAxis = {
-  scale: "log" | "auto";
-  domain: [number, number] | undefined;
-  ticks: number[] | undefined;
-};
 
 export function commodityYAxis(
   scale: CommodityScale,

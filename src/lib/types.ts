@@ -126,6 +126,40 @@ export interface GenerationMixItem {
 
 export type CommodityRange = "30d" | "90d" | "1y";
 
+export type CommodityScale = "index" | "native";
+
+export type CommodityChartPoint = {
+  date: string;
+  time: number;
+  value: number;
+  native: number;
+  unit: string;
+  commodity: string;
+};
+
+export type CommodityChartSeries = {
+  commodity: string;
+  label: string;
+  color: string;
+  monthly: boolean;
+  points: CommodityChartPoint[];
+};
+
+export type CommodityTooltipRow = {
+  commodity: string;
+  label: string;
+  color: string;
+  native: number;
+  unit: string;
+  date: string;
+};
+
+export type CommodityYAxis = {
+  scale: "log" | "auto";
+  domain: [number, number] | undefined;
+  ticks: number[] | undefined;
+};
+
 export type DashboardFocus =
   | "overview"
   | "carbon"
