@@ -10,8 +10,6 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
 - [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — national GB solar (including embedded)
 - [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
-- [FRED](https://fred.stlouisfed.org) / IMF — monthly EU TTF and Asia LNG in $/MMBtu
-- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh (`eu_ttf`), 00:30 UTC slot only (Free plan: 50 requests/month)
 - [National Gas Data Portal](https://data.nationalgas.com) — GB System Average Price (`gb_gas_sap`, PUBOB603), p/kWh, no auth
 
 ## Architecture
@@ -34,7 +32,7 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
          │    │ • Carbon Intensity API    │        │
          │    │ • Elexon BMRS/Insights    │        │
          │    │ • NESO / Sheffield PV Live│        │
-         │    │ • EIA / FRED / OilPriceAPI│        │
+         │    │ • EIA / National Gas      │        │
          │    └────────────┬──────────────┘        │
          │                 │ ingest                 │
          │    ┌────────────▼──────────────┐        │
@@ -131,7 +129,7 @@ npx tsx scripts/backfill-gb-gas-sap.ts
 npx tsx scripts/backfill-gb-gas-sap.ts --execute
 ```
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). OilPriceAPI is not used by the backfill — live Dutch TTF comes from `/api/cron-prices` only.
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
 
 ### Cleanup leftover future generation rows
 
@@ -161,7 +159,7 @@ WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
 ORDER BY timestamp DESC
 ```
 
-The homepage, `/api/prices`, and `/api/health` drop leftover daily `eu_natural_gas` rows that are not FRED month-start $/MMBtu.
+The homepage and `/api/prices` only publish EIA oil/gas series and National Gas SAP. Other stored commodity rows are left in Tinybird but are not served.
 
 ### 7. Deploy to Vercel
 
@@ -175,10 +173,10 @@ Set environment variables in Vercel dashboard:
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`
 - `CRON_SECRET`
-- `OIL_PRICE_API_KEY` (optional — Dutch TTF only, ≤1 request/day)
-- `FRED_API_KEY` (optional)
+- `OIL_PRICE_API_KEY` (optional, unused)
+- `FRED_API_KEY` (optional, unused)
 
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours; OilPriceAPI is called only on the 00:30 UTC slot, and skipped if today's `eu_ttf` row already exists. A missed ingest is not retried later that day.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA and National Gas.
 
 ## Public API
 
@@ -213,12 +211,12 @@ Returns interconnector import/export flows (Elexon FUELINST `INT*` fuels).
 
 ### `GET /api/prices`
 
-Returns commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/MWh**. `eu_natural_gas` is FRED monthly TTF in **$/MMBtu**. `lng_asia` is FRED/IMF monthly Asia LNG. `gb_gas_sap` is National Gas System Average Price in **p/kWh** (display as p/therm × 29.3071 or £/MWh × 10). Do not treat the TTF series as one.
+Returns commodity prices. Public series are EIA Brent, WTI and Henry Hub, plus National Gas System Average Price (`gb_gas_sap`, stored in **p/kWh**; display as p/therm × 29.3071 or £/MWh × 10). Unknown commodity keys return 400.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `range` | `30d\|90d\|1y` | `30d` | Time range |
-| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|gb_gas_sap\|eu_ttf\|eu_natural_gas\|lng_asia` | all | Filter |
+| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|gb_gas_sap` | all | Filter |
 
 ### `GET /api/health`
 
@@ -249,9 +247,6 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 - Brent Crude ($/bbl) — EIA
 - WTI Crude ($/bbl) — EIA
 - Henry Hub Natural Gas ($/MMBtu) — EIA
-- Dutch TTF (€/MWh, `eu_ttf`) — OilPriceAPI, 00:30 UTC slot only
-- EU TTF monthly ($/MMBtu, `eu_natural_gas`) — FRED/IMF
-- Asia LNG monthly ($/MMBtu, `lng_asia`) — FRED/IMF
 - GB gas System Average Price (p/kWh, `gb_gas_sap`) — National Gas PUBOB603
 
 ## License

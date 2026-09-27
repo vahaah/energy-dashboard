@@ -30,8 +30,6 @@ export const COMMODITY_COLORS: Record<string, string> = {
   wti_crude: "#3b82f6",
   henry_hub_gas: "#22c55e",
   gb_gas_sap: "#2dd4bf",
-  eu_natural_gas: "#8b5cf6",
-  lng_asia: "#eab308",
 };
 
 export const COMMODITY_LABELS: Record<string, string> = {
@@ -39,8 +37,6 @@ export const COMMODITY_LABELS: Record<string, string> = {
   wti_crude: "WTI crude ($/bbl)",
   henry_hub_gas: "Henry Hub gas ($/MMBtu)",
   gb_gas_sap: "GB gas SAP (p/therm)",
-  eu_natural_gas: "EU gas, monthly (IMF)",
-  lng_asia: "Asian LNG, Japan import price (IMF, monthly)",
 };
 
 export const COMMODITY_CARD_LABELS: Record<string, string> = {
@@ -48,8 +44,6 @@ export const COMMODITY_CARD_LABELS: Record<string, string> = {
   wti_crude: "WTI crude oil",
   henry_hub_gas: "Henry Hub gas",
   gb_gas_sap: "GB gas (SAP)",
-  eu_natural_gas: "EU gas, monthly (IMF)",
-  lng_asia: "Asian LNG, Japan import price (IMF, monthly)",
 };
 
 export const COMMODITY_DISPLAY_ORDER = PUBLIC_COMMODITIES;

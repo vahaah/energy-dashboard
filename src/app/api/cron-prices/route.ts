@@ -7,28 +7,18 @@ import type { SourceStatus } from "@/lib/http";
 import { fetchGbGasSapRange, sapCronWindow } from "@/lib/gb-gas-sap";
 import {
   fetchEiaLatest,
-  fetchFredLatest,
-  fetchOilPriceLatest,
-  isOilPriceTtfCronSlot,
   isRequiredPriceCronSource,
-  latestCommodityDate,
-  mergePriceRows,
   rejectCrossWiredPriceRows,
-  shouldFetchOilPriceTtf,
   type PriceRow,
 } from "@/lib/ingest/collect-prices";
-import { formatIsoDate } from "@/lib/london-time";
-import { ingestRows, queryPipe } from "@/lib/tinybird";
-import type { CommodityPrice } from "@/lib/types";
+import { ingestRows } from "@/lib/tinybird";
 
 /**
  * GET /api/cron-prices
  *
  * Every 6 hours. Fetches commodity prices from:
  *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu)
- *   2. OilPriceAPI — Dutch TTF (EUR/MWh as eu_ttf), 00:30 UTC slot only
- *   3. FRED — monthly TTF + LNG in $/MMBtu (eu_natural_gas / lng_asia)
- *   4. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
+ *   2. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
  */
 
 export const maxDuration = 60;
@@ -40,37 +30,20 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const today = formatIsoDate(now);
-  const utcHour = now.getUTCHours();
   const eiaKey = process.env.EIA_API_KEY;
-  const oilApiKey = process.env.OIL_PRICE_API_KEY;
-  const fredKey = process.env.FRED_API_KEY;
 
   const sapWindow = sapCronWindow(now);
-  const [eia, oil, fred, sap] = await Promise.all([
+  const [eia, sap] = await Promise.all([
     runOptionalSource("eia", eiaKey && eiaKey !== "DEMO_KEY" ? eiaKey : null, "EIA_API_KEY is not set (DEMO_KEY is not used)", (key) =>
       fetchEiaLatest(key)
     ),
-    runOptionalSource("oilpriceapi", oilApiKey ?? null, "OIL_PRICE_API_KEY is not set; skipped", (key) =>
-      fetchOilPriceTtfIfNeeded(key, today, utcHour)
-    ),
-    runOptionalSource("fred", fredKey ?? null, "FRED_API_KEY is not set; skipped", (key) => fetchFredLatest(key)),
     runKeylessSource("nationalgas", () => fetchGbGasSapRange(sapWindow.from, sapWindow.to)),
   ]);
-
-  const oilRows = rejectCrossWiredPriceRows(oil.rowsData ?? []);
-  const fredRows = rejectCrossWiredPriceRows(
-    mergePriceRows(oilRows, fred.rowsData ?? []).filter(
-      (row) => !oilRows.some((oilRow) => oilRow.commodity === row.commodity)
-    )
-  );
 
   const sapRows = rejectCrossWiredPriceRows(sap.rowsData ?? []);
 
   const ingestStatuses = await Promise.all([
     ingestSource("eia", eia, eia.rowsData ?? []),
-    ingestSource("oilpriceapi", oil, oilRows),
-    ingestSource("fred", fred, fredRows),
     ingestSource("nationalgas", sap, sapRows),
   ]);
 
@@ -98,24 +71,6 @@ export async function GET(request: Request) {
     },
     { status: hasHardFailure ? 503 : 200 }
   );
-}
-
-async function fetchOilPriceTtfIfNeeded(
-  apiKey: string,
-  today: string,
-  utcHour: number
-): Promise<PriceRow[]> {
-  if (!isOilPriceTtfCronSlot(utcHour)) {
-    return [];
-  }
-  const latestTtfDate = latestCommodityDate(
-    await queryPipe<CommodityPrice>("latest_prices"),
-    "eu_ttf"
-  );
-  if (!shouldFetchOilPriceTtf(today, latestTtfDate, utcHour)) {
-    return [];
-  }
-  return fetchOilPriceLatest(apiKey, today);
 }
 
 type FetchedSource = SourceStatus & { rowsData?: PriceRow[] };

@@ -786,11 +786,10 @@ export function Dashboard({
               <p className="mt-2 text-sm leading-7 text-zinc-300">
                 Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
                 Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
-                day-ahead wholesale. Oil and gas prices come from EIA (US Energy Information Administration),
-                FRED (Federal Reserve Economic Data) and National Gas, and refresh every 6 hours. FRED
-                supplies the monthly EU gas price and the IMF Japan LNG import price, both in $/MMBtu.
-                Power and market ranges are intentionally decoupled because intraday grid behavior and
-                commodity settlement cadence move on different clocks.
+                day-ahead wholesale. Oil and gas prices come from EIA (US Energy Information Administration)
+                and National Gas, and refresh every 6 hours. Power and market ranges are intentionally
+                decoupled because intraday grid behavior and commodity settlement cadence move on different
+                clocks.
               </p>
             </div>
             <div className="space-y-3">

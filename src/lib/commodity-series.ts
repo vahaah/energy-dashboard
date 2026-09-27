@@ -5,8 +5,6 @@ export const PUBLIC_COMMODITIES = [
   "wti_crude",
   "henry_hub_gas",
   "gb_gas_sap",
-  "eu_natural_gas",
-  "lng_asia",
 ] as const;
 
 export type PublicCommodity = (typeof PUBLIC_COMMODITIES)[number];

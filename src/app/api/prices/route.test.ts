@@ -17,34 +17,63 @@ const brent = {
   unit: "$/BBL",
 };
 
-const ttf = {
-  date: "2026-09-27",
-  commodity: "eu_ttf",
-  price: 81.89,
-  currency: "EUR",
-  unit: "EUR/MWh",
-};
+const withdrawn = [
+  {
+    date: "2026-09-27",
+    commodity: "eu_ttf",
+    price: 81.89,
+    currency: "EUR",
+    unit: "EUR/MWh",
+  },
+  {
+    date: "2026-09-01",
+    commodity: "eu_natural_gas",
+    price: 11.4,
+    currency: "USD",
+    unit: "$/MMBTU",
+  },
+  {
+    date: "2026-09-01",
+    commodity: "lng_asia",
+    price: 10.84,
+    currency: "USD",
+    unit: "$/MMBTU",
+  },
+] as const;
 
 describe("/api/prices public commodities", () => {
   beforeEach(() => {
     queryPipe.mockReset();
-    queryPipe.mockResolvedValue([ttf, brent]);
+    queryPipe.mockResolvedValue([...withdrawn, brent]);
   });
 
-  it("returns 400 unknown commodity for eu_ttf", async () => {
-    const response = await GET(new NextRequest("http://localhost/api/prices?commodity=eu_ttf"));
+  it("returns 400 unknown commodity for withdrawn series", async () => {
+    const responses = await Promise.all(
+      ["eu_ttf", "lng_asia", "eu_natural_gas"].map((commodity) =>
+        GET(new NextRequest(`http://localhost/api/prices?commodity=${commodity}`))
+      )
+    );
+    const bodies = await Promise.all(responses.map((response) => response.json()));
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "unknown commodity" });
+    expect(responses.map((response) => response.status)).toEqual([400, 400, 400]);
+    expect(bodies).toEqual([
+      { error: "unknown commodity" },
+      { error: "unknown commodity" },
+      { error: "unknown commodity" },
+    ]);
     expect(queryPipe).not.toHaveBeenCalled();
   });
 
-  it("returns zero eu_ttf rows on the default response", async () => {
+  it("returns none of the withdrawn series on the default response", async () => {
     const response = await GET(new NextRequest("http://localhost/api/prices"));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.data.some((row: { commodity: string }) => row.commodity === "eu_ttf")).toBe(false);
+    expect(
+      body.data.some((row: { commodity: string }) =>
+        ["eu_ttf", "lng_asia", "eu_natural_gas"].includes(row.commodity)
+      )
+    ).toBe(false);
     expect(body.data).toEqual([brent]);
     expect(body.count).toBe(1);
   });

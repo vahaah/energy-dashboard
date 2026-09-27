@@ -8,11 +8,9 @@ import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice } from "@/lib/types";
 
 /**
- * GET /api/prices?range=30d|90d|1y&commodity=brent_crude|wti_crude|henry_hub_gas|gb_gas_sap|eu_natural_gas|lng_asia
+ * GET /api/prices?range=30d|90d|1y&commodity=brent_crude|wti_crude|henry_hub_gas|gb_gas_sap
  *
  * Public API — returns commodity price history.
- * `eu_natural_gas` is the IMF EU gas monthly series in USD/MMBtu, via FRED.
- * `lng_asia` is the IMF Japan LNG import price, monthly, in USD/MMBtu, via FRED.
  * `gb_gas_sap` is National Gas System Average Price in p/kWh (GBP).
  * Rate limited via middleware (60 req/min per IP).
  */
