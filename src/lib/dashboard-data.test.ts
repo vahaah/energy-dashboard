@@ -60,6 +60,17 @@ describe("dashboard data query params", () => {
     });
   });
 
+  it("does not apply a leftover date to multi-day chart windows", () => {
+    const now = new Date("2026-09-27T12:05:00.000Z");
+
+    expect(getSnapshotsQueryParams("7d", now, "2026-09-20")).toEqual(
+      getSnapshotsQueryParams("7d", now)
+    );
+    expect(getGenerationQueryParams("30d", now, "2015-01-01")).toEqual(
+      getGenerationQueryParams("30d", now)
+    );
+  });
+
   it("keeps headline KPIs on unaggregated rolling 24h even when charts are daily", () => {
     const now = new Date("2026-09-27T12:05:00.000Z");
 

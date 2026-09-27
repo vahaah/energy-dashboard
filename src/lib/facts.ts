@@ -168,9 +168,7 @@ function populatedFacts({
 
   const stampInstant = referenceTimestamp
     ? parseUtcDateTime(referenceTimestamp)
-    : period
-      ? period.startUtc
-      : null;
+    : null;
   const stale =
     !isHistorical &&
     stampInstant != null &&

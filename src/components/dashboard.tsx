@@ -9,7 +9,10 @@ import type {
   Generation5min,
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
-import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
+import {
+  dashboardSearchParamParsers,
+  dateParamForRange,
+} from "@/lib/dashboard-search-params";
 import type { LatestFacts } from "@/lib/facts";
 import {
   buildRangeSummary,
@@ -322,7 +325,10 @@ export function Dashboard({
               onChange={(nextRange) => {
                 void setUrlState({
                   range: nextRange,
-                  date: nextRange === "24h" ? activeDate : urlState.date ?? searchParams.date,
+                  date: dateParamForRange(
+                    nextRange,
+                    urlState.date ?? searchParams.date
+                  ),
                 });
               }}
               options={GLOBAL_RANGE_OPTIONS}

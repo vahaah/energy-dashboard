@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   clampDashboardDate,
+  dateParamForRange,
+  DASHBOARD_RANGES,
   resolveDashboardDate,
 } from "@/lib/dashboard-search-params";
 import {
@@ -81,5 +83,27 @@ describe("dashboard date coverage", () => {
       date: "2026-09-20",
     });
     expect(resolveDashboardDate(null, now).status).toBe("latest");
+  });
+
+  it("ignores the date parameter outside the 24h view", () => {
+    expect(dateParamForRange("24h", "2026-09-20")).toBe("2026-09-20");
+    expect(dateParamForRange("24h", "not-a-date")).toBeNull();
+    expect(dateParamForRange("24h", null)).toBeNull();
+
+    for (const range of DASHBOARD_RANGES) {
+      if (range === "24h") {
+        continue;
+      }
+      expect(dateParamForRange(range, "2026-09-20")).toBeNull();
+      expect(dateParamForRange(range, "2015-01-01")).toBeNull();
+      expect(resolveDashboardDate("2026-09-20", now, range).status).toBe("latest");
+      expect(resolveDashboardDate("2015-01-01", now, range).status).toBe("latest");
+    }
+
+    expect(resolveDashboardDate("2026-09-20", now, "24h")).toMatchObject({
+      status: "historical",
+      date: "2026-09-20",
+    });
+    expect(resolveDashboardDate("2015-01-01", now, "24h").status).toBe("empty");
   });
 });

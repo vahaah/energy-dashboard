@@ -39,7 +39,11 @@ export default async function Home({
   let headlineGeneration: Generation5min[] = [];
   const dashboardSearchParams = await loadDashboardSearchParams(searchParams);
   const now = new Date();
-  const dateResolution = resolveDashboardDate(dashboardSearchParams.date, now);
+  const dateResolution = resolveDashboardDate(
+    dashboardSearchParams.date,
+    now,
+    dashboardSearchParams.range
+  );
   const headlineDate =
     dateResolution.status === "historical" ? dateResolution.date : null;
   const skipGrid = dateResolution.status === "empty";
@@ -56,7 +60,7 @@ export default async function Home({
               getSnapshotsQueryParams(
                 dashboardSearchParams.range,
                 now,
-                dashboardSearchParams.date
+                headlineDate
               )
             ),
         skipGrid
@@ -76,7 +80,7 @@ export default async function Home({
               getGenerationQueryParams(
                 dashboardSearchParams.range,
                 now,
-                dashboardSearchParams.date
+                headlineDate
               )
             ).catch(() => noGeneration),
         skipGrid

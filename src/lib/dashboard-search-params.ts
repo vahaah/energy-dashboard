@@ -52,22 +52,34 @@ export function clampDashboardDate(value: string, now = new Date()): string {
   return value;
 }
 
+export function dateParamForRange(
+  range: (typeof DASHBOARD_RANGES)[number],
+  date: string | null | undefined
+): string | null {
+  if (range !== "24h") {
+    return null;
+  }
+  return date && isValidDashboardDate(date) ? date : null;
+}
+
 export function resolveDashboardDate(
   selectedDate: string | null | undefined,
-  now = new Date()
+  now = new Date(),
+  range: (typeof DASHBOARD_RANGES)[number] = "24h"
 ): DashboardDateResolution {
   const today = getLondonDate(now);
   const coverageStart = getDashboardCoverageStart(now);
+  const date = dateParamForRange(range, selectedDate);
 
-  if (!selectedDate || !isValidDashboardDate(selectedDate) || selectedDate === today) {
+  if (!date || date === today) {
     return { status: "latest", date: today, today, coverageStart };
   }
 
-  if (selectedDate < coverageStart || selectedDate > today) {
-    return { status: "empty", date: selectedDate, today, coverageStart };
+  if (date < coverageStart || date > today) {
+    return { status: "empty", date, today, coverageStart };
   }
 
-  return { status: "historical", date: selectedDate, today, coverageStart };
+  return { status: "historical", date, today, coverageStart };
 }
 
 const parseAsDashboardDate = createParser<string>({

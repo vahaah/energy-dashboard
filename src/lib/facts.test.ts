@@ -158,6 +158,25 @@ describe("getLatestFacts", () => {
     expect(facts.carbon.periodStartUtc).toBe("2026-09-27T15:00:00.000Z");
   });
 
+  it("does not fabricate a timestamp when no facts were observed", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [],
+      generation: [],
+      now,
+    });
+
+    expect(facts.empty).toBe(false);
+    expect(facts.stamp).toBeNull();
+    expect(facts.referenceTimestamp).toBeNull();
+    expect(facts.headerStamp).toBe("No data yet. Grid refreshes every hour.");
+    expect(facts.carbon.value).toBeNull();
+    expect(facts.demand.value).toBeNull();
+    expect(facts.price.value).toBeNull();
+    expect(facts.generationMw.value).toBeNull();
+  });
+
   it("uses stale wording after 2.5 hours on the latest view", () => {
     const now = new Date("2026-09-27T18:45:00.000Z");
     const facts = getLatestFacts({
