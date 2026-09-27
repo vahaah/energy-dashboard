@@ -8,12 +8,12 @@ TOKEN dashboard_read READ
 NODE endpoint
 SQL >
     SELECT
-        fuel_type,
-        max(timestamp) AS timestamp,
-        argMax(generation_mw, timestamp) AS generation_mw,
-        argMax(source, timestamp) AS source
-    FROM generation_5min
-    GROUP BY fuel_type
+        g.fuel_type,
+        max(g.timestamp) AS timestamp,
+        argMax(g.generation_mw, g.timestamp) AS generation_mw,
+        argMax(g.source, g.timestamp) AS source
+    FROM generation_5min AS g
+    GROUP BY g.fuel_type
     ORDER BY generation_mw DESC
 
 TYPE endpoint

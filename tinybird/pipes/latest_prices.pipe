@@ -7,13 +7,13 @@ DESCRIPTION >
 NODE endpoint
 SQL >
     SELECT
-        commodity,
-        argMax(price, date) AS price,
-        argMax(currency, date) AS currency,
-        argMax(unit, date) AS unit,
-        max(date) AS date
-    FROM commodity_prices
-    GROUP BY commodity
+        p.commodity,
+        argMax(p.price, p.date) AS price,
+        argMax(p.currency, p.date) AS currency,
+        argMax(p.unit, p.date) AS unit,
+        max(p.date) AS date
+    FROM commodity_prices AS p
+    GROUP BY p.commodity
     ORDER BY commodity ASC
 
 TYPE endpoint
