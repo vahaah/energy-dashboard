@@ -5,6 +5,7 @@ import {
   STALE_AFTER_MS,
   streamFreshness,
 } from "@/lib/health";
+import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
  *
  * Lightweight freshness check for uptime monitors.
  * Returns 503 when a critical grid stream (snapshots or FUELINST) is stale.
+ * Stale windows match ingest cadence: hourly cron + 90m margin.
  */
 export async function GET() {
   const now = new Date();
@@ -44,7 +46,7 @@ export async function GET() {
       now
     );
     const priceLatest = latestObservedTimestamp(
-      prices.map((row) => `${row.date} 00:00:00`),
+      filterCanonicalCommodityPrices(prices).map((row) => `${row.date} 00:00:00`),
       now
     );
 

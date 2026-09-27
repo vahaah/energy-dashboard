@@ -148,6 +148,42 @@ WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
 ORDER BY timestamp DESC
 ```
 
+### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
+
+Old ingest wrote OilPriceAPI Dutch TTF (EUR/MWh, e.g. 81.89 on 2026-09-27) onto `eu_natural_gas`, which is FRED monthly $/MMBtu. That produces bogus % changes. The UI and `/api/prices` now drop non-canonical rows (`eu_natural_gas` must be USD $/MMBTU on the 1st of the month; `eu_ttf` is EUR/MWh).
+
+Preview, then delete daily leftovers only. FRED month-start rows stay. Do not run `--execute` from CI or agents:
+
+```bash
+npx tsx scripts/cleanup-mislabelled-ttf.ts
+npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
+```
+
+Equivalent SQL:
+
+```sql
+SELECT date, commodity, price, currency, unit
+FROM commodity_prices FINAL
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1
+ORDER BY date;
+
+DELETE FROM commodity_prices
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1;
+```
+
+Inspect 1st-of-month collisions separately (do not auto-delete):
+
+```sql
+SELECT date, commodity, price, currency, unit
+FROM commodity_prices FINAL
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) = 1
+  AND (price > 40 OR currency != 'USD')
+ORDER BY date;
+```
+
 ### 7. Deploy to Vercel
 
 ```bash
@@ -189,7 +225,7 @@ Returns oil & gas commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/M
 
 ### `GET /api/health`
 
-Freshness of snapshots, FUELINST, embedded generation, and prices. Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
+Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds follow ingest cadence (`/api/cron` hourly → 2.5h; `/api/cron-prices` every 6h → 4d). Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
 
 ### Rate Limiting
 

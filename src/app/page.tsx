@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/dashboard";
+import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
 import { latestObservedTimestamp } from "@/lib/health";
 import { formatLondonClock, parseUtcDateTime } from "@/lib/london-time";
 import { queryPipe } from "@/lib/tinybird";
@@ -77,7 +78,7 @@ export default async function Home({
       todayDate={todayDate}
       dataAsOf={latestDataAsOf(snapshots, latestGeneration, now)}
       initialSnapshots={snapshots}
-      initialPrices={prices}
+      initialPrices={filterCanonicalCommodityPrices(prices)}
       generationHistory={generationHistory}
       latestGeneration={latestGeneration}
     />

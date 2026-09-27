@@ -1,10 +1,19 @@
 import { parseUtcDateTime } from "@/lib/london-time";
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** /api/cron is hourly. Allow one missed run plus Vercel jitter. */
+export const HOURLY_CRON_STALE_MS = 2.5 * HOUR_MS;
+
+/** /api/cron-prices is every 6h; EIA also gaps over weekends. */
+export const PRICE_CRON_STALE_MS = 4 * DAY_MS;
+
 export const STALE_AFTER_MS = {
-  snapshots: 2.5 * 60 * 60 * 1000,
-  generation: 20 * 60 * 1000,
-  embedded: 90 * 60 * 1000,
-  prices: 4 * 24 * 60 * 60 * 1000,
+  snapshots: HOURLY_CRON_STALE_MS,
+  generation: HOURLY_CRON_STALE_MS,
+  embedded: HOURLY_CRON_STALE_MS,
+  prices: PRICE_CRON_STALE_MS,
 } as const;
 
 export type StreamFreshness = {

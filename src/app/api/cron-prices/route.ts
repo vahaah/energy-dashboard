@@ -9,6 +9,7 @@ import {
   fetchFredLatest,
   fetchOilPriceLatest,
   mergePriceRows,
+  rejectCrossWiredPriceRows,
   type PriceRow,
 } from "@/lib/ingest/collect-prices";
 import { formatIsoDate } from "@/lib/london-time";
@@ -46,9 +47,11 @@ export async function GET(request: Request) {
     runOptionalSource("fred", fredKey ?? null, "FRED_API_KEY is not set; skipped", (key) => fetchFredLatest(key)),
   ]);
 
-  const oilRows = oil.rowsData ?? [];
-  const fredRows = mergePriceRows(oilRows, fred.rowsData ?? []).filter(
-    (row) => !oilRows.some((oilRow) => oilRow.commodity === row.commodity)
+  const oilRows = rejectCrossWiredPriceRows(oil.rowsData ?? []);
+  const fredRows = rejectCrossWiredPriceRows(
+    mergePriceRows(oilRows, fred.rowsData ?? []).filter(
+      (row) => !oilRows.some((oilRow) => oilRow.commodity === row.commodity)
+    )
   );
 
   const ingestStatuses = await Promise.all([

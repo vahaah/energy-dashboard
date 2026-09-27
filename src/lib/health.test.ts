@@ -37,6 +37,37 @@ describe("health freshness", () => {
     expect(healthHttpStatus([prices])).toBe(200);
   });
 
+  it("keeps hourly-ingested generation fresh for a full cron cycle plus margin", () => {
+    const twentyMinutesOld = streamFreshness(
+      "generation",
+      "2026-09-27 09:40:00",
+      now,
+      STALE_AFTER_MS.generation,
+      true
+    );
+    const oneHourOld = streamFreshness(
+      "generation",
+      "2026-09-27 09:00:00",
+      now,
+      STALE_AFTER_MS.generation,
+      true
+    );
+    const pastMargin = streamFreshness(
+      "generation",
+      "2026-09-27 07:29:00",
+      now,
+      STALE_AFTER_MS.generation,
+      true
+    );
+
+    expect(STALE_AFTER_MS.generation).toBe(STALE_AFTER_MS.snapshots);
+    expect(twentyMinutesOld.stale).toBe(false);
+    expect(oneHourOld.stale).toBe(false);
+    expect(pastMargin.stale).toBe(true);
+    expect(healthHttpStatus([twentyMinutesOld])).toBe(200);
+    expect(healthHttpStatus([pastMargin])).toBe(503);
+  });
+
   it("ignores future timestamps so a NESO forecast cannot become latest", () => {
     const latest = latestObservedTimestamp(
       ["2026-09-27 09:30:00", "2026-09-27 22:30:00", "not-a-date"],

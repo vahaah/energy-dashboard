@@ -239,6 +239,23 @@ DELETE FROM generation_5min WHERE timestamp > now();
 
 `latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null).
 
+### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
+
+Daily OilPriceAPI leftovers (EUR/MWh values labelled `$/MMBtu`) must not sit on the FRED monthly series. Preview, then delete only non-1st-of-month `eu_natural_gas` rows:
+
+```bash
+npx tsx scripts/cleanup-mislabelled-ttf.ts
+npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
+```
+
+```sql
+DELETE FROM commodity_prices
+WHERE commodity = 'eu_natural_gas'
+  AND toDayOfMonth(date) != 1;
+```
+
+The homepage, `/api/prices`, and `/api/health` already drop those rows. Do not run `--execute` from CI or agents.
+
 ### Deploy
 ```bash
 # Vercel auto-deploys from main branch
