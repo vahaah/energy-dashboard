@@ -122,7 +122,7 @@ export function addUtcDays(dateStr: string, days: number): string {
 export function getLondonOffsetLabel(date: Date): string {
   const parts = londonOffsetFormatter.formatToParts(date);
   const raw = partValue(parts, "timeZoneName");
-  if (raw === "GMT" || raw === "UTC") {
+  if (/^(?:GMT|UTC)(?:\+0)?$/.test(raw)) {
     return "GMT";
   }
   if (raw === "GMT+1" || raw === "UTC+1") {
