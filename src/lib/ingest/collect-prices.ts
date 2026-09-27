@@ -1,5 +1,6 @@
 import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
 import { fetchJson } from "@/lib/http";
+import { addUtcDays, formatIsoDate } from "@/lib/london-time";
 import type { EIAPriceData } from "@/lib/types";
 
 export const EIA_COMMODITIES = [
@@ -27,27 +28,70 @@ export type PriceRow = {
   unit: string;
 };
 
-export async function fetchEiaLatest(apiKey: string): Promise<PriceRow[]> {
-  const results = await Promise.all(
+export const EIA_CRON_LOOKBACK_DAYS = 30;
+export const EIA_SOURCE_CREDIT = "Source: U.S. Energy Information Administration";
+
+export function eiaApiKeyFromEnv(value: string | undefined): string | null {
+  if (!value || value === "DEMO_KEY") {
+    return null;
+  }
+  return value;
+}
+
+export function eiaCronWindow(now: Date): { from: string; to: string } {
+  const to = formatIsoDate(now);
+  return { from: addUtcDays(to, -EIA_CRON_LOOKBACK_DAYS), to };
+}
+
+export function buildEiaSeriesUrl(
+  series: string,
+  apiKey: string,
+  start: string,
+  end: string
+): string {
+  const url = new URL(`https://api.eia.gov/v2/seriesid/${series}`);
+  url.searchParams.set("api_key", apiKey);
+  url.searchParams.set("start", start);
+  url.searchParams.set("end", end);
+  url.searchParams.set("sort[0][column]", "period");
+  url.searchParams.set("sort[0][direction]", "asc");
+  url.searchParams.set("length", "5000");
+  return url.toString();
+}
+
+export async function fetchEiaRange(
+  apiKey: string,
+  start: string,
+  end: string
+): Promise<PriceRow[]> {
+  const batches = await Promise.all(
     EIA_COMMODITIES.map(async ({ series, commodity, unit, currency }) => {
       const json = await fetchJson<{ response?: { data?: EIAPriceData[] } }>(
-        `https://api.eia.gov/v2/seriesid/${series}?api_key=${apiKey}`
+        buildEiaSeriesUrl(series, apiKey, start, end)
       );
-      const row = json.response?.data?.[0];
-      if (row?.value == null) {
-        return null;
+      const rows: PriceRow[] = [];
+      for (const row of json.response?.data ?? []) {
+        if (row.value == null) {
+          continue;
+        }
+        rows.push({
+          date: row.period,
+          commodity,
+          price: row.value,
+          currency,
+          unit,
+        });
       }
-      return {
-        date: row.period,
-        commodity,
-        price: row.value,
-        currency,
-        unit,
-      };
+      return rows;
     })
   );
 
-  return results.filter((row) => row != null);
+  return dedupePriceRows(batches.flat());
+}
+
+export async function fetchEiaLatest(apiKey: string, now = new Date()): Promise<PriceRow[]> {
+  const window = eiaCronWindow(now);
+  return fetchEiaRange(apiKey, window.from, window.to);
 }
 
 export function commodityDateKey(date: string): string {
@@ -63,9 +107,44 @@ export function latestCommodityDate(
 }
 
 export const REQUIRED_PRICE_CRON_SOURCE = "eia";
+export const REQUIRED_PRICE_CRON_SOURCES = ["eia", "worldbank"] as const;
 
 export function isRequiredPriceCronSource(source: string): boolean {
-  return source === REQUIRED_PRICE_CRON_SOURCE;
+  for (const required of REQUIRED_PRICE_CRON_SOURCES) {
+    if (required === source) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function priceRowKey(row: { commodity: string; date: string }): string {
+  return `${row.commodity}|${commodityDateKey(row.date)}`;
+}
+
+export function dedupePriceRows(rows: PriceRow[]): PriceRow[] {
+  const byKey = new Map<string, PriceRow>();
+  for (const row of rows) {
+    byKey.set(priceRowKey(row), {
+      ...row,
+      date: commodityDateKey(row.date),
+    });
+  }
+  return Array.from(byKey.values()).sort((left, right) => {
+    const byDate = left.date.localeCompare(right.date);
+    if (byDate !== 0) {
+      return byDate;
+    }
+    return left.commodity.localeCompare(right.commodity);
+  });
+}
+
+export function rejectStoredPriceRows(
+  rows: PriceRow[],
+  stored: Iterable<{ commodity: string; date: string }>
+): PriceRow[] {
+  const keys = new Set(Array.from(stored, (row) => priceRowKey(row)));
+  return rows.filter((row) => !keys.has(priceRowKey(row)));
 }
 
 /**

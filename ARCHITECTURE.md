@@ -9,9 +9,10 @@
 | NESO | `api.neso.energy` | Half-hourly | None | Embedded wind (UK settlement periods) |
 | Sheffield Solar PV Live | `api.pvlive.uk` | 30-min | None | National GB solar including embedded |
 | EIA (US Gov) | `api.eia.gov/v2` | Daily | `EIA_API_KEY` (required) | Brent crude, WTI crude ($/BBL), Henry Hub gas ($/MMBTU) |
+| World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | Monthly | None | EU natural gas and Japan LNG ($/MMBTU), CC BY 4.0 |
 | National Gas | `data.nationalgas.com` | Daily (gas day) | None | GB System Average Price p/kWh (`gb_gas_sap`, PUBOB603) |
 
-OilPriceAPI and FRED series are withdrawn: not fetched by `/api/cron-prices` or `scripts/backfill.ts`, and not published on the homepage or `/api/prices`. Leftover stored rows may still exist in Tinybird. Optional `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
+OilPriceAPI leftover TTF rows stay stored but unpublished. `/api/cron-prices` and `scripts/backfill-commodities.ts` fetch EIA (trailing 30 days), World Bank Pink Sheet (trailing 3 months), and National Gas SAP. Optional `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
 
 ## Tinybird Data Sources (ClickHouse tables)
 
@@ -59,12 +60,12 @@ Sorting key: `timestamp`
 Engine: `ReplacingMergeTree` (dedup on the same settlement period start)
 
 ### `commodity_prices` — Daily Oil & Gas Prices
-One row per commodity per day. Live ingest is EIA (weekdays) and National Gas SAP.
+One row per commodity per day (or month-start for World Bank monthly series). Live ingest is EIA (weekdays), World Bank Pink Sheet (monthly), and National Gas SAP.
 
 ```
 date                Date         — price date
-commodity           String       — published: 'brent_crude' | 'wti_crude' | 'henry_hub_gas' | 'gb_gas_sap'
-                                 leftover stored (withdrawn): 'eu_ttf' | 'eu_natural_gas' | 'lng_asia'
+commodity           String       — published: 'brent_crude' | 'wti_crude' | 'henry_hub_gas' | 'eu_natural_gas' | 'lng_asia' | 'gb_gas_sap'
+                                 leftover stored (withdrawn): 'eu_ttf'
 price               Float32      — price in native units
 currency            String       — 'USD' | 'EUR' | 'GBP'
 unit                String       — '$/BBL' | '$/MMBTU' | 'EUR/MWh' | 'p/kWh'

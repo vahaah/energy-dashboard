@@ -7,8 +7,10 @@ import {
   isCanonicalCommodityPrice,
   isOilPriceApiDailyEuNaturalGas,
   isPublicCommodity,
+  isStrayDailyMonthlyCommodity,
   OILPRICE_DAILY_EU_NATURAL_GAS_SQL,
   PUBLIC_COMMODITIES,
+  STRAY_DAILY_MONTHLY_SQL,
 } from "@/lib/commodity-series";
 import { OILPRICE_COMMODITIES, FRED_COMMODITIES } from "@/lib/ingest/collect-prices";
 
@@ -54,13 +56,25 @@ describe("commodity series stay on their own units", () => {
       unit: "EUR/MWh",
     };
 
+    const dailyLng = {
+      date: "2026-09-15",
+      commodity: "lng_asia",
+      price: 10.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+
     expect(isOilPriceApiDailyEuNaturalGas(leaked)).toBe(true);
+    expect(isStrayDailyMonthlyCommodity(leaked)).toBe(true);
+    expect(isStrayDailyMonthlyCommodity(dailyLng)).toBe(true);
     expect(isCanonicalCommodityPrice(leaked)).toBe(false);
-    expect(filterCanonicalCommodityPrices([leaked, fred, ttf])).toEqual([fred, ttf]);
+    expect(isCanonicalCommodityPrice(dailyLng)).toBe(false);
+    expect(filterCanonicalCommodityPrices([leaked, fred, ttf, dailyLng])).toEqual([fred, ttf]);
     expect(OILPRICE_DAILY_EU_NATURAL_GAS_SQL).toContain("toDayOfMonth(date) != 1");
+    expect(STRAY_DAILY_MONTHLY_SQL).toContain("lng_asia");
   });
 
-  it("hides eu_ttf, lng_asia and eu_natural_gas from the public allow-list", () => {
+  it("hides eu_ttf and publishes the World Bank monthly series", () => {
     const brent = {
       date: "2026-09-26",
       commodity: "brent_crude",
@@ -91,15 +105,17 @@ describe("commodity series stay on their own units", () => {
     };
 
     expect(isPublicCommodity("eu_ttf")).toBe(false);
-    expect(isPublicCommodity("lng_asia")).toBe(false);
-    expect(isPublicCommodity("eu_natural_gas")).toBe(false);
+    expect(isPublicCommodity("lng_asia")).toBe(true);
+    expect(isPublicCommodity("eu_natural_gas")).toBe(true);
     expect(PUBLIC_COMMODITIES).toEqual([
       "brent_crude",
       "wti_crude",
       "henry_hub_gas",
+      "eu_natural_gas",
+      "lng_asia",
       "gb_gas_sap",
     ]);
-    expect(filterPublicCommodityPrices([ttf, fred, lng, brent])).toEqual([brent]);
+    expect(filterPublicCommodityPrices([ttf, fred, lng, brent])).toEqual([fred, lng, brent]);
   });
 
   it("does not request OilPriceAPI or FRED from cron-prices", () => {
@@ -110,6 +126,10 @@ describe("commodity series stay on their own units", () => {
     expect(cron).not.toContain("OIL_PRICE_API_KEY");
     expect(cron).not.toContain("FRED_API_KEY");
     expect(cron).not.toMatch(/OilPriceAPI|FRED/);
+    expect(cron).toContain("fetchEiaRange");
+    expect(cron).toContain("fetchWorldBankMonthly");
+    expect(cron).toContain("eiaCronWindow");
+    expect(cron).toContain("worldBankCronWindow");
   });
 
   it("does not request OilPriceAPI or FRED from historical price backfill", () => {

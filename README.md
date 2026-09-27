@@ -129,7 +129,15 @@ npx tsx scripts/backfill-gb-gas-sap.ts
 npx tsx scripts/backfill-gb-gas-sap.ts --execute
 ```
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). OilPriceAPI and FRED ingest is disabled in both `/api/cron-prices` and `scripts/backfill.ts` — leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). Commodity-desk healing:
+
+```bash
+npx tsx scripts/backfill-commodities.ts --dry-run
+npx tsx scripts/backfill-commodities.ts --from 2025-01-01
+npx tsx scripts/backfill-commodities.ts --purge-stray --dry-run
+```
+
+`/api/cron-prices` now fetches a trailing EIA window (30 days), World Bank Pink Sheet (3 months), and National Gas SAP. Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
 
 ### Cleanup leftover future generation rows
 
@@ -159,7 +167,7 @@ WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
 ORDER BY timestamp DESC
 ```
 
-The homepage and `/api/prices` only publish EIA oil/gas series and National Gas SAP. Other stored commodity rows are left in Tinybird but are not served.
+The homepage and `/api/prices` publish EIA oil/gas, World Bank monthly Europe gas and Japan LNG, and National Gas SAP. Other stored commodity rows stay in Tinybird but are not served.
 
 ### 7. Deploy to Vercel
 
@@ -176,7 +184,7 @@ Set environment variables in Vercel dashboard:
 - `OIL_PRICE_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 - `FRED_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA and National Gas. Historical price backfill uses EIA only.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA, World Bank Pink Sheet, and National Gas. Use `scripts/backfill-commodities.ts` to fill historical gaps.
 
 ## Public API
 
@@ -211,12 +219,12 @@ Returns interconnector import/export flows (Elexon FUELINST `INT*` fuels).
 
 ### `GET /api/prices`
 
-Returns commodity prices. Public series are EIA Brent, WTI and Henry Hub, plus National Gas System Average Price (`gb_gas_sap`, stored in **p/kWh**; display as p/therm × 29.3071 or £/MWh × 10). Unknown commodity keys return 400.
+Returns commodity prices. Public series are EIA Brent, WTI and Henry Hub; World Bank monthly Europe gas (`eu_natural_gas`) and Japan LNG (`lng_asia`); plus National Gas System Average Price (`gb_gas_sap`, stored in **p/kWh**; display as p/therm × 29.3071 or £/MWh × 10). Unknown commodity keys return 400.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `range` | `30d\|90d\|1y` | `30d` | Time range |
-| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|gb_gas_sap` | all | Filter |
+| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|eu_natural_gas\|lng_asia\|gb_gas_sap` | all | Filter |
 
 ### `GET /api/health`
 
@@ -247,6 +255,8 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 - Brent Crude ($/bbl) — EIA
 - WTI Crude ($/bbl) — EIA
 - Henry Hub Natural Gas ($/MMBtu) — EIA
+- Natural gas, Europe ($/MMBtu, monthly) — World Bank Pink Sheet, CC BY 4.0
+- LNG, Japan import price ($/MMBtu, monthly) — World Bank Pink Sheet, CC BY 4.0
 - GB gas System Average Price (p/kWh, `gb_gas_sap`) — National Gas PUBOB603
 
 ## License

@@ -146,5 +146,6 @@ describe("National Gas SAP", () => {
     ).toBe(false);
     expect(isRequiredPriceCronSource("nationalgas")).toBe(false);
     expect(isRequiredPriceCronSource("eia")).toBe(true);
+    expect(isRequiredPriceCronSource("worldbank")).toBe(true);
   });
 });
