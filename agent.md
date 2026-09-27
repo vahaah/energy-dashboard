@@ -1,4 +1,4 @@
-# Agent Instructions — Energy Grid Monitor
+# Agent Instructions — Grid
 
 ## Quick Reference
 
@@ -30,14 +30,14 @@ See `.env.example`. The code uses:
 | `TINYBIRD_URL` | Tinybird region host | From Tinybird workspace settings |
 | `TINYBIRD_TOKEN` | Admin token for cron + backfill ingestion | `tb --cloud token ls` → Workspace admin token |
 | `TINYBIRD_READ_TOKEN` | Read-only token for pipe queries | `tb --cloud token ls` → `dashboard_read` (auto-created by deployment) |
-| `EIA_API_KEY` | US EIA API key | `DEMO_KEY` works for dev |
+| `EIA_API_KEY` | US EIA API key | Real key required (`DEMO_KEY` is not used) |
 | `CRON_SECRET` | Vercel cron auth | Any random secret |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint (optional) | https://console.upstash.com → Create DB → REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token (optional) | https://console.upstash.com → Create DB → REST Token |
+| `OIL_PRICE_API_KEY` | OilPriceAPI (optional) | Dutch TTF only, 00:30 UTC slot |
+| `FRED_API_KEY` | FRED/IMF (optional) | Monthly TTF + Asia LNG |
 
 **Token creation:** Resource-scoped tokens (`dashboard_read`, `ingest_token`) are defined via `TOKEN` directives in `.pipe` and `.datasource` files. They are created automatically by `tb --cloud deploy`. You cannot create them via `tb token create static` in Tinybird Forward.
 
-**Rate limiting:** `src/lib/rate-limit.ts` uses Upstash Redis in production for distributed rate limiting. Without Upstash vars, falls back to in-memory (OK for dev, not for serverless production).
+**Rate limiting:** in-memory 60 req/min per IP per instance in `src/proxy.ts`. Not distributed.
 
 ## Key Patterns
 

@@ -292,7 +292,7 @@ export function Dashboard({
                   Operations Briefing
                 </p>
                 <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                  Energy Grid Monitor
+                  Grid
                 </h1>
                 <p className="mt-1 text-xs text-zinc-400">
                   {dataAsOf ? `Data as of ${dataAsOf}` : "Awaiting first ingest"}
@@ -367,7 +367,7 @@ export function Dashboard({
             <>
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge label="UK grid + market context" tone="emerald" />
+                  <Badge label="GB grid + market context" tone="emerald" />
                   <Badge label="Shareable URL state" tone="sky" />
                   <Badge label={`${range} power view`} tone="violet" />
                   <Badge label={`${commodityRange} commodity view`} tone="amber" />

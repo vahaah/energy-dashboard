@@ -1,15 +1,17 @@
-# Energy Grid Monitor
+# Grid
 
-Real-time UK electricity grid dashboard combined with global oil & gas commodity prices.
+GB electricity dashboard — half-hourly Great Britain grid data, with commodity context.
 
-**Live data sources:**
+**Live:** [grid.vahaah.com](https://grid.vahaah.com)
+
+**Data sources:**
 - [Carbon Intensity API](https://api.carbonintensity.org.uk) — carbon intensity, generation mix
-- [Elexon BMRS](https://bmrs.elexon.co.uk) — imbalance (cash-out) prices, demand, generation by fuel type
-- [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — GB solar including embedded
+- [Elexon BMRS/Insights](https://bmrs.elexon.co.uk) — imbalance (cash-out) prices, demand, generation by fuel type
+- [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — national GB solar (including embedded)
 - [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
-- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh, JKM LNG
-- [FRED](https://fred.stlouisfed.org) — monthly EU TTF and Asia LNG in $/MMBtu
+- [FRED](https://fred.stlouisfed.org) / IMF — monthly EU TTF and Asia LNG in $/MMBtu
+- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh (`eu_ttf`), 00:30 UTC slot only (Free plan: 50 requests/month)
 
 ## Architecture
 
@@ -19,21 +21,25 @@ Real-time UK electricity grid dashboard combined with global oil & gas commodity
 │                                                                 │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐   │
 │  │ Dashboard │    │ /api/cron    │    │ /api/snapshots       │   │
-│  │ (SSR)     │    │ (hourly)     │    │ /api/prices /health  │   │
-│  └─────┬─────┘    └──────┬───────┘    │ (public, rate-limited│   │
+│  │ (SSR)     │    │ (hourly)     │    │ /api/generation      │   │
+│  └─────┬─────┘    └──────┬───────┘    │ /api/interconnectors │   │
+│        │                 │            │ /api/prices /health  │   │
+│        │                 │            │ (public, rate-limited│   │
 │        │                 │            └──────────┬───────────┘   │
 └────────┼─────────────────┼───────────────────────┼──────────────┘
          │                 │                       │
          │    ┌────────────▼──────────────┐        │
          │    │   External APIs           │        │
          │    │ • Carbon Intensity API    │        │
-         │    │ • Elexon BMRS             │        │
-         │    │ • US EIA                  │        │
+         │    │ • Elexon BMRS/Insights    │        │
+         │    │ • NESO / Sheffield PV Live│        │
+         │    │ • EIA / FRED / OilPriceAPI│        │
          │    └────────────┬──────────────┘        │
          │                 │ ingest                 │
          │    ┌────────────▼──────────────┐        │
          └────► Tinybird (ClickHouse)     ◄────────┘
               │ • energy_snapshots        │ query
+              │ • generation_5min         │
               │ • commodity_prices        │
               └───────────────────────────┘
 ```
@@ -42,9 +48,8 @@ Real-time UK electricity grid dashboard combined with global oil & gas commodity
 
 - **Next.js 16** (App Router, Server Components, ISR)
 - **Tinybird** (ClickHouse-backed time-series storage + API)
-- **Vercel** (hosting, cron jobs, edge middleware)
+- **Vercel** (hosting, cron jobs)
 - **Recharts** (client-side charts)
-- **Upstash Redis** (optional, production rate limiting)
 
 ## Quick Start
 
@@ -118,7 +123,7 @@ npx tsx scripts/backfill.ts --days 30 --only snapshots
 
 `--from` / `--to` are inclusive **UK settlement dates**. Do not pass UTC midnights — `--to 2026-09-27` during BST must not ingest 28 Sep.
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). OilPriceAPI is not used by the backfill — live Dutch TTF comes from `/api/cron-prices` only.
 
 ### Cleanup leftover future generation rows
 
@@ -148,41 +153,7 @@ WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
 ORDER BY timestamp DESC
 ```
 
-### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
-
-Old ingest wrote OilPriceAPI Dutch TTF (EUR/MWh, e.g. 81.89 on 2026-09-27) onto `eu_natural_gas`, which is FRED monthly $/MMBtu. That produces bogus % changes. The UI and `/api/prices` now drop non-canonical rows (`eu_natural_gas` must be USD $/MMBTU on the 1st of the month; `eu_ttf` is EUR/MWh).
-
-Preview, then delete daily leftovers only. FRED month-start rows stay. Do not run `--execute` from CI or agents:
-
-```bash
-npx tsx scripts/cleanup-mislabelled-ttf.ts
-npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
-```
-
-Equivalent SQL:
-
-```sql
-SELECT date, commodity, price, currency, unit
-FROM commodity_prices FINAL
-WHERE commodity = 'eu_natural_gas'
-  AND toDayOfMonth(date) != 1
-ORDER BY date;
-
-DELETE FROM commodity_prices
-WHERE commodity = 'eu_natural_gas'
-  AND toDayOfMonth(date) != 1;
-```
-
-Inspect 1st-of-month collisions separately (do not auto-delete):
-
-```sql
-SELECT date, commodity, price, currency, unit
-FROM commodity_prices FINAL
-WHERE commodity = 'eu_natural_gas'
-  AND toDayOfMonth(date) = 1
-  AND (price > 40 OR currency != 'USD')
-ORDER BY date;
-```
+The homepage, `/api/prices`, and `/api/health` drop leftover daily `eu_natural_gas` rows that are not FRED month-start $/MMBtu.
 
 ### 7. Deploy to Vercel
 
@@ -196,27 +167,45 @@ Set environment variables in Vercel dashboard:
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`
 - `CRON_SECRET`
-- `UPSTASH_REDIS_REST_URL` (optional — for production rate limiting)
-- `UPSTASH_REDIS_REST_TOKEN` (optional — for production rate limiting)
+- `OIL_PRICE_API_KEY` (optional — Dutch TTF only, ≤1 request/day)
+- `FRED_API_KEY` (optional)
 
-The cron job runs automatically every hour via `vercel.json`.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours; OilPriceAPI is called only on the 00:30 UTC slot, and skipped if today's `eu_ttf` row already exists. A missed ingest is not retried later that day.
 
 ## Public API
 
-All API endpoints are public with rate limiting (60 req/min per IP).
+All API endpoints are public. Rate limiting is an in-memory 60 req/min per IP **per instance** in `src/proxy.ts` (not shared across serverless isolates; resets on cold start). `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
 
 ### `GET /api/snapshots`
 
-Returns UK grid energy snapshots. `price_gbp_mwh` is the Elexon **imbalance / cash-out (system buy)** price, not day-ahead wholesale. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`.
+Returns GB grid energy snapshots. `price_gbp_mwh` is the Elexon **imbalance / cash-out (system buy)** price, not day-ahead wholesale. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `range` | `24h\|7d\|30d\|90d\|1y` | `24h` | Time range (invalid values return 400) |
 | `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
 
+### `GET /api/generation`
+
+Returns FUELINST, NESO embedded wind, and Sheffield Solar PV Live series. PV Live is national GB solar, stored as `embedded_solar`.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `range` | `24h\|7d\|30d\|90d\|1y` | `24h` | Time range |
+| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
+
+### `GET /api/interconnectors`
+
+Returns interconnector import/export flows (Elexon FUELINST `INT*` fuels).
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `range` | `24h\|7d` | `24h` | Time range |
+| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
+
 ### `GET /api/prices`
 
-Returns oil & gas commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/MWh**. `eu_natural_gas` is FRED monthly TTF in **$/MMBtu**. Do not treat them as one series.
+Returns commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/MWh**. `eu_natural_gas` is FRED monthly TTF in **$/MMBtu**. `lng_asia` is FRED/IMF monthly Asia LNG. Do not treat the TTF series as one.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -229,11 +218,10 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 
 ### Rate Limiting
 
-- **60 requests per minute** per IP address (sliding window)
+- **60 requests per minute** per IP address, per serverless instance (`src/proxy.ts`)
 - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
-- Returns `429 Too Many Requests` with `Retry-After` header when exceeded
-- **Production:** Uses [Upstash Redis](https://console.upstash.com) for distributed rate limiting across serverless instances. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` environment variables.
-- **Development:** Falls back to an in-memory store (no Redis needed, resets on server restart)
+- Returns `429 Too Many Requests` when exceeded
+- In-memory only — not distributed. There is no Upstash (or other shared) limiter.
 
 ## Data Model
 
@@ -249,10 +237,13 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 - NESO embedded wind (half-hourly, UK local mapping)
 - Sheffield Solar PV Live (30-min national solar, used because NESO actuals are too coarse for midday solar)
 
-### `commodity_prices` (daily)
-- Brent Crude ($/bbl)
-- WTI Crude ($/bbl)
-- Henry Hub Natural Gas ($/MMBtu)
+### `commodity_prices` (daily / monthly)
+- Brent Crude ($/bbl) — EIA
+- WTI Crude ($/bbl) — EIA
+- Henry Hub Natural Gas ($/MMBtu) — EIA
+- Dutch TTF (€/MWh, `eu_ttf`) — OilPriceAPI, 00:30 UTC slot only
+- EU TTF monthly ($/MMBtu, `eu_natural_gas`) — FRED/IMF
+- Asia LNG monthly ($/MMBtu, `lng_asia`) — FRED/IMF
 
 ## License
 

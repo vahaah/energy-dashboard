@@ -13,9 +13,10 @@ export const FRED_COMMODITIES = [
   { id: "PNGASJPUSDM", commodity: "lng_asia", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
+// Free plan is 50 latest-price requests/month. TTF only — EIA already
+// covers Brent/WTI/Henry Hub, FRED covers monthly Asia LNG.
 export const OILPRICE_COMMODITIES = [
   { code: "DUTCH_TTF_EUR", commodity: "eu_ttf", unit: "EUR/MWh", currency: "EUR" },
-  { code: "JKM_LNG_USD", commodity: "lng_asia", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
 export type PriceRow = {
@@ -47,6 +48,44 @@ export async function fetchEiaLatest(apiKey: string): Promise<PriceRow[]> {
   );
 
   return results.filter((row) => row != null);
+}
+
+export function commodityDateKey(date: string): string {
+  return date.slice(0, 10);
+}
+
+export function latestCommodityDate(
+  rows: Array<{ commodity: string; date: string }>,
+  commodity: string
+): string | null {
+  const row = rows.find((entry) => entry.commodity === commodity);
+  return row ? commodityDateKey(row.date) : null;
+}
+
+/**
+ * vercel.json cron-prices: minute 30 of every 6th hour
+ * (00:30, 06:30, 12:30, 18:30 UTC). OilPriceAPI runs only on UTC hour 0.
+ */
+export const OILPRICE_TTF_CRON_UTC_HOUR = 0;
+
+export function isOilPriceTtfCronSlot(utcHour: number): boolean {
+  return utcHour === OILPRICE_TTF_CRON_UTC_HOUR;
+}
+
+/**
+ * OilPriceAPI Free is 50 latest-price requests/month. Call it only on the
+ * 00:30 UTC cron-prices slot, and only if today's eu_ttf row is missing.
+ * Scheduled slots are 6h apart so they cannot overlap. A successful fetch
+ * followed by a failed Tinybird ingest is not retried later that day — we
+ * miss the day. Worst case is about 30 requests/month plus any manual
+ * /api/cron-prices hits during UTC hour 0.
+ */
+export function shouldFetchOilPriceTtf(
+  today: string,
+  latestTtfDate: string | null,
+  utcHour: number
+): boolean {
+  return isOilPriceTtfCronSlot(utcHour) && commodityDateKey(latestTtfDate ?? "") !== today;
 }
 
 export async function fetchOilPriceLatest(
