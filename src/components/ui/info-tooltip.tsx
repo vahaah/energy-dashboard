@@ -1,7 +1,11 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useReducer, useRef } from "react";
 import { Info } from "lucide-react";
+import {
+  initialInfoTooltipState,
+  reduceInfoTooltip,
+} from "@/components/ui/info-tooltip-state";
 
 interface Props {
   text: string;
@@ -10,31 +14,39 @@ interface Props {
 
 export function InfoTooltip({ text, label }: Props) {
   const tooltipId = useId();
-  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [state, dispatch] = useReducer(reduceInfoTooltip, initialInfoTooltipState);
 
   return (
     <span
       className="relative inline-flex items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => dispatch({ type: "hover-enter" })}
+      onMouseLeave={() =>
+        dispatch({
+          type: "hover-leave",
+          focused: buttonRef.current === document.activeElement,
+        })
+      }
     >
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
-        aria-expanded={open}
-        aria-describedby={open ? tooltipId : undefined}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        aria-expanded={state.open}
+        aria-describedby={state.open ? tooltipId : undefined}
+        onFocus={() => dispatch({ type: "focus" })}
+        onBlur={() => dispatch({ type: "blur" })}
+        onClick={() => dispatch({ type: "click" })}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
-            setOpen(false);
+            dispatch({ type: "escape" });
           }
         }}
         className="inline-grid size-6 place-items-center rounded-sm text-gray-900 hover:text-gray-1000 motion-reduce:transition-none"
       >
         <Info className="size-3.5" aria-hidden="true" />
       </button>
-      {open ? (
+      {state.open ? (
         <span
           id={tooltipId}
           role="tooltip"
