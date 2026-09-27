@@ -89,8 +89,11 @@ export function supplyShares(rows: Generation5min[]): SupplyShare[] {
   let domesticMw = 0;
   let netImportsMw = 0;
 
+  let observedInterconnectors = false;
+
   for (const row of rows) {
     if (isInterconnectorFuel(row.fuel_type)) {
+      observedInterconnectors = true;
       netImportsMw += row.generation_mw;
       continue;
     }
@@ -114,7 +117,7 @@ export function supplyShares(rows: Generation5min[]): SupplyShare[] {
     });
   }
 
-  if (netImportsMw !== 0) {
+  if (observedInterconnectors && netImportsMw !== 0) {
     shares.push({
       fuel: "imports",
       mw: netImportsMw,
@@ -148,7 +151,8 @@ function populatedFacts({
   const daySnapshots = snapshotsOnDate(snapshots, isHistorical ? resolution.date : null, period);
   const generationRows = generationForPeriod(generation, period, isHistorical ? resolution.date : null);
   const split = splitLatestGenerationRows(generationRows);
-  const shares = supplyShares(generationRows);
+  const shares = supplyShares([...split.sources, ...split.interconnectors]);
+  const transfersObserved = split.interconnectors.length > 0;
 
   const carbonRow = latestSnapshotWithField(daySnapshots, "carbon_intensity");
   const demandRow = latestSnapshotWithField(daySnapshots, "demand_mw");
@@ -218,10 +222,10 @@ function populatedFacts({
       definition: "GB generation including estimated embedded wind and solar",
     },
     netImportsMw: {
-      value: generationRows.length > 0 ? split.netTransfersMw : null,
+      value: transfersObserved ? split.netTransfersMw : null,
       unit: "MW",
-      periodStartUtc: generationPeriod?.startUtc ?? null,
-      periodEndUtc: generationPeriod?.endUtc ?? null,
+      periodStartUtc: transfersObserved ? generationPeriod?.startUtc ?? null : null,
+      periodEndUtc: transfersObserved ? generationPeriod?.endUtc ?? null : null,
       source: "Elexon BMRS",
       definition: "Metered interconnector net flow",
     },

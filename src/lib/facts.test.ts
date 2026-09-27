@@ -177,6 +177,74 @@ describe("getLatestFacts", () => {
     expect(facts.generationMw.value).toBeNull();
   });
 
+  it("deduplicates 5-min generation rows before calculating shares", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-20 22:30:00", "ccgt", 7000),
+        makeGeneration("2026-09-20 22:35:00", "ccgt", 8000),
+        makeGeneration("2026-09-20 22:40:00", "ccgt", 8100),
+        makeGeneration("2026-09-20 22:30:00", "wind", 10000),
+        makeGeneration("2026-09-20 22:35:00", "wind", 12000),
+        makeGeneration("2026-09-20 22:30:00", "embedded_wind", 3000, "neso"),
+        makeGeneration("2026-09-20 22:30:00", "INTFR", 1000),
+        makeGeneration("2026-09-20 22:35:00", "INTFR", 1500),
+      ],
+      now,
+    });
+
+    const supplyMw = 8100 + 12000 + 3000 + 1500;
+    const totalShare = facts.shares.reduce((sum, share) => sum + share.sharePct, 0);
+
+    expect(facts.generationMw.value).toBe(23100);
+    expect(facts.netImportsMw.value).toBe(1500);
+    expect(facts.shares.find((share) => share.fuel === "ccgt")?.mw).toBe(8100);
+    expect(facts.shares.find((share) => share.fuel === "wind")?.mw).toBe(12000);
+    expect(facts.shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(3000);
+    expect(facts.shares.find((share) => share.fuel === "imports")?.mw).toBe(1500);
+    expect(facts.shares.find((share) => share.fuel === "wind")?.sharePct).toBeCloseTo(
+      (12000 / supplyMw) * 100,
+      5
+    );
+    expect(totalShare).toBeGreaterThanOrEqual(99.9);
+    expect(totalShare).toBeLessThanOrEqual(100.1);
+  });
+
+  it("keeps transfer facts unknown when FUELINST interconnectors are missing", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-20 22:30:00", "embedded_wind", 3300, "neso"),
+        makeGeneration("2026-09-20 22:30:00", "embedded_solar", 1800, "pvlive"),
+      ],
+      now,
+    });
+
+    expect(facts.generationMw.value).toBe(5100);
+    expect(facts.netImportsMw.value).toBeNull();
+    expect(facts.netImportsMw.periodStartUtc).toBeNull();
+    expect(facts.shares.find((share) => share.fuel === "imports")).toBeUndefined();
+    expect(facts.shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
+  });
+
   it("uses stale wording after 2.5 hours on the latest view", () => {
     const now = new Date("2026-09-27T18:45:00.000Z");
     const facts = getLatestFacts({
@@ -213,6 +281,16 @@ describe("supplyShares", () => {
     expect(total).toBeGreaterThanOrEqual(99.9);
     expect(total).toBeLessThanOrEqual(100.1);
     expect(shares.find((share) => share.fuel === "imports")?.mw).toBe(5400);
+  });
+
+  it("does not add a zero imports share when no interconnector rows exist", () => {
+    const shares = supplyShares([
+      makeGeneration("2026-09-27 16:00:00", "embedded_wind", 3300, "neso"),
+      makeGeneration("2026-09-27 16:00:00", "embedded_solar", 1800, "pvlive"),
+    ]);
+
+    expect(shares.find((share) => share.fuel === "imports")).toBeUndefined();
+    expect(shares.reduce((sum, share) => sum + share.mw, 0)).toBe(5100);
   });
 });
 

@@ -200,13 +200,16 @@ export function Dashboard({
   const carbonDelta = rangeSummary.carbon.deltaFromAverage ?? 0;
   const demandDelta = rangeSummary.demand.deltaFromAverage ?? 0;
   const priceDelta = rangeSummary.price.deltaFromAverage ?? 0;
+  const transferStance = transferStanceFrom(facts.netImportsMw.value);
   const activeInterconnectors = latestGenerationSplit.interconnectors.filter(
     (row) => Math.abs(row.generation_mw) >= 25
   ).length;
   const importShare =
-    headline.demand.value != null && headline.demand.value > 0
-      ? (latestGenerationSplit.netTransfersMw / headline.demand.value) * 100
-      : 0;
+    transferStance.kind !== "unknown" &&
+    headline.demand.value != null &&
+    headline.demand.value > 0
+      ? (transferStance.mw / headline.demand.value) * 100
+      : null;
 
   const briefingLine = [
     carbonDelta < 0
@@ -219,17 +222,7 @@ export function Dashboard({
           topSource.generation_mw
         )} GW`
       : "Generation leadership is unavailable",
-    Math.abs(latestGenerationSplit.netTransfersMw) < 25
-      ? "cross-border flows are broadly balanced"
-      : latestGenerationSplit.netTransfersMw > 0
-        ? `Britain is importing ${formatGigawatts(
-            latestGenerationSplit.netTransfersMw,
-            2
-          )} GW`
-        : `Britain is exporting ${formatGigawatts(
-            Math.abs(latestGenerationSplit.netTransfersMw),
-            2
-          )} GW`,
+    transferBriefing(transferStance),
   ].join(", ");
 
   const insightCards = [
@@ -273,12 +266,12 @@ export function Dashboard({
     },
     {
       title: "Import dependency",
-      value:
-        Math.abs(latestGenerationSplit.netTransfersMw) < 25
-          ? "Balanced"
-          : `${formatSignedPercentage(importShare)} of demand`,
-      detail: `${activeInterconnectors} active links in the latest dispatch frame`,
-      tone: latestGenerationSplit.netTransfersMw >= 0 ? "cyan" : "violet",
+      value: transferInsightValue(transferStance, importShare),
+      detail:
+        transferStance.kind === "unknown"
+          ? "No interconnector observations"
+          : `${activeInterconnectors} active links in the latest dispatch frame`,
+      tone: transferStance.kind === "export" ? "violet" : "cyan",
       icon: <ArrowLeftRight className="w-4 h-4" />,
     },
   ] as const;
@@ -441,15 +434,12 @@ export function Dashboard({
                   />
                   <HeroFact
                     label="Transfer stance"
-                    value={
-                      Math.abs(latestGenerationSplit.netTransfersMw) < 25
-                        ? "Balanced"
-                        : `${formatGigawatts(
-                            Math.abs(latestGenerationSplit.netTransfersMw),
-                            2
-                          )} GW ${latestGenerationSplit.netTransfersMw > 0 ? "import" : "export"}`
+                    value={transferHeroValue(transferStance)}
+                    detail={
+                      transferStance.kind === "unknown"
+                        ? "No interconnector observations"
+                        : `${activeInterconnectors} active interconnectors`
                     }
-                    detail={`${activeInterconnectors} active interconnectors`}
                   />
                   <HeroFact
                     label="Imbalance price"
@@ -524,20 +514,12 @@ export function Dashboard({
               />
               <KpiCard
                 label="Net Transfers"
-                value={
-                  Math.abs(latestGenerationSplit.netTransfersMw) < 25
-                    ? "0.00"
-                    : `${Math.abs(latestGenerationSplit.netTransfersMw / 1000).toFixed(2)}`
-                }
+                value={transferKpiValue(transferStance)}
                 unit="GW"
-                detail={
-                  latestGenerationSplit.netTransfersMw > 0
-                    ? "import"
-                    : latestGenerationSplit.netTransfersMw < 0
-                      ? "export"
-                      : "balanced"
+                detail={transferKpiDetail(transferStance)}
+                color={
+                  transferStance.kind === "export" ? "#f97316" : "#34d399"
                 }
-                color={latestGenerationSplit.netTransfersMw >= 0 ? "#34d399" : "#f97316"}
                 icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
                 tooltip="Net import/export stance based on the latest interconnector frame."
               />
@@ -1238,6 +1220,107 @@ function mixFromSnapshot(snapshot: EnergySnapshot): Record<string, number> {
     }
   }
   return mix;
+}
+
+type TransferStance =
+  | { kind: "unknown" }
+  | { kind: "balanced"; mw: number }
+  | { kind: "import"; mw: number }
+  | { kind: "export"; mw: number };
+
+function transferStanceFrom(netImportsMw: number | null): TransferStance {
+  if (netImportsMw == null) {
+    return { kind: "unknown" };
+  }
+  if (Math.abs(netImportsMw) < 25) {
+    return { kind: "balanced", mw: netImportsMw };
+  }
+  return netImportsMw > 0
+    ? { kind: "import", mw: netImportsMw }
+    : { kind: "export", mw: netImportsMw };
+}
+
+function transferBriefing(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "cross-border transfer stance is unknown";
+    case "balanced":
+      return "cross-border flows are broadly balanced";
+    case "import":
+      return `Britain is importing ${formatGigawatts(stance.mw, 2)} GW`;
+    case "export":
+      return `Britain is exporting ${formatGigawatts(Math.abs(stance.mw), 2)} GW`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferHeroValue(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "Unknown";
+    case "balanced":
+      return "Balanced";
+    case "import":
+    case "export":
+      return `${formatGigawatts(Math.abs(stance.mw), 2)} GW ${stance.kind}`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferInsightValue(stance: TransferStance, importShare: number | null): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "Unknown";
+    case "balanced":
+      return "Balanced";
+    case "import":
+    case "export":
+      if (importShare == null) {
+        return stance.kind;
+      }
+      return `${formatSignedPercentage(importShare)} of demand`;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferKpiValue(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "—";
+    case "balanced":
+      return "0.00";
+    case "import":
+    case "export":
+      return formatGigawatts(Math.abs(stance.mw), 2);
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
+}
+
+function transferKpiDetail(stance: TransferStance): string {
+  switch (stance.kind) {
+    case "unknown":
+      return "unknown";
+    case "balanced":
+    case "import":
+    case "export":
+      return stance.kind;
+    default: {
+      const exhaustive: never = stance;
+      return exhaustive;
+    }
+  }
 }
 
 function formatOptionalNumber(value: number | null): string {
