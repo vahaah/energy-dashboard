@@ -231,7 +231,7 @@ ORDER BY timestamp;
 DELETE FROM generation_5min WHERE timestamp > now();
 ```
 
-`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null). The homepage, `/api/prices`, and `/api/health` drop leftover daily `eu_natural_gas` rows that are not FRED month-start $/MMBtu.
+`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null). The homepage and `/api/prices` only publish EIA oil/gas series and National Gas SAP.
 
 ### Deploy
 ```bash
