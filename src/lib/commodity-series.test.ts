@@ -112,6 +112,21 @@ describe("commodity series stay on their own units", () => {
     expect(cron).not.toMatch(/OilPriceAPI|FRED/);
   });
 
+  it("does not request OilPriceAPI or FRED from historical price backfill", () => {
+    const backfill = readFileSync(resolve(process.cwd(), "scripts/backfill.ts"), "utf8");
+    expect(backfill).not.toContain("FRED_COMMODITIES");
+    expect(backfill).not.toContain("OILPRICE_COMMODITIES");
+    expect(backfill).not.toContain("fetchOilPriceLatest");
+    expect(backfill).not.toContain("fetchFredLatest");
+    expect(backfill).not.toContain("stlouisfed.org");
+    expect(backfill).not.toContain("oilpriceapi");
+    expect(backfill).not.toContain("FRED_API_KEY");
+    expect(backfill).not.toContain("OIL_PRICE_API_KEY");
+    expect(backfill).not.toContain("eu_natural_gas");
+    expect(backfill).not.toContain("lng_asia");
+    expect(backfill).not.toContain("eu_ttf");
+  });
+
   it("does not mention TTF, JKM or IMF in home page copy", () => {
     const dashboard = readFileSync(resolve(process.cwd(), "src/components/dashboard.tsx"), "utf8");
     const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

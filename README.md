@@ -129,7 +129,7 @@ npx tsx scripts/backfill-gb-gas-sap.ts
 npx tsx scripts/backfill-gb-gas-sap.ts --execute
 ```
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). OilPriceAPI and FRED ingest is disabled in both `/api/cron-prices` and `scripts/backfill.ts` — leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
 
 ### Cleanup leftover future generation rows
 
@@ -173,10 +173,10 @@ Set environment variables in Vercel dashboard:
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`
 - `CRON_SECRET`
-- `OIL_PRICE_API_KEY` (optional, unused)
-- `FRED_API_KEY` (optional, unused)
+- `OIL_PRICE_API_KEY` (optional, unused — ingest disabled in cron and backfill)
+- `FRED_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA and National Gas.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA and National Gas. Historical price backfill uses EIA only.
 
 ## Public API
 
