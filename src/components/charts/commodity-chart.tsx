@@ -91,6 +91,18 @@ export function CommodityPriceLines({
     .sort((left, right) => left - right)
     .map((time) => ({ time }));
   const yAxis = commodityYAxis(scale, series);
+  let yAxisTitle: string | undefined;
+  switch (scale) {
+    case "index":
+      break;
+    case "native":
+      yAxisTitle = scaleAxisLabel(scale);
+      break;
+    default: {
+      const exhaustive: never = scale;
+      return exhaustive;
+    }
+  }
 
   return (
     <LineChart
@@ -117,12 +129,16 @@ export function CommodityPriceLines({
         allowDataOverflow
         tick={{ fontSize: 11, fill: "#71717a" }}
         stroke="#27272a"
-        label={{
-          value: scaleAxisLabel(scale),
-          angle: -90,
-          position: "insideLeft",
-          style: { fontSize: 11, fill: "#71717a" },
-        }}
+        label={
+          yAxisTitle
+            ? {
+                value: yAxisTitle,
+                angle: -90,
+                position: "insideLeft",
+                style: { fontSize: 11, fill: "#71717a" },
+              }
+            : undefined
+        }
       />
       <Tooltip
         content={<CommodityNativeTooltip range={range} series={series} />}
