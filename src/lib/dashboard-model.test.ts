@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 import {
   buildGenerationStackSeries,
+  buildHeadlineMetrics,
   buildRangeSummary,
+  formatSettlementWindow,
+  headlineAsOf,
+  latestSnapshotWithField,
   mapGenerationFuelToStackKey,
   normalizeFuelType,
   splitLatestGenerationRows,
@@ -230,5 +234,113 @@ describe("dashboard model", () => {
       max: 60,
       deltaFromAverage: -37,
     });
+  });
+
+  it("reads each headline KPI from the newest row that actually has that field", () => {
+    const snapshots = [
+      makeSnapshot({
+        timestamp: "2026-09-27 11:00:00",
+        carbon_intensity: 72,
+        carbon_index: "low",
+        demand_mw: 24800,
+        price_gbp_mwh: 52.8,
+        gen_gas_pct: 28,
+      }),
+      makeSnapshot({
+        timestamp: "2026-09-27 11:30:00",
+        carbon_intensity: 81,
+        carbon_index: "moderate",
+        demand_mw: 26510,
+        price_gbp_mwh: null,
+        gen_gas_pct: null,
+        gen_coal_pct: null,
+        gen_nuclear_pct: null,
+        gen_wind_pct: null,
+        gen_solar_pct: null,
+        gen_hydro_pct: null,
+        gen_biomass_pct: null,
+        gen_imports_pct: null,
+        gen_other_pct: null,
+      }),
+    ];
+
+    const headline = buildHeadlineMetrics(snapshots);
+
+    expect(headline.referenceTimestamp).toBe("2026-09-27 11:30:00");
+    expect(headline.demand).toEqual({
+      value: 26510,
+      timestamp: "2026-09-27 11:30:00",
+    });
+    expect(headline.carbon).toEqual({
+      value: 81,
+      timestamp: "2026-09-27 11:30:00",
+      index: "moderate",
+    });
+    expect(headline.price).toEqual({
+      value: 52.8,
+      timestamp: "2026-09-27 11:00:00",
+    });
+    expect(headline.mixSnapshot?.timestamp).toBe("2026-09-27 11:00:00");
+    expect(headlineAsOf(headline.price.timestamp, headline.referenceTimestamp)).toBe(
+      "12:00–12:30"
+    );
+    expect(headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp)).toBeNull();
+    expect(headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp)).toBeNull();
+    expect(headlineAsOf(headline.mixSnapshot?.timestamp ?? null, headline.referenceTimestamp)).toBe(
+      "12:00–12:30"
+    );
+  });
+
+  it("keeps zero and negative prices as present values, not missing ones", () => {
+    const snapshots = [
+      makeSnapshot({ timestamp: "2026-09-27 10:30:00", price_gbp_mwh: 40 }),
+      makeSnapshot({ timestamp: "2026-09-27 11:00:00", price_gbp_mwh: 0 }),
+      makeSnapshot({ timestamp: "2026-09-27 11:30:00", price_gbp_mwh: -8.4 }),
+    ];
+
+    expect(latestSnapshotWithField(snapshots, "price_gbp_mwh")?.price_gbp_mwh).toBe(-8.4);
+
+    const unordered = [
+      makeSnapshot({ timestamp: "2026-09-27 11:30:00", price_gbp_mwh: null, demand_mw: 20000 }),
+      makeSnapshot({ timestamp: "2026-09-27 11:00:00", price_gbp_mwh: 0, demand_mw: null }),
+    ];
+    expect(latestSnapshotWithField(unordered, "price_gbp_mwh")?.price_gbp_mwh).toBe(0);
+    expect(latestSnapshotWithField(unordered, "demand_mw")?.demand_mw).toBe(20000);
+  });
+
+  it("returns empty headline metrics when every snapshot field is null", () => {
+    expect(
+      buildHeadlineMetrics([
+        makeSnapshot({
+          timestamp: "2026-09-27 11:30:00",
+          carbon_intensity: null,
+          demand_mw: null,
+          price_gbp_mwh: null,
+          gen_gas_pct: null,
+          gen_coal_pct: null,
+          gen_nuclear_pct: null,
+          gen_wind_pct: null,
+          gen_solar_pct: null,
+          gen_hydro_pct: null,
+          gen_biomass_pct: null,
+          gen_imports_pct: null,
+          gen_other_pct: null,
+        }),
+      ])
+    ).toEqual({
+      referenceTimestamp: null,
+      carbon: { value: null, timestamp: null, index: null },
+      demand: { value: null, timestamp: null },
+      price: { value: null, timestamp: null },
+      mixSnapshot: null,
+    });
+  });
+
+  it("formats UK settlement windows and only labels a KPI that lags the others", () => {
+    expect(formatSettlementWindow("2026-09-27 11:00:00")).toBe("12:00–12:30");
+    expect(formatSettlementWindow("2026-01-15 12:00:00")).toBe("12:00–12:30");
+    expect(headlineAsOf("2026-09-27 11:00:00", "2026-09-27 11:00:00")).toBeNull();
+    expect(headlineAsOf(null, "2026-09-27 11:30:00")).toBeNull();
+    expect(headlineAsOf("2026-09-27 11:00:00", "2026-09-27T11:30:00Z")).toBe("12:00–12:30");
   });
 });
