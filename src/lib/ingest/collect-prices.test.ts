@@ -13,11 +13,11 @@ describe("OilPriceAPI quota", () => {
     ]);
     expect(OILPRICE_COMMODITIES).toHaveLength(1);
 
-    const eiaCommodities = EIA_COMMODITIES.map((row) => row.commodity);
-    expect(eiaCommodities).toEqual(["brent_crude", "wti_crude", "henry_hub_gas"]);
-    expect(OILPRICE_COMMODITIES.some((row) => eiaCommodities.includes(row.commodity))).toBe(
-      false
-    );
+    expect(EIA_COMMODITIES.map((row) => row.commodity)).toEqual([
+      "brent_crude",
+      "wti_crude",
+      "henry_hub_gas",
+    ]);
   });
 
   it("skips OilPriceAPI when today's eu_ttf row already exists", () => {
