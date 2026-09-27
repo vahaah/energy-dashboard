@@ -38,11 +38,33 @@ function indexByTimestamp<T>(
   return map;
 }
 
+export function emptyCarbonWindows(): {
+  intensityByTime: Map<string, IntensityRow>;
+  mixByTime: Map<string, Record<string, number>>;
+} {
+  return {
+    intensityByTime: new Map(),
+    mixByTime: new Map(),
+  };
+}
+
+function mixByTimestamp(rows: MixRow[]): Map<string, Record<string, number>> {
+  const mixByTime = new Map<string, Record<string, number>>();
+  for (const row of rows) {
+    const mix: Record<string, number> = {};
+    for (const item of row.generationmix) {
+      mix[item.fuel] = item.perc;
+    }
+    mixByTime.set(hourKey(parseUtcDateTime(row.from)), mix);
+  }
+  return mixByTime;
+}
+
 export async function fetchCarbonWindows(fromIso: string, toIso: string): Promise<{
   intensityByTime: Map<string, IntensityRow>;
   mixByTime: Map<string, Record<string, number>>;
 }> {
-  const [intensity, generation] = await Promise.all([
+  const [intensityResult, generationResult] = await Promise.allSettled([
     fetchJson<CarbonIntensityResponse>(
       `https://api.carbonintensity.org.uk/intensity/${fromIso}/${toIso}`
     ),
@@ -51,18 +73,15 @@ export async function fetchCarbonWindows(fromIso: string, toIso: string): Promis
     ),
   ]);
 
-  const mixByTime = new Map<string, Record<string, number>>();
-  for (const row of generation.data ?? []) {
-    const mix: Record<string, number> = {};
-    for (const item of row.generationmix) {
-      mix[item.fuel] = item.perc;
-    }
-    mixByTime.set(hourKey(parseUtcDateTime(row.from)), mix);
-  }
-
   return {
-    intensityByTime: indexByTimestamp(intensity.data ?? [], (row) => row.from),
-    mixByTime,
+    intensityByTime:
+      intensityResult.status === "fulfilled"
+        ? indexByTimestamp(intensityResult.value.data ?? [], (row) => row.from)
+        : new Map(),
+    mixByTime:
+      generationResult.status === "fulfilled"
+        ? mixByTimestamp(generationResult.value.data ?? [])
+        : new Map(),
   };
 }
 
@@ -159,6 +178,14 @@ export function buildSnapshotRowsForPeriods(
   });
 }
 
+async function settledValue<T>(work: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await work();
+  } catch {
+    return fallback;
+  }
+}
+
 export async function collectRecentSnapshots(now: Date): Promise<Record<string, unknown>[]> {
   const periods = listRecentSettlementPeriods(now, 2.5 * 60 * 60 * 1000);
   if (periods.length === 0) {
@@ -172,13 +199,19 @@ export async function collectRecentSnapshots(now: Date): Promise<Record<string, 
   const dates = [...new Set(periods.map((period) => period.settlementDate))];
 
   const [carbon, priceSets, demandRows, genRows] = await Promise.all([
-    fetchCarbonWindows(
-      from.toISOString().replace(".000", ""),
-      to.toISOString().replace(".000", "")
+    settledValue(
+      () =>
+        fetchCarbonWindows(
+          from.toISOString().replace(".000", ""),
+          to.toISOString().replace(".000", "")
+        ),
+      emptyCarbonWindows()
     ),
-    Promise.all(dates.map((date) => fetchSystemPrices(date))),
-    fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso),
-    fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso),
+    Promise.all(
+      dates.map((date) => settledValue(() => fetchSystemPrices(date), [] as ElexonSystemPrice[]))
+    ),
+    settledValue(() => fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso), []),
+    settledValue(() => fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso), []),
   ]);
 
   return buildSnapshotRowsForPeriods(periods, {
@@ -200,10 +233,16 @@ export async function collectSnapshotsForSettlementDate(
   const ciTo = to.toISOString().replace(".000Z", "Z");
 
   const [carbon, prices, demandRows, genRows] = await Promise.all([
-    fetchCarbonWindows(ciFrom, ciTo),
-    fetchSystemPrices(settlementDate),
-    fetchElexonWindow<ElexonDemand>("ITSDO", from.toISOString(), to.toISOString()),
-    fetchElexonWindow<ElexonGeneration>("AGPT", from.toISOString(), to.toISOString()),
+    settledValue(() => fetchCarbonWindows(ciFrom, ciTo), emptyCarbonWindows()),
+    settledValue(() => fetchSystemPrices(settlementDate), [] as ElexonSystemPrice[]),
+    settledValue(
+      () => fetchElexonWindow<ElexonDemand>("ITSDO", from.toISOString(), to.toISOString()),
+      []
+    ),
+    settledValue(
+      () => fetchElexonWindow<ElexonGeneration>("AGPT", from.toISOString(), to.toISOString()),
+      []
+    ),
   ]);
 
   return buildSnapshotRowsForPeriods(periods, {

@@ -105,7 +105,7 @@ Load historical data from all sources into Tinybird:
 # Last 30 days (default)
 npx tsx scripts/backfill.ts --days 30
 
-# Custom date range
+# Custom UK settlement-date range (inclusive YYYY-MM-DD, not UTC midnights)
 npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
 
 # Dry run (preview without ingesting)
@@ -116,7 +116,37 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
+`--from` / `--to` are inclusive **UK settlement dates**. Do not pass UTC midnights — `--to 2026-09-27` during BST must not ingest 28 Sep.
+
 Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
+
+### Cleanup leftover future generation rows
+
+NESO day-ahead forecasts were ingested with timestamps after `now()`. Latest pipes and `/api/health` ignore those rows, but they still sit in `generation_5min` until deleted.
+
+Preview (safe):
+
+```sql
+SELECT timestamp, fuel_type, source, generation_mw
+FROM generation_5min
+WHERE timestamp > now()
+ORDER BY timestamp
+```
+
+Delete only after reviewing the preview. Do not run this from CI or agents:
+
+```sql
+DELETE FROM generation_5min WHERE timestamp > now()
+```
+
+Incomplete just-started snapshot rows can stay. `latest_snapshot` now requires non-null `demand_mw` and `price_gbp_mwh`. Preview leftovers with:
+
+```sql
+SELECT timestamp, demand_mw, price_gbp_mwh
+FROM energy_snapshots FINAL
+WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
+ORDER BY timestamp DESC
+```
 
 ### 7. Deploy to Vercel
 

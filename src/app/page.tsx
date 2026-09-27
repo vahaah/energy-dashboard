@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/dashboard";
+import { latestObservedTimestamp } from "@/lib/health";
 import { formatLondonClock, parseUtcDateTime } from "@/lib/london-time";
 import { queryPipe } from "@/lib/tinybird";
 import type {
@@ -34,14 +35,11 @@ export default async function Home({
   let generationHistory: Generation5min[] = [];
   let latestGeneration: Generation5min[] = [];
   const dashboardSearchParams = await loadDashboardSearchParams(searchParams);
-  let selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date);
-  let todayDate = selectedDate;
+  const now = new Date();
+  const selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date, now);
+  const todayDate = getEffectiveDashboardDate(null, now);
 
   try {
-    const now = new Date();
-    selectedDate = getEffectiveDashboardDate(dashboardSearchParams.date, now);
-    todayDate = getEffectiveDashboardDate(null, now);
-
     [snapshots, prices, generationHistory, latestGeneration] = await Promise.all([
       queryPipe<EnergySnapshot>(
         "snapshots_range",
@@ -77,7 +75,7 @@ export default async function Home({
       searchParams={dashboardSearchParams}
       selectedDate={selectedDate}
       todayDate={todayDate}
-      dataAsOf={latestDataAsOf(snapshots, latestGeneration)}
+      dataAsOf={latestDataAsOf(snapshots, latestGeneration, now)}
       initialSnapshots={snapshots}
       initialPrices={prices}
       generationHistory={generationHistory}
@@ -88,19 +86,15 @@ export default async function Home({
 
 function latestDataAsOf(
   snapshots: EnergySnapshot[],
-  generation: Generation5min[]
+  generation: Generation5min[],
+  now: Date
 ): string | null {
-  const candidates = [
-    snapshots.at(-1)?.timestamp,
-    ...generation.map((row) => row.timestamp),
-  ].filter((value): value is string => Boolean(value));
-
-  if (candidates.length === 0) {
+  const latest = latestObservedTimestamp(
+    [snapshots.at(-1)?.timestamp, ...generation.map((row) => row.timestamp)],
+    now
+  );
+  if (!latest) {
     return null;
   }
-
-  const latest = candidates.reduce((current, value) =>
-    parseUtcDateTime(value).getTime() > parseUtcDateTime(current).getTime() ? value : current
-  );
   return formatLondonClock(parseUtcDateTime(latest));
 }

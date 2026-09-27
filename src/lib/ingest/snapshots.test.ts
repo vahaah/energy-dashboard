@@ -74,4 +74,34 @@ describe("NESO settlement mapping", () => {
 
     expect(rows[0]?.generation_mw).toBe(0);
   });
+
+  it("drops NESO periods that start after now", () => {
+    const rows = nesoRecordsToIngest(
+      [
+        {
+          SETTLEMENT_DATE: "2026-09-27",
+          SETTLEMENT_PERIOD: "21",
+          FORECAST_ACTUAL_INDICATOR: "A",
+          EMBEDDED_WIND_GENERATION: "90",
+        },
+        {
+          SETTLEMENT_DATE: "2026-09-27",
+          SETTLEMENT_PERIOD: "48",
+          FORECAST_ACTUAL_INDICATOR: "F",
+          EMBEDDED_WIND_GENERATION: "1200",
+        },
+      ],
+      "embedded_wind",
+      new Date("2026-09-27T10:08:00.000Z")
+    );
+
+    expect(rows).toEqual([
+      {
+        timestamp: "2026-09-27 09:00:00",
+        fuel_type: "embedded_wind",
+        generation_mw: 90,
+        source: "neso",
+      },
+    ]);
+  });
 });

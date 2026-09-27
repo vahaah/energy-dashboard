@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { healthHttpStatus, STALE_AFTER_MS, streamFreshness } from "@/lib/health";
+import {
+  healthHttpStatus,
+  latestObservedTimestamp,
+  STALE_AFTER_MS,
+  streamFreshness,
+} from "@/lib/health";
 
 describe("health freshness", () => {
   const now = new Date("2026-09-27T10:00:00.000Z");
@@ -30,5 +35,14 @@ describe("health freshness", () => {
     const prices = streamFreshness("prices", "2026-09-20 00:00:00", now, STALE_AFTER_MS.prices, false);
     expect(prices.stale).toBe(true);
     expect(healthHttpStatus([prices])).toBe(200);
+  });
+
+  it("ignores future timestamps so a NESO forecast cannot become latest", () => {
+    const latest = latestObservedTimestamp(
+      ["2026-09-27 09:30:00", "2026-09-27 22:30:00", "not-a-date"],
+      now
+    );
+
+    expect(latest).toBe("2026-09-27 09:30:00");
   });
 });

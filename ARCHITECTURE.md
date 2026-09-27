@@ -73,10 +73,10 @@ Engine: `ReplacingMergeTree`
 
 ## Tinybird Pipes (API Endpoints)
 
-1. **`latest_snapshot`** — returns the most recent energy_snapshots row
+1. **`latest_snapshot`** — most recent `energy_snapshots` row with non-null demand and price, `timestamp <= now()`
 2. **`snapshots_range`** — returns snapshots between `start` and `end` params, optionally aggregated
-3. **`latest_prices`** — returns latest price for each commodity
-4. **`prices_range`** — returns price history between `start` and `end`
+3. **`latest_prices`** — latest price for each commodity (`FINAL` then `argMax` on date)
+4. **`prices_range`** — price history between `start` and `end` (`FINAL`, no `any(price)`)
 5. **`dashboard_summary`** — combines latest snapshot + latest prices in one call
 
 ## Next.js Architecture

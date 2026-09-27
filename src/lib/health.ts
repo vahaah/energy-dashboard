@@ -45,6 +45,32 @@ export function streamFreshness(
   };
 }
 
+export function latestObservedTimestamp(
+  values: Array<string | null | undefined>,
+  now: Date
+): string | null {
+  let latest: string | null = null;
+  let latestMs = Number.NEGATIVE_INFINITY;
+
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const ms = parseUtcDateTime(value).getTime();
+    if (Number.isNaN(ms) || ms > now.getTime()) {
+      continue;
+    }
+
+    if (ms > latestMs) {
+      latest = value;
+      latestMs = ms;
+    }
+  }
+
+  return latest;
+}
+
 export function healthHttpStatus(streams: StreamFreshness[]): number {
   return streams.some((stream) => stream.critical && stream.stale) ? 503 : 200;
 }

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { healthHttpStatus, STALE_AFTER_MS, streamFreshness } from "@/lib/health";
+import {
+  healthHttpStatus,
+  latestObservedTimestamp,
+  STALE_AFTER_MS,
+  streamFreshness,
+} from "@/lib/health";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -21,34 +26,33 @@ export async function GET() {
       queryPipe<CommodityPrice>("latest_prices"),
     ]);
 
-    const latestSnapshot = snapshots[0]?.timestamp ?? null;
-    const fuelinstLatest = latestTimestamp(
-      generation.filter((row) => row.source === "fuelinst")
+    const latestSnapshot = latestObservedTimestamp(
+      snapshots.map((row) => row.timestamp),
+      now
     );
-    const embeddedLatest = latestTimestamp(
-      generation.filter(
-        (row) =>
-          row.fuel_type === "embedded_solar" || row.fuel_type === "embedded_wind"
-      )
+    const fuelinstLatest = latestObservedTimestamp(
+      generation.filter((row) => row.source === "fuelinst").map((row) => row.timestamp),
+      now
     );
-    const priceLatest = prices.reduce<string | null>((latest, row) => {
-      if (!latest || row.date > latest) {
-        return row.date;
-      }
-      return latest;
-    }, null);
+    const embeddedLatest = latestObservedTimestamp(
+      generation
+        .filter(
+          (row) =>
+            row.fuel_type === "embedded_solar" || row.fuel_type === "embedded_wind"
+        )
+        .map((row) => row.timestamp),
+      now
+    );
+    const priceLatest = latestObservedTimestamp(
+      prices.map((row) => `${row.date} 00:00:00`),
+      now
+    );
 
     const streams = [
       streamFreshness("snapshots", latestSnapshot, now, STALE_AFTER_MS.snapshots, true),
       streamFreshness("generation", fuelinstLatest, now, STALE_AFTER_MS.generation, true),
       streamFreshness("embedded", embeddedLatest, now, STALE_AFTER_MS.embedded, false),
-      streamFreshness(
-        "prices",
-        priceLatest ? `${priceLatest} 00:00:00` : null,
-        now,
-        STALE_AFTER_MS.prices,
-        false
-      ),
+      streamFreshness("prices", priceLatest, now, STALE_AFTER_MS.prices, false),
     ];
 
     return NextResponse.json(
@@ -70,13 +74,4 @@ export async function GET() {
       { status: 503 }
     );
   }
-}
-
-function latestTimestamp(rows: Generation5min[]): string | null {
-  return rows.reduce<string | null>((latest, row) => {
-    if (!latest || row.timestamp > latest) {
-      return row.timestamp;
-    }
-    return latest;
-  }, null);
 }

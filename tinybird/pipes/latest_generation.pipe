@@ -1,7 +1,6 @@
 DESCRIPTION >
     Latest generation reading per fuel type, not a single shared timestamp.
-    Embedded solar/wind update on a coarser cadence than FUELINST and must
-    still appear in headline mix and domestic generation totals.
+    Ignores future timestamps so NESO day-ahead forecasts cannot become "now".
 
 TOKEN dashboard_read READ
 
@@ -13,6 +12,7 @@ SQL >
         argMax(g.generation_mw, g.timestamp) AS generation_mw,
         argMax(g.source, g.timestamp) AS source
     FROM generation_5min AS g
+    WHERE g.timestamp <= now()
     GROUP BY g.fuel_type
     ORDER BY generation_mw DESC
 

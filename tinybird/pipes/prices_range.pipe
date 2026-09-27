@@ -2,25 +2,24 @@ TOKEN dashboard_read READ
 
 DESCRIPTION >
     Returns commodity price history between start and end dates.
-    Optional commodity filter. Groups by date+commodity so unmerged
-    ReplacingMergeTree duplicates are not returned.
+    Optional commodity filter. FINAL forces ReplacingMergeTree to keep the
+    last ingested row per (date, commodity).
 
 NODE endpoint
 SQL >
     %
     SELECT
-        date,
-        commodity,
-        any(price) AS price,
-        any(currency) AS currency,
-        any(unit) AS unit
-    FROM commodity_prices
-    WHERE date >= {{Date(start, '2026-01-01')}}
-      AND date <= {{Date(end, '2099-01-01')}}
+        p.date,
+        p.commodity,
+        p.price,
+        p.currency,
+        p.unit
+    FROM commodity_prices AS p FINAL
+    WHERE p.date >= {{Date(start, '2026-01-01')}}
+      AND p.date <= {{Date(end, '2099-01-01')}}
       {% if defined(commodity) %}
-        AND commodity = {{String(commodity, '')}}
+        AND p.commodity = {{String(commodity, '')}}
       {% end %}
-    GROUP BY date, commodity
-    ORDER BY date ASC, commodity ASC
+    ORDER BY p.date ASC, p.commodity ASC
 
 TYPE endpoint

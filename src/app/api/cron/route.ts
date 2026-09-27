@@ -29,18 +29,26 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const sources = await Promise.all([
+  const [snapshotStatus, generation] = await Promise.all([
     runSource("snapshots", async () => {
       const rows = await collectRecentSnapshots(now);
       await ingestRows("energy_snapshots", rows);
       return rows.length;
     }),
-    runSource("generation", async () => {
-      const rows = await collectRecentGeneration(now);
-      await ingestRows("generation_5min", rows);
-      return rows.length;
-    }),
+    collectRecentGeneration(now),
   ]);
+
+  const sources: SourceStatus[] = [snapshotStatus, ...generation.sources];
+
+  if (generation.rows.length > 0) {
+    try {
+      await ingestRows("generation_5min", generation.rows);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[cron] generation ingest failed", message);
+      sources.push({ source: "generation", ok: false, error: message });
+    }
+  }
 
   const ingested = sources.some((source) => source.ok && (source.rows ?? 0) > 0);
   if (ingested) {

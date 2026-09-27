@@ -5,6 +5,7 @@
  * Usage:
  *   npx tsx scripts/backfill.ts --days 30
  *   npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
+ *   (--from/--to are inclusive UK settlement dates, not UTC midnights)
  *   npx tsx scripts/backfill.ts --days 90 --dry-run
  *   npx tsx scripts/backfill.ts --days 7 --only prices
  *   npx tsx scripts/backfill.ts --days 7 --only snapshots
@@ -18,10 +19,10 @@
 
 import { config } from "dotenv";
 import { resolve } from "node:path";
+import { backfillSettlementDates } from "../src/lib/backfill-range";
 import { EIA_COMMODITIES, FRED_COMMODITIES } from "../src/lib/ingest/collect-prices";
 import { collectGenerationForSettlementDate } from "../src/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "../src/lib/ingest/collect-grid";
-import { addUtcDays, formatIsoDate, getLondonDate } from "../src/lib/london-time";
 
 config({ path: resolve(import.meta.dirname, "..", ".env.local") });
 config({ path: resolve(process.cwd(), ".env.local") });
@@ -49,13 +50,24 @@ const daysArg = getArg("days");
 const fromArg = getArg("from");
 const toArg = getArg("to");
 
-const endDate = toArg ? new Date(`${toArg}T23:59:59Z`) : new Date();
-const startDate = fromArg
-  ? new Date(`${fromArg}T00:00:00Z`)
-  : new Date(endDate.getTime() - Number(daysArg ?? 30) * 24 * 60 * 60 * 1000);
+const now = new Date();
+const settlementDates = backfillSettlementDates({
+  from: fromArg,
+  to: toArg,
+  days: daysArg === undefined ? undefined : Number(daysArg),
+  now,
+});
 
-console.log(`\nBackfill range: ${formatIsoDate(startDate)} → ${formatIsoDate(endDate)}`);
-console.log(`   Days: ${Math.ceil((endDate.getTime() - startDate.getTime()) / 86_400_000)}`);
+if (settlementDates.length === 0) {
+  console.error("No UK settlement dates in range. --from/--to are inclusive YYYY-MM-DD dates.");
+  process.exit(1);
+}
+
+const startDate = settlementDates[0];
+const endDate = settlementDates[settlementDates.length - 1];
+
+console.log(`\nBackfill settlement dates: ${startDate} → ${endDate}`);
+console.log(`   Days: ${settlementDates.length}`);
 if (only) console.log(`   Only: ${only}`);
 if (dryRun) console.log("   DRY RUN — no data will be ingested\n");
 else console.log("");
@@ -93,22 +105,11 @@ async function ingestRows(datasource: string, rows: Record<string, unknown>[]) {
   }
 }
 
-function settlementDatesInRange(start: Date, end: Date): string[] {
-  const dates: string[] = [];
-  let cursor = getLondonDate(start);
-  const last = getLondonDate(end);
-  while (cursor <= last) {
-    dates.push(cursor);
-    cursor = addUtcDays(cursor, 1);
-  }
-  return dates;
-}
-
 async function backfillSnapshots() {
   console.log("Backfilling energy snapshots (half-hourly, UK settlement periods)...\n");
 
   let totalRows = 0;
-  for (const settlementDate of settlementDatesInRange(startDate, endDate)) {
+  for (const settlementDate of settlementDates) {
     process.stdout.write(`   ${settlementDate} `);
     const rows = await collectSnapshotsForSettlementDate(settlementDate);
     if (rows.length > 0) {
@@ -128,9 +129,9 @@ async function backfillGeneration() {
   console.log("Backfilling generation (FUELINST + NESO wind + Sheffield PV Live)...\n");
 
   let totalRows = 0;
-  for (const settlementDate of settlementDatesInRange(startDate, endDate)) {
+  for (const settlementDate of settlementDates) {
     process.stdout.write(`   ${settlementDate} `);
-    const rows = await collectGenerationForSettlementDate(settlementDate);
+    const { rows } = await collectGenerationForSettlementDate(settlementDate, now);
     if (rows.length > 0) {
       for (let i = 0; i < rows.length; i += 500) {
         await ingestRows("generation_5min", rows.slice(i, i + 500));
@@ -158,8 +159,8 @@ async function backfillPrices() {
       const url =
         `https://api.eia.gov/v2/seriesid/${series}` +
         `?api_key=${EIA_KEY}` +
-        `&start=${formatIsoDate(startDate)}` +
-        `&end=${formatIsoDate(endDate)}` +
+        `&start=${startDate}` +
+        `&end=${endDate}` +
         `&sort[0][column]=period&sort[0][direction]=asc` +
         `&length=5000`;
 
@@ -191,7 +192,7 @@ async function backfillPrices() {
     for (const { id, commodity, unit, currency } of FRED_COMMODITIES) {
       process.stdout.write(`   ${commodity} (FRED): `);
       const json = await fetchJSON<{ observations: Array<{ date: string; value: string }> }>(
-        `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=asc&observation_start=${formatIsoDate(startDate)}&observation_end=${formatIsoDate(endDate)}`
+        `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=asc&observation_start=${startDate}&observation_end=${endDate}`
       );
       const rows = (json?.observations ?? [])
         .filter((observation) => observation.value !== ".")
