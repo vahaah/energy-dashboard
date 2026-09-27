@@ -334,11 +334,61 @@ describe("getLatestFacts", () => {
       now,
     });
 
-    expect(facts.generationMw.value).toBe(5100);
+    expect(facts.generationMw.value).toBeNull();
+    expect(facts.generationMw.periodStartUtc).toBeNull();
+    expect(formatHeadlineGw(facts.generationMw.value)).toBe("—");
     expect(facts.netImportsMw.value).toBeNull();
     expect(facts.netImportsMw.periodStartUtc).toBeNull();
-    expect(facts.shares.find((share) => share.fuel === "imports")).toBeUndefined();
-    expect(facts.shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
+    expect(facts.shares).toEqual([]);
+  });
+
+  it("does not publish a full domestic generation total from embedded-only rows", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-20 22:30:00", "embedded_wind", 3300, "neso"),
+        makeGeneration("2026-09-20 22:30:00", "embedded_solar", 1800, "pvlive"),
+      ],
+      now,
+    });
+
+    expect(facts.generationRows).toHaveLength(2);
+    expect(facts.generationMw.value).toBeNull();
+    expect(facts.generationMw.periodStartUtc).toBeNull();
+    expect(facts.generationMw.periodEndUtc).toBeNull();
+    expect(formatHeadlineGw(facts.generationMw.value)).toBe("—");
+    expect(facts.shares).toEqual([]);
+
+    const withFuelinst = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-20 22:30:00", "wind", 12_000),
+        makeGeneration("2026-09-20 22:30:00", "embedded_wind", 3300, "neso"),
+        makeGeneration("2026-09-20 22:30:00", "embedded_solar", 1800, "pvlive"),
+      ],
+      now,
+    });
+
+    expect(withFuelinst.generationMw.value).toBe(17_100);
+    expect(withFuelinst.generationMw.periodStartUtc).toBe("2026-09-20T22:30:00.000Z");
+    expect(withFuelinst.shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(3300);
   });
 
   it("uses separate period timestamps for domestic generation and transfers", () => {

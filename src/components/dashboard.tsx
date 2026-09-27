@@ -172,7 +172,7 @@ export function Dashboard({
       ),
     [latestGenerationSplit.sources]
   );
-  const topSource = topSources[0] ?? null;
+  const topSource = facts.generationMw.value == null ? null : (topSources[0] ?? null);
 
   const commodityStats = useMemo(() => {
     const groups = new Map<string, CommodityPrice[]>();

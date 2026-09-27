@@ -160,7 +160,10 @@ function populatedFacts({
   const daySnapshots = snapshotsOnDate(snapshots, isHistorical ? resolution.date : null, period);
   const generationRows = generationForPeriod(generation, period, isHistorical ? resolution.date : null);
   const split = splitLatestGenerationRows(generationRows);
-  const shares = supplyShares([...split.sources, ...split.interconnectors]);
+  const hasFuelinstDomestic = split.sources.some((row) => row.source === "fuelinst");
+  const shares = hasFuelinstDomestic
+    ? supplyShares([...split.sources, ...split.interconnectors])
+    : [];
   const pumpedRows = split.sources.filter(
     (row) => normalizeFuelType(row.fuel_type) === "ps"
   );
@@ -215,11 +218,15 @@ function populatedFacts({
       source: "Elexon BMRS",
       definition: "Imbalance (system buy) price",
     }),
-    generationMw: rowsFact(split.sources, split.totalGenerationMw, {
-      unit: "MW",
-      source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
-      definition: "GB generation including estimated embedded wind and solar",
-    }),
+    generationMw: rowsFact(
+      hasFuelinstDomestic ? split.sources : [],
+      split.totalGenerationMw,
+      {
+        unit: "MW",
+        source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
+        definition: "GB generation including estimated embedded wind and solar",
+      }
+    ),
     netImportsMw: rowsFact(split.interconnectors, split.netTransfersMw, {
       unit: "MW",
       source: "Elexon BMRS",
