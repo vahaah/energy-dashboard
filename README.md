@@ -11,7 +11,7 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
 - [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
 - [FRED](https://fred.stlouisfed.org) / IMF — monthly EU TTF and Asia LNG in $/MMBtu
-- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh (`eu_ttf`), at most once per day (Free plan: 50 requests/month)
+- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh (`eu_ttf`), 00:30 UTC slot only (Free plan: 50 requests/month)
 
 ## Architecture
 
@@ -170,7 +170,7 @@ Set environment variables in Vercel dashboard:
 - `OIL_PRICE_API_KEY` (optional — Dutch TTF only, ≤1 request/day)
 - `FRED_API_KEY` (optional)
 
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours; OilPriceAPI is skipped when today's `eu_ttf` row already exists.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours; OilPriceAPI is called only on the 00:30 UTC slot, and skipped if today's `eu_ttf` row already exists. A missed ingest is not retried later that day.
 
 ## Public API
 
@@ -241,7 +241,7 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 - Brent Crude ($/bbl) — EIA
 - WTI Crude ($/bbl) — EIA
 - Henry Hub Natural Gas ($/MMBtu) — EIA
-- Dutch TTF (€/MWh, `eu_ttf`) — OilPriceAPI, once per day
+- Dutch TTF (€/MWh, `eu_ttf`) — OilPriceAPI, 00:30 UTC slot only
 - EU TTF monthly ($/MMBtu, `eu_natural_gas`) — FRED/IMF
 - Asia LNG monthly ($/MMBtu, `lng_asia`) — FRED/IMF
 

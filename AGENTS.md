@@ -115,7 +115,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
-| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), at most 1 request/day |
+| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), 00:30 UTC slot only |
 | FRED / IMF | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`, `lng_asia`) |
 
 ## Environment Variables
