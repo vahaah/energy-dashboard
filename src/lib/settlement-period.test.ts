@@ -63,6 +63,31 @@ describe("settlement periods follow UK local time", () => {
     expect(periods[49]?.startUtc.toISOString()).toBe("2026-10-25T23:30:00.000Z");
   });
 
+  it("includes the spring-forward day when a 24h lookback spans three London dates", () => {
+    const at = new Date("2026-03-29T23:15:00.000Z");
+    const recent = listRecentSettlementPeriods(at, 24 * 60 * 60 * 1000);
+    const last = recent.at(-1);
+    const dates = [...new Set(recent.map((period) => period.settlementDate))];
+
+    expect(dates).toEqual(["2026-03-28", "2026-03-29"]);
+    expect(recent.some((period) => period.settlementDate === "2026-03-29")).toBe(true);
+    expect(last?.settlementDate).toBe("2026-03-29");
+    expect(last?.settlementPeriod).toBe(46);
+    expect(last?.endUtc.toISOString()).toBe("2026-03-29T23:00:00.000Z");
+  });
+
+  it("includes the intervening autumn-back day when a 48h lookback skips an endpoint-only set", () => {
+    const at = new Date("2026-10-27T00:15:00.000Z");
+    const recent = listRecentSettlementPeriods(at, 48 * 60 * 60 * 1000);
+    const last = recent.at(-1);
+    const dates = [...new Set(recent.map((period) => period.settlementDate))];
+
+    expect(dates).toEqual(["2026-10-25", "2026-10-26"]);
+    expect(recent.some((period) => period.settlementDate === "2026-10-26")).toBe(true);
+    expect(last?.settlementDate).toBe("2026-10-26");
+    expect(last?.endUtc.toISOString()).toBe("2026-10-27T00:00:00.000Z");
+  });
+
   it("only includes completed settlement periods so the in-progress one is not ingested", () => {
     const at = new Date("2026-09-27T10:08:00.000Z");
     const recent = listRecentSettlementPeriods(at, 2.5 * 60 * 60 * 1000);
