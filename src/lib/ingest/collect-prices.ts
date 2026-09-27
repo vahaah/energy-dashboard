@@ -166,7 +166,7 @@ export function rejectStoredPriceRows(
 /**
  * EIA / SAP skip already-stored (commodity, date) keys.
  * World Bank monthly series (`eu_natural_gas`, `lng_asia`) are always kept so
- * ReplacingMergeTree last-insert-wins can replace leftover FRED / OilPrice values.
+ * ReplacingMergeTree last-insert-wins can replace leftover stored values.
  */
 export function selectPriceRowsForIngest(
   rows: PriceRow[],

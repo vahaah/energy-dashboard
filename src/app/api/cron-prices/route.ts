@@ -25,7 +25,7 @@ import { fetchWorldBankMonthly, worldBankCronWindow } from "@/lib/world-bank-pin
  *      other slots write the last 30 days. One v2 request per series.
  *   2. World Bank Pink Sheet — EU gas and Japan LNG monthly, from 2025-01
  *      on every run (one xlsx download). Month-start keys are always written
- *      so leftover FRED / OilPrice values are replaced (last-insert-wins + FINAL).
+ *      so leftover stored values are replaced (last-insert-wins + FINAL).
  *   3. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
  * ReplacingMergeTree(date, commodity) makes the daily heal idempotent. After
  * deploy, the next 00:30 UTC slot backfills EIA history within 24h.
