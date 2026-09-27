@@ -336,7 +336,7 @@ export function Dashboard({
               pending={isPending}
             />
             {range === "24h" ? (
-              <label className="inline-flex h-11 items-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm text-gray-1000 sm:h-9">
+              <label className="inline-flex h-11 items-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm text-gray-1000">
                 <CalendarDays className="h-4 w-4 text-gray-900" />
                 <span className="text-xs text-gray-900">
                   Date
@@ -358,7 +358,7 @@ export function Dashboard({
               type="button"
               onClick={() => startTransition(() => router.refresh())}
               disabled={isPending}
-              className="inline-flex h-11 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 disabled:opacity-60 sm:h-9"
+              className="inline-flex h-11 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin motion-reduce:animate-none" : ""}`} />
               Refresh
@@ -370,7 +370,7 @@ export function Dashboard({
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1400);
               }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 sm:h-9"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Share view"}

@@ -57,7 +57,7 @@ External APIs
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Root layout, Inter font, dark mode
+│   ├── layout.tsx          # Root layout, Geist Sans + Geist Mono, dark mode
 │   ├── page.tsx            # Server Component, ISR 5min, fetches Tinybird
 │   ├── globals.css         # Tailwind v4 config, CSS custom properties, dark mode
 │   └── api/
@@ -163,10 +163,10 @@ FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 - Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
 
 ### Styling
-- Font: Inter (Google Fonts, variable font)
+- Font: Geist Sans + Geist Mono (via `geist` CSS variables on `<html>`)
 - Dark mode first (`.dark` class on `<html>`)
 - Rounded-xl for cards, rounded-lg for smaller elements
-- Zinc color palette for surfaces and borders
+- Surfaces and borders use Geist gray / `background-*` / `gray-alpha-400` tokens in `globals.css` `@theme` (zinc may remain on some legacy chart strokes until later PRs)
 - Emerald accent for brand/primary elements
 
 ## Common Tasks
