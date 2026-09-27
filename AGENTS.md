@@ -163,7 +163,7 @@ FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 - Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
 
 ### Styling
-- Font: Geist Sans + Geist Mono (via `geist` CSS variables on `<html>`)
+- Font: Geist Sans + Geist Mono via the `geist` package (`--font-sans` / `--font-mono` from GeistSans / GeistMono CSS variables on `<html>`). No Inter.
 - Dark mode first (`.dark` class on `<html>`)
 - Rounded-xl for cards, rounded-lg for smaller elements
 - Surfaces and borders use Geist gray / `background-*` / `gray-alpha-400` tokens in `globals.css` `@theme` (zinc may remain on some legacy chart strokes until later PRs)
