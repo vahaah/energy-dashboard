@@ -31,7 +31,7 @@ export function TimeRangeSelector<T extends string>({
           disabled={pending}
           className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-3 font-medium motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 focus-visible:ring-offset-background-100 ${
             compact ? "text-xs" : "text-sm"
-          } ${}
+          } ${
             value === opt.value
               ? "bg-gray-100 text-gray-1000"
               : "text-gray-900 hover:text-gray-1000"
