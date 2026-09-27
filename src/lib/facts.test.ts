@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGenerationStackSeries } from "@/lib/dashboard-model";
+import { buildGenerationStackSeries, headlineAsOf } from "@/lib/dashboard-model";
 import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import { formatLondonDateTimeStamp } from "@/lib/london-time";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
@@ -217,6 +217,72 @@ describe("getLatestFacts", () => {
     );
     expect(totalShare).toBeGreaterThanOrEqual(99.9);
     expect(totalShare).toBeLessThanOrEqual(100.1);
+  });
+
+  it("exposes generation and transfer period starts so lagging facts get their own asOf", () => {
+    const now = new Date("2026-09-27T16:30:00.000Z");
+    const lagged = getLatestFacts({
+      resolution: resolveDashboardDate(null, now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-27 16:00:00",
+          carbon_intensity: 48,
+          demand_mw: 29400,
+          price_gbp_mwh: 127,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-27 15:00:00", "wind", 12000),
+        makeGeneration("2026-09-27 15:00:00", "ccgt", 8000),
+        makeGeneration("2026-09-27 15:00:00", "INTFR", 1500),
+      ],
+      now,
+    });
+
+    expect(lagged.generationMw.value).toBe(20000);
+    expect(lagged.netImportsMw.value).toBe(1500);
+    expect(lagged.generationMw.periodStartUtc).toBe("2026-09-27T15:00:00.000Z");
+    expect(lagged.netImportsMw.periodStartUtc).toBe("2026-09-27T15:00:00.000Z");
+    expect(lagged.referenceTimestamp).toBe("2026-09-27 16:00:00");
+    expect(headlineAsOf(lagged.generationMw.periodStartUtc, lagged.referenceTimestamp)).toBe(
+      "SP 33, 16:00–16:30 BST"
+    );
+    expect(headlineAsOf(lagged.netImportsMw.periodStartUtc, lagged.referenceTimestamp)).toBe(
+      "SP 33, 16:00–16:30 BST"
+    );
+
+    const missingGeneration = getLatestFacts({
+      resolution: resolveDashboardDate(null, now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-27 16:00:00",
+          carbon_intensity: 48,
+        }),
+      ],
+      generation: [],
+      now,
+    });
+
+    expect(missingGeneration.generationMw.value).toBeNull();
+    expect(missingGeneration.netImportsMw.value).toBeNull();
+    expect(missingGeneration.generationMw.periodStartUtc).toBeNull();
+    expect(missingGeneration.netImportsMw.periodStartUtc).toBeNull();
+    expect(
+      headlineAsOf(
+        missingGeneration.generationMw.value == null
+          ? null
+          : missingGeneration.generationMw.periodStartUtc,
+        missingGeneration.referenceTimestamp
+      )
+    ).toBeNull();
+    expect(
+      headlineAsOf(
+        missingGeneration.netImportsMw.value == null
+          ? null
+          : missingGeneration.netImportsMw.periodStartUtc,
+        missingGeneration.referenceTimestamp
+      )
+    ).toBeNull();
   });
 
   it("keeps generation unknown when a historical day has snapshots but no generation rows", () => {

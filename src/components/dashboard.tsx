@@ -152,6 +152,14 @@ export function Dashboard({
   const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
   const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
   const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
+  const generationAsOf = headlineAsOf(
+    facts.generationMw.value == null ? null : facts.generationMw.periodStartUtc,
+    headline.referenceTimestamp
+  );
+  const transfersAsOf = headlineAsOf(
+    facts.netImportsMw.value == null ? null : facts.netImportsMw.periodStartUtc,
+    headline.referenceTimestamp
+  );
   const mixAsOf = headlineAsOf(
     headline.mixSnapshot?.timestamp ?? null,
     headline.referenceTimestamp
@@ -435,6 +443,7 @@ export function Dashboard({
                         ? `${formatFuelLabel(topSource.fuel_type)} leading`
                         : "Awaiting latest dispatch"
                     }
+                    asOf={generationAsOf}
                   />
                   <HeroFact
                     label="Transfer stance"
@@ -444,6 +453,7 @@ export function Dashboard({
                         ? "No interconnector observations"
                         : `${activeInterconnectors} active interconnectors`
                     }
+                    asOf={transfersAsOf}
                   />
                   <HeroFact
                     label="Imbalance price"
@@ -513,6 +523,7 @@ export function Dashboard({
                 detail={
                   topSource ? `${formatFuelLabel(topSource.fuel_type)} leading` : "Awaiting dispatch"
                 }
+                asOf={generationAsOf}
                 icon={<Gauge className="h-3.5 w-3.5" />}
                 tooltip="Latest domestic generation across fuel and embedded renewable sources."
               />
@@ -521,6 +532,7 @@ export function Dashboard({
                 value={transferKpiValue(transferStance)}
                 unit="GW"
                 detail={transferKpiDetail(transferStance)}
+                asOf={transfersAsOf}
                 color={
                   transferStance.kind === "export" ? "#f97316" : "#34d399"
                 }
