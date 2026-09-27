@@ -6,6 +6,7 @@ interface Props<T extends string> {
   options: ReadonlyArray<{ value: T; label: string }>;
   pending?: boolean;
   compact?: boolean;
+  ariaLabel?: string;
 }
 
 export function TimeRangeSelector<T extends string>({
@@ -14,6 +15,7 @@ export function TimeRangeSelector<T extends string>({
   options,
   pending = false,
   compact = false,
+  ariaLabel,
 }: Props<T>) {
   return (
     <div
@@ -21,6 +23,7 @@ export function TimeRangeSelector<T extends string>({
         pending ? "opacity-70" : ""
       }`}
       role="group"
+      aria-label={ariaLabel}
     >
       {options.map((opt) => (
         <button

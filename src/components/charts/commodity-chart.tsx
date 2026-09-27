@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -11,10 +12,19 @@ import {
   Legend,
 } from "recharts";
 import type { CommodityPrice, CommodityRange } from "@/lib/types";
-import { COMMODITY_COLORS, COMMODITY_LABELS } from "@/lib/colors";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
-import { commodityChartValue } from "@/lib/gb-gas-sap";
+import {
+  buildCommodityChartSeries,
+  COMMODITY_SCALE_OPTIONS,
+  formatCommodityPointNative,
+  scaleAxisLabel,
+  scaleCaption,
+  type CommodityChartPoint,
+  type CommodityChartSeries,
+  type CommodityScale,
+} from "@/lib/commodity-chart-model";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { TimeRangeSelector } from "@/components/time-range-selector";
 
 interface Props {
   data: CommodityPrice[];
@@ -22,77 +32,139 @@ interface Props {
   selectedSeries: string[];
 }
 
-export function CommodityChart({ data, range, selectedSeries }: Props) {
-  // Pivot: one row per date with columns per commodity
-  const byDate = new Map<string, Record<string, number | string>>();
-  for (const row of data) {
-    const current = byDate.get(row.date) ?? { date: row.date };
-    current[row.commodity] = commodityChartValue(row);
-    byDate.set(row.date, current);
-  }
-  const chartData = Array.from(byDate.values()).sort(
-    (a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
-  );
+type NativeTooltipItem = {
+  color?: string;
+  name?: string;
+  payload?: CommodityChartPoint;
+};
 
-  const commodities = [...new Set(data.map((d) => d.commodity))].filter((commodity) =>
-    selectedSeries.includes(commodity)
-  );
+type NativeTooltipProps = {
+  active?: boolean;
+  payload?: NativeTooltipItem[];
+  label?: string | number;
+  range: CommodityRange;
+};
 
-  // Count data points per commodity to show dots for sparse series
-  const countByCommodity = new Map<string, number>();
-  for (const row of data) {
-    countByCommodity.set(row.commodity, (countByCommodity.get(row.commodity) ?? 0) + 1);
+export function CommodityNativeTooltip({ active, payload, label, range }: NativeTooltipProps) {
+  if (!active || !payload?.length) {
+    return null;
   }
+
+  const firstPoint = payload.find((item) => item.payload)?.payload;
+  const dateValue = firstPoint?.date ?? label ?? "";
 
   return (
-    <ResponsiveChartFrame className="h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-          <XAxis
-            dataKey="date"
-            tickFormatter={(d) => formatChartTick(String(d), range)}
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
-            label={{
-              value: "Native units",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "#71717a" },
-            }}
-          />
-          <Tooltip
-            labelFormatter={(d) => formatChartTooltip(d as string, range)}
-            wrapperStyle={{ zIndex: 320 }}
-            contentStyle={{
-              backgroundColor: "rgba(0,0,0,0.85)",
-              border: "none",
-              borderRadius: 8,
-              color: "#fff",
-              fontSize: 13,
-            }}
-          />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-          {commodities.map((c) => {
-            const count = countByCommodity.get(c) ?? 0;
-            return (
-              <Line
-                key={c}
-                type="monotone"
-                dataKey={c}
-                stroke={COMMODITY_COLORS[c] ?? "#71717a"}
-                strokeWidth={2}
-                dot={count <= 5 ? { r: 3 } : false}
-                name={COMMODITY_LABELS[c] ?? c}
-              />
-            );
-          })}
-        </LineChart>
-      </ResponsiveContainer>
-    </ResponsiveChartFrame>
+    <div
+      className="rounded-lg px-3 py-2 text-[13px] text-white"
+      style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
+    >
+      <p className="mb-1 text-gray-800">{formatChartTooltip(dateValue, range)}</p>
+      {payload.map((item) => {
+        const point = item.payload;
+        if (!point) {
+          return null;
+        }
+        return (
+          <p key={point.commodity} style={{ color: item.color }}>
+            {item.name ?? point.commodity}: {formatCommodityPointNative(point)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CommodityPriceLines({
+  series,
+  range,
+  scale,
+  width,
+  height,
+}: {
+  series: CommodityChartSeries[];
+  range: CommodityRange;
+  scale: CommodityScale;
+  width?: number;
+  height?: number;
+}) {
+  const times = series.flatMap((entry) => entry.points.map((point) => point.time));
+  const domain: [number, number] | ["dataMin", "dataMax"] =
+    times.length > 0 ? [Math.min(...times), Math.max(...times)] : ["dataMin", "dataMax"];
+  const axisTicks = [...new Set(times)]
+    .sort((left, right) => left - right)
+    .map((time) => ({ time }));
+
+  return (
+    <LineChart
+      data={axisTicks}
+      width={width}
+      height={height}
+      margin={{ top: 5, right: 5, bottom: 5, left: 8 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+      <XAxis
+        dataKey="time"
+        type="number"
+        domain={domain}
+        scale="time"
+        tickFormatter={(tick) => formatChartTick(Number(tick), range)}
+        tick={{ fontSize: 11, fill: "#71717a" }}
+        stroke="#27272a"
+      />
+      <YAxis
+        tick={{ fontSize: 11, fill: "#71717a" }}
+        stroke="#27272a"
+        label={{
+          value: scaleAxisLabel(scale),
+          angle: -90,
+          position: "insideLeft",
+          style: { fontSize: 11, fill: "#71717a" },
+        }}
+      />
+      <Tooltip
+        content={<CommodityNativeTooltip range={range} />}
+        wrapperStyle={{ zIndex: 320 }}
+      />
+      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+      {series.map((entry) => (
+        <Line
+          key={entry.commodity}
+          data={entry.points}
+          type="monotone"
+          dataKey="value"
+          stroke={entry.color}
+          strokeWidth={2}
+          dot={entry.monthly ? { r: 4 } : false}
+          connectNulls
+          isAnimationActive={false}
+          name={entry.label}
+        />
+      ))}
+    </LineChart>
+  );
+}
+
+export function CommodityChart({ data, range, selectedSeries }: Props) {
+  const [scale, setScale] = useState<CommodityScale>("index");
+  const series = buildCommodityChartSeries(data, selectedSeries, scale);
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-gray-900">{scaleCaption(scale)}</p>
+        <TimeRangeSelector
+          value={scale}
+          onChange={setScale}
+          options={COMMODITY_SCALE_OPTIONS}
+          compact
+          ariaLabel="Price scale"
+        />
+      </div>
+      <ResponsiveChartFrame className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <CommodityPriceLines series={series} range={range} scale={scale} />
+        </ResponsiveContainer>
+      </ResponsiveChartFrame>
+    </div>
   );
 }

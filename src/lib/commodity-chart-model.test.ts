@@ -1,0 +1,124 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildCommodityChartSeries,
+  commoditySeriesLinePath,
+  formatCommodityPointNative,
+  indexToFirstValue,
+  scaleCaption,
+} from "@/lib/commodity-chart-model";
+import type { CommodityPrice } from "@/lib/types";
+
+function price(
+  commodity: string,
+  date: string,
+  value: number,
+  unit = "$/BBL"
+): CommodityPrice {
+  return {
+    date,
+    commodity,
+    price: value,
+    currency: commodity === "gb_gas_sap" ? "GBP" : "USD",
+    unit: commodity === "gb_gas_sap" ? "p/kWh" : unit,
+  };
+}
+
+describe("indexToFirstValue", () => {
+  it("sets the first defined point to 100 and scales the rest", () => {
+    expect(indexToFirstValue([40, 50, 60])).toEqual([100, 125, 150]);
+  });
+
+  it("skips a missing first value and indexes from the first real observation", () => {
+    expect(indexToFirstValue([null, 40, 60])).toEqual([null, 100, 150]);
+    expect(indexToFirstValue([null, null, 80, 40])).toEqual([null, null, 100, 50]);
+  });
+});
+
+describe("commodity chart series continuity", () => {
+  it("draws one path per weekly and monthly series from first to last date", () => {
+    const rows = [
+      price("brent_crude", "2026-03-03", 70),
+      price("gb_gas_sap", "2026-03-03", 6),
+      price("gb_gas_sap", "2026-03-04", 6.1),
+      price("gb_gas_sap", "2026-03-05", 6.2),
+      price("gb_gas_sap", "2026-03-06", 6.0),
+      price("gb_gas_sap", "2026-03-07", 5.9),
+      price("gb_gas_sap", "2026-03-08", 5.8),
+      price("gb_gas_sap", "2026-03-09", 5.7),
+      price("brent_crude", "2026-03-10", 71),
+      price("gb_gas_sap", "2026-03-10", 5.6),
+      price("lng_asia", "2025-10-01", 12, "$/MMBTU"),
+      price("gb_gas_sap", "2026-04-01", 5.5),
+      price("lng_asia", "2026-03-01", 14, "$/MMBTU"),
+      price("brent_crude", "2026-09-22", 72),
+      price("lng_asia", "2026-09-01", 16, "$/MMBTU"),
+    ];
+
+    const series = buildCommodityChartSeries(
+      rows,
+      ["brent_crude", "lng_asia", "gb_gas_sap"],
+      "native"
+    );
+    const weekly = series.find((entry) => entry.commodity === "brent_crude");
+    const monthly = series.find((entry) => entry.commodity === "lng_asia");
+
+    expect(weekly?.points.map((point) => point.date)).toEqual([
+      "2026-03-03",
+      "2026-03-10",
+      "2026-09-22",
+    ]);
+    expect(monthly?.points.map((point) => point.date)).toEqual([
+      "2025-10-01",
+      "2026-03-01",
+      "2026-09-01",
+    ]);
+
+    const weeklyPath = commoditySeriesLinePath(weekly?.points ?? []);
+    const monthlyPath = commoditySeriesLinePath(monthly?.points ?? []);
+    const weeklyFirst = weekly?.points[0];
+    const weeklyLast = weekly?.points.at(-1);
+    const monthlyFirst = monthly?.points[0];
+    const monthlyLast = monthly?.points.at(-1);
+
+    expect(weeklyPath.match(/M/g)).toEqual(["M"]);
+    expect(monthlyPath.match(/M/g)).toEqual(["M"]);
+    expect(weeklyPath.startsWith(`M${weeklyFirst?.time},${weeklyFirst?.value}`)).toBe(true);
+    expect(weeklyPath.endsWith(`L${weeklyLast?.time},${weeklyLast?.value}`)).toBe(true);
+    expect(monthlyPath.startsWith(`M${monthlyFirst?.time},${monthlyFirst?.value}`)).toBe(true);
+    expect(monthlyPath.endsWith(`L${monthlyLast?.time},${monthlyLast?.value}`)).toBe(true);
+  });
+
+  it("indexes each series from its first value in the selected range", () => {
+    const series = buildCommodityChartSeries(
+      [
+        price("brent_crude", "2026-03-03", 70),
+        price("brent_crude", "2026-03-10", 77),
+        price("lng_asia", "2026-03-01", 10, "$/MMBTU"),
+        price("lng_asia", "2026-04-01", 12, "$/MMBTU"),
+      ],
+      ["brent_crude", "lng_asia"],
+      "index"
+    );
+    const brent = series.find((entry) => entry.commodity === "brent_crude");
+    const lng = series.find((entry) => entry.commodity === "lng_asia");
+
+    expect(brent?.points[0]?.value).toBe(100);
+    expect(brent?.points[1]?.value).toBeCloseTo(110);
+    expect(brent?.points[0]?.native).toBe(70);
+    expect(lng?.points[0]?.value).toBe(100);
+    expect(lng?.points[1]?.value).toBe(120);
+  });
+});
+
+describe("commodity native tooltip values", () => {
+  it("formats the stored native price and unit, not the index", () => {
+    expect(
+      formatCommodityPointNative({
+        commodity: "brent_crude",
+        native: 72.45,
+        unit: "$/bbl",
+      })
+    ).toBe("72.45 $/bbl");
+    expect(scaleCaption("index")).toBe("Indexed, start of range = 100");
+  });
+});
