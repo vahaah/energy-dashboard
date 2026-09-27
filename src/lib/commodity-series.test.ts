@@ -74,6 +74,46 @@ describe("commodity series stay on their own units", () => {
     expect(STRAY_DAILY_MONTHLY_SQL).toContain("lng_asia");
   });
 
+  it("filters a daily 2026-03-18 lng_asia row out of public reads", () => {
+    const monthStart = {
+      date: "2026-03-01",
+      commodity: "lng_asia",
+      price: 10.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const strayDaily = {
+      date: "2026-03-18",
+      commodity: "lng_asia",
+      price: 9.5,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const strayWithTime = {
+      date: "2026-03-18 00:00:00",
+      commodity: "lng_asia",
+      price: 9.5,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const monthStartWithTime = {
+      date: "2026-03-01 00:00:00",
+      commodity: "lng_asia",
+      price: 10.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+
+    expect(isCanonicalCommodityPrice(strayDaily)).toBe(false);
+    expect(isStrayDailyMonthlyCommodity(strayDaily)).toBe(true);
+    expect(filterPublicCommodityPrices([strayDaily, monthStart, strayWithTime])).toEqual([
+      monthStart,
+    ]);
+    expect(filterPublicCommodityPrices([monthStartWithTime, strayDaily])).toEqual([
+      monthStartWithTime,
+    ]);
+  });
+
   it("hides eu_ttf and publishes the World Bank monthly series", () => {
     const brent = {
       date: "2026-09-26",
@@ -130,6 +170,13 @@ describe("commodity series stay on their own units", () => {
     expect(cron).toContain("fetchWorldBankMonthly");
     expect(cron).toContain("eiaCronWindow");
     expect(cron).toContain("worldBankCronWindow");
+  });
+
+  it("filters public commodity rows on the homepage and /api/prices", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
+    const prices = readFileSync(resolve(process.cwd(), "src/app/api/prices/route.ts"), "utf8");
+    expect(page).toContain("filterPublicCommodityPrices");
+    expect(prices).toContain("filterPublicCommodityPrices");
   });
 
   it("does not request OilPriceAPI or FRED from historical price backfill", () => {

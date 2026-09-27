@@ -56,6 +56,31 @@ describe("/api/prices public commodities", () => {
     expect(queryPipe).not.toHaveBeenCalled();
   });
 
+  it("drops a daily 2026-03-18 lng_asia leftover from the public response", async () => {
+    const monthStart = {
+      date: "2026-03-01",
+      commodity: "lng_asia",
+      price: 10.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const strayDaily = {
+      date: "2026-03-18",
+      commodity: "lng_asia",
+      price: 9.5,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    queryPipe.mockResolvedValue([strayDaily, monthStart]);
+
+    const response = await GET(new NextRequest("http://localhost/api/prices?commodity=lng_asia"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual([monthStart]);
+    expect(body.count).toBe(1);
+  });
+
   it("returns World Bank monthly series and hides leftover TTF", async () => {
     const response = await GET(new NextRequest("http://localhost/api/prices"));
     const body = await response.json();

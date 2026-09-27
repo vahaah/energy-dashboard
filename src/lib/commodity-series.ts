@@ -42,7 +42,7 @@ export const STRAY_DAILY_MONTHLY_SQL = [
 ].join(" ");
 
 export function isMonthStartDate(date: string): boolean {
-  return /^\d{4}-\d{2}-01$/.test(date);
+  return /^\d{4}-\d{2}-01$/.test(date.slice(0, 10));
 }
 
 export function normalizeCommodityUnit(unit: string): string {
@@ -85,6 +85,7 @@ export function filterCanonicalCommodityPrices<T extends CommodityPrice>(rows: T
   return rows.filter((row) => isCanonicalCommodityPrice(row));
 }
 
+/** Homepage, /api/prices, and any public export. Drops leftover daily monthly rows. */
 export function filterPublicCommodityPrices<T extends CommodityPrice>(rows: T[]): T[] {
   return filterCanonicalCommodityPrices(rows).filter((row) => isPublicCommodity(row.commodity));
 }
