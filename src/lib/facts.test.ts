@@ -175,6 +175,11 @@ describe("getLatestFacts", () => {
     expect(facts.demand.value).toBeNull();
     expect(facts.price.value).toBeNull();
     expect(facts.generationMw.value).toBeNull();
+    expect(facts.netImportsMw.value).toBeNull();
+    expect(facts.pumpedStorageMw.value).toBeNull();
+    expect(facts.carbon.periodStartUtc).toBeNull();
+    expect(facts.demand.periodStartUtc).toBeNull();
+    expect(facts.price.periodStartUtc).toBeNull();
   });
 
   it("deduplicates 5-min generation rows before calculating shares", () => {
@@ -334,6 +339,117 @@ describe("getLatestFacts", () => {
     expect(facts.netImportsMw.periodStartUtc).toBeNull();
     expect(facts.shares.find((share) => share.fuel === "imports")).toBeUndefined();
     expect(facts.shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
+  });
+
+  it("uses separate period timestamps for domestic generation and transfers", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-20 22:00:00", "wind", 12000),
+        makeGeneration("2026-09-20 21:00:00", "INTFR", 1500),
+      ],
+      now,
+    });
+
+    expect(facts.generationMw.value).toBe(12000);
+    expect(facts.generationMw.periodStartUtc).toBe("2026-09-20T22:00:00.000Z");
+    expect(facts.generationMw.periodEndUtc).toBe("2026-09-20T22:30:00.000Z");
+    expect(facts.netImportsMw.value).toBe(1500);
+    expect(facts.netImportsMw.periodStartUtc).toBe("2026-09-20T21:00:00.000Z");
+    expect(facts.netImportsMw.periodEndUtc).toBe("2026-09-20T21:30:00.000Z");
+    expect(facts.generationMw.periodStartUtc).not.toBe(facts.netImportsMw.periodStartUtc);
+  });
+
+  it("keeps domestic generation unknown when only interconnector rows exist", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+        }),
+      ],
+      generation: [makeGeneration("2026-09-20 22:30:00", "INTFR", 1500)],
+      now,
+    });
+
+    expect(facts.generationMw.value).toBeNull();
+    expect(facts.generationMw.periodStartUtc).toBeNull();
+    expect(facts.netImportsMw.value).toBe(1500);
+    expect(facts.netImportsMw.periodStartUtc).toBe("2026-09-20T22:30:00.000Z");
+    expect(formatHeadlineGw(facts.generationMw.value)).toBe("—");
+  });
+
+  it("publishes each snapshot fact only from its own observed field", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 21:00:00",
+          carbon_intensity: null,
+          carbon_forecast: 90,
+          demand_mw: 24000,
+          price_gbp_mwh: null,
+        }),
+        makeSnapshot({
+          timestamp: "2026-09-20 22:00:00",
+          carbon_intensity: 64,
+          demand_mw: null,
+          price_gbp_mwh: 55,
+        }),
+      ],
+      generation: [],
+      now,
+    });
+
+    expect(facts.carbon.value).toBe(64);
+    expect(facts.carbon.periodStartUtc).toBe("2026-09-20T22:00:00.000Z");
+    expect(facts.demand.value).toBe(24000);
+    expect(facts.demand.periodStartUtc).toBe("2026-09-20T21:00:00.000Z");
+    expect(facts.price.value).toBe(55);
+    expect(facts.price.periodStartUtc).toBe("2026-09-20T22:00:00.000Z");
+    expect(facts.generationMw.value).toBeNull();
+    expect(facts.netImportsMw.value).toBeNull();
+    expect(facts.pumpedStorageMw.value).toBeNull();
+    expect(facts.shares).toEqual([]);
+  });
+
+  it("publishes pumped storage only when a ps row was observed", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const withPs = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [],
+      generation: [
+        makeGeneration("2026-09-20 22:00:00", "ps", -400),
+        makeGeneration("2026-09-20 22:00:00", "wind", 10000),
+      ],
+      now,
+    });
+    const withoutPs = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [],
+      generation: [makeGeneration("2026-09-20 22:30:00", "wind", 10000)],
+      now,
+    });
+
+    expect(withPs.pumpedStorageMw.value).toBe(-400);
+    expect(withPs.pumpedStorageMw.periodStartUtc).toBe("2026-09-20T22:00:00.000Z");
+    expect(withPs.generationMw.value).toBe(9600);
+    expect(withPs.shares.find((share) => share.fuel === "ps")?.mw).toBe(-400);
+    expect(withoutPs.pumpedStorageMw.value).toBeNull();
+    expect(withoutPs.pumpedStorageMw.periodStartUtc).toBeNull();
+    expect(withoutPs.shares.find((share) => share.fuel === "ps")).toBeUndefined();
   });
 
   it("uses stale wording after 2.5 hours on the latest view", () => {

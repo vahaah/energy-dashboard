@@ -55,6 +55,7 @@ export type LatestFacts = {
   price: Fact<number>;
   generationMw: Fact<number>;
   netImportsMw: Fact<number>;
+  pumpedStorageMw: Fact<number>;
   shares: SupplyShare[];
   generationRows: Generation5min[];
   mixSnapshot: EnergySnapshot | null;
@@ -160,23 +161,23 @@ function populatedFacts({
   const generationRows = generationForPeriod(generation, period, isHistorical ? resolution.date : null);
   const split = splitLatestGenerationRows(generationRows);
   const shares = supplyShares([...split.sources, ...split.interconnectors]);
-  const transfersObserved = split.interconnectors.length > 0;
+  const pumpedRows = split.sources.filter(
+    (row) => normalizeFuelType(row.fuel_type) === "ps"
+  );
 
   const carbonRow = latestSnapshotWithField(daySnapshots, "carbon_intensity");
   const demandRow = latestSnapshotWithField(daySnapshots, "demand_mw");
   const priceRow = latestSnapshotWithField(daySnapshots, "price_gbp_mwh");
   const mixSnapshot = latestSnapshotWithMix(daySnapshots);
+  const generationTimestamp = latestTimestampFrom(split.sources);
+  const transferTimestamp = latestTimestampFrom(split.interconnectors);
   const referenceTimestamp = latestTimestampAmong([
     carbonRow?.timestamp,
     demandRow?.timestamp,
     priceRow?.timestamp,
-    split.latestTimestamp || null,
+    generationTimestamp,
+    transferTimestamp,
   ]);
-
-  const carbonPeriod = periodFromSnapshot(carbonRow);
-  const demandPeriod = periodFromSnapshot(demandRow);
-  const pricePeriod = periodFromSnapshot(priceRow);
-  const generationPeriod = periodFromTimestamp(split.latestTimestamp || null);
 
   const stampInstant = referenceTimestamp
     ? parseUtcDateTime(referenceTimestamp)
@@ -197,46 +198,42 @@ function populatedFacts({
     stamp,
     headerStamp: headerStampFrom(stamp, stale),
     carbon: {
-      value: carbonRow?.carbon_intensity ?? null,
+      ...snapshotFact(carbonRow, "carbon_intensity", {
+        unit: "gCO₂/kWh",
+        source: "Carbon Intensity API",
+        definition: "National carbon intensity, actual half-hour value only",
+      }),
       index: carbonRow?.carbon_index ?? null,
-      unit: "gCO₂/kWh",
-      periodStartUtc: carbonPeriod?.startUtc ?? null,
-      periodEndUtc: carbonPeriod?.endUtc ?? null,
-      source: "Carbon Intensity API",
-      definition: "National carbon intensity, actual half-hour value only",
     },
-    demand: {
-      value: demandRow?.demand_mw ?? null,
+    demand: snapshotFact(demandRow, "demand_mw", {
       unit: "MW",
-      periodStartUtc: demandPeriod?.startUtc ?? null,
-      periodEndUtc: demandPeriod?.endUtc ?? null,
       source: "Elexon BMRS",
       definition: "Initial Transmission System Demand Outturn (ITSDO)",
-    },
-    price: {
-      value: priceRow?.price_gbp_mwh ?? null,
+    }),
+    price: snapshotFact(priceRow, "price_gbp_mwh", {
       unit: "£/MWh",
-      periodStartUtc: pricePeriod?.startUtc ?? null,
-      periodEndUtc: pricePeriod?.endUtc ?? null,
       source: "Elexon BMRS",
       definition: "Imbalance (system buy) price",
-    },
-    generationMw: {
-      value: generationRows.length > 0 ? split.totalGenerationMw : null,
+    }),
+    generationMw: rowsFact(split.sources, split.totalGenerationMw, {
       unit: "MW",
-      periodStartUtc: generationPeriod?.startUtc ?? null,
-      periodEndUtc: generationPeriod?.endUtc ?? null,
       source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
       definition: "GB generation including estimated embedded wind and solar",
-    },
-    netImportsMw: {
-      value: transfersObserved ? split.netTransfersMw : null,
+    }),
+    netImportsMw: rowsFact(split.interconnectors, split.netTransfersMw, {
       unit: "MW",
-      periodStartUtc: transfersObserved ? generationPeriod?.startUtc ?? null : null,
-      periodEndUtc: transfersObserved ? generationPeriod?.endUtc ?? null : null,
       source: "Elexon BMRS",
       definition: "Metered interconnector net flow",
-    },
+    }),
+    pumpedStorageMw: rowsFact(
+      pumpedRows,
+      pumpedRows.reduce((sum, row) => sum + row.generation_mw, 0),
+      {
+        unit: "MW",
+        source: "Elexon BMRS",
+        definition: "Pumped storage net generation",
+      }
+    ),
     shares,
     generationRows,
     mixSnapshot,
@@ -294,6 +291,14 @@ function blankFacts(resolution: DashboardDateResolution, empty: boolean): Latest
       periodEndUtc: null,
       source: "Elexon BMRS",
       definition: "Metered interconnector net flow",
+    },
+    pumpedStorageMw: {
+      value: null,
+      unit: "MW",
+      periodStartUtc: null,
+      periodEndUtc: null,
+      source: "Elexon BMRS",
+      definition: "Pumped storage net generation",
     },
     shares: [],
     generationRows: [],
@@ -408,6 +413,45 @@ function periodFromTimestamp(timestamp: string | null): {
     startUtc: period.startUtc.toISOString(),
     endUtc: period.endUtc.toISOString(),
   };
+}
+
+function snapshotFact(
+  row: EnergySnapshot | null,
+  field: "carbon_intensity" | "demand_mw" | "price_gbp_mwh",
+  meta: { unit: string; source: string; definition: string }
+): Fact<number> {
+  const value = row?.[field] ?? null;
+  const observed = value != null;
+  const period = observed ? periodFromSnapshot(row) : null;
+  return {
+    value,
+    unit: meta.unit,
+    periodStartUtc: period?.startUtc ?? null,
+    periodEndUtc: period?.endUtc ?? null,
+    source: meta.source,
+    definition: meta.definition,
+  };
+}
+
+function rowsFact(
+  rows: Generation5min[],
+  value: number,
+  meta: { unit: string; source: string; definition: string }
+): Fact<number> {
+  const observed = rows.length > 0;
+  const period = observed ? periodFromTimestamp(latestTimestampFrom(rows)) : null;
+  return {
+    value: observed ? value : null,
+    unit: meta.unit,
+    periodStartUtc: period?.startUtc ?? null,
+    periodEndUtc: period?.endUtc ?? null,
+    source: meta.source,
+    definition: meta.definition,
+  };
+}
+
+function latestTimestampFrom(rows: Generation5min[]): string | null {
+  return latestTimestampAmong(rows.map((row) => row.timestamp));
 }
 
 function latestTimestampAmong(timestamps: Array<string | null | undefined>): string | null {
