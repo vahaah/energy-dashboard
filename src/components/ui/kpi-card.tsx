@@ -5,12 +5,13 @@ interface KpiCardProps {
   value: string;
   unit?: string;
   detail?: string;
+  asOf?: string | null;
   color?: string;
   icon?: React.ReactNode;
   tooltip?: string;
 }
 
-export function KpiCard({ label, value, unit, detail, color, icon, tooltip }: KpiCardProps) {
+export function KpiCard({ label, value, unit, detail, asOf, color, icon, tooltip }: KpiCardProps) {
   const isEmpty = value === "—";
 
   return (
@@ -22,6 +23,9 @@ export function KpiCard({ label, value, unit, detail, color, icon, tooltip }: Kp
         </p>
         {tooltip && <InfoTooltip text={tooltip} />}
       </div>
+      {asOf ? (
+        <p className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">as of {asOf}</p>
+      ) : null}
       <div className="flex items-baseline gap-1.5">
         {isEmpty ? (
           <div className="flex items-baseline gap-1.5">

@@ -1,4 +1,13 @@
+import {
+  formatLondonDateLabel,
+  getLondonDateTimeParts,
+  getLondonOffsetLabel,
+  parseUtcDateTime,
+} from "@/lib/london-time";
+import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min, NullableNumber, TimeRange } from "@/lib/types";
+
+export type SnapshotGranularity = "native" | "day" | "week";
 
 export interface MetricSummary {
   latest: number | null;
@@ -13,6 +22,31 @@ export interface RangeSummary {
   demand: MetricSummary;
   price: MetricSummary;
 }
+
+export interface HeadlineField<T> {
+  value: T | null;
+  timestamp: string | null;
+}
+
+export interface HeadlineMetrics {
+  referenceTimestamp: string | null;
+  carbon: HeadlineField<number> & { index: string | null };
+  demand: HeadlineField<number>;
+  price: HeadlineField<number>;
+  mixSnapshot: EnergySnapshot | null;
+}
+
+const MIX_PCT_FIELDS = [
+  "gen_gas_pct",
+  "gen_coal_pct",
+  "gen_nuclear_pct",
+  "gen_wind_pct",
+  "gen_solar_pct",
+  "gen_hydro_pct",
+  "gen_biomass_pct",
+  "gen_imports_pct",
+  "gen_other_pct",
+] as const satisfies readonly (keyof EnergySnapshot)[];
 
 export interface SplitGenerationRows {
   latestTimestamp: string;
@@ -184,6 +218,158 @@ export function buildRangeSummary(snapshots: EnergySnapshot[]): RangeSummary {
     demand: summarizeMetric(snapshots.map((snapshot) => snapshot.demand_mw)),
     price: summarizeMetric(snapshots.map((snapshot) => snapshot.price_gbp_mwh)),
   };
+}
+
+export function latestSnapshotWithField<K extends keyof EnergySnapshot>(
+  snapshots: EnergySnapshot[],
+  field: K
+): EnergySnapshot | null {
+  let latest: EnergySnapshot | null = null;
+
+  for (const snapshot of snapshots) {
+    if (snapshot[field] == null) {
+      continue;
+    }
+
+    if (!latest || snapshot.timestamp > latest.timestamp) {
+      latest = snapshot;
+    }
+  }
+
+  return latest;
+}
+
+export function latestSnapshotWithMix(snapshots: EnergySnapshot[]): EnergySnapshot | null {
+  let latest: EnergySnapshot | null = null;
+
+  for (const snapshot of snapshots) {
+    if (!MIX_PCT_FIELDS.some((field) => snapshot[field] != null)) {
+      continue;
+    }
+
+    if (!latest || snapshot.timestamp > latest.timestamp) {
+      latest = snapshot;
+    }
+  }
+
+  return latest;
+}
+
+export function buildHeadlineMetrics(
+  snapshots: EnergySnapshot[],
+  granularity: SnapshotGranularity = "native"
+): HeadlineMetrics {
+  if (isAggregatedGranularity(granularity)) {
+    return {
+      referenceTimestamp: null,
+      carbon: { value: null, timestamp: null, index: null },
+      demand: { value: null, timestamp: null },
+      price: { value: null, timestamp: null },
+      mixSnapshot: null,
+    };
+  }
+
+  const carbonRow = latestSnapshotWithField(snapshots, "carbon_intensity");
+  const demandRow = latestSnapshotWithField(snapshots, "demand_mw");
+  const priceRow = latestSnapshotWithField(snapshots, "price_gbp_mwh");
+
+  return {
+    referenceTimestamp: latestTimestampAmong([
+      carbonRow?.timestamp,
+      demandRow?.timestamp,
+      priceRow?.timestamp,
+    ]),
+    carbon: {
+      value: carbonRow?.carbon_intensity ?? null,
+      timestamp: carbonRow?.timestamp ?? null,
+      index: carbonRow?.carbon_index ?? null,
+    },
+    demand: {
+      value: demandRow?.demand_mw ?? null,
+      timestamp: demandRow?.timestamp ?? null,
+    },
+    price: {
+      value: priceRow?.price_gbp_mwh ?? null,
+      timestamp: priceRow?.timestamp ?? null,
+    },
+    mixSnapshot: latestSnapshotWithMix(snapshots),
+  };
+}
+
+export function formatSettlementWindow(timestamp: string): string {
+  const period = getSettlementPeriod(parseUtcDateTime(timestamp));
+  const start = formatClock(period.startUtc);
+  const end = formatClock(period.endUtc);
+  const startZone = getLondonOffsetLabel(period.startUtc);
+  const endZone = getLondonOffsetLabel(period.endUtc);
+  const window =
+    startZone === endZone
+      ? `${start}–${end} ${startZone}`
+      : `${start} ${startZone}–${end} ${endZone}`;
+
+  return `SP ${period.settlementPeriod}, ${window}`;
+}
+
+export function formatHeadlinePeriod(
+  timestamp: string,
+  granularity: SnapshotGranularity = "native"
+): string {
+  if (isAggregatedGranularity(granularity)) {
+    return formatLondonDateLabel(parseUtcDateTime(timestamp));
+  }
+
+  return formatSettlementWindow(timestamp);
+}
+
+export function headlineAsOf(
+  timestamp: string | null,
+  referenceTimestamp: string | null,
+  granularity: SnapshotGranularity = "native"
+): string | null {
+  if (timestamp == null || referenceTimestamp == null || sameTimestamp(timestamp, referenceTimestamp)) {
+    return null;
+  }
+
+  return formatHeadlinePeriod(timestamp, granularity);
+}
+
+function isAggregatedGranularity(granularity: SnapshotGranularity): boolean {
+  switch (granularity) {
+    case "native":
+      return false;
+    case "day":
+    case "week":
+      return true;
+    default: {
+      const exhaustive: never = granularity;
+      return exhaustive;
+    }
+  }
+}
+
+function latestTimestampAmong(timestamps: Array<string | null | undefined>): string | null {
+  let latest: string | null = null;
+
+  for (const timestamp of timestamps) {
+    if (!timestamp) {
+      continue;
+    }
+
+    if (!latest || timestamp > latest) {
+      latest = timestamp;
+    }
+  }
+
+  return latest;
+}
+
+function sameTimestamp(left: string, right: string): boolean {
+  return parseUtcDateTime(left).getTime() === parseUtcDateTime(right).getTime();
+}
+
+function formatClock(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
 }
 
 function summarizeMetric(values: NullableNumber[]): MetricSummary {

@@ -122,7 +122,7 @@ export function addUtcDays(dateStr: string, days: number): string {
 export function getLondonOffsetLabel(date: Date): string {
   const parts = londonOffsetFormatter.formatToParts(date);
   const raw = partValue(parts, "timeZoneName");
-  if (raw === "GMT" || raw === "UTC") {
+  if (/^(?:GMT|UTC)(?:\+0)?$/.test(raw)) {
     return "GMT";
   }
   if (raw === "GMT+1" || raw === "UTC+1") {
@@ -136,6 +136,26 @@ export function formatLondonClock(date: Date): string {
   const hh = String(parts.hour).padStart(2, "0");
   const mm = String(parts.minute).padStart(2, "0");
   return `${hh}:${mm} ${getLondonOffsetLabel(date)}`;
+}
+
+const LONDON_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+export function formatLondonDateLabel(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  return `${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}`;
 }
 
 export function parseUtcDateTime(value: string): Date {

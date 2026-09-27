@@ -11,7 +11,9 @@ import type {
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
 import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
 import {
+  buildHeadlineMetrics,
   buildRangeSummary,
+  headlineAsOf,
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
@@ -72,6 +74,7 @@ interface Props {
   todayDate: string;
   dataAsOf: string | null;
   initialSnapshots: EnergySnapshot[];
+  headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
   latestGeneration: Generation5min[];
@@ -83,6 +86,7 @@ export function Dashboard({
   todayDate,
   dataAsOf,
   initialSnapshots,
+  headlineSnapshots,
   initialPrices,
   generationHistory,
   latestGeneration,
@@ -115,8 +119,10 @@ export function Dashboard({
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [focus]);
 
-  const latestSnapshot =
-    initialSnapshots.length > 0 ? initialSnapshots[initialSnapshots.length - 1] : null;
+  const headline = useMemo(
+    () => buildHeadlineMetrics(headlineSnapshots),
+    [headlineSnapshots]
+  );
   const rangeSummary = useMemo(
     () => buildRangeSummary(initialSnapshots),
     [initialSnapshots]
@@ -126,7 +132,14 @@ export function Dashboard({
     [latestGeneration]
   );
 
-  const latestMixData = latestSnapshot ? mixFromSnapshot(latestSnapshot) : {};
+  const latestMixData = headline.mixSnapshot ? mixFromSnapshot(headline.mixSnapshot) : {};
+  const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
+  const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
+  const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
+  const mixAsOf = headlineAsOf(
+    headline.mixSnapshot?.timestamp ?? null,
+    headline.referenceTimestamp
+  );
 
   const topSources = useMemo(
     () =>
@@ -173,8 +186,8 @@ export function Dashboard({
     (row) => Math.abs(row.generation_mw) >= 25
   ).length;
   const importShare =
-    latestSnapshot && latestSnapshot.demand_mw != null && latestSnapshot.demand_mw > 0
-      ? (latestGenerationSplit.netTransfersMw / latestSnapshot.demand_mw) * 100
+    headline.demand.value != null && headline.demand.value > 0
+      ? (latestGenerationSplit.netTransfersMw / headline.demand.value) * 100
       : 0;
 
   const briefingLine = [
@@ -374,15 +387,16 @@ export function Dashboard({
                   <HeroFact
                     label="Current carbon"
                     value={
-                      latestSnapshot?.carbon_intensity != null
-                        ? `${Math.round(latestSnapshot.carbon_intensity)} gCO₂/kWh`
+                      headline.carbon.value != null
+                        ? `${Math.round(headline.carbon.value)} gCO₂/kWh`
                         : "—"
                     }
                     detail={
-                      latestSnapshot
-                        ? `${latestSnapshot.carbon_index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
+                      headline.carbon.index
+                        ? `${headline.carbon.index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
                         : "Awaiting data"
                     }
+                    asOf={carbonAsOf}
                   />
                   <HeroFact
                     label="Domestic generation"
@@ -408,11 +422,12 @@ export function Dashboard({
                   <HeroFact
                     label="Imbalance price"
                     value={
-                      latestSnapshot?.price_gbp_mwh != null
-                        ? `£${Math.round(latestSnapshot.price_gbp_mwh)}/MWh`
+                      headline.price.value != null
+                        ? `£${Math.round(headline.price.value)}/MWh`
                         : "—"
                     }
                     detail={`Range avg £${formatOptionalNumber(rangeSummary.price.average)}/MWh`}
+                    asOf={priceAsOf}
                   />
                 </div>
               </div>
@@ -434,29 +449,33 @@ export function Dashboard({
               <KpiCard
                 label="Carbon Intensity"
                 value={
-                  latestSnapshot?.carbon_intensity != null
-                    ? String(Math.round(latestSnapshot.carbon_intensity))
+                  headline.carbon.value != null
+                    ? String(Math.round(headline.carbon.value))
                     : "—"
                 }
                 unit="gCO₂/kWh"
                 detail={
-                  latestSnapshot
-                    ? `${latestSnapshot.carbon_index} · ${formatSignedNumber(carbonDelta)} vs avg`
+                  headline.carbon.index
+                    ? `${headline.carbon.index} · ${formatSignedNumber(carbonDelta)} vs avg`
                     : undefined
                 }
-                color={latestSnapshot ? carbonIndexColor(latestSnapshot.carbon_index) : undefined}
+                asOf={carbonAsOf}
+                color={
+                  headline.carbon.index ? carbonIndexColor(headline.carbon.index) : undefined
+                }
                 icon={<Wind className="h-3.5 w-3.5" />}
                 tooltip="Current carbon intensity, benchmarked against the selected window average."
               />
               <KpiCard
                 label="Demand"
                 value={
-                  latestSnapshot?.demand_mw != null
-                    ? formatGigawatts(latestSnapshot.demand_mw)
+                  headline.demand.value != null
+                    ? formatGigawatts(headline.demand.value)
                     : "—"
                 }
                 unit="GW"
                 detail={`${formatSignedNumber(formatGigawattsNumber(demandDelta))} vs avg`}
+                asOf={demandAsOf}
                 icon={<Activity className="h-3.5 w-3.5" />}
                 tooltip="Transmission demand right now versus the selected window."
               />
@@ -492,12 +511,13 @@ export function Dashboard({
               <KpiCard
                 label="Imbalance Price"
                 value={
-                  latestSnapshot?.price_gbp_mwh != null
-                    ? `£${Math.round(latestSnapshot.price_gbp_mwh)}`
+                  headline.price.value != null
+                    ? `£${Math.round(headline.price.value)}`
                     : "—"
                 }
                 unit="/MWh"
                 detail={`${formatSignedNumber(priceDelta)} vs avg`}
+                asOf={priceAsOf}
                 icon={<Zap className="h-3.5 w-3.5" />}
                 tooltip="Elexon imbalance cash-out (system buy) price versus the selected range average. This is not the day-ahead wholesale price."
               />
@@ -559,6 +579,9 @@ export function Dashboard({
                           Latest mix
                         </p>
                         <InfoTooltip text="Uses the latest snapshot percentages to keep high-level categories stable across ranges." />
+                        {mixAsOf ? (
+                          <p className="text-[11px] tabular-nums text-zinc-500">as of {mixAsOf}</p>
+                        ) : null}
                       </div>
                       <GenerationMixChart data={latestMixData} />
                     </div>
@@ -575,7 +598,7 @@ export function Dashboard({
                       </div>
                       <GenerationTable
                         data={latestGenerationSplit.sources}
-                        demandMw={latestSnapshot?.demand_mw}
+                        demandMw={headline.demand.value}
                       />
                     </div>
                   </div>
@@ -1110,14 +1133,19 @@ function HeroFact({
   label,
   value,
   detail,
+  asOf,
 }: {
   label: string;
   value: string;
   detail: string;
+  asOf?: string | null;
 }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
       <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">{label}</p>
+      {asOf ? (
+        <p className="mt-1 text-[11px] tabular-nums text-zinc-500">as of {asOf}</p>
+      ) : null}
       <p className="mt-3 text-xl font-semibold tracking-tight text-white">{value}</p>
       <p className="mt-2 text-sm text-zinc-400">{detail}</p>
     </div>
