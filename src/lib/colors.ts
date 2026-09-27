@@ -27,6 +27,7 @@ export const COMMODITY_COLORS: Record<string, string> = {
   brent_crude: "#f97316",
   wti_crude: "#3b82f6",
   henry_hub_gas: "#22c55e",
+  gb_gas_sap: "#2dd4bf",
   eu_ttf: "#a78bfa",
   eu_natural_gas: "#8b5cf6",
   lng_asia: "#eab308",
@@ -36,10 +37,26 @@ export const COMMODITY_LABELS: Record<string, string> = {
   brent_crude: "Brent Crude ($/bbl)",
   wti_crude: "WTI Crude ($/bbl)",
   henry_hub_gas: "Henry Hub Gas ($/MMBtu)",
+  gb_gas_sap: "GB gas SAP (p/therm)",
   eu_ttf: "Dutch TTF (€/MWh)",
   eu_natural_gas: "EU TTF monthly ($/MMBtu)",
   lng_asia: "LNG Asia JKM ($/MMBtu)",
 };
+
+export const COMMODITY_DISPLAY_ORDER = [
+  "brent_crude",
+  "wti_crude",
+  "henry_hub_gas",
+  "gb_gas_sap",
+  "eu_ttf",
+  "eu_natural_gas",
+  "lng_asia",
+] as const;
+
+export function commodityDisplayIndex(commodity: string): number {
+  const index = COMMODITY_DISPLAY_ORDER.findIndex((value) => value === commodity);
+  return index === -1 ? COMMODITY_DISPLAY_ORDER.length : index;
+}
 
 /** FUELINST fuel type colors (5-min resolution) */
 export const FUELINST_COLORS: Record<string, string> = {

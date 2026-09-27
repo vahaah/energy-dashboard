@@ -11,6 +11,7 @@
 | EIA (US Gov) | `api.eia.gov/v2` | Daily | `EIA_API_KEY` (required) | Brent crude, WTI crude ($/BBL), Henry Hub gas ($/MMBTU) |
 | OilPriceAPI | `api.oilpriceapi.com` | Daily (00:30 UTC) | `OIL_PRICE_API_KEY` | Dutch TTF EUR/MWh (`eu_ttf`) |
 | FRED / IMF | `api.stlouisfed.org` | Monthly | `FRED_API_KEY` | EU TTF and Asia LNG in $/MMBtu (`eu_natural_gas`, `lng_asia`) |
+| National Gas | `data.nationalgas.com` | Daily (gas day) | None | GB System Average Price p/kWh (`gb_gas_sap`, PUBOB603) |
 
 ## Tinybird Data Sources (ClickHouse tables)
 
@@ -62,10 +63,10 @@ One row per commodity per day. EIA updates daily (weekdays only).
 
 ```
 date                Date         — price date
-commodity           String       — 'brent_crude' | 'wti_crude' | 'henry_hub_gas' | 'eu_ttf' | 'eu_natural_gas' | 'lng_asia'
+commodity           String       — 'brent_crude' | 'wti_crude' | 'henry_hub_gas' | 'gb_gas_sap' | 'eu_ttf' | 'eu_natural_gas' | 'lng_asia'
 price               Float32      — price in native units
-currency            String       — 'USD' | 'EUR'
-unit                String       — '$/BBL' | '$/MMBTU' | 'EUR/MWh'
+currency            String       — 'USD' | 'EUR' | 'GBP'
+unit                String       — '$/BBL' | '$/MMBTU' | 'EUR/MWh' | 'p/kWh'
 ```
 
 Sorting key: `date, commodity`

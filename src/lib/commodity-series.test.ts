@@ -22,6 +22,8 @@ describe("commodity series stay on their own units", () => {
     expect(
       FRED_COMMODITIES.some((row) => row.commodity === "eu_natural_gas" && row.unit === "$/MMBTU")
     ).toBe(true);
+    expect(oilCommodities).not.toContain("gb_gas_sap");
+    expect(fredCommodities).not.toContain("gb_gas_sap");
   });
 
   it("drops leftover OilPriceAPI daily rows labelled as eu_natural_gas", () => {

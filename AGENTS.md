@@ -117,6 +117,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
 | OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), 00:30 UTC slot only |
 | FRED / IMF | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`, `lng_asia`) |
+| National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh** |
 
 ## Environment Variables
 

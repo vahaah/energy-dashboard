@@ -22,7 +22,10 @@ import {
   COMMODITY_LABELS,
   FUELINST_LABELS,
   carbonIndexColor,
+  commodityDisplayIndex,
 } from "@/lib/colors";
+import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
+import { GbGasSapCard } from "@/components/gb-gas-sap-card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,6 +101,7 @@ export function Dashboard({
     "brent_crude",
     "wti_crude",
     "henry_hub_gas",
+    GB_GAS_SAP_COMMODITY,
     "eu_ttf",
     "lng_asia",
   ]);
@@ -159,7 +163,9 @@ export function Dashboard({
       groups.get(price.commodity)!.push(price);
     }
 
-    return Array.from(groups.entries()).map(([commodity, rows]) => {
+    return Array.from(groups.entries())
+      .sort(([left], [right]) => commodityDisplayIndex(left) - commodityDisplayIndex(right))
+      .map(([commodity, rows]) => {
       const sortedRows = [...rows].sort(
         (left, right) =>
           new Date(left.date).getTime() - new Date(right.date).getTime()
@@ -740,15 +746,24 @@ export function Dashboard({
                 </div>
 
                 <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  {commodityStats.map(({ commodity, latest, absoluteDelta, percentageDelta }) => (
-                    <CommodityStatCard
-                      key={commodity}
-                      commodity={commodity}
-                      latest={latest}
-                      absoluteDelta={absoluteDelta}
-                      percentageDelta={percentageDelta}
-                    />
-                  ))}
+                  {commodityStats.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
+                    commodity === GB_GAS_SAP_COMMODITY ? (
+                      <GbGasSapCard
+                        key={commodity}
+                        latest={latest}
+                        absoluteDelta={absoluteDelta}
+                        percentageDelta={percentageDelta}
+                      />
+                    ) : (
+                      <CommodityStatCard
+                        key={commodity}
+                        commodity={commodity}
+                        latest={latest}
+                        absoluteDelta={absoluteDelta}
+                        percentageDelta={percentageDelta}
+                      />
+                    )
+                  )}
                 </div>
 
                 {initialPrices.length > 0 ? (
@@ -774,10 +789,11 @@ export function Dashboard({
               <p className="mt-2 text-sm leading-7 text-zinc-300">
                 Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
                 Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
-                day-ahead wholesale. Commodity context comes from EIA, FRED monthly $/MMBtu, and
-                OilPriceAPI Dutch TTF in EUR/MWh — those TTF series are kept separate because the units
-                are not the same. Power and market ranges are intentionally decoupled because intraday
-                grid behavior and commodity settlement cadence move on different clocks.
+                day-ahead wholesale. Commodity context comes from EIA, FRED monthly $/MMBtu, OilPriceAPI
+                Dutch TTF in EUR/MWh, and National Gas System Average Price in p/kWh (shown as p/therm).
+                TTF series stay separate because the units are not the same. Power and market ranges are
+                intentionally decoupled because intraday grid behavior and commodity settlement cadence
+                move on different clocks.
               </p>
             </div>
             <div className="space-y-3">
