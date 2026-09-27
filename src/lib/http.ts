@@ -22,6 +22,21 @@ export type SourceStatus = {
   error?: string;
 };
 
+export type CollectionResult = {
+  rows: Record<string, unknown>[];
+  sources: SourceStatus[];
+};
+
 export function sourceStatusesHaveFailure(statuses: SourceStatus[]): boolean {
   return statuses.some((status) => !status.ok);
+}
+
+export function collectionIfSourcesOk(
+  rows: Record<string, unknown>[],
+  sources: SourceStatus[]
+): CollectionResult {
+  if (sourceStatusesHaveFailure(sources)) {
+    return { rows: [], sources };
+  }
+  return { rows, sources };
 }

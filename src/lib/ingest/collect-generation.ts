@@ -1,4 +1,4 @@
-import { fetchJson, type SourceStatus } from "@/lib/http";
+import { fetchJson, type CollectionResult, type SourceStatus } from "@/lib/http";
 import {
   addUtcDays,
   formatTinybirdDateTime,
@@ -106,11 +106,10 @@ export function pvLiveRowsToIngest(
     }));
 }
 
-export type CollectionResult = {
-  rows: Record<string, unknown>[];
-  sources: SourceStatus[];
-};
+export type { CollectionResult };
 
+// generation_5min is long-format ReplacingMergeTree on (timestamp, fuel_type).
+// A failed source emits no rows, so it cannot overwrite another fuel's values.
 export function mergeSettledGeneration(parts: Array<{
   source: string;
   rows?: Record<string, unknown>[];

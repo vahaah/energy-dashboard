@@ -17,7 +17,8 @@ import { ingestRows } from "@/lib/tinybird";
  *   2. FUELINST + NESO embedded wind + Sheffield PV Live → generation_5min
  *
  * Commodity prices live on /api/cron-prices so this job stays under the
- * function time limit. One failing source does not skip the others.
+ * function time limit. Generation sources ingest independently. Snapshot
+ * sources must all succeed before a wide row is written.
  */
 
 export const maxDuration = 60;
@@ -29,16 +30,22 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const [snapshotStatus, generation] = await Promise.all([
-    runSource("snapshots", async () => {
-      const rows = await collectRecentSnapshots(now);
-      await ingestRows("energy_snapshots", rows);
-      return rows.length;
-    }),
+  const [snapshots, generation] = await Promise.all([
+    collectRecentSnapshots(now),
     collectRecentGeneration(now),
   ]);
 
-  const sources: SourceStatus[] = [snapshotStatus, ...generation.sources];
+  const sources: SourceStatus[] = [...snapshots.sources, ...generation.sources];
+
+  if (snapshots.rows.length > 0) {
+    try {
+      await ingestRows("energy_snapshots", snapshots.rows);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[cron] snapshot ingest failed", message);
+      sources.push({ source: "snapshots", ok: false, error: message });
+    }
+  }
 
   if (generation.rows.length > 0) {
     try {
@@ -75,16 +82,3 @@ export async function GET(request: Request) {
   );
 }
 
-async function runSource(
-  source: string,
-  work: () => Promise<number>
-): Promise<SourceStatus> {
-  try {
-    const rows = await work();
-    return { source, ok: true, rows };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[cron] ${source} failed`, message);
-    return { source, ok: false, error: message };
-  }
-}

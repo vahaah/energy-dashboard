@@ -20,9 +20,11 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
 import { backfillSettlementDates } from "../src/lib/backfill-range";
+import { describeCollection, shouldFailBackfill } from "../src/lib/ingest/backfill-report";
 import { EIA_COMMODITIES, FRED_COMMODITIES } from "../src/lib/ingest/collect-prices";
 import { collectGenerationForSettlementDate } from "../src/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "../src/lib/ingest/collect-grid";
+import type { CollectionResult } from "../src/lib/http";
 
 config({ path: resolve(import.meta.dirname, "..", ".env.local") });
 config({ path: resolve(process.cwd(), ".env.local") });
@@ -105,46 +107,48 @@ async function ingestRows(datasource: string, rows: Record<string, unknown>[]) {
   }
 }
 
-async function backfillSnapshots() {
+async function backfillSnapshots(): Promise<CollectionResult[]> {
   console.log("Backfilling energy snapshots (half-hourly, UK settlement periods)...\n");
 
+  const results: CollectionResult[] = [];
   let totalRows = 0;
   for (const settlementDate of settlementDates) {
     process.stdout.write(`   ${settlementDate} `);
-    const rows = await collectSnapshotsForSettlementDate(settlementDate);
-    if (rows.length > 0) {
-      await ingestRows("energy_snapshots", rows);
-      totalRows += rows.length;
-      process.stdout.write(`${rows.length} periods\n`);
-    } else {
-      process.stdout.write("no data\n");
+    const result = await collectSnapshotsForSettlementDate(settlementDate);
+    results.push(result);
+    if (result.rows.length > 0) {
+      await ingestRows("energy_snapshots", result.rows);
+      totalRows += result.rows.length;
     }
+    process.stdout.write(`${describeCollection(result)}\n`);
     await sleep(300);
   }
 
   console.log(`\n   Total: ${totalRows} snapshot rows ingested\n`);
+  return results;
 }
 
-async function backfillGeneration() {
+async function backfillGeneration(): Promise<CollectionResult[]> {
   console.log("Backfilling generation (FUELINST + NESO wind + Sheffield PV Live)...\n");
 
+  const results: CollectionResult[] = [];
   let totalRows = 0;
   for (const settlementDate of settlementDates) {
     process.stdout.write(`   ${settlementDate} `);
-    const { rows } = await collectGenerationForSettlementDate(settlementDate, now);
-    if (rows.length > 0) {
-      for (let i = 0; i < rows.length; i += 500) {
-        await ingestRows("generation_5min", rows.slice(i, i + 500));
+    const result = await collectGenerationForSettlementDate(settlementDate, now);
+    results.push(result);
+    if (result.rows.length > 0) {
+      for (let i = 0; i < result.rows.length; i += 500) {
+        await ingestRows("generation_5min", result.rows.slice(i, i + 500));
       }
-      totalRows += rows.length;
-      process.stdout.write(`${rows.length} rows\n`);
-    } else {
-      process.stdout.write("no data\n");
+      totalRows += result.rows.length;
     }
+    process.stdout.write(`${describeCollection(result)}\n`);
     await sleep(400);
   }
 
   console.log(`\n   Total: ${totalRows} generation rows ingested\n`);
+  return results;
 }
 
 async function backfillPrices() {
@@ -225,17 +229,23 @@ async function backfillPrices() {
 
 async function main() {
   console.log("Energy Dashboard — Historical Data Backfill\n");
+  const collections: CollectionResult[] = [];
 
   if (!only || only === "snapshots") {
-    await backfillSnapshots();
+    collections.push(...(await backfillSnapshots()));
   }
 
   if (!only || only === "generation") {
-    await backfillGeneration();
+    collections.push(...(await backfillGeneration()));
   }
 
   if (!only || only === "prices") {
     await backfillPrices();
+  }
+
+  if (shouldFailBackfill(collections)) {
+    console.error("Backfill finished with source failures.\n");
+    process.exit(1);
   }
 
   console.log("Backfill complete.\n");

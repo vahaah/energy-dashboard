@@ -29,6 +29,9 @@ describe("generation source isolation", () => {
       { source: "neso", ok: false, error: "HTTP 503 for neso" },
       { source: "pvlive", ok: false, error: "HTTP 500 for pvlive" },
     ]);
+    expect(result.rows.some((row) => row.source === "neso" || row.fuel_type === "embedded_wind")).toBe(
+      false
+    );
   });
 
   it("drops PV Live readings after now", () => {
