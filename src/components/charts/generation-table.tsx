@@ -32,35 +32,35 @@ export function GenerationTable({ data, demandMw }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+          <tr className="border-b border-gray-alpha-400 text-left text-xs text-gray-900">
             <th className="pb-2 font-medium">Source</th>
-            <th className="pb-2 font-medium text-right">GW</th>
-            <th className="pb-2 font-medium text-right">% of Demand</th>
-            <th className="pb-2 font-medium w-32"></th>
+            <th className="pb-2 text-right font-medium">GW</th>
+            <th className="pb-2 text-right font-medium">% of Demand</th>
+            <th className="w-32 pb-2 font-medium"></th>
           </tr>
         </thead>
         <tbody>
           {sorted.map(({ fuel, gw, pct }) => (
-            <tr key={fuel} className="border-b border-zinc-100 dark:border-zinc-800/50">
-              <td className="py-2 flex items-center gap-2">
+            <tr key={fuel} className="border-b border-gray-alpha-400">
+              <td className="flex items-center gap-2 py-2">
                 <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: FUELINST_COLORS[fuel] ?? "#94a3b8" }}
                 />
-                <span className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-gray-1000">
                   {FUELINST_LABELS[fuel] ?? fuel.toUpperCase()}
                 </span>
               </td>
-              <td className="py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+              <td className="py-2 text-right font-mono tabular-nums text-gray-900">
                 {gw.toFixed(1)}
               </td>
-              <td className="py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
+              <td className="py-2 text-right font-mono tabular-nums text-gray-900">
                 {pct.toFixed(1)}%
               </td>
               <td className="py-2 pl-3">
-                <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5">
+                <div className="h-1.5 w-full rounded-full bg-gray-200">
                   <div
-                    className="h-1.5 rounded-full transition-all"
+                    className="h-1.5 rounded-full motion-reduce:transition-none"
                     style={{
                       width: `${Math.min(100, pct)}%`,
                       backgroundColor: FUELINST_COLORS[fuel] ?? "#94a3b8",
@@ -72,12 +72,12 @@ export function GenerationTable({ data, demandMw }: Props) {
           ))}
         </tbody>
         <tfoot>
-          <tr className="text-xs text-zinc-500 dark:text-zinc-400">
+          <tr className="text-xs text-gray-900">
             <td className="pt-2 font-medium">Total</td>
-            <td className="pt-2 text-right font-medium tabular-nums">
+            <td className="pt-2 text-right font-medium font-mono tabular-nums">
               {(totalGen / 1000).toFixed(1)}
             </td>
-            <td className="pt-2 text-right font-medium tabular-nums">
+            <td className="pt-2 text-right font-medium font-mono tabular-nums">
               {demand > 0 ? ((totalGen / demand) * 100).toFixed(1) : "—"}%
             </td>
             <td></td>

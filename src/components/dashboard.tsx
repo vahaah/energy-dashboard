@@ -307,13 +307,13 @@ export function Dashboard({
                 <Zap className="h-5 w-5 text-emerald-300" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
-                  Operations Briefing
+                <p className="text-xs text-gray-900">
+                  Operations briefing
                 </p>
-                <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                <h1 className="truncate text-2xl font-semibold tracking-tight text-gray-1000">
                   Grid
                 </h1>
-                <p className="mt-1 text-xs text-zinc-400">
+                <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">
                   {facts.headerStamp}
                 </p>
               </div>
@@ -336,9 +336,9 @@ export function Dashboard({
               pending={isPending}
             />
             {range === "24h" ? (
-              <label className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-zinc-200">
-                <CalendarDays className="h-4 w-4 text-emerald-200" />
-                <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+              <label className="inline-flex h-11 items-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm text-gray-1000 sm:h-9">
+                <CalendarDays className="h-4 w-4 text-gray-900" />
+                <span className="text-xs text-gray-900">
                   Date
                 </span>
                 <input
@@ -350,7 +350,7 @@ export function Dashboard({
                     void setUrlState({ date: event.target.value || todayDate });
                   }}
                   disabled={isPending}
-                  className="min-w-[9.5rem] bg-transparent text-sm text-zinc-100 outline-none [color-scheme:dark]"
+                  className="min-w-[9.5rem] bg-transparent font-mono text-sm tabular-nums text-gray-1000 [color-scheme:dark]"
                 />
               </label>
             ) : null}
@@ -358,9 +358,9 @@ export function Dashboard({
               type="button"
               onClick={() => startTransition(() => router.refresh())}
               disabled={isPending}
-              className="inline-flex min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-60"
+              className="inline-flex h-11 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 disabled:opacity-60 sm:h-9"
             >
-              <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin motion-reduce:animate-none" : ""}`} />
               Refresh
             </button>
             <button
@@ -370,7 +370,7 @@ export function Dashboard({
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1400);
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 sm:h-9"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Share view"}
@@ -410,7 +410,7 @@ export function Dashboard({
                   <h2 className="max-w-3xl text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
                     Britain&apos;s electricity system, recut as a live briefing instead of a card wall.
                   </h2>
-                  <p className="max-w-3xl text-sm leading-7 text-zinc-300 sm:text-base">
+                  <p className="max-w-3xl text-sm leading-7 text-gray-900 sm:text-base">
                     {briefingLine}. The top layer explains what matters now; the deeper sections keep the raw
                     curves, source mix, transfer behavior, and commodity context available for power users.
                   </p>
@@ -607,12 +607,15 @@ export function Dashboard({
                   <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
                       <div className="mb-3 flex items-center gap-2">
-                        <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                        <h3 className="text-xs text-gray-900">
                           Latest mix
-                        </p>
-                        <InfoTooltip text="Uses the latest snapshot percentages to keep high-level categories stable across ranges." />
+                        </h3>
+                        <InfoTooltip
+                          text="Uses the latest snapshot percentages to keep high-level categories stable across ranges."
+                          label="What is latest mix?"
+                        />
                         {mixAsOf ? (
-                          <p className="text-[11px] tabular-nums text-zinc-500">as of {mixAsOf}</p>
+                          <p className="font-mono text-xs tabular-nums text-gray-900">as of {mixAsOf}</p>
                         ) : null}
                       </div>
                       <GenerationMixChart data={latestMixData} />
@@ -620,10 +623,10 @@ export function Dashboard({
                     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                          <h3 className="text-xs text-gray-900">
                             By source
-                          </p>
-                          <p className="mt-1 text-sm text-zinc-300">
+                          </h3>
+                          <p className="mt-1 text-sm text-gray-900">
                             Dispatch scaled against current demand.
                           </p>
                         </div>
@@ -640,10 +643,10 @@ export function Dashboard({
                   <div className="mb-3 flex items-center gap-2">
                     <Gauge className="h-4 w-4 text-blue-300" />
                     <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                      <h3 className="text-xs text-gray-900">
                         Demand profile
-                      </p>
-                      <p className="mt-1 text-sm text-zinc-300">
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-900">
                         Demand path for the selected power window.
                       </p>
                     </div>
@@ -685,10 +688,10 @@ export function Dashboard({
               <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
                 <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
                   <div className="mb-3">
-                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                    <h3 className="text-xs text-gray-900">
                       Latest connector book
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-300">
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-900">
                       Positive bars are imports into Great Britain.
                     </p>
                   </div>
@@ -696,10 +699,10 @@ export function Dashboard({
                 </div>
                 <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
                   <div className="mb-3">
-                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                    <h3 className="text-xs text-gray-900">
                       Connector history
-                    </p>
-                    <p className="mt-1 text-sm text-zinc-300">
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-900">
                       Each line is one link, making import/export swings visible without losing per-link detail.
                     </p>
                   </div>
@@ -741,6 +744,7 @@ export function Dashboard({
                       <button
                         key={commodity}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => {
                           setSelectedCommodities((current) => {
                             if (current.includes(commodity)) {
@@ -751,10 +755,10 @@ export function Dashboard({
                             return [...current, commodity];
                           });
                         }}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                        className={`h-9 rounded-full border px-3 text-xs font-medium motion-reduce:transition-none ${
                           active
-                            ? "border-white/20 text-white"
-                            : "border-white/8 text-zinc-400 hover:text-zinc-100"
+                            ? "border-gray-alpha-400 bg-gray-100 text-gray-1000"
+                            : "border-gray-alpha-400 text-gray-900 hover:text-gray-1000"
                         }`}
                         style={
                           active
@@ -809,10 +813,10 @@ export function Dashboard({
         <footer className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
           <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-1000">
                 Methodology
-              </p>
-              <p className="mt-2 text-sm leading-7 text-zinc-300">
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-gray-900">
                 Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
                 Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
                 day-ahead wholesale. Oil and gas prices come from EIA (US Energy Information Administration)
@@ -822,18 +826,18 @@ export function Dashboard({
               </p>
             </div>
             <div className="space-y-3">
-              <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
-                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+              <div className="flex flex-wrap gap-2 font-mono text-xs text-gray-900">
+                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
                   GET /api/snapshots?range={range}
                 </code>
-                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
                   GET /api/generation?range={range}
                 </code>
-                <code className="rounded-full border border-white/8 bg-black/20 px-3 py-1">
+                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
                   GET /api/prices?range={commodityRange}
                 </code>
               </div>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-gray-900">
                 URL state is canonical for the selected range, commodity horizon, and section focus. Rate limit remains 60 requests per minute.
               </p>
             </div>
@@ -883,8 +887,8 @@ function SectionCard({
           ) : null}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold tracking-tight text-white">{title}</h2>
-              {tooltip ? <InfoTooltip text={tooltip} /> : null}
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-1000">{title}</h2>
+              {tooltip ? <InfoTooltip text={tooltip} label={`What is ${title}?`} /> : null}
             </div>
           </div>
         </div>
@@ -1068,7 +1072,7 @@ function InsightCardSkeleton() {
 
 function KpiCardSkeleton() {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
+    <div className="rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
       <div className="flex items-center gap-2">
         <Skeleton className="h-4 w-4 rounded-full" />
         <Skeleton className="h-3 w-24" />
@@ -1121,12 +1125,12 @@ function InsightCard({
 
   return (
     <div className={`rounded-3xl border p-4 ${toneClasses[tone]}`}>
-      <div className="mb-4 flex items-center gap-2 text-sm text-zinc-300">
+      <div className="mb-4 flex items-center gap-2 text-sm text-gray-900">
         {icon}
         <span>{title}</span>
       </div>
-      <p className="text-2xl font-semibold tracking-tight text-white">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-zinc-300">{detail}</p>
+      <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-gray-900">{detail}</p>
     </div>
   );
 }
@@ -1148,7 +1152,7 @@ function CommodityStatCard({
   return (
     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+        <p className="text-xs text-gray-900">
           {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
         </p>
         <span
@@ -1156,7 +1160,7 @@ function CommodityStatCard({
           style={{ backgroundColor: COMMODITY_COLORS[commodity] ?? "#64748b" }}
         />
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+      <p className="mt-3 font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">
         {latest ? formatCommodityPrice(latest) : "—"}
       </p>
       <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
@@ -1165,7 +1169,7 @@ function CommodityStatCard({
           {formatSignedCurrency(absoluteDelta, latest?.currency)} · {formatSignedPercentage(percentageDelta)}
         </span>
       </div>
-      <p className="mt-1 text-xs text-zinc-500">{latest ? normalizeUnit(latest.unit) : "No current value"}</p>
+      <p className="mt-1 text-xs text-gray-900">{latest ? normalizeUnit(latest.unit) : "No current value"}</p>
     </div>
   );
 }
@@ -1183,12 +1187,12 @@ function HeroFact({
 }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
-      <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">{label}</p>
+      <p className="text-xs text-gray-900">{label}</p>
       {asOf ? (
-        <p className="mt-1 text-[11px] tabular-nums text-zinc-500">as of {asOf}</p>
+        <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">as of {asOf}</p>
       ) : null}
-      <p className="mt-3 text-xl font-semibold tracking-tight text-white">{value}</p>
-      <p className="mt-2 text-sm text-zinc-400">{detail}</p>
+      <p className="mt-3 font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">{value}</p>
+      <p className="mt-2 text-sm text-gray-900">{detail}</p>
     </div>
   );
 }
@@ -1202,7 +1206,7 @@ function Badge({ label, tone }: { label: string; tone: "emerald" | "sky" | "viol
   };
 
   return (
-    <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${toneMap[tone]}`}>
+    <span className={`rounded-full border px-3 py-1 text-xs font-medium ${toneMap[tone]}`}>
       {label}
     </span>
   );
@@ -1210,7 +1214,7 @@ function Badge({ label, tone }: { label: string; tone: "emerald" | "sky" | "viol
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-white/10 bg-black/15 text-sm text-zinc-500">
+    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-gray-alpha-400 bg-background-200 text-sm text-gray-900">
       {label}
     </div>
   );
