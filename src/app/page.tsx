@@ -1,5 +1,5 @@
 import { Dashboard } from "@/components/dashboard";
-import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
+import { filterPublicCommodityPrices } from "@/lib/commodity-series";
 import { latestObservedTimestamp } from "@/lib/health";
 import { formatLondonClock, parseUtcDateTime } from "@/lib/london-time";
 import { queryPipe } from "@/lib/tinybird";
@@ -85,7 +85,7 @@ export default async function Home({
       dataAsOf={latestDataAsOf(headlineSnapshots, latestGeneration, now)}
       initialSnapshots={snapshots}
       headlineSnapshots={headlineSnapshots}
-      initialPrices={filterCanonicalCommodityPrices(prices)}
+      initialPrices={filterPublicCommodityPrices(prices)}
       generationHistory={generationHistory}
       latestGeneration={latestGeneration}
     />

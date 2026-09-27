@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { COMMODITY_COLORS } from "@/lib/colors";
+import { COMMODITY_CARD_LABELS, COMMODITY_COLORS } from "@/lib/colors";
 import {
   formatSapGbpPerMwh,
   formatSapPencePerTherm,
@@ -30,7 +30,7 @@ export function GbGasSapCard({
     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-          GB gas (System Average Price)
+          {COMMODITY_CARD_LABELS[GB_GAS_SAP_COMMODITY]}
         </p>
         <span
           className="h-2.5 w-2.5 shrink-0 rounded-full"

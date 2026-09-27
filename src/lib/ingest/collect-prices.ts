@@ -8,13 +8,13 @@ export const EIA_COMMODITIES = [
   { series: "NG.RNGWHHD.D", commodity: "henry_hub_gas", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
+// Withdrawn. Leftover helpers — not fetched by cron or backfill.
 export const FRED_COMMODITIES = [
   { id: "PNGASEUUSDM", commodity: "eu_natural_gas", unit: "$/MMBTU", currency: "USD" },
   { id: "PNGASJPUSDM", commodity: "lng_asia", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
-// Free plan is 50 latest-price requests/month. TTF only — EIA already
-// covers Brent/WTI/Henry Hub, FRED covers monthly Asia LNG.
+// Withdrawn. Leftover helper — not fetched by cron or backfill.
 export const OILPRICE_COMMODITIES = [
   { code: "DUTCH_TTF_EUR", commodity: "eu_ttf", unit: "EUR/MWh", currency: "EUR" },
 ] as const;
@@ -69,8 +69,8 @@ export function isRequiredPriceCronSource(source: string): boolean {
 }
 
 /**
- * vercel.json cron-prices: minute 30 of every 6th hour
- * (00:30, 06:30, 12:30, 18:30 UTC). OilPriceAPI runs only on UTC hour 0.
+ * Leftover helper. OilPriceAPI ingest is disabled in cron and backfill.
+ * vercel.json cron-prices still runs at minute 30 of every 6th hour.
  */
 export const OILPRICE_TTF_CRON_UTC_HOUR = 0;
 
@@ -79,12 +79,8 @@ export function isOilPriceTtfCronSlot(utcHour: number): boolean {
 }
 
 /**
- * OilPriceAPI Free is 50 latest-price requests/month. Call it only on the
- * 00:30 UTC cron-prices slot, and only if today's eu_ttf row is missing.
- * Scheduled slots are 6h apart so they cannot overlap. A successful fetch
- * followed by a failed Tinybird ingest is not retried later that day — we
- * miss the day. Worst case is about 30 requests/month plus any manual
- * /api/cron-prices hits during UTC hour 0.
+ * Leftover helper. OilPriceAPI ingest is disabled — cron and backfill
+ * never call this.
  */
 export function shouldFetchOilPriceTtf(
   today: string,
@@ -94,6 +90,7 @@ export function shouldFetchOilPriceTtf(
   return isOilPriceTtfCronSlot(utcHour) && commodityDateKey(latestTtfDate ?? "") !== today;
 }
 
+/** Leftover helper. Not called by cron or backfill. */
 export async function fetchOilPriceLatest(
   apiKey: string,
   today: string
@@ -115,6 +112,7 @@ export async function fetchOilPriceLatest(
   return results.filter((row) => row != null);
 }
 
+/** Leftover helper. Not called by cron or backfill. */
 export async function fetchFredLatest(apiKey: string): Promise<PriceRow[]> {
   const results = await Promise.all(
     FRED_COMMODITIES.map(async ({ id, commodity, unit, currency }) => {

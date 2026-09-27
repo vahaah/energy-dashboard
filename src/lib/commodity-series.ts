@@ -1,5 +1,23 @@
 import type { CommodityPrice } from "@/lib/types";
 
+export const PUBLIC_COMMODITIES = [
+  "brent_crude",
+  "wti_crude",
+  "henry_hub_gas",
+  "gb_gas_sap",
+] as const;
+
+export type PublicCommodity = (typeof PUBLIC_COMMODITIES)[number];
+
+export function isPublicCommodity(value: string): value is PublicCommodity {
+  for (const commodity of PUBLIC_COMMODITIES) {
+    if (commodity === value) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export const OILPRICE_DAILY_EU_NATURAL_GAS_SQL = [
   "commodity = 'eu_natural_gas'",
   "AND toDayOfMonth(date) != 1",
@@ -39,4 +57,8 @@ export function isCanonicalCommodityPrice(row: CommodityPrice): boolean {
 
 export function filterCanonicalCommodityPrices<T extends CommodityPrice>(rows: T[]): T[] {
   return rows.filter((row) => isCanonicalCommodityPrice(row));
+}
+
+export function filterPublicCommodityPrices<T extends CommodityPrice>(rows: T[]): T[] {
+  return filterCanonicalCommodityPrices(rows).filter((row) => isPublicCommodity(row.commodity));
 }

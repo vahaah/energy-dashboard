@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FUELINST_LABELS, INTERCONNECTOR_LABELS } from "@/lib/colors";
+import {
+  COMMODITY_CARD_LABELS,
+  COMMODITY_DISPLAY_ORDER,
+  COMMODITY_LABELS,
+  FUELINST_LABELS,
+  INTERCONNECTOR_LABELS,
+} from "@/lib/colors";
+import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 
 describe("user-facing fuel labels", () => {
   it("labels PV Live as total GB solar, not embedded-only", () => {
@@ -17,5 +24,18 @@ describe("user-facing fuel labels", () => {
     expect(INTERCONNECTOR_LABELS.intnem).toBe("Belgium (Nemo)");
     expect(INTERCONNECTOR_LABELS.intnsl).toBe("Norway (NSL)");
     expect(INTERCONNECTOR_LABELS.intvkl).toBe("Denmark (Viking Link)");
+  });
+
+  it("only labels the public oil and gas series, with no TTF, JKM or IMF", () => {
+    expect(COMMODITY_DISPLAY_ORDER).toEqual(PUBLIC_COMMODITIES);
+    expect(Object.keys(COMMODITY_LABELS)).toEqual([...PUBLIC_COMMODITIES]);
+    expect(COMMODITY_LABELS.brent_crude).toBe("Brent crude ($/bbl)");
+    expect(COMMODITY_CARD_LABELS.brent_crude).toBe("Brent crude oil");
+    expect(COMMODITY_LABELS).not.toHaveProperty("eu_ttf");
+    expect(COMMODITY_LABELS).not.toHaveProperty("lng_asia");
+    expect(COMMODITY_LABELS).not.toHaveProperty("eu_natural_gas");
+    expect(`${Object.values(COMMODITY_LABELS).join("\n")}\n${Object.values(COMMODITY_CARD_LABELS).join("\n")}`).not.toMatch(
+      /TTF|JKM|IMF/
+    );
   });
 });

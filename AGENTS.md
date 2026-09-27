@@ -29,7 +29,7 @@ External APIs
   ├─ Elexon BMRS → imbalance prices, demand, FUELINST, AGPT
   ├─ NESO → embedded wind (half-hourly, UK settlement periods)
   ├─ Sheffield Solar PV Live → GB solar including embedded
-  ├─ EIA / OilPriceAPI / FRED → commodities (via /api/cron-prices)
+  ├─ EIA / National Gas → commodities (via /api/cron-prices)
        │
        ▼
   /api/cron (hourly) + /api/cron-prices (every 6h)
@@ -115,8 +115,6 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
-| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), 00:30 UTC slot only |
-| FRED / IMF | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`, `lng_asia`) |
 | National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh** |
 
 ## Environment Variables
@@ -128,8 +126,8 @@ TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=<free-eia-key>
 CRON_SECRET=<required-secret-for-vercel-cron>
-OIL_PRICE_API_KEY=<optional — TTF only, ≤1 request/UTC day>
-FRED_API_KEY=<optional>
+OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
+FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 ```
 
 ### How tokens work
@@ -214,7 +212,7 @@ The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data
 - Carbon Intensity + Elexon — half-hourly UK settlement periods, including 46/50-period clock-change days
 - FUELINST + NESO embedded wind + Sheffield PV Live
 - EIA daily Brent/WTI/Henry Hub (requires a real `EIA_API_KEY`)
-- FRED monthly TTF/LNG in $/MMBtu (kept separate from OilPriceAPI `eu_ttf` EUR/MWh)
+- OilPriceAPI and FRED ingest is disabled everywhere (`/api/cron-prices` and `scripts/backfill.ts`); leftover keys are ignored
 
 After deploying Nullable snapshot columns and the new pipes, re-run snapshot + generation backfill to replace historical `0` placeholders and the old UTC-mapped prices.
 
@@ -231,7 +229,7 @@ ORDER BY timestamp;
 DELETE FROM generation_5min WHERE timestamp > now();
 ```
 
-`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null). The homepage, `/api/prices`, and `/api/health` drop leftover daily `eu_natural_gas` rows that are not FRED month-start $/MMBtu.
+`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null). The homepage and `/api/prices` only publish EIA oil/gas series and National Gas SAP.
 
 ### Deploy
 ```bash

@@ -14,14 +14,14 @@
  * Env vars required:
  *   TINYBIRD_URL, TINYBIRD_TOKEN (or set in .env.local at the repo root)
  *   EIA_API_KEY (required for EIA history; DEMO_KEY is not used)
- *   FRED_API_KEY (optional — monthly TTF + LNG in $/MMBtu)
+ * OilPriceAPI and FRED ingest is disabled everywhere — leftover keys are ignored.
  */
 
 import { config } from "dotenv";
 import { resolve } from "node:path";
 import { backfillSettlementDates } from "../src/lib/backfill-range";
 import { describeCollection, shouldFailBackfill } from "../src/lib/ingest/backfill-report";
-import { EIA_COMMODITIES, FRED_COMMODITIES } from "../src/lib/ingest/collect-prices";
+import { EIA_COMMODITIES } from "../src/lib/ingest/collect-prices";
 import { collectGenerationForSettlementDate } from "../src/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "../src/lib/ingest/collect-grid";
 import type { CollectionResult } from "../src/lib/http";
@@ -32,7 +32,6 @@ config({ path: resolve(process.cwd(), ".env.local") });
 const API_URL = process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 const TOKEN = process.env.TINYBIRD_TOKEN ?? "";
 const EIA_KEY = process.env.EIA_API_KEY ?? "";
-const FRED_KEY = process.env.FRED_API_KEY ?? "";
 
 if (!TOKEN) {
   console.error("TINYBIRD_TOKEN is not set. Add it to .env.local at the repo root.");
@@ -192,39 +191,8 @@ async function backfillPrices() {
     }
   }
 
-  if (FRED_KEY) {
-    for (const { id, commodity, unit, currency } of FRED_COMMODITIES) {
-      process.stdout.write(`   ${commodity} (FRED): `);
-      const json = await fetchJSON<{ observations: Array<{ date: string; value: string }> }>(
-        `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=asc&observation_start=${startDate}&observation_end=${endDate}`
-      );
-      const rows = (json?.observations ?? [])
-        .filter((observation) => observation.value !== ".")
-        .map((observation) => ({
-          date: observation.date,
-          commodity,
-          price: Number.parseFloat(observation.value),
-          currency,
-          unit,
-        }));
-
-      if (rows.length > 0) {
-        for (let i = 0; i < rows.length; i += 500) {
-          await ingestRows("commodity_prices", rows.slice(i, i + 500));
-        }
-        totalRows += rows.length;
-        console.log(`${rows.length} months`);
-      } else {
-        console.log("no data");
-      }
-      await sleep(500);
-    }
-  } else {
-    console.log("   Skipping FRED monthly TTF/LNG — FRED_API_KEY is not set");
-  }
-
   console.log(`\n   Total: ${totalRows} price rows ingested`);
-  console.log("   Note: Dutch TTF (eu_ttf, EUR/MWh) comes from OilPriceAPI via /api/cron-prices (once per day), not this backfill.\n");
+  console.log("   OilPriceAPI and FRED series are not fetched from cron or backfill.\n");
 }
 
 async function main() {
