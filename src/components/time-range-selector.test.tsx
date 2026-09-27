@@ -18,6 +18,7 @@ describe("TimeRangeSelector", () => {
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain("h-11");
+    expect(html).not.toContain("sm:h-9");
     expect(html).toContain("min-w-11");
   });
 });

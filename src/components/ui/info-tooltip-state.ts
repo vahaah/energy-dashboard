@@ -22,9 +22,9 @@ export function reduceInfoTooltip(
 ): InfoTooltipState {
   switch (action.type) {
     case "hover-enter":
-      return { ...state, open: true };
+      return { open: true, suppressClick: true };
     case "hover-leave":
-      return action.focused ? state : { ...state, open: false };
+      return action.focused ? state : { open: false, suppressClick: false };
     case "focus":
       return { open: true, suppressClick: true };
     case "blur":

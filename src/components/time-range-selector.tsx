@@ -29,7 +29,7 @@ export function TimeRangeSelector<T extends string>({
           aria-pressed={value === opt.value}
           onClick={() => onChange(opt.value)}
           disabled={pending}
-          className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-3 font-medium motion-reduce:transition-none sm:h-9 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 focus-visible:ring-offset-background-100 ${
+          className={`inline-flex h-11 min-w-11 items-center justify-center rounded-full px-3 font-medium motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 focus-visible:ring-offset-background-100 ${}
             compact ? "text-xs" : "text-sm"
           } ${
             value === opt.value

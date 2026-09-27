@@ -10,6 +10,15 @@ describe("reduceInfoTooltip", () => {
     expect(next.open).toBe(true);
   });
 
+  it("does not close when hover-enter is followed by the same activation click", () => {
+    const hovered = reduceInfoTooltip(initialInfoTooltipState, {
+      type: "hover-enter",
+    });
+    const afterClick = reduceInfoTooltip(hovered, { type: "click" });
+    expect(hovered.open).toBe(true);
+    expect(afterClick.open).toBe(true);
+  });
+
   it("does not close when focus is followed by the same activation click", () => {
     const focused = reduceInfoTooltip(initialInfoTooltipState, { type: "focus" });
     const afterClick = reduceInfoTooltip(focused, { type: "click" });
