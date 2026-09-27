@@ -1,21 +1,41 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { queryPipe } from "@/lib/tinybird";
-import type { EnergySnapshot, TimeRange } from "@/lib/types";
+import { parseOptionalDate, parseTimeRange } from "@/lib/api-params";
+import { badRequest, upstreamError } from "@/lib/api-route";
 import { getSnapshotsQueryParams } from "@/lib/dashboard-data";
+import { queryPipe } from "@/lib/tinybird";
+import type { EnergySnapshot } from "@/lib/types";
 
 /**
  * GET /api/snapshots?range=24h|7d|30d|90d|1y&date=YYYY-MM-DD
  *
  * Public API — returns energy snapshots for the given time range.
+ * `price_gbp_mwh` is the GB imbalance (cash-out / system buy) price.
  * Rate limited via middleware (60 req/min per IP).
  */
 export async function GET(request: NextRequest) {
-  const range = (request.nextUrl.searchParams.get("range") ?? "24h") as TimeRange;
-  const date = request.nextUrl.searchParams.get("date");
-  const params = getSnapshotsQueryParams(range, new Date(), date);
+  const rangeResult = parseTimeRange(request.nextUrl.searchParams.get("range"));
+  if (!rangeResult.ok) {
+    return badRequest(rangeResult.error);
+  }
 
-  const data = await queryPipe<EnergySnapshot>("snapshots_range", params);
+  const dateResult = parseOptionalDate(request.nextUrl.searchParams.get("date"));
+  if (!dateResult.ok) {
+    return badRequest(dateResult.error);
+  }
 
-  return NextResponse.json({ data, range, date, count: data.length });
+  try {
+    const data = await queryPipe<EnergySnapshot>(
+      "snapshots_range",
+      getSnapshotsQueryParams(rangeResult.value, new Date(), dateResult.value)
+    );
+    return NextResponse.json({
+      data,
+      range: rangeResult.value,
+      date: dateResult.value,
+      count: data.length,
+    });
+  } catch (error) {
+    return upstreamError(error);
+  }
 }

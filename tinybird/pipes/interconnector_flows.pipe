@@ -8,24 +8,25 @@ NODE endpoint
 SQL >
     %
     SELECT
-        timestamp,
-        fuel_type AS interconnector,
-        generation_mw,
+        g.timestamp,
+        g.fuel_type AS interconnector,
+        any(g.generation_mw) AS generation_mw,
         CASE
-            WHEN generation_mw >= 0 THEN 'import'
+            WHEN any(g.generation_mw) >= 0 THEN 'import'
             ELSE 'export'
         END AS direction
-    FROM generation_5min
-    WHERE startsWith(lower(fuel_type), 'int')
+    FROM generation_5min AS g
+    WHERE startsWith(lower(g.fuel_type), 'int')
     {% if defined(start) and defined(end) %}
-        AND timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        AND g.timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
     {% else %}
-        AND timestamp = (
-            SELECT max(timestamp)
-            FROM generation_5min
-            WHERE startsWith(lower(fuel_type), 'int')
+        AND g.timestamp = (
+            SELECT max(latest.timestamp)
+            FROM generation_5min AS latest
+            WHERE startsWith(lower(latest.fuel_type), 'int')
         )
     {% end %}
+    GROUP BY g.timestamp, g.fuel_type
     ORDER BY timestamp ASC, interconnector ASC
 
 TYPE endpoint

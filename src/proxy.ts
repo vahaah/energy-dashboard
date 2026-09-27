@@ -24,7 +24,11 @@ function checkLimit(ip: string): { allowed: boolean; remaining: number } {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/api/cron") {
+  if (
+    pathname === "/api/cron" ||
+    pathname === "/api/cron-prices" ||
+    pathname === "/api/health"
+  ) {
     return NextResponse.next();
   }
 

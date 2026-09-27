@@ -1,114 +1,131 @@
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-route";
+import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { isCronAuthorized } from "@/lib/cron-auth";
+import type { SourceStatus } from "@/lib/http";
+import {
+  fetchEiaLatest,
+  fetchFredLatest,
+  fetchOilPriceLatest,
+  mergePriceRows,
+  type PriceRow,
+} from "@/lib/ingest/collect-prices";
+import { formatIsoDate } from "@/lib/london-time";
 import { ingestRows } from "@/lib/tinybird";
 
 /**
  * GET /api/cron-prices
  *
- * Called every 6 hours by Vercel Cron. Fetches commodity prices from:
- *   1. OilPriceAPI  — EU TTF gas, LNG Asia JKM (real-time)
- *   2. FRED         — monthly TTF + LNG (deep history supplement)
- *
- * Pushes to Tinybird data source: commodity_prices.
+ * Every 6 hours. Fetches commodity prices from:
+ *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu)
+ *   2. OilPriceAPI — Dutch TTF (EUR/MWh as eu_ttf) and JKM LNG ($/MMBtu)
+ *   3. FRED — monthly TTF + LNG in $/MMBtu (eu_natural_gas / lng_asia fallback)
  */
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isCronAuthorized(request.headers.get("authorization"), process.env.CRON_SECRET)) {
+    return unauthorized();
   }
 
-  const errors: string[] = [];
-  const priceRows: Array<Record<string, unknown>> = [];
-  const today = new Date().toISOString().slice(0, 10);
-
-  // ── 1. OilPriceAPI — TTF + LNG (parallel) ─────────────────
+  const today = formatIsoDate(new Date());
+  const eiaKey = process.env.EIA_API_KEY;
   const oilApiKey = process.env.OIL_PRICE_API_KEY;
-  if (oilApiKey) {
-    const oilCommodities = [
-      { code: "DUTCH_TTF_NATURAL_GAS_USD", commodity: "eu_natural_gas", unit: "$/MMBTU" },
-      { code: "JKM_LNG_USD", commodity: "lng_asia", unit: "$/MMBTU" },
-    ];
-
-    const results = await Promise.allSettled(
-      oilCommodities.map(async ({ code, commodity, unit }) => {
-        const res = await fetch(
-          `https://api.oilpriceapi.com/v1/prices/latest?by_code=${code}`,
-          { headers: { Authorization: `Token ${oilApiKey}` } }
-        );
-        if (res.ok) {
-          const json = await res.json();
-          const price = json?.data?.price;
-          if (price != null) {
-            return { date: today, commodity, price, currency: "USD", unit };
-          }
-        }
-        return null;
-      })
-    );
-
-    for (const [i, result] of results.entries()) {
-      if (result.status === "fulfilled" && result.value) {
-        priceRows.push(result.value);
-      } else if (result.status === "rejected") {
-        errors.push(`OilPriceAPI (${oilCommodities[i].code}): ${result.reason}`);
-      }
-    }
-  }
-
-  // ── 2. FRED — Monthly TTF + LNG (parallel, supplements OilPriceAPI) ─
   const fredKey = process.env.FRED_API_KEY;
-  if (fredKey) {
-    const fredSeries = [
-      { id: "PNGASEUUSDM", commodity: "eu_natural_gas", unit: "$/MMBTU" },
-      { id: "PNGASJPUSDM", commodity: "lng_asia", unit: "$/MMBTU" },
-    ];
 
-    const results = await Promise.allSettled(
-      fredSeries.map(async ({ id, commodity, unit }) => {
-        const res = await fetch(
-          `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${fredKey}&file_type=json&sort_order=desc&limit=1`
-        );
-        if (res.ok) {
-          const json = await res.json();
-          const obs = json?.observations?.[0];
-          if (obs && obs.value !== "." && obs.value != null) {
-            return { date: obs.date, commodity, price: parseFloat(obs.value), currency: "USD", unit };
-          }
-        }
-        return null;
-      })
-    );
+  const [eia, oil, fred] = await Promise.all([
+    runOptionalSource("eia", eiaKey && eiaKey !== "DEMO_KEY" ? eiaKey : null, "EIA_API_KEY is not set (DEMO_KEY is not used)", (key) =>
+      fetchEiaLatest(key)
+    ),
+    runOptionalSource("oilpriceapi", oilApiKey ?? null, "OIL_PRICE_API_KEY is not set; skipped", (key) =>
+      fetchOilPriceLatest(key, today)
+    ),
+    runOptionalSource("fred", fredKey ?? null, "FRED_API_KEY is not set; skipped", (key) => fetchFredLatest(key)),
+  ]);
 
-    for (const [i, result] of results.entries()) {
-      if (result.status === "fulfilled" && result.value) {
-        // Only use FRED if OilPriceAPI didn't already provide this commodity
-        const val = result.value;
-        const alreadyHas = priceRows.some((r) => r.commodity === val.commodity);
-        if (!alreadyHas) {
-          priceRows.push(val);
-        }
-      } else if (result.status === "rejected") {
-        errors.push(`FRED (${fredSeries[i].id}): ${result.reason}`);
-      }
-    }
+  const oilRows = oil.rowsData ?? [];
+  const fredRows = mergePriceRows(oilRows, fred.rowsData ?? []).filter(
+    (row) => !oilRows.some((oilRow) => oilRow.commodity === row.commodity)
+  );
+
+  const ingestStatuses = await Promise.all([
+    ingestSource("eia", eia, eia.rowsData ?? []),
+    ingestSource("oilpriceapi", oil, oilRows),
+    ingestSource("fred", fred, fredRows),
+  ]);
+
+  const ingested = ingestStatuses.some((source) => source.ok && (source.rows ?? 0) > 0);
+  if (ingested) {
+    revalidateTag(DASHBOARD_CACHE_TAG, "max");
+    revalidatePath("/");
   }
 
-  // ── Ingest ──────────────────────────────────────────────────
+  const hasHardFailure = ingestStatuses.some((source) => !source.ok && source.source === "eia");
+
+  if (hasHardFailure) {
+    console.error("[cron-prices] required source failed", ingestStatuses);
+  } else {
+    console.info("[cron-prices] completed", ingestStatuses);
+  }
+
+  return NextResponse.json(
+    {
+      ok: !hasHardFailure,
+      ingested: ingestStatuses.reduce((sum, source) => sum + (source.rows ?? 0), 0),
+      sources: ingestStatuses,
+    },
+    { status: hasHardFailure ? 503 : 200 }
+  );
+}
+
+type FetchedSource = SourceStatus & { rowsData?: PriceRow[] };
+
+async function runOptionalSource(
+  source: string,
+  key: string | null,
+  skippedMessage: string,
+  fetchRows: (key: string) => Promise<PriceRow[]>
+): Promise<FetchedSource> {
+  if (!key) {
+    const required = source === "eia";
+    return {
+      source,
+      ok: !required,
+      rows: 0,
+      error: skippedMessage,
+    };
+  }
+
   try {
-    if (priceRows.length > 0) {
-      await ingestRows("commodity_prices", priceRows);
-    }
-  } catch (e) {
-    errors.push(`Tinybird ingest (commodity_prices): ${e}`);
+    const rowsData = await fetchRows(key);
+    return { source, ok: true, rows: rowsData.length, rowsData };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[cron-prices] ${source} failed`, message);
+    return { source, ok: false, error: message };
+  }
+}
+
+async function ingestSource(
+  source: string,
+  fetched: FetchedSource,
+  rows: PriceRow[]
+): Promise<SourceStatus> {
+  if (!fetched.ok) {
+    return { source, ok: fetched.ok, rows: fetched.rows, error: fetched.error };
   }
 
-  return NextResponse.json({
-    ok: true,
-    ingested: priceRows.length,
-    errors: errors.length > 0 ? errors : undefined,
-  });
+  try {
+    if (rows.length > 0) {
+      await ingestRows("commodity_prices", rows);
+    }
+    return { source, ok: true, rows: rows.length, error: fetched.error };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[cron-prices] ${source} ingest failed`, message);
+    return { source, ok: false, error: message };
+  }
 }

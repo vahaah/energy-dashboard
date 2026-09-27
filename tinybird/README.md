@@ -77,10 +77,13 @@ curl "https://api.eu-central-1.aws.tinybird.co/v0/pipes/latest_snapshot.json" \
 ## Data Sources
 
 ### `energy_snapshots`
-One row per hour. UK grid data combining Carbon Intensity API + Elexon BMRS.
-- Engine: `ReplacingMergeTree` (dedup on same hour)
+One row per UK settlement period (half-hourly; 46/50 periods on clock-change days).
+- Engine: `ReplacingMergeTree` (dedup on the same timestamp)
 - Sorting key: `timestamp`
+- Metrics are `Nullable(Float32)` so missing values are not stored as 0
 - Tokens: `ingest_token` (APPEND)
+
+Pipes query with `FINAL` / `argMax` / `GROUP BY` because ReplacingMergeTree does not dedup until merge.
 
 ### `commodity_prices`
 One row per commodity per day. Oil & gas from US EIA.
@@ -94,7 +97,8 @@ All pipes have `TOKEN dashboard_read READ` for secure query access.
 
 | Pipe | Description | Params |
 |------|-------------|--------|
-| `latest_snapshot` | Most recent grid snapshot | — |
-| `snapshots_range` | Snapshots in time range | `start`, `end`, `granularity` (hour/day/week) |
-| `latest_prices` | Latest price per commodity | — |
-| `prices_range` | Price history in date range | `start`, `end`, `commodity` (optional) |
+| `latest_snapshot` | Most recent grid snapshot (`FINAL`) | — |
+| `snapshots_range` | Snapshots in time range (`FINAL`, `avg` skips nulls) | `start`, `end`, `granularity` (hour/day/week) |
+| `latest_generation` | Latest reading **per fuel type** | — |
+| `latest_prices` | Latest price per commodity (`argMax`) | — |
+| `prices_range` | Price history in date range (`GROUP BY date, commodity`) | `start`, `end`, `commodity` (optional) |

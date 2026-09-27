@@ -22,8 +22,8 @@ interface Props {
 export function CarbonIntensityChart({ data, range }: Props) {
   const chartData = data.map((d) => ({
     time: d.timestamp,
-    actual: Math.round(d.carbon_intensity),
-    forecast: Math.round(d.carbon_forecast),
+    actual: d.carbon_intensity == null ? null : Math.round(d.carbon_intensity),
+    forecast: d.carbon_forecast == null ? null : Math.round(d.carbon_forecast),
   }));
 
   return (
@@ -67,6 +67,7 @@ export function CarbonIntensityChart({ data, range }: Props) {
             strokeWidth={2}
             fill="url(#carbonGrad)"
             name="Actual"
+            connectNulls={false}
           />
           <Area
             type="monotone"
@@ -76,6 +77,7 @@ export function CarbonIntensityChart({ data, range }: Props) {
             strokeDasharray="4 4"
             fill="transparent"
             name="Forecast"
+            connectNulls={false}
           />
         </AreaChart>
       </ResponsiveContainer>

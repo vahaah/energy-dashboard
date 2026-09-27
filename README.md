@@ -4,8 +4,12 @@ Real-time UK electricity grid dashboard combined with global oil & gas commodity
 
 **Live data sources:**
 - [Carbon Intensity API](https://api.carbonintensity.org.uk) — carbon intensity, generation mix
-- [Elexon BMRS](https://bmrs.elexon.co.uk) — system prices, demand, generation by fuel type
+- [Elexon BMRS](https://bmrs.elexon.co.uk) — imbalance (cash-out) prices, demand, generation by fuel type
+- [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — GB solar including embedded
+- [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
+- [OilPriceAPI](https://www.oilpriceapi.com) — Dutch TTF in EUR/MWh, JKM LNG
+- [FRED](https://fred.stlouisfed.org) — monthly EU TTF and Asia LNG in $/MMBtu
 
 ## Architecture
 
@@ -15,7 +19,7 @@ Real-time UK electricity grid dashboard combined with global oil & gas commodity
 │                                                                 │
 │  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐   │
 │  │ Dashboard │    │ /api/cron    │    │ /api/snapshots       │   │
-│  │ (SSR+ISR) │    │ (hourly)     │    │ /api/prices          │   │
+│  │ (SSR)     │    │ (hourly)     │    │ /api/prices /health  │   │
 │  └─────┬─────┘    └──────┬───────┘    │ (public, rate-limited│   │
 │        │                 │            └──────────┬───────────┘   │
 └────────┼─────────────────┼───────────────────────┼──────────────┘
@@ -87,10 +91,10 @@ npm run dev
 
 ### 5. Seed initial data
 
-Hit the cron endpoint manually to populate your first snapshot:
+Hit the cron endpoint manually to populate your first snapshot (`CRON_SECRET` is required):
 
 ```bash
-curl http://localhost:3000/api/cron
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 ```
 
 ### 6. Backfill historical data (optional)
@@ -112,7 +116,7 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local`. Uses `DEMO_KEY` for EIA by default.
+Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used).
 
 ### 7. Deploy to Vercel
 
@@ -137,20 +141,25 @@ All API endpoints are public with rate limiting (60 req/min per IP).
 
 ### `GET /api/snapshots`
 
-Returns UK grid energy snapshots.
+Returns UK grid energy snapshots. `price_gbp_mwh` is the Elexon **imbalance / cash-out (system buy)** price, not day-ahead wholesale. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `range` | `24h\|7d\|30d\|90d` | `24h` | Time range |
+| `range` | `24h\|7d\|30d\|90d\|1y` | `24h` | Time range (invalid values return 400) |
+| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
 
 ### `GET /api/prices`
 
-Returns oil & gas commodity prices.
+Returns oil & gas commodity prices. `eu_ttf` is OilPriceAPI Dutch TTF in **EUR/MWh**. `eu_natural_gas` is FRED monthly TTF in **$/MMBtu**. Do not treat them as one series.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `range` | `30d\|90d\|1y` | `30d` | Time range |
-| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas` | all | Filter |
+| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|eu_ttf\|eu_natural_gas\|lng_asia` | all | Filter |
+
+### `GET /api/health`
+
+Freshness of snapshots, FUELINST, embedded generation, and prices. Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
 
 ### Rate Limiting
 
@@ -162,11 +171,17 @@ Returns oil & gas commodity prices.
 
 ## Data Model
 
-### `energy_snapshots` (hourly)
+### `energy_snapshots` (half-hourly, UK settlement periods)
 - Carbon intensity (actual + forecast)
 - System demand (MW)
-- Electricity system price (£/MWh)
+- Imbalance / cash-out price (£/MWh)
 - Generation mix (% and MW): gas, coal, nuclear, wind, solar, hydro, biomass, imports
+- Missing values are stored as `null` so averages skip gaps
+
+### `generation_5min`
+- Elexon FUELINST (5-min)
+- NESO embedded wind (half-hourly, UK local mapping)
+- Sheffield Solar PV Live (30-min national solar, used because NESO actuals are too coarse for midday solar)
 
 ### `commodity_prices` (daily)
 - Brent Crude ($/bbl)

@@ -1,11 +1,11 @@
-import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
+import type { EnergySnapshot, Generation5min, NullableNumber, TimeRange } from "@/lib/types";
 
 export interface MetricSummary {
-  latest: number;
-  average: number;
-  min: number;
-  max: number;
-  deltaFromAverage: number;
+  latest: number | null;
+  average: number | null;
+  min: number | null;
+  max: number | null;
+  deltaFromAverage: number | null;
 }
 
 export interface RangeSummary {
@@ -80,11 +80,20 @@ export function splitLatestGenerationRows(
     };
   }
 
-  const latestTimestamp = rows.reduce(
+  const latestByFuel = new Map<string, Generation5min>();
+  for (const row of rows) {
+    const key = normalizeFuelType(row.fuel_type);
+    const existing = latestByFuel.get(key);
+    if (!existing || row.timestamp > existing.timestamp) {
+      latestByFuel.set(key, row);
+    }
+  }
+
+  const latestRows = Array.from(latestByFuel.values());
+  const latestTimestamp = latestRows.reduce(
     (latest, row) => (row.timestamp > latest ? row.timestamp : latest),
     ""
   );
-  const latestRows = rows.filter((row) => row.timestamp === latestTimestamp);
   const sources: Generation5min[] = [];
   const interconnectors: Generation5min[] = [];
 
@@ -129,7 +138,11 @@ export function buildGenerationStackSeries(
       byBucket.set(bucket, {});
     }
 
-    const entry = byBucket.get(bucket)!;
+    const entry = byBucket.get(bucket);
+
+    if (!entry) {
+      continue;
+    }
 
     if (isInterconnectorFuel(row.fuel_type)) {
       if (row.generation_mw > 0) {
@@ -173,23 +186,25 @@ export function buildRangeSummary(snapshots: EnergySnapshot[]): RangeSummary {
   };
 }
 
-function summarizeMetric(values: number[]): MetricSummary {
-  if (values.length === 0) {
+function summarizeMetric(values: NullableNumber[]): MetricSummary {
+  const present = values.filter((value): value is number => value != null);
+  if (present.length === 0) {
     return {
-      latest: 0,
-      average: 0,
-      min: 0,
-      max: 0,
-      deltaFromAverage: 0,
+      latest: null,
+      average: null,
+      min: null,
+      max: null,
+      deltaFromAverage: null,
     };
   }
 
-  const latest = roundNumber(values.at(-1) ?? 0);
+  const latestPresent = [...values].reverse().find((value): value is number => value != null);
+  const latest = roundNumber(latestPresent ?? present[present.length - 1]);
   const average = roundNumber(
-    values.reduce((sum, value) => sum + value, 0) / values.length
+    present.reduce((sum, value) => sum + value, 0) / present.length
   );
-  const min = roundNumber(Math.min(...values));
-  const max = roundNumber(Math.max(...values));
+  const min = roundNumber(Math.min(...present));
+  const max = roundNumber(Math.max(...present));
 
   return {
     latest,
@@ -214,11 +229,13 @@ function getGenerationBucketSizeMs(range: TimeRange): number {
     case "90d":
     case "1y":
       return 24 * 60 * 60 * 1000;
-    default:
-      return 60 * 60 * 1000;
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
   }
 }
 
 function parseGenerationTimestamp(value: string): number {
-  return new Date(value.replace(" ", "T")).getTime();
+  return new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z").getTime();
 }

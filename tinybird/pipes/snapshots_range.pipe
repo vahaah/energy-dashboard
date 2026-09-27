@@ -3,6 +3,7 @@ TOKEN dashboard_read READ
 DESCRIPTION >
     Returns energy snapshots within a time range.
     Params: start (DateTime), end (DateTime), granularity ('hour' | 'day' | 'week')
+    FINAL + avg() skip nulls so missing periods do not become zeros.
 
 NODE endpoint
 SQL >
@@ -32,7 +33,7 @@ SQL >
             avg(gen_hydro_mw) AS gen_hydro_mw,
             avg(gen_biomass_mw) AS gen_biomass_mw,
             avg(gen_other_mw) AS gen_other_mw
-        FROM energy_snapshots
+        FROM energy_snapshots FINAL
         WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
           AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
         GROUP BY timestamp
@@ -62,14 +63,14 @@ SQL >
             avg(gen_hydro_mw) AS gen_hydro_mw,
             avg(gen_biomass_mw) AS gen_biomass_mw,
             avg(gen_other_mw) AS gen_other_mw
-        FROM energy_snapshots
+        FROM energy_snapshots FINAL
         WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
           AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
         GROUP BY timestamp
         ORDER BY timestamp ASC
     {% else %}
         SELECT *
-        FROM energy_snapshots
+        FROM energy_snapshots FINAL
         WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
           AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
         ORDER BY timestamp ASC

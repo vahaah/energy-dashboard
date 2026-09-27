@@ -1,29 +1,31 @@
 // ─── Tinybird row types ─────────────────────────────────────
 
+export type NullableNumber = number | null;
+
 export interface EnergySnapshot {
   timestamp: string;
-  carbon_intensity: number;
-  carbon_forecast: number;
+  carbon_intensity: NullableNumber;
+  carbon_forecast: NullableNumber;
   carbon_index: string;
-  demand_mw: number;
-  price_gbp_mwh: number;
-  gen_gas_pct: number;
-  gen_coal_pct: number;
-  gen_nuclear_pct: number;
-  gen_wind_pct: number;
-  gen_solar_pct: number;
-  gen_hydro_pct: number;
-  gen_biomass_pct: number;
-  gen_imports_pct: number;
-  gen_other_pct: number;
-  gen_gas_mw: number;
-  gen_coal_mw: number;
-  gen_nuclear_mw: number;
-  gen_wind_mw: number;
-  gen_solar_mw: number;
-  gen_hydro_mw: number;
-  gen_biomass_mw: number;
-  gen_other_mw: number;
+  demand_mw: NullableNumber;
+  price_gbp_mwh: NullableNumber;
+  gen_gas_pct: NullableNumber;
+  gen_coal_pct: NullableNumber;
+  gen_nuclear_pct: NullableNumber;
+  gen_wind_pct: NullableNumber;
+  gen_solar_pct: NullableNumber;
+  gen_hydro_pct: NullableNumber;
+  gen_biomass_pct: NullableNumber;
+  gen_imports_pct: NullableNumber;
+  gen_other_pct: NullableNumber;
+  gen_gas_mw: NullableNumber;
+  gen_coal_mw: NullableNumber;
+  gen_nuclear_mw: NullableNumber;
+  gen_wind_mw: NullableNumber;
+  gen_solar_mw: NullableNumber;
+  gen_hydro_mw: NullableNumber;
+  gen_biomass_mw: NullableNumber;
+  gen_other_mw: NullableNumber;
 }
 
 export interface CommodityPrice {
@@ -42,7 +44,7 @@ export interface CarbonIntensityResponse {
     to: string;
     intensity: {
       forecast: number;
-      actual: number;
+      actual: number | null;
       index: string;
     };
   }>;
@@ -95,7 +97,7 @@ export interface EIAPriceData {
   units: string;
 }
 
-// ─── 5-minute generation (FUELINST + NESO) ─────────────────
+// ─── 5-minute generation (FUELINST + NESO + PV Live) ────────
 
 export interface Generation5min {
   timestamp: string;

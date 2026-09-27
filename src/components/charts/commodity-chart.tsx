@@ -59,7 +59,7 @@ export function CommodityChart({ data, range, selectedSeries }: Props) {
             tick={{ fontSize: 11, fill: "#71717a" }}
             stroke="#27272a"
             label={{
-              value: "USD",
+              value: "Native units",
               angle: -90,
               position: "insideLeft",
               style: { fontSize: 11, fill: "#71717a" },

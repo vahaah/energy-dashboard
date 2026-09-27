@@ -1,22 +1,19 @@
 TOKEN dashboard_read READ
 
 DESCRIPTION >
-    Returns the latest price for each commodity
+    Returns the latest price for each commodity.
+    argMax dedups ReplacingMergeTree versions that have not merged yet.
 
 NODE endpoint
 SQL >
     SELECT
-        commodity,
-        price,
-        currency,
-        unit,
-        date
-    FROM commodity_prices
-    WHERE (commodity, date) IN (
-        SELECT commodity, max(date) AS date
-        FROM commodity_prices
-        GROUP BY commodity
-    )
+        p.commodity,
+        argMax(p.price, p.date) AS price,
+        argMax(p.currency, p.date) AS currency,
+        argMax(p.unit, p.date) AS unit,
+        max(p.date) AS date
+    FROM commodity_prices AS p
+    GROUP BY p.commodity
     ORDER BY commodity ASC
 
 TYPE endpoint

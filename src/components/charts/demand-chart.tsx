@@ -21,7 +21,7 @@ interface Props {
 export function DemandChart({ data, range }: Props) {
   const chartData = data.map((d) => ({
     time: d.timestamp,
-    demand: Math.round(d.demand_mw),
+    demand: d.demand_mw == null ? null : Math.round(d.demand_mw),
   }));
 
   return (
@@ -70,6 +70,7 @@ export function DemandChart({ data, range }: Props) {
             strokeWidth={2}
             fill="url(#demandGrad)"
             name="Demand"
+            connectNulls={false}
           />
         </AreaChart>
       </ResponsiveContainer>

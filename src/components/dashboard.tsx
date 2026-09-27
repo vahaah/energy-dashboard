@@ -70,6 +70,7 @@ interface Props {
   searchParams: DashboardSearchParams;
   selectedDate: string;
   todayDate: string;
+  dataAsOf: string | null;
   initialSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
@@ -80,6 +81,7 @@ export function Dashboard({
   searchParams,
   selectedDate,
   todayDate,
+  dataAsOf,
   initialSnapshots,
   initialPrices,
   generationHistory,
@@ -92,7 +94,7 @@ export function Dashboard({
     "brent_crude",
     "wti_crude",
     "henry_hub_gas",
-    "eu_natural_gas",
+    "eu_ttf",
     "lng_asia",
   ]);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
@@ -124,19 +126,7 @@ export function Dashboard({
     [latestGeneration]
   );
 
-  const latestMixData: Record<string, number> = latestSnapshot
-    ? {
-        gas: latestSnapshot.gen_gas_pct,
-        coal: latestSnapshot.gen_coal_pct,
-        nuclear: latestSnapshot.gen_nuclear_pct,
-        wind: latestSnapshot.gen_wind_pct,
-        solar: latestSnapshot.gen_solar_pct,
-        hydro: latestSnapshot.gen_hydro_pct,
-        biomass: latestSnapshot.gen_biomass_pct,
-        imports: latestSnapshot.gen_imports_pct,
-        other: latestSnapshot.gen_other_pct,
-      }
-    : {};
+  const latestMixData = latestSnapshot ? mixFromSnapshot(latestSnapshot) : {};
 
   const topSources = useMemo(
     () =>
@@ -176,14 +166,14 @@ export function Dashboard({
     });
   }, [initialPrices]);
 
-  const carbonDelta = rangeSummary.carbon.deltaFromAverage;
-  const demandDelta = rangeSummary.demand.deltaFromAverage;
-  const priceDelta = rangeSummary.price.deltaFromAverage;
+  const carbonDelta = rangeSummary.carbon.deltaFromAverage ?? 0;
+  const demandDelta = rangeSummary.demand.deltaFromAverage ?? 0;
+  const priceDelta = rangeSummary.price.deltaFromAverage ?? 0;
   const activeInterconnectors = latestGenerationSplit.interconnectors.filter(
     (row) => Math.abs(row.generation_mw) >= 25
   ).length;
   const importShare =
-    latestSnapshot && latestSnapshot.demand_mw > 0
+    latestSnapshot && latestSnapshot.demand_mw != null && latestSnapshot.demand_mw > 0
       ? (latestGenerationSplit.netTransfersMw / latestSnapshot.demand_mw) * 100
       : 0;
 
@@ -220,7 +210,7 @@ export function Dashboard({
           : carbonDelta < 0
             ? `${Math.abs(carbonDelta)} g cleaner`
             : `${carbonDelta} g hotter`,
-      detail: `Range low ${rangeSummary.carbon.min} g · high ${rangeSummary.carbon.max} g`,
+      detail: `Range low ${formatOptionalNumber(rangeSummary.carbon.min)} g · high ${formatOptionalNumber(rangeSummary.carbon.max)} g`,
       tone: carbonDelta <= 0 ? "emerald" : "amber",
       icon: <Wind className="w-4 h-4" />,
     },
@@ -232,7 +222,7 @@ export function Dashboard({
           : demandDelta > 0
             ? `${formatGigawatts(demandDelta)} GW above`
             : `${formatGigawatts(Math.abs(demandDelta))} GW below`,
-      detail: `Peak ${formatGigawatts(rangeSummary.demand.max)} GW · low ${formatGigawatts(
+      detail: `Peak ${formatOptionalGw(rangeSummary.demand.max)} GW · low ${formatOptionalGw(
         rangeSummary.demand.min
       )} GW`,
       tone: demandDelta > 0 ? "blue" : "sky",
@@ -246,7 +236,7 @@ export function Dashboard({
           : priceDelta > 0
             ? `£${priceDelta} above avg`
             : `£${Math.abs(priceDelta)} below avg`,
-      detail: `Range £${rangeSummary.price.min} to £${rangeSummary.price.max}/MWh`,
+      detail: `Range £${formatOptionalNumber(rangeSummary.price.min)} to £${formatOptionalNumber(rangeSummary.price.max)}/MWh`,
       tone: priceDelta > 0 ? "rose" : "emerald",
       icon: <Zap className="w-4 h-4" />,
     },
@@ -291,6 +281,9 @@ export function Dashboard({
                 <h1 className="truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">
                   Energy Grid Monitor
                 </h1>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {dataAsOf ? `Data as of ${dataAsOf}` : "Awaiting first ingest"}
+                </p>
               </div>
             </div>
           </div>
@@ -380,9 +373,15 @@ export function Dashboard({
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <HeroFact
                     label="Current carbon"
-                    value={latestSnapshot ? `${Math.round(latestSnapshot.carbon_intensity)} gCO₂/kWh` : "—"}
+                    value={
+                      latestSnapshot?.carbon_intensity != null
+                        ? `${Math.round(latestSnapshot.carbon_intensity)} gCO₂/kWh`
+                        : "—"
+                    }
                     detail={
-                      latestSnapshot ? `${latestSnapshot.carbon_index} · avg ${rangeSummary.carbon.average} g` : "Awaiting data"
+                      latestSnapshot
+                        ? `${latestSnapshot.carbon_index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
+                        : "Awaiting data"
                     }
                   />
                   <HeroFact
@@ -407,9 +406,13 @@ export function Dashboard({
                     detail={`${activeInterconnectors} active interconnectors`}
                   />
                   <HeroFact
-                    label="Power price"
-                    value={latestSnapshot ? `£${Math.round(latestSnapshot.price_gbp_mwh)}/MWh` : "—"}
-                    detail={`Range avg £${rangeSummary.price.average}/MWh`}
+                    label="Imbalance price"
+                    value={
+                      latestSnapshot?.price_gbp_mwh != null
+                        ? `£${Math.round(latestSnapshot.price_gbp_mwh)}/MWh`
+                        : "—"
+                    }
+                    detail={`Range avg £${formatOptionalNumber(rangeSummary.price.average)}/MWh`}
                   />
                 </div>
               </div>
@@ -430,7 +433,11 @@ export function Dashboard({
             <>
               <KpiCard
                 label="Carbon Intensity"
-                value={latestSnapshot ? String(Math.round(latestSnapshot.carbon_intensity)) : "—"}
+                value={
+                  latestSnapshot?.carbon_intensity != null
+                    ? String(Math.round(latestSnapshot.carbon_intensity))
+                    : "—"
+                }
                 unit="gCO₂/kWh"
                 detail={
                   latestSnapshot
@@ -443,7 +450,11 @@ export function Dashboard({
               />
               <KpiCard
                 label="Demand"
-                value={latestSnapshot ? formatGigawatts(latestSnapshot.demand_mw) : "—"}
+                value={
+                  latestSnapshot?.demand_mw != null
+                    ? formatGigawatts(latestSnapshot.demand_mw)
+                    : "—"
+                }
                 unit="GW"
                 detail={`${formatSignedNumber(formatGigawattsNumber(demandDelta))} vs avg`}
                 icon={<Activity className="h-3.5 w-3.5" />}
@@ -479,12 +490,16 @@ export function Dashboard({
                 tooltip="Net import/export stance based on the latest interconnector frame."
               />
               <KpiCard
-                label="System Price"
-                value={latestSnapshot ? `£${Math.round(latestSnapshot.price_gbp_mwh)}` : "—"}
+                label="Imbalance Price"
+                value={
+                  latestSnapshot?.price_gbp_mwh != null
+                    ? `£${Math.round(latestSnapshot.price_gbp_mwh)}`
+                    : "—"
+                }
                 unit="/MWh"
                 detail={`${formatSignedNumber(priceDelta)} vs avg`}
                 icon={<Zap className="h-3.5 w-3.5" />}
-                tooltip="System buy price versus the selected range average."
+                tooltip="Elexon imbalance cash-out (system buy) price versus the selected range average. This is not the day-ahead wholesale price."
               />
             </>
           )}
@@ -509,9 +524,9 @@ export function Dashboard({
 
           <SectionCard
             id="section-price"
-            title="System price"
+            title="Imbalance price"
             icon={<Zap className="h-4 w-4 text-amber-300" />}
-            tooltip="Wholesale power pricing over the selected window."
+            tooltip="GB imbalance cash-out (system buy) price over the selected window. Negative prices are real."
             active={focus === "price"}
           >
             {isPending ? (
@@ -734,9 +749,12 @@ export function Dashboard({
                 Methodology
               </p>
               <p className="mt-2 text-sm leading-7 text-zinc-300">
-                Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, and NESO. Commodity context comes from
-                EIA, FRED, and OilPriceAPI. Power and market ranges are intentionally decoupled because intraday grid behavior
-                and commodity settlement cadence move on different clocks.
+                Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
+                Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
+                day-ahead wholesale. Commodity context comes from EIA, FRED monthly $/MMBtu, and
+                OilPriceAPI Dutch TTF in EUR/MWh — those TTF series are kept separate because the units
+                are not the same. Power and market ranges are intentionally decoupled because intraday
+                grid behavior and commodity settlement cadence move on different clocks.
               </p>
             </div>
             <div className="space-y-3">
@@ -1075,12 +1093,12 @@ function CommodityStatCard({
         />
       </div>
       <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
-        {latest ? `$${latest.price.toFixed(2)}` : "—"}
+        {latest ? formatCommodityPrice(latest) : "—"}
       </p>
       <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
         {rising ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
         <span>
-          {formatSignedCurrency(absoluteDelta)} · {formatSignedPercentage(percentageDelta)}
+          {formatSignedCurrency(absoluteDelta, latest?.currency)} · {formatSignedPercentage(percentageDelta)}
         </span>
       </div>
       <p className="mt-1 text-xs text-zinc-500">{latest ? normalizeUnit(latest.unit) : "No current value"}</p>
@@ -1129,6 +1147,41 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
+function mixFromSnapshot(snapshot: EnergySnapshot): Record<string, number> {
+  const entries: Array<[string, number | null]> = [
+    ["gas", snapshot.gen_gas_pct],
+    ["coal", snapshot.gen_coal_pct],
+    ["nuclear", snapshot.gen_nuclear_pct],
+    ["wind", snapshot.gen_wind_pct],
+    ["solar", snapshot.gen_solar_pct],
+    ["hydro", snapshot.gen_hydro_pct],
+    ["biomass", snapshot.gen_biomass_pct],
+    ["imports", snapshot.gen_imports_pct],
+    ["other", snapshot.gen_other_pct],
+  ];
+
+  const mix: Record<string, number> = {};
+  for (const [fuel, value] of entries) {
+    if (value != null) {
+      mix[fuel] = value;
+    }
+  }
+  return mix;
+}
+
+function formatOptionalNumber(value: number | null): string {
+  return value == null ? "—" : String(value);
+}
+
+function formatOptionalGw(value: number | null): string {
+  return value == null ? "—" : formatGigawatts(value);
+}
+
+function formatCommodityPrice(latest: CommodityPrice): string {
+  const symbol = latest.currency === "EUR" ? "€" : latest.currency === "GBP" ? "£" : "$";
+  return `${symbol}${latest.price.toFixed(2)}`;
+}
+
 function formatFuelLabel(fuelType: string): string {
   return FUELINST_LABELS[normalizeFuelType(fuelType)] ?? fuelType.toUpperCase();
 }
@@ -1141,9 +1194,10 @@ function formatGigawattsNumber(valueMw: number, digits = 1): number {
   return Number(formatGigawatts(valueMw, digits));
 }
 
-function formatSignedCurrency(value: number): string {
+function formatSignedCurrency(value: number, currency?: string): string {
   const prefix = value >= 0 ? "+" : "−";
-  return `${prefix}$${Math.abs(value).toFixed(2)}`;
+  const symbol = currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
+  return `${prefix}${symbol}${Math.abs(value).toFixed(2)}`;
 }
 
 function formatSignedPercentage(value: number): string {
