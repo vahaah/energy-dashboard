@@ -7,7 +7,7 @@ export const WORLD_BANK_COMMODITY_MARKETS_URL =
   "https://www.worldbank.org/en/research/commodity-markets";
 export const WORLD_BANK_SOURCE_CREDIT =
   "Source: World Bank Commodity Price Data (The Pink Sheet), CC BY 4.0";
-export const WORLD_BANK_CRON_LOOKBACK_MONTHS = 3;
+export const WORLD_BANK_BACKFILL_FROM = "2025-01-01";
 export const WORLD_BANK_USER_AGENT = "GridEnergyDashboard/1.0 (+https://grid.vahaah.com)";
 export const MONTHLY_PRICES_SHEET_NAME = "Monthly Prices";
 
@@ -52,16 +52,7 @@ export function parsePinkSheetMonthKey(value: string): string | null {
 }
 
 export function worldBankCronWindow(now: Date): { from: string; to: string } {
-  const to = formatIsoDate(now);
-  const year = Number.parseInt(to.slice(0, 4), 10);
-  const month = Number.parseInt(to.slice(5, 7), 10);
-  const absolute = year * 12 + (month - 1) - WORLD_BANK_CRON_LOOKBACK_MONTHS;
-  const fromYear = Math.floor(absolute / 12);
-  const fromMonth = (absolute % 12) + 1;
-  return {
-    from: `${String(fromYear).padStart(4, "0")}-${String(fromMonth).padStart(2, "0")}-01`,
-    to,
-  };
+  return { from: WORLD_BANK_BACKFILL_FROM, to: formatIsoDate(now) };
 }
 
 export function filterPriceRowsByDate(

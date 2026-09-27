@@ -12,7 +12,7 @@
 | World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | Monthly | None | EU natural gas and Japan LNG ($/MMBTU), CC BY 4.0 |
 | National Gas | `data.nationalgas.com` | Daily (gas day) | None | GB System Average Price p/kWh (`gb_gas_sap`, PUBOB603) |
 
-OilPriceAPI leftover TTF rows stay stored but unpublished. `/api/cron-prices` and `scripts/backfill-commodities.ts` fetch EIA (trailing 30 days), World Bank Pink Sheet (trailing 3 months), and National Gas SAP. Optional `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
+OilPriceAPI leftover TTF rows stay stored but unpublished. `/api/cron-prices` self-backfills EIA (400 days at 00:30 UTC, 30 days on other slots), World Bank Pink Sheet from 2025-01 on every run, and National Gas SAP (7 gas days). `scripts/backfill-commodities.ts` is optional. Optional `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
 
 ## Tinybird Data Sources (ClickHouse tables)
 

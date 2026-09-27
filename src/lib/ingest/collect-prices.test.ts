@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildEiaSeriesUrl,
   dedupePriceRows,
+  EIA_BACKFILL_CRON_UTC_HOUR,
+  EIA_BACKFILL_LOOKBACK_DAYS,
   EIA_COMMODITIES,
+  EIA_CRON_LOOKBACK_DAYS,
   eiaApiKeyFromEnv,
+  eiaCronLookbackDays,
   eiaCronWindow,
+  isEiaBackfillCronSlot,
   isOilPriceTtfCronSlot,
   isRequiredPriceCronSource,
   latestCommodityDate,
@@ -75,9 +80,34 @@ describe("commodity price ingest helpers", () => {
     expect(buildEiaSeriesUrl("PET.RBRTE.D", "real-key", "2026-08-28", "2026-09-27")).toContain(
       "start=2026-08-28"
     );
+    expect(buildEiaSeriesUrl("PET.RBRTE.D", "real-key", "2025-08-23", "2026-09-27")).toContain(
+      "length=5000"
+    );
     expect(isRequiredPriceCronSource("eia")).toBe(true);
     expect(isRequiredPriceCronSource("worldbank")).toBe(true);
     expect(isRequiredPriceCronSource("nationalgas")).toBe(false);
+  });
+
+  it("heals a 400-day EIA window on the first cron-prices slot after 00:00 UTC", () => {
+    expect(EIA_BACKFILL_CRON_UTC_HOUR).toBe(OILPRICE_TTF_CRON_UTC_HOUR);
+    expect(EIA_BACKFILL_CRON_UTC_HOUR).toBe(0);
+    expect(isEiaBackfillCronSlot(0)).toBe(true);
+    expect(isEiaBackfillCronSlot(6)).toBe(false);
+    expect(isEiaBackfillCronSlot(12)).toBe(false);
+    expect(isEiaBackfillCronSlot(18)).toBe(false);
+    expect(eiaCronLookbackDays(0)).toBe(EIA_BACKFILL_LOOKBACK_DAYS);
+    expect(eiaCronLookbackDays(6)).toBe(EIA_CRON_LOOKBACK_DAYS);
+    expect(eiaCronLookbackDays(12)).toBe(30);
+    expect(eiaCronLookbackDays(18)).toBe(30);
+    expect(eiaCronWindow(new Date("2026-09-27T00:30:00.000Z"))).toEqual({
+      from: "2025-08-23",
+      to: "2026-09-27",
+    });
+    expect(eiaCronWindow(new Date("2026-09-27T06:30:00.000Z"))).toEqual({
+      from: "2026-08-28",
+      to: "2026-09-27",
+    });
+    expect(eiaCronWindow(new Date("2026-09-27T18:30:00.000Z")).from).toBe("2026-08-28");
   });
 
   it("dedupes on commodity and date, last write wins", () => {

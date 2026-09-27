@@ -20,9 +20,13 @@ import { fetchWorldBankMonthly, worldBankCronWindow } from "@/lib/world-bank-pin
  * GET /api/cron-prices
  *
  * Every 6 hours. Fetches commodity prices from:
- *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu), last ~30 calendar days
- *   2. World Bank Pink Sheet — EU gas and Japan LNG monthly, last ~3 months
+ *   1. EIA — Brent, WTI, Henry Hub. 00:30 UTC writes a 400-day window;
+ *      other slots write the last 30 days. One v2 request per series.
+ *   2. World Bank Pink Sheet — EU gas and Japan LNG monthly, from 2025-01
+ *      on every run (one xlsx download).
  *   3. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
+ * ReplacingMergeTree(date, commodity) makes the daily heal idempotent. After
+ * deploy, the next 00:30 UTC slot backfills EIA history within 24h.
  */
 
 export const maxDuration = 60;

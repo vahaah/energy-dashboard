@@ -214,7 +214,7 @@ The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data
 - Carbon Intensity + Elexon — half-hourly UK settlement periods, including 46/50-period clock-change days
 - FUELINST + NESO embedded wind + Sheffield PV Live
 - EIA daily Brent/WTI/Henry Hub (requires a real `EIA_API_KEY`)
-- OilPriceAPI leftover keys are ignored. `/api/cron-prices` fetches EIA (30-day window), World Bank Pink Sheet (3-month window), and National Gas SAP. Use `scripts/backfill-commodities.ts` to heal history.
+- OilPriceAPI leftover keys are ignored. `/api/cron-prices` self-backfills EIA (400 days at 00:30 UTC, 30 days otherwise), World Bank Pink Sheet from 2025-01 on every run, and National Gas SAP. `scripts/backfill-commodities.ts` is optional.
 
 After deploying Nullable snapshot columns and the new pipes, re-run snapshot + generation backfill to replace historical `0` placeholders and the old UTC-mapped prices.
 

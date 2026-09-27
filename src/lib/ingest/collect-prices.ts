@@ -29,6 +29,9 @@ export type PriceRow = {
 };
 
 export const EIA_CRON_LOOKBACK_DAYS = 30;
+export const EIA_BACKFILL_LOOKBACK_DAYS = 400;
+/** First `/api/cron-prices` slot after 00:00 UTC (vercel.json 00:30 / 06:30 / 12:30 / 18:30). */
+export const EIA_BACKFILL_CRON_UTC_HOUR = 0;
 export const EIA_SOURCE_CREDIT = "Source: U.S. Energy Information Administration";
 
 export function eiaApiKeyFromEnv(value: string | undefined): string | null {
@@ -38,9 +41,19 @@ export function eiaApiKeyFromEnv(value: string | undefined): string | null {
   return value;
 }
 
+export function isEiaBackfillCronSlot(utcHour: number): boolean {
+  return utcHour === EIA_BACKFILL_CRON_UTC_HOUR;
+}
+
+export function eiaCronLookbackDays(utcHour: number): number {
+  return isEiaBackfillCronSlot(utcHour)
+    ? EIA_BACKFILL_LOOKBACK_DAYS
+    : EIA_CRON_LOOKBACK_DAYS;
+}
+
 export function eiaCronWindow(now: Date): { from: string; to: string } {
   const to = formatIsoDate(now);
-  return { from: addUtcDays(to, -EIA_CRON_LOOKBACK_DAYS), to };
+  return { from: addUtcDays(to, -eiaCronLookbackDays(now.getUTCHours())), to };
 }
 
 export function buildEiaSeriesUrl(

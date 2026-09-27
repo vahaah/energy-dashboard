@@ -137,7 +137,7 @@ npx tsx scripts/backfill-commodities.ts --from 2025-01-01
 npx tsx scripts/backfill-commodities.ts --purge-stray --dry-run
 ```
 
-`/api/cron-prices` now fetches a trailing EIA window (30 days), World Bank Pink Sheet (3 months), and National Gas SAP. Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored.
+`/api/cron-prices` self-backfills: the 00:30 UTC slot writes a 400-day EIA window (other slots write 30 days), every run writes World Bank Pink Sheet months from 2025-01, and National Gas SAP stays on its 7-day window. Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored. History is complete within 24h of deploy.
 
 ### Cleanup leftover future generation rows
 
@@ -184,7 +184,7 @@ Set environment variables in Vercel dashboard:
 - `OIL_PRICE_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 - `FRED_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours from EIA, World Bank Pink Sheet, and National Gas. Use `scripts/backfill-commodities.ts` to fill historical gaps.
+The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours and self-backfills EIA + World Bank history within 24h of deploy. `scripts/backfill-commodities.ts` is optional.
 
 ## Public API
 

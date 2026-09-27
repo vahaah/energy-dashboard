@@ -7,6 +7,7 @@ import {
   parsePinkSheetMonthlyPrices,
   parsePinkSheetMonthlySheet,
   parsePinkSheetSharedStrings,
+  WORLD_BANK_BACKFILL_FROM,
   WORLD_BANK_PINK_SHEET_SERIES,
   WORLD_BANK_SOURCE_CREDIT,
   worldBankCronWindow,
@@ -117,9 +118,14 @@ describe("World Bank Pink Sheet", () => {
     expect(parsePinkSheetMonthlyPrices(pinkSheetFixtureXlsx())).toHaveLength(3);
   });
 
-  it("filters the trailing World Bank window", () => {
+  it("writes Pink Sheet months from 2025-01 on every cron run", () => {
+    expect(WORLD_BANK_BACKFILL_FROM).toBe("2025-01-01");
+    expect(worldBankCronWindow(new Date("2026-09-27T00:30:00.000Z"))).toEqual({
+      from: "2025-01-01",
+      to: "2026-09-27",
+    });
     expect(worldBankCronWindow(new Date("2026-09-27T12:00:00.000Z"))).toEqual({
-      from: "2026-06-01",
+      from: "2025-01-01",
       to: "2026-09-27",
     });
     expect(
