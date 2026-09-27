@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEffectiveDashboardDate,
   getGenerationQueryParams,
+  getHeadlineGenerationQueryParams,
   getHeadlineSnapshotsQueryParams,
   getInterconnectorQueryParams,
   getSnapshotsQueryParams,
@@ -66,6 +67,10 @@ describe("dashboard data query params", () => {
       start: "2026-09-26 12:05:00",
       end: "2026-09-27 12:05:00",
     });
+    expect(getHeadlineGenerationQueryParams(now)).toEqual({
+      start: "2026-09-26 12:05:00",
+      end: "2026-09-27 12:05:00",
+    });
     expect(getSnapshotsQueryParams("30d", now)).toEqual({
       start: "2026-08-28 12:05:00",
       end: "2026-09-27 12:05:00",
@@ -74,6 +79,19 @@ describe("dashboard data query params", () => {
     expect(getSnapshotsQueryParams("90d", now).granularity).toBe("day");
     expect(getSnapshotsQueryParams("1y", now).granularity).toBe("day");
     expect(getHeadlineSnapshotsQueryParams(now)).not.toHaveProperty("granularity");
+  });
+
+  it("uses the selected historical UK day for headline snapshots and generation", () => {
+    const now = new Date("2026-09-27T12:05:00.000Z");
+
+    expect(getHeadlineSnapshotsQueryParams(now, "2026-09-20")).toEqual({
+      start: "2026-09-19 23:00:00",
+      end: "2026-09-20 22:59:59",
+    });
+    expect(getHeadlineGenerationQueryParams(now, "2026-09-20")).toEqual({
+      start: "2026-09-19 23:00:00",
+      end: "2026-09-20 22:59:59",
+    });
   });
 
   it("uses the UK date for the date picker default", () => {

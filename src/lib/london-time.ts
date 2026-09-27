@@ -153,9 +153,27 @@ const LONDON_MONTHS = [
   "Dec",
 ] as const;
 
+const londonWeekdayFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: LONDON_TIME_ZONE,
+  weekday: "short",
+});
+
 export function formatLondonDateLabel(date: Date): string {
   const parts = getLondonDateTimeParts(date);
   return `${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}`;
+}
+
+export function formatLondonDayMonthYear(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return `${day} ${LONDON_MONTHS[month - 1]} ${year}`;
+}
+
+export function formatLondonDateTimeStamp(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  const weekday = partValue(londonWeekdayFormatter.formatToParts(date), "weekday");
+  const hh = String(parts.hour).padStart(2, "0");
+  const mm = String(parts.minute).padStart(2, "0");
+  return `${weekday} ${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}, ${hh}:${mm} ${getLondonOffsetLabel(date)}`;
 }
 
 export function parseUtcDateTime(value: string): Date {

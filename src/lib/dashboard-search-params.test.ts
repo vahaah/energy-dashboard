@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampDashboardDate,
+  resolveDashboardDate,
+} from "@/lib/dashboard-search-params";
+import {
   loadDashboardSearchParams,
   serializeDashboardSearchParams,
 } from "@/lib/dashboard-search-params.server";
@@ -57,5 +61,25 @@ describe("dashboard search params", () => {
         date: "2026-03-10",
       })
     ).toBe("?range=30d&commodityRange=1y&focus=transfers&date=2026-03-10");
+  });
+});
+
+describe("dashboard date coverage", () => {
+  const now = new Date("2026-09-27T16:00:00.000Z");
+
+  it("clamps dates to the 12-month coverage window", () => {
+    expect(clampDashboardDate("2015-01-01", now)).toBe("2025-09-27");
+    expect(clampDashboardDate("2030-01-01", now)).toBe("2026-09-27");
+    expect(clampDashboardDate("2026-09-20", now)).toBe("2026-09-20");
+  });
+
+  it("marks dates outside coverage as empty instead of using live data", () => {
+    expect(resolveDashboardDate("2015-01-01", now).status).toBe("empty");
+    expect(resolveDashboardDate("2030-01-01", now).status).toBe("empty");
+    expect(resolveDashboardDate("2026-09-20", now)).toMatchObject({
+      status: "historical",
+      date: "2026-09-20",
+    });
+    expect(resolveDashboardDate(null, now).status).toBe("latest");
   });
 });

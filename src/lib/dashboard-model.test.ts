@@ -184,6 +184,32 @@ describe("dashboard model", () => {
     expect(series[1]?.gas).toBeCloseTo(27.27, 2);
     expect(series[1]?.embedded_wind).toBeCloseTo(63.64, 2);
     expect(series[1]?.imports).toBeCloseTo(9.09, 2);
+    expect(series[0]).not.toHaveProperty("solar");
+    expect(series[1]).not.toHaveProperty("solar");
+  });
+
+  it("drops stack buckets that only contain embedded rows", () => {
+    const series = buildGenerationStackSeries(
+      [
+        {
+          timestamp: "2026-03-18 17:00:00",
+          fuel_type: "embedded_solar",
+          generation_mw: 1200,
+          source: "pvlive",
+        },
+        {
+          timestamp: "2026-03-18 16:30:00",
+          fuel_type: "ccgt",
+          generation_mw: 80,
+          source: "fuelinst",
+        },
+      ],
+      "24h"
+    );
+
+    expect(series).toHaveLength(1);
+    expect(series[0]?.time).toBe(new Date("2026-03-18T16:30:00.000Z").getTime());
+    expect(series[0]?.gas).toBe(100);
   });
 
   it("builds selected-range averages and extrema for insight cards", () => {

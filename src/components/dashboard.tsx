@@ -10,8 +10,8 @@ import type {
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
 import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
+import type { LatestFacts } from "@/lib/facts";
 import {
-  buildHeadlineMetrics,
   buildRangeSummary,
   headlineAsOf,
   normalizeFuelType,
@@ -77,24 +77,20 @@ interface Props {
   searchParams: DashboardSearchParams;
   selectedDate: string;
   todayDate: string;
-  dataAsOf: string | null;
+  facts: LatestFacts;
   initialSnapshots: EnergySnapshot[];
-  headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
-  latestGeneration: Generation5min[];
 }
 
 export function Dashboard({
   searchParams,
   selectedDate,
   todayDate,
-  dataAsOf,
+  facts,
   initialSnapshots,
-  headlineSnapshots,
   initialPrices,
   generationHistory,
-  latestGeneration,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -121,16 +117,32 @@ export function Dashboard({
   }, [focus]);
 
   const headline = useMemo(
-    () => buildHeadlineMetrics(headlineSnapshots),
-    [headlineSnapshots]
+    () => ({
+      referenceTimestamp: facts.referenceTimestamp,
+      carbon: {
+        value: facts.carbon.value,
+        timestamp: facts.carbon.periodStartUtc,
+        index: facts.carbon.index,
+      },
+      demand: {
+        value: facts.demand.value,
+        timestamp: facts.demand.periodStartUtc,
+      },
+      price: {
+        value: facts.price.value,
+        timestamp: facts.price.periodStartUtc,
+      },
+      mixSnapshot: facts.mixSnapshot,
+    }),
+    [facts]
   );
   const rangeSummary = useMemo(
     () => buildRangeSummary(initialSnapshots),
     [initialSnapshots]
   );
   const latestGenerationSplit = useMemo(
-    () => splitLatestGenerationRows(latestGeneration),
-    [latestGeneration]
+    () => splitLatestGenerationRows(facts.generationRows),
+    [facts.generationRows]
   );
 
   const latestMixData = headline.mixSnapshot ? mixFromSnapshot(headline.mixSnapshot) : {};
@@ -298,7 +310,7 @@ export function Dashboard({
                   Grid
                 </h1>
                 <p className="mt-1 text-xs text-zinc-400">
-                  {dataAsOf ? `Data as of ${dataAsOf}` : "Awaiting first ingest"}
+                  {facts.headerStamp}
                 </p>
               </div>
             </div>
@@ -320,11 +332,12 @@ export function Dashboard({
               <label className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-zinc-200">
                 <CalendarDays className="h-4 w-4 text-emerald-200" />
                 <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-                  Day
+                  Date
                 </span>
                 <input
                   type="date"
                   value={activeDate}
+                  min={facts.coverageStart}
                   max={todayDate}
                   onChange={(event) => {
                     void setUrlState({ date: event.target.value || todayDate });
@@ -366,6 +379,16 @@ export function Dashboard({
         >
           {isPending ? (
             <OverviewSectionSkeleton />
+          ) : facts.empty && facts.emptyState ? (
+            <div className="rounded-lg border border-zinc-700/80 p-6 text-sm text-zinc-300 lg:col-span-2">
+              <p>{facts.emptyState.message}</p>
+              <a
+                href={facts.emptyState.href}
+                className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10"
+              >
+                {facts.emptyState.action}
+              </a>
+            </div>
           ) : (
             <>
               <div className="space-y-5">
@@ -444,6 +467,7 @@ export function Dashboard({
           )}
         </section>
 
+        {facts.empty && !isPending ? null : (
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {isPending ? (
             <KpiGridSkeleton />
@@ -527,6 +551,7 @@ export function Dashboard({
             </>
           )}
         </section>
+        )}
 
         <div className="grid gap-4 xl:grid-cols-2">
           <SectionCard
