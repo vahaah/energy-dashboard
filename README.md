@@ -175,4 +175,4 @@ Returns oil & gas commodity prices.
 
 ## License
 
-MIT
+[MIT](./LICENSE) © 2026 Alex Vakhitov
