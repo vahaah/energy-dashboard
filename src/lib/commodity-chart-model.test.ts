@@ -3,8 +3,11 @@ import {
   buildCommodityChartSeries,
   commoditySeriesLinePath,
   commodityTime,
+  commodityYAxis,
   formatCommodityPointNative,
+  indexLogAxis,
   indexToFirstValue,
+  scaleAxisLabel,
   scaleCaption,
   tooltipRowsAtTime,
 } from "@/lib/commodity-chart-model";
@@ -33,6 +36,60 @@ describe("indexToFirstValue", () => {
   it("skips a missing first value and indexes from the first real observation", () => {
     expect(indexToFirstValue([null, 40, 60])).toEqual([null, 100, 150]);
     expect(indexToFirstValue([null, null, 80, 40])).toEqual([null, null, 100, 50]);
+  });
+
+  it("treats zero and negative observations as missing", () => {
+    expect(indexToFirstValue([0, 40, 60])).toEqual([null, 100, 150]);
+    expect(indexToFirstValue([-8, 40, 20])).toEqual([null, 100, 50]);
+  });
+});
+
+describe("index log axis", () => {
+  it("snaps the domain to base-2 ticks around 100", () => {
+    expect(indexLogAxis([80, 100, 200, 1048])).toEqual({
+      domain: [50, 1600],
+      ticks: [50, 100, 200, 400, 800, 1600],
+    });
+    expect(indexLogAxis([100])).toEqual({
+      domain: [50, 200],
+      ticks: [50, 100, 200],
+    });
+  });
+
+  it("clamps to positive values and ignores non-positive points", () => {
+    expect(indexLogAxis([0, -25, 90, 1048])).toEqual({
+      domain: [50, 1600],
+      ticks: [50, 100, 200, 400, 800, 1600],
+    });
+    expect(indexLogAxis([0, -1])).toBeNull();
+  });
+
+  it("uses a log y-axis only in indexed mode", () => {
+    const series = buildCommodityChartSeries(
+      [
+        price("brent_crude", "2026-01-01", 70),
+        price("brent_crude", "2026-01-02", 0),
+        price("brent_crude", "2026-01-03", -4),
+        price("brent_crude", "2026-01-04", 77),
+        price("henry_hub_gas", "2026-01-01", 3, "$/MMBTU"),
+        price("henry_hub_gas", "2026-01-23", 30.72, "$/MMBTU"),
+      ],
+      ["brent_crude", "henry_hub_gas"],
+      "index"
+    );
+    const brent = series.find((entry) => entry.commodity === "brent_crude");
+
+    expect(brent?.points.map((point) => point.date)).toEqual(["2026-01-01", "2026-01-04"]);
+    expect(commodityYAxis("index", series)).toEqual({
+      scale: "log",
+      domain: [100, 1600],
+      ticks: [100, 200, 400, 800, 1600],
+    });
+    expect(commodityYAxis("native", series)).toEqual({
+      scale: "auto",
+      domain: undefined,
+      ticks: undefined,
+    });
   });
 });
 
@@ -121,7 +178,8 @@ describe("commodity native tooltip values", () => {
         unit: "$/bbl",
       })
     ).toBe("72.45 $/bbl");
-    expect(scaleCaption("index")).toBe("Indexed, start of range = 100");
+    expect(scaleCaption("index")).toBe("Indexed, start = 100 (log scale)");
+    expect(scaleAxisLabel("index")).toBe("Indexed, start = 100 (log scale)");
   });
 
   it("joins tooltip rows by timestamp instead of series index", () => {

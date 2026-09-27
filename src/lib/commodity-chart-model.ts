@@ -39,6 +39,9 @@ export const COMMODITY_SCALE_OPTIONS = [
   { value: "native", label: "Native units" },
 ] as const;
 
+export const INDEX_LOG_CENTER = 100;
+export const INDEX_LOG_BASE = 2;
+
 export function commodityDateKey(date: string): string {
   return date.slice(0, 10);
 }
@@ -51,14 +54,18 @@ export function commodityDateFromTime(time: number): string {
   return new Date(time).toISOString().slice(0, 10);
 }
 
+export function isPositiveChartValue(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
 export function indexToFirstValue(values: Array<number | null>): Array<number | null> {
-  const base = values.find((value) => value != null && Number.isFinite(value) && value !== 0);
+  const base = values.find((value) => value != null && isPositiveChartValue(value));
   if (base == null) {
     return values.map(() => null);
   }
 
   return values.map((value) => {
-    if (value == null || !Number.isFinite(value)) {
+    if (value == null || !isPositiveChartValue(value)) {
       return null;
     }
     return (value / base) * 100;
@@ -90,7 +97,7 @@ export function formatCommodityPointNative(
 export function scaleCaption(scale: CommodityScale): string {
   switch (scale) {
     case "index":
-      return "Indexed, start of range = 100";
+      return "Indexed, start = 100 (log scale)";
     case "native":
       return "Native units";
     default: {
@@ -103,9 +110,75 @@ export function scaleCaption(scale: CommodityScale): string {
 export function scaleAxisLabel(scale: CommodityScale): string {
   switch (scale) {
     case "index":
-      return "Index";
+      return "Indexed, start = 100 (log scale)";
     case "native":
       return "Native units";
+    default: {
+      const exhaustive: never = scale;
+      return exhaustive;
+    }
+  }
+}
+
+export function logIndexExponent(value: number): number {
+  return Math.log2(value / INDEX_LOG_CENTER);
+}
+
+export function logIndexTick(exponent: number): number {
+  return INDEX_LOG_CENTER * INDEX_LOG_BASE ** exponent;
+}
+
+export function indexLogAxis(
+  values: number[]
+): { domain: [number, number]; ticks: number[] } | null {
+  const positive = values.filter((value) => isPositiveChartValue(value));
+  if (positive.length === 0) {
+    return null;
+  }
+
+  const min = Math.min(...positive);
+  const max = Math.max(...positive);
+  let startExp = Math.floor(logIndexExponent(min));
+  let endExp = Math.ceil(logIndexExponent(max));
+  if (startExp === endExp) {
+    startExp -= 1;
+    endExp += 1;
+  }
+
+  const ticks: number[] = [];
+  for (let exponent = startExp; exponent <= endExp; exponent += 1) {
+    ticks.push(logIndexTick(exponent));
+  }
+  const first = ticks[0];
+  const last = ticks.at(-1);
+  if (first == null || last == null || first <= 0) {
+    return null;
+  }
+  return { domain: [first, last], ticks };
+}
+
+export type CommodityYAxis = {
+  scale: "log" | "auto";
+  domain: [number, number] | undefined;
+  ticks: number[] | undefined;
+};
+
+export function commodityYAxis(
+  scale: CommodityScale,
+  series: CommodityChartSeries[]
+): CommodityYAxis {
+  switch (scale) {
+    case "index": {
+      const values = series.flatMap((entry) => entry.points.map((point) => point.value));
+      const axis = indexLogAxis(values);
+      return {
+        scale: "log",
+        domain: axis?.domain ?? [50, 200],
+        ticks: axis?.ticks ?? [50, 100, 200],
+      };
+    }
+    case "native":
+      return { scale: "auto", domain: undefined, ticks: undefined };
     default: {
       const exhaustive: never = scale;
       return exhaustive;

@@ -17,6 +17,7 @@ import {
   buildCommodityChartSeries,
   COMMODITY_SCALE_OPTIONS,
   commodityDateFromTime,
+  commodityYAxis,
   formatCommodityPointNative,
   parseTooltipTime,
   scaleAxisLabel,
@@ -89,13 +90,14 @@ export function CommodityPriceLines({
   const axisTicks = [...new Set(times)]
     .sort((left, right) => left - right)
     .map((time) => ({ time }));
+  const yAxis = commodityYAxis(scale, series);
 
   return (
     <LineChart
       data={axisTicks}
       width={width}
       height={height}
-      margin={{ top: 5, right: 5, bottom: 5, left: 8 }}
+      margin={{ top: 5, right: 5, bottom: 5, left: 12 }}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
       <XAxis
@@ -108,6 +110,11 @@ export function CommodityPriceLines({
         stroke="#27272a"
       />
       <YAxis
+        type="number"
+        scale={yAxis.scale}
+        domain={yAxis.domain}
+        ticks={yAxis.ticks}
+        allowDataOverflow
         tick={{ fontSize: 11, fill: "#71717a" }}
         stroke="#27272a"
         label={{
@@ -130,7 +137,7 @@ export function CommodityPriceLines({
           dataKey="value"
           stroke={entry.color}
           strokeWidth={2}
-          dot={entry.monthly ? { r: 4 } : false}
+          dot={entry.monthly ? { r: 3, fill: entry.color, stroke: entry.color } : false}
           connectNulls
           isAnimationActive={false}
           name={entry.label}

@@ -67,7 +67,7 @@ describe("CommodityPriceLines", () => {
     expect(html).toContain(`d="${monthlyPath}"`);
     expect(source).toContain("data={entry.points}");
     expect(source).toContain("connectNulls");
-    expect(source).toContain("dot={entry.monthly ? { r: 4 } : false}");
+    expect(source).toContain("dot={entry.monthly ? { r: 3, fill: entry.color, stroke: entry.color } : false}");
   });
 });
 
@@ -107,7 +107,7 @@ describe("CommodityChart scale toggle", () => {
       <CommodityChart data={MIXED_CADENCE} range="1y" selectedSeries={["brent_crude"]} />
     );
 
-    expect(html).toContain("Indexed, start of range = 100");
+    expect(html).toContain("Indexed, start = 100 (log scale)");
     expect(html).toContain('aria-label="Price scale"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("h-11");
