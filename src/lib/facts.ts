@@ -69,6 +69,14 @@ export type GetLatestFactsInput = {
 };
 
 const NO_DATA_STAMP = "No data yet. Grid refreshes every hour.";
+const MISSING_FACT = "—";
+
+export function formatHeadlineGw(value: number | null, digits = 1): string {
+  if (value == null) {
+    return MISSING_FACT;
+  }
+  return (value / 1000).toFixed(digits);
+}
 
 export function getLatestFacts(input: GetLatestFactsInput): LatestFacts {
   switch (input.resolution.status) {

@@ -3,7 +3,7 @@ import { buildGenerationStackSeries } from "@/lib/dashboard-model";
 import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import { formatLondonDateTimeStamp } from "@/lib/london-time";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
-import { getLatestFacts, supplyShares } from "@/lib/facts";
+import { formatHeadlineGw, getLatestFacts, supplyShares } from "@/lib/facts";
 
 function makeSnapshot(overrides: Partial<EnergySnapshot> = {}): EnergySnapshot {
   return {
@@ -217,6 +217,31 @@ describe("getLatestFacts", () => {
     );
     expect(totalShare).toBeGreaterThanOrEqual(99.9);
     expect(totalShare).toBeLessThanOrEqual(100.1);
+  });
+
+  it("keeps generation unknown when a historical day has snapshots but no generation rows", () => {
+    const now = new Date("2026-09-27T16:00:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate("2026-09-20", now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-20 22:30:00",
+          carbon_intensity: 81,
+          demand_mw: 25100,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [],
+      now,
+    });
+
+    expect(facts.empty).toBe(false);
+    expect(facts.carbon.value).toBe(81);
+    expect(facts.generationMw.value).toBeNull();
+    expect(facts.generationRows).toEqual([]);
+    expect(formatHeadlineGw(facts.generationMw.value)).toBe("—");
+    expect(formatHeadlineGw(0)).toBe("0.0");
+    expect(formatHeadlineGw(23100)).toBe("23.1");
   });
 
   it("keeps transfer facts unknown when FUELINST interconnectors are missing", () => {

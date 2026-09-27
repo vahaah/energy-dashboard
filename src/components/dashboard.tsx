@@ -13,7 +13,7 @@ import {
   dashboardSearchParamParsers,
   dateParamForRange,
 } from "@/lib/dashboard-search-params";
-import type { LatestFacts } from "@/lib/facts";
+import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import {
   buildRangeSummary,
   headlineAsOf,
@@ -425,7 +425,11 @@ export function Dashboard({
                   />
                   <HeroFact
                     label="Domestic generation"
-                    value={`${formatGigawatts(latestGenerationSplit.totalGenerationMw)} GW`}
+                    value={
+                      facts.generationMw.value == null
+                        ? "—"
+                        : `${formatHeadlineGw(facts.generationMw.value)} GW`
+                    }
                     detail={
                       topSource
                         ? `${formatFuelLabel(topSource.fuel_type)} leading`
@@ -504,7 +508,7 @@ export function Dashboard({
               />
               <KpiCard
                 label="Domestic Supply"
-                value={formatGigawatts(latestGenerationSplit.totalGenerationMw)}
+                value={formatHeadlineGw(facts.generationMw.value)}
                 unit="GW"
                 detail={
                   topSource ? `${formatFuelLabel(topSource.fuel_type)} leading` : "Awaiting dispatch"
