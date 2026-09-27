@@ -23,21 +23,27 @@ interface Props {
 
 export function DemandBalanceChart({ data, range }: Props) {
   const chartData = data.map((snapshot) => {
-    const domesticGenerationMw =
-      snapshot.gen_gas_mw +
-      snapshot.gen_coal_mw +
-      snapshot.gen_nuclear_mw +
-      snapshot.gen_wind_mw +
-      snapshot.gen_solar_mw +
-      snapshot.gen_hydro_mw +
-      snapshot.gen_biomass_mw +
-      snapshot.gen_other_mw;
+    const domesticParts = [
+      snapshot.gen_gas_mw,
+      snapshot.gen_coal_mw,
+      snapshot.gen_nuclear_mw,
+      snapshot.gen_wind_mw,
+      snapshot.gen_solar_mw,
+      snapshot.gen_hydro_mw,
+      snapshot.gen_biomass_mw,
+      snapshot.gen_other_mw,
+    ];
+    const present = domesticParts.filter((value): value is number => value != null);
+    const domesticGenerationMw = present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
+    const demandMw = snapshot.demand_mw;
+    const netImportsMw =
+      demandMw == null || domesticGenerationMw == null ? null : demandMw - domesticGenerationMw;
 
     return {
       time: snapshot.timestamp,
-      demandMw: snapshot.demand_mw,
+      demandMw,
       domesticGenerationMw,
-      netImportsMw: snapshot.demand_mw - domesticGenerationMw,
+      netImportsMw,
     };
   });
 
@@ -95,6 +101,7 @@ export function DemandBalanceChart({ data, range }: Props) {
             stroke="#10b981"
             strokeWidth={2}
             name="Net imports"
+            connectNulls={false}
           />
           <Line
             type="monotone"
@@ -103,6 +110,7 @@ export function DemandBalanceChart({ data, range }: Props) {
             strokeWidth={2}
             dot={false}
             name="Demand"
+            connectNulls={false}
           />
           <Line
             type="monotone"
@@ -111,6 +119,7 @@ export function DemandBalanceChart({ data, range }: Props) {
             strokeWidth={2}
             dot={false}
             name="Domestic generation"
+            connectNulls={false}
           />
         </ComposedChart>
       </ResponsiveContainer>

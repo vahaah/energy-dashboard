@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/dashboard";
+import { formatLondonClock, parseUtcDateTime } from "@/lib/london-time";
 import { queryPipe } from "@/lib/tinybird";
 import type {
   EnergySnapshot,
@@ -21,7 +22,7 @@ import {
  *
  * If Tinybird is not configured yet, renders with empty data gracefully.
  */
-export const revalidate = 300; // ISR: regenerate every 5 min
+export const revalidate = 60;
 
 export default async function Home({
   searchParams,
@@ -76,10 +77,30 @@ export default async function Home({
       searchParams={dashboardSearchParams}
       selectedDate={selectedDate}
       todayDate={todayDate}
+      dataAsOf={latestDataAsOf(snapshots, latestGeneration)}
       initialSnapshots={snapshots}
       initialPrices={prices}
       generationHistory={generationHistory}
       latestGeneration={latestGeneration}
     />
   );
+}
+
+function latestDataAsOf(
+  snapshots: EnergySnapshot[],
+  generation: Generation5min[]
+): string | null {
+  const candidates = [
+    snapshots.at(-1)?.timestamp,
+    ...generation.map((row) => row.timestamp),
+  ].filter((value): value is string => Boolean(value));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const latest = candidates.reduce((current, value) =>
+    parseUtcDateTime(value).getTime() > parseUtcDateTime(current).getTime() ? value : current
+  );
+  return formatLondonClock(parseUtcDateTime(latest));
 }

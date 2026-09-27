@@ -21,7 +21,7 @@ interface Props {
 export function ElectricityPriceChart({ data, range }: Props) {
   const chartData = data.map((d) => ({
     time: d.timestamp,
-    price: Math.round(d.price_gbp_mwh * 100) / 100,
+    price: d.price_gbp_mwh == null ? null : Math.round(d.price_gbp_mwh * 100) / 100,
   }));
 
   return (
@@ -47,7 +47,7 @@ export function ElectricityPriceChart({ data, range }: Props) {
           />
           <Tooltip
             labelFormatter={(t) => formatChartTooltip(t as string, range)}
-            formatter={(value) => [`£${Number(value).toFixed(2)}`, "System Price"]}
+            formatter={(value) => [`£${Number(value).toFixed(2)}`, "Imbalance price"]}
             wrapperStyle={{ zIndex: 320 }}
             contentStyle={{
               backgroundColor: "rgba(0,0,0,0.85)",
@@ -63,7 +63,8 @@ export function ElectricityPriceChart({ data, range }: Props) {
             stroke="#f59e0b"
             strokeWidth={2}
             dot={false}
-            name="System Price"
+            name="Imbalance price"
+            connectNulls={false}
           />
         </LineChart>
       </ResponsiveContainer>

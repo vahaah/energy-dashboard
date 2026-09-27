@@ -1,12 +1,13 @@
 TOKEN dashboard_read READ
 
 DESCRIPTION >
-    Returns the most recent energy snapshot (grid status)
+    Returns the most recent energy snapshot (grid status).
+    FINAL forces ReplacingMergeTree dedup before the latest-row pick.
 
 NODE endpoint
 SQL >
     SELECT *
-    FROM energy_snapshots
+    FROM energy_snapshots FINAL
     ORDER BY timestamp DESC
     LIMIT 1
 

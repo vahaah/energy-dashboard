@@ -1,22 +1,19 @@
 DESCRIPTION >
-    Returns the latest 5-minute generation snapshot (all fuel types).
-    Used for KPI cards and the generation breakdown table.
+    Latest generation reading per fuel type, not a single shared timestamp.
+    Embedded solar/wind update on a coarser cadence than FUELINST and must
+    still appear in headline mix and domestic generation totals.
 
 TOKEN dashboard_read READ
-
-NODE latest_ts
-SQL >
-    SELECT max(timestamp) AS latest FROM generation_5min
 
 NODE endpoint
 SQL >
     SELECT
-        g.timestamp,
-        g.fuel_type,
-        g.generation_mw,
-        g.source
-    FROM generation_5min g
-    WHERE g.timestamp = (SELECT latest FROM latest_ts)
-    ORDER BY g.generation_mw DESC
+        fuel_type,
+        max(timestamp) AS timestamp,
+        argMax(generation_mw, timestamp) AS generation_mw,
+        argMax(source, timestamp) AS source
+    FROM generation_5min
+    GROUP BY fuel_type
+    ORDER BY generation_mw DESC
 
 TYPE endpoint

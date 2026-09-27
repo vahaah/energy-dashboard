@@ -1,6 +1,7 @@
 DESCRIPTION >
     Returns generation data for a time range, optionally filtered by fuel type.
     Supports granularity: 5min (default), hour, day.
+    Groups on the sorting key so unmerged duplicates are collapsed.
 
 TOKEN dashboard_read READ
 
@@ -37,13 +38,14 @@ SQL >
         SELECT
             timestamp,
             fuel_type,
-            generation_mw,
-            source
+            any(generation_mw) AS generation_mw,
+            any(source) AS source
         FROM generation_5min
         WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
         {% if defined(fuel_type) %}
             AND fuel_type = {{String(fuel_type)}}
         {% end %}
+        GROUP BY timestamp, fuel_type
         ORDER BY timestamp ASC, fuel_type ASC
     {% end %}
 

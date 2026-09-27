@@ -32,8 +32,8 @@ export function GenerationMixChart({ data }: Props) {
             dataKey="value"
             nameKey="name"
           >
-            {items.map((item, i) => (
-              <Cell key={i} fill={item.color} stroke="transparent" />
+            {items.map((item) => (
+              <Cell key={item.name} fill={item.color} stroke="transparent" />
             ))}
           </Pie>
           <Tooltip

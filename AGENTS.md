@@ -24,30 +24,32 @@ Real-time UK electricity grid dashboard combined with global oil and gas commodi
 ### Data Flow
 
 ```
-External APIs (hourly cron)
+External APIs
   ├─ Carbon Intensity API → carbon intensity, generation mix %
-  ├─ Elexon BMRS → system prices, demand, generation by fuel
-  └─ EIA API → Brent, WTI, Henry Hub prices
+  ├─ Elexon BMRS → imbalance prices, demand, FUELINST, AGPT
+  ├─ NESO → embedded wind (half-hourly, UK settlement periods)
+  ├─ Sheffield Solar PV Live → GB solar including embedded
+  ├─ EIA / OilPriceAPI / FRED → commodities (via /api/cron-prices)
        │
        ▼
-  /api/cron route (Vercel Cron, every hour)
+  /api/cron (hourly) + /api/cron-prices (every 6h)
        │
        ▼
-  Tinybird Events API (ingest)
+  Tinybird Events API (ingest) → on-demand revalidatePath("/")
        │
        ▼
-  Tinybird Pipes (query)
+  Tinybird Pipes (query, FINAL / argMax dedup)
        │
        ▼
-  Next.js Server Component (ISR 5 min) → Dashboard (client component)
+  Next.js Server Component → Dashboard
 ```
 
 ### Key Design Decisions
 
-1. **ISR (Incremental Static Regeneration)** — Main page re-generates every 5 minutes. Initial data fetched server-side from Tinybird, then client-side fetches for range changes.
-2. **Wide-row schema** — One row per hourly snapshot with all metrics. ClickHouse is columnar so unused columns cost nothing. Avoids JOINs.
-3. **ReplacingMergeTree** — Deduplicates on the same hour. Safe to re-run cron without creating duplicates.
-4. **Public API with rate limiting** — All `/api/*` endpoints are public, CORS-enabled, rate-limited to 60 req/min per IP via middleware.
+1. **On-demand revalidation** — Cron calls `revalidatePath("/")` and `revalidateTag("dashboard")` after a successful ingest. ISR alone is stale-while-revalidate and goes stale on a low-traffic site.
+2. **Half-hourly snapshots** — One wide row per UK settlement period (46/48/50 on clock-change days). Missing metrics are `null`, never `0`.
+3. **ReplacingMergeTree + query-time dedup** — Safe to re-run ingest, but pipes must use `FINAL` / `argMax` / `GROUP BY` because merges are not immediate.
+4. **Public API with rate limiting** — All `/api/*` endpoints are public, CORS-enabled, rate-limited to 60 req/min per IP via `src/proxy.ts`. `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
 5. **Dark-mode first** — Hardcoded `className="dark"` on `<html>`. Class-based dark mode via `@custom-variant dark (&:is(.dark *))` in Tailwind v4.
 
 ## Project Structure
@@ -59,9 +61,11 @@ src/
 │   ├── page.tsx            # Server Component, ISR 5min, fetches Tinybird
 │   ├── globals.css         # Tailwind v4 config, CSS custom properties, dark mode
 │   └── api/
-│       ├── cron/route.ts   # Hourly data collection from all APIs → Tinybird
-│       ├── snapshots/route.ts  # Public API: grid data by time range
-│       └── prices/route.ts     # Public API: commodity prices by range
+│       ├── cron/route.ts        # Hourly GB grid ingest
+│       ├── cron-prices/route.ts # 6-hourly commodity ingest
+│       ├── health/route.ts      # Freshness probe for uptime monitors
+│       ├── snapshots/route.ts   # Public API: grid data by time range
+│       └── prices/route.ts      # Public API: commodity prices by range
 ├── components/
 │   ├── dashboard.tsx       # Main client component, orchestrates all charts
 │   ├── time-range-selector.tsx  # 24h/7d/30d/90d toggle
@@ -77,19 +81,22 @@ src/
 ├── lib/
 │   ├── types.ts           # All TypeScript interfaces (Tinybird rows + API responses)
 │   ├── tinybird.ts        # Tinybird client (ingest + queryPipe)
+│   ├── settlement-period.ts # UK local settlement period mapping
 │   ├── colors.ts          # Fuel colors, commodity colors, carbon index colors
 │   └── rate-limit.ts      # Upstash rate limit helpers
-└── middleware.ts           # CORS + in-memory rate limiting for /api/*
+└── proxy.ts                # CORS + in-memory rate limiting for /api/*
 
 tinybird/
 ├── datasources/
-│   ├── energy_snapshots.datasource  # Hourly grid data (ReplacingMergeTree)
+│   ├── energy_snapshots.datasource  # Half-hourly grid data (Nullable metrics)
+│   ├── generation_5min.datasource   # FUELINST + embedded wind/solar
 │   └── commodity_prices.datasource  # Daily oil/gas prices (ReplacingMergeTree)
 └── pipes/
-    ├── latest_snapshot.pipe    # Most recent snapshot
-    ├── snapshots_range.pipe    # Snapshots between start/end
-    ├── latest_prices.pipe      # Latest price per commodity
-    └── prices_range.pipe       # Price history between start/end
+    ├── latest_snapshot.pipe    # Most recent snapshot (FINAL)
+    ├── snapshots_range.pipe    # Snapshots between start/end (FINAL)
+    ├── latest_generation.pipe  # Latest reading per fuel type
+    ├── latest_prices.pipe      # Latest price per commodity (argMax)
+    └── prices_range.pipe       # Price history (GROUP BY date, commodity)
 
 scripts/
 └── backfill.ts         # Historical data backfill (npx tsx scripts/backfill.ts)
@@ -103,8 +110,12 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | Source | Endpoint | Auth | Data |
 |--------|----------|------|------|
 | Carbon Intensity API | `api.carbonintensity.org.uk` | None | Carbon intensity (gCO₂/kWh), generation mix % |
-| Elexon BMRS | `data.elexon.co.uk` | None | System prices (£/MWh), demand (MW), generation by fuel (MW) |
-| US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (DEMO_KEY works) | Brent crude, WTI crude, Henry Hub gas |
+| Elexon BMRS | `data.elexon.co.uk` | None | Imbalance / cash-out price (£/MWh), demand, FUELINST, AGPT |
+| NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
+| Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
+| US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
+| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), JKM LNG $/MMBtu |
+| FRED | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`) |
 
 ## Environment Variables
 
@@ -113,8 +124,10 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 TINYBIRD_URL=https://api.eu-central-1.aws.tinybird.co
 TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
-EIA_API_KEY=DEMO_KEY
-CRON_SECRET=<random-secret-for-vercel-cron>
+EIA_API_KEY=<free-eia-key>
+CRON_SECRET=<required-secret-for-vercel-cron>
+OIL_PRICE_API_KEY=<optional>
+FRED_API_KEY=<optional>
 
 # Optional — production rate limiting
 UPSTASH_REDIS_REST_URL=<from-upstash-console>
@@ -123,7 +136,8 @@ UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 
 ### How tokens work
 - `TINYBIRD_TOKEN` — Workspace admin token. Used by `/api/cron` and `scripts/backfill.ts` to ingest data via Events API.
-- `TINYBIRD_READ_TOKEN` — Auto-generated `dashboard_read` token (defined via `TOKEN dashboard_read READ` in pipe files). Used by the Server Component to query pipe endpoints. Falls back to `TINYBIRD_TOKEN` if not set.
+- `TINYBIRD_READ_TOKEN` — Auto-generated `dashboard_read` token (defined via `TOKEN dashboard_read READ` in pipe files). Required for pipe queries. There is no fallback to the admin token.
+- `CRON_SECRET` — Required. Cron routes fail closed if it is unset.
 - Tokens are created via `tb --cloud deploy` (Tinybird Forward requires resource-scoped tokens in data files, not via CLI `token create`).
 
 ### Upstash Redis
@@ -152,8 +166,9 @@ UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 ### API Routes
 - All public, CORS-enabled via middleware
 - Rate-limited: 60 req/min per IP
-- `/api/cron` — protected with Bearer token (CRON_SECRET), called by Vercel Cron
-- Query parameter: `range` accepts `24h`, `7d`, `30d`, `90d`
+- `/api/cron` and `/api/cron-prices` — fail closed without `CRON_SECRET`, return per-source status, 503 if a required source fails
+- `/api/health` — freshness of snapshots / generation / embedded / prices; 503 if a critical grid stream is stale
+- Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
 
 ### Styling
 - Font: Inter (Google Fonts, variable font)
@@ -199,10 +214,13 @@ npx tsx scripts/backfill.ts --days 90 --only prices
 npx tsx scripts/backfill.ts --days 30 --only snapshots
 ```
 
-The script reads `TINYBIRD_URL` and `TINYBIRD_TOKEN` from `.env.local`. Data sources:
-- Carbon Intensity API — intensity + generation mix (14-day max per request, aggregated hourly)
-- Elexon BMRS — system prices, demand, generation by fuel
-- EIA — Brent, WTI, Henry Hub daily (up to 5000 rows)
+The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data sources:
+- Carbon Intensity + Elexon — half-hourly UK settlement periods, including 46/50-period clock-change days
+- FUELINST + NESO embedded wind + Sheffield PV Live
+- EIA daily Brent/WTI/Henry Hub (requires a real `EIA_API_KEY`)
+- FRED monthly TTF/LNG in $/MMBtu (kept separate from OilPriceAPI `eu_ttf` EUR/MWh)
+
+After deploying Nullable snapshot columns and the new pipes, re-run snapshot + generation backfill to replace historical `0` placeholders and the old UTC-mapped prices.
 
 ### Deploy
 ```bash

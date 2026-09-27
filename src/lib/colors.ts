@@ -27,6 +27,7 @@ export const COMMODITY_COLORS: Record<string, string> = {
   brent_crude: "#f97316",
   wti_crude: "#3b82f6",
   henry_hub_gas: "#22c55e",
+  eu_ttf: "#a78bfa",
   eu_natural_gas: "#8b5cf6",
   lng_asia: "#eab308",
 };
@@ -35,7 +36,8 @@ export const COMMODITY_LABELS: Record<string, string> = {
   brent_crude: "Brent Crude ($/bbl)",
   wti_crude: "WTI Crude ($/bbl)",
   henry_hub_gas: "Henry Hub Gas ($/MMBtu)",
-  eu_natural_gas: "EU Gas TTF ($/MMBtu)",
+  eu_ttf: "Dutch TTF (€/MWh)",
+  eu_natural_gas: "EU TTF monthly ($/MMBtu)",
   lng_asia: "LNG Asia JKM ($/MMBtu)",
 };
 

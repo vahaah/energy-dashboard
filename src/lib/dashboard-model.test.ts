@@ -45,7 +45,7 @@ describe("dashboard model", () => {
     expect(normalizeFuelType("InTNeD")).toBe("intned");
   });
 
-  it("splits the latest generation rows into sources vs interconnectors", () => {
+  it("keeps the latest reading per fuel so older embedded generation still counts", () => {
     const rows: Generation5min[] = [
       {
         timestamp: "2026-03-18 09:55:00",
@@ -72,10 +72,16 @@ describe("dashboard model", () => {
         source: "fuelinst",
       },
       {
-        timestamp: "2026-03-18 10:00:00",
+        timestamp: "2026-03-18 09:30:00",
         fuel_type: "embedded_wind",
         generation_mw: 900,
         source: "neso",
+      },
+      {
+        timestamp: "2026-03-18 09:30:00",
+        fuel_type: "embedded_solar",
+        generation_mw: 4200,
+        source: "pvlive",
       },
     ];
 
@@ -89,10 +95,16 @@ describe("dashboard model", () => {
           source: "fuelinst",
         },
         {
-          timestamp: "2026-03-18 10:00:00",
+          timestamp: "2026-03-18 09:30:00",
           fuel_type: "embedded_wind",
           generation_mw: 900,
           source: "neso",
+        },
+        {
+          timestamp: "2026-03-18 09:30:00",
+          fuel_type: "embedded_solar",
+          generation_mw: 4200,
+          source: "pvlive",
         },
       ],
       interconnectors: [
@@ -109,7 +121,7 @@ describe("dashboard model", () => {
           source: "fuelinst",
         },
       ],
-      totalGenerationMw: 18900,
+      totalGenerationMw: 23100,
       netTransfersMw: 300,
     });
   });
@@ -201,6 +213,22 @@ describe("dashboard model", () => {
         deltaFromAverage: 0,
       },
       price: { latest: 75, average: 60, min: 45, max: 75, deltaFromAverage: 15 },
+    });
+  });
+
+  it("ignores null prices when averaging so missing values do not become zeros", () => {
+    const summary = buildRangeSummary([
+      makeSnapshot({ timestamp: "2026-03-18 08:00:00", price_gbp_mwh: 60 }),
+      makeSnapshot({ timestamp: "2026-03-18 08:30:00", price_gbp_mwh: null }),
+      makeSnapshot({ timestamp: "2026-03-18 09:00:00", price_gbp_mwh: -13 }),
+    ]);
+
+    expect(summary.price).toEqual({
+      latest: -13,
+      average: 24,
+      min: -13,
+      max: 60,
+      deltaFromAverage: -37,
     });
   });
 });

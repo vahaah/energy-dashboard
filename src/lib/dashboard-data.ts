@@ -1,3 +1,4 @@
+import { getLondonDate, londonMidnightUtc, addUtcDays } from "@/lib/london-time";
 import type { CommodityRange, TimeRange } from "@/lib/types";
 import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
@@ -17,18 +18,31 @@ export function getEffectiveDashboardDate(
 ): string {
   return selectedDate && isValidDashboardDate(selectedDate)
     ? selectedDate
-    : formatDate(now);
+    : getLondonDate(now);
 }
 
-function getCalendarDayQueryParams(
-  selectedDate?: string | null,
-  now = new Date()
-): QueryParams {
-  const day = getEffectiveDashboardDate(selectedDate, now);
+function getCalendarDayQueryParams(selectedDate: string): QueryParams {
+  const start = londonMidnightUtc(selectedDate);
+  const end = new Date(londonMidnightUtc(addUtcDays(selectedDate, 1)).getTime() - 1000);
 
   return {
-    start: `${day} 00:00:00`,
-    end: `${day} 23:59:59`,
+    start: formatDateTime(start),
+    end: formatDateTime(end),
+  };
+}
+
+function get24hQueryParams(
+  now: Date,
+  selectedDate?: string | null
+): QueryParams {
+  const today = getLondonDate(now);
+  if (selectedDate && isValidDashboardDate(selectedDate) && selectedDate !== today) {
+    return getCalendarDayQueryParams(selectedDate);
+  }
+
+  return {
+    start: formatDateTime(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+    end: formatDateTime(now),
   };
 }
 
@@ -38,38 +52,40 @@ export function getSnapshotsQueryParams(
   selectedDate?: string | null
 ): QueryParams {
   if (range === "24h") {
-    return getCalendarDayQueryParams(selectedDate, now);
+    return get24hQueryParams(now, selectedDate);
   }
 
-  const params: QueryParams = {
-    start: "",
-    end: formatDateTime(now),
-  };
-
-  let start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const end = formatDateTime(now);
 
   switch (range) {
     case "7d":
-      start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)),
+        end,
+      };
     case "30d":
-      start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      params.granularity = "day";
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "day",
+      };
     case "90d":
-      start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      params.granularity = "day";
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "day",
+      };
     case "1y":
-      start = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      params.granularity = "day";
-      break;
-    default:
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "day",
+      };
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
   }
-
-  params.start = formatDateTime(start);
-  return params;
 }
 
 export function getPricesQueryParams(
@@ -79,14 +95,18 @@ export function getPricesQueryParams(
   let start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   switch (range) {
+    case "30d":
+      break;
     case "90d":
       start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       break;
     case "1y":
       start = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
       break;
-    default:
-      break;
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
   }
 
   return {
@@ -101,39 +121,41 @@ export function getGenerationQueryParams(
   selectedDate?: string | null
 ): QueryParams {
   if (range === "24h") {
-    return getCalendarDayQueryParams(selectedDate, now);
+    return get24hQueryParams(now, selectedDate);
   }
 
-  const params: QueryParams = {
-    start: "",
-    end: formatDateTime(now),
-  };
-
-  let start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const end = formatDateTime(now);
 
   switch (range) {
     case "7d":
-      start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      params.granularity = "hour";
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "hour",
+      };
     case "30d":
-      start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      params.granularity = "hour";
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "hour",
+      };
     case "90d":
-      start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      params.granularity = "day";
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "day",
+      };
     case "1y":
-      start = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      params.granularity = "day";
-      break;
-    default:
-      break;
+      return {
+        start: formatDateTime(new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)),
+        end,
+        granularity: "day",
+      };
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
   }
-
-  params.start = formatDateTime(start);
-  return params;
 }
 
 export function getInterconnectorQueryParams(
@@ -142,16 +164,11 @@ export function getInterconnectorQueryParams(
   selectedDate?: string | null
 ): QueryParams {
   if (range === "24h") {
-    return getCalendarDayQueryParams(selectedDate, now);
+    return get24hQueryParams(now, selectedDate);
   }
 
-  const start =
-    range === "7d"
-      ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      : new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
   return {
-    start: formatDateTime(start),
+    start: formatDateTime(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)),
     end: formatDateTime(now),
   };
 }

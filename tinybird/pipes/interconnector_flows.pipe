@@ -10,9 +10,9 @@ SQL >
     SELECT
         timestamp,
         fuel_type AS interconnector,
-        generation_mw,
+        any(generation_mw) AS generation_mw,
         CASE
-            WHEN generation_mw >= 0 THEN 'import'
+            WHEN any(generation_mw) >= 0 THEN 'import'
             ELSE 'export'
         END AS direction
     FROM generation_5min
@@ -26,6 +26,7 @@ SQL >
             WHERE startsWith(lower(fuel_type), 'int')
         )
     {% end %}
+    GROUP BY timestamp, fuel_type
     ORDER BY timestamp ASC, interconnector ASC
 
 TYPE endpoint

@@ -5,7 +5,7 @@ import { FUELINST_COLORS, FUELINST_LABELS } from "@/lib/colors";
 
 interface Props {
   data: Generation5min[];
-  demandMw?: number;
+  demandMw?: number | null;
 }
 
 export function GenerationTable({ data, demandMw }: Props) {
