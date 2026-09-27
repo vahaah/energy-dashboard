@@ -4,11 +4,13 @@ import { unauthorized } from "@/lib/api-route";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import type { SourceStatus } from "@/lib/http";
+import { fetchGbGasSapRange, sapCronWindow } from "@/lib/gb-gas-sap";
 import {
   fetchEiaLatest,
   fetchFredLatest,
   fetchOilPriceLatest,
   isOilPriceTtfCronSlot,
+  isRequiredPriceCronSource,
   latestCommodityDate,
   mergePriceRows,
   rejectCrossWiredPriceRows,
@@ -26,6 +28,7 @@ import type { CommodityPrice } from "@/lib/types";
  *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu)
  *   2. OilPriceAPI — Dutch TTF (EUR/MWh as eu_ttf), 00:30 UTC slot only
  *   3. FRED — monthly TTF + LNG in $/MMBtu (eu_natural_gas / lng_asia)
+ *   4. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
  */
 
 export const maxDuration = 60;
@@ -43,7 +46,8 @@ export async function GET(request: Request) {
   const oilApiKey = process.env.OIL_PRICE_API_KEY;
   const fredKey = process.env.FRED_API_KEY;
 
-  const [eia, oil, fred] = await Promise.all([
+  const sapWindow = sapCronWindow(now);
+  const [eia, oil, fred, sap] = await Promise.all([
     runOptionalSource("eia", eiaKey && eiaKey !== "DEMO_KEY" ? eiaKey : null, "EIA_API_KEY is not set (DEMO_KEY is not used)", (key) =>
       fetchEiaLatest(key)
     ),
@@ -51,6 +55,7 @@ export async function GET(request: Request) {
       fetchOilPriceTtfIfNeeded(key, today, utcHour)
     ),
     runOptionalSource("fred", fredKey ?? null, "FRED_API_KEY is not set; skipped", (key) => fetchFredLatest(key)),
+    runKeylessSource("nationalgas", () => fetchGbGasSapRange(sapWindow.from, sapWindow.to)),
   ]);
 
   const oilRows = rejectCrossWiredPriceRows(oil.rowsData ?? []);
@@ -60,10 +65,13 @@ export async function GET(request: Request) {
     )
   );
 
+  const sapRows = rejectCrossWiredPriceRows(sap.rowsData ?? []);
+
   const ingestStatuses = await Promise.all([
     ingestSource("eia", eia, eia.rowsData ?? []),
     ingestSource("oilpriceapi", oil, oilRows),
     ingestSource("fred", fred, fredRows),
+    ingestSource("nationalgas", sap, sapRows),
   ]);
 
   const ingested = ingestStatuses.some((source) => source.ok && (source.rows ?? 0) > 0);
@@ -72,7 +80,9 @@ export async function GET(request: Request) {
     revalidatePath("/");
   }
 
-  const hasHardFailure = ingestStatuses.some((source) => !source.ok && source.source === "eia");
+  const hasHardFailure = ingestStatuses.some(
+    (source) => !source.ok && isRequiredPriceCronSource(source.source)
+  );
 
   if (hasHardFailure) {
     console.error("[cron-prices] required source failed", ingestStatuses);
@@ -110,6 +120,20 @@ async function fetchOilPriceTtfIfNeeded(
 
 type FetchedSource = SourceStatus & { rowsData?: PriceRow[] };
 
+async function runKeylessSource(
+  source: string,
+  fetchRows: () => Promise<PriceRow[]>
+): Promise<FetchedSource> {
+  try {
+    const rowsData = await fetchRows();
+    return { source, ok: true, rows: rowsData.length, rowsData };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[cron-prices] ${source} failed`, message);
+    return { source, ok: false, error: message };
+  }
+}
+
 async function runOptionalSource(
   source: string,
   key: string | null,
@@ -117,7 +141,7 @@ async function runOptionalSource(
   fetchRows: (key: string) => Promise<PriceRow[]>
 ): Promise<FetchedSource> {
   if (!key) {
-    const required = source === "eia";
+    const required = isRequiredPriceCronSource(source);
     return {
       source,
       ok: !required,

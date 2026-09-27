@@ -13,6 +13,7 @@ import {
 import type { CommodityPrice, CommodityRange } from "@/lib/types";
 import { COMMODITY_COLORS, COMMODITY_LABELS } from "@/lib/colors";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { commodityChartValue } from "@/lib/gb-gas-sap";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 
 interface Props {
@@ -25,10 +26,9 @@ export function CommodityChart({ data, range, selectedSeries }: Props) {
   // Pivot: one row per date with columns per commodity
   const byDate = new Map<string, Record<string, number | string>>();
   for (const row of data) {
-    if (!byDate.has(row.date)) {
-      byDate.set(row.date, { date: row.date });
-    }
-    byDate.get(row.date)![row.commodity] = row.price;
+    const current = byDate.get(row.date) ?? { date: row.date };
+    current[row.commodity] = commodityChartValue(row);
+    byDate.set(row.date, current);
   }
   const chartData = Array.from(byDate.values()).sort(
     (a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime()

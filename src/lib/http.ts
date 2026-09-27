@@ -1,7 +1,7 @@
-export async function fetchJson<T>(
+async function fetchOk(
   url: string,
   options?: RequestInit & { timeoutMs?: number }
-): Promise<T> {
+): Promise<Response> {
   const { timeoutMs = 12_000, ...init } = options ?? {};
   const response = await fetch(url, {
     ...init,
@@ -12,7 +12,23 @@ export async function fetchJson<T>(
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
 
+  return response;
+}
+
+export async function fetchJson<T>(
+  url: string,
+  options?: RequestInit & { timeoutMs?: number }
+): Promise<T> {
+  const response = await fetchOk(url, options);
   return (await response.json()) as T;
+}
+
+export async function fetchText(
+  url: string,
+  options?: RequestInit & { timeoutMs?: number }
+): Promise<string> {
+  const response = await fetchOk(url, options);
+  return await response.text();
 }
 
 export type SourceStatus = {

@@ -62,6 +62,12 @@ export function latestCommodityDate(
   return row ? commodityDateKey(row.date) : null;
 }
 
+export const REQUIRED_PRICE_CRON_SOURCE = "eia";
+
+export function isRequiredPriceCronSource(source: string): boolean {
+  return source === REQUIRED_PRICE_CRON_SOURCE;
+}
+
 /**
  * vercel.json cron-prices: minute 30 of every 6th hour
  * (00:30, 06:30, 12:30, 18:30 UTC). OilPriceAPI runs only on UTC hour 0.

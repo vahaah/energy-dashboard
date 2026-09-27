@@ -30,6 +30,8 @@ export function isCanonicalCommodityPrice(row: CommodityPrice): boolean {
         normalizeCommodityUnit(row.unit) === "$/MMBTU" &&
         isMonthStartDate(row.date)
       );
+    case "gb_gas_sap":
+      return row.currency === "GBP" && row.unit === "p/kWh";
     default:
       return true;
   }

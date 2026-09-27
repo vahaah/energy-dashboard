@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://grid.vahaah.com"),
   title: "Grid — GB electricity dashboard",
   description:
-    "Great Britain electricity dashboard: half-hourly carbon intensity, generation mix, demand, and imbalance prices, with commodity context. Sources: Carbon Intensity API, Elexon BMRS/Insights, NESO, Sheffield Solar PV Live, EIA, FRED/IMF, and OilPriceAPI.",
+    "Great Britain electricity dashboard: half-hourly carbon intensity, generation mix, demand, and imbalance prices, with commodity context. Sources: Carbon Intensity API, Elexon BMRS/Insights, NESO, Sheffield Solar PV Live, EIA, FRED/IMF, OilPriceAPI, and National Gas.",
   openGraph: {
     title: "Grid — GB electricity dashboard",
     description:
