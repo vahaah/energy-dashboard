@@ -20,6 +20,7 @@
 
 import { config } from "dotenv";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   PUBLIC_COMMODITIES,
   STRAY_DAILY_MONTHLY_SQL,
@@ -37,7 +38,8 @@ import { formatIsoDate } from "../src/lib/london-time";
 import { fetchWorldBankMonthly } from "../src/lib/world-bank-pink-sheet";
 import { reportPublicCommodityGaps } from "../src/lib/commodity-gaps";
 
-config({ path: resolve(import.meta.dirname, "..", ".env.local") });
+const scriptDir = import.meta.dirname ?? fileURLToPath(new URL(".", import.meta.url));
+config({ path: resolve(scriptDir, "..", ".env.local") });
 config({ path: resolve(process.cwd(), ".env.local") });
 
 const API_URL = process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
