@@ -115,8 +115,8 @@ TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=DEMO_KEY
 CRON_SECRET=<random-secret-for-vercel-cron>
 
-OIL_PRICE_API_KEY=<optional — TTF only, ≤1 request/UTC day>
-FRED_API_KEY=<optional>
+OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
+FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 ```
 
 ### How tokens work

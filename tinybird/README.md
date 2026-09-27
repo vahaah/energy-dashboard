@@ -86,7 +86,7 @@ One row per UK settlement period (half-hourly; 46/50 periods on clock-change day
 Pipes query with `FINAL` / `argMax` / `GROUP BY` because ReplacingMergeTree does not dedup until merge.
 
 ### `commodity_prices`
-One row per commodity per day. Oil & gas from EIA, FRED, OilPriceAPI, and National Gas SAP.
+One row per commodity per day. Live ingest is EIA and National Gas SAP. Leftover withdrawn OilPriceAPI/FRED rows may still exist and are not published.
 - Engine: `ReplacingMergeTree` (dedup on same date+commodity)
 - Sorting key: `date, commodity`
 - Tokens: `ingest_token` (APPEND)

@@ -133,4 +133,21 @@ describe("commodity series stay on their own units", () => {
     expect(dashboard).not.toMatch(/TTF|JKM|IMF/);
     expect(readme).not.toMatch(/TTF|JKM|IMF/);
   });
+
+  it("does not document OilPriceAPI or FRED as live feeds", () => {
+    const files = [
+      "ARCHITECTURE.md",
+      "agent.md",
+      "claude.md",
+      "tinybird/README.md",
+      "AGENTS.md",
+      "README.md",
+    ];
+    for (const file of files) {
+      const text = readFileSync(resolve(process.cwd(), file), "utf8");
+      expect(text, file).not.toMatch(/\| OilPriceAPI \|/);
+      expect(text, file).not.toMatch(/\| FRED/);
+      expect(text, file).not.toMatch(/TTF only/);
+    }
+  });
 });
