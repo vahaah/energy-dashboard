@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildEiaSeriesUrl,
@@ -16,6 +18,8 @@ import {
   OILPRICE_COMMODITIES,
   OILPRICE_TTF_CRON_UTC_HOUR,
   rejectStoredPriceRows,
+  selectCronWorldBankRows,
+  selectPriceRowsForIngest,
   shouldFetchOilPriceTtf,
 } from "@/lib/ingest/collect-prices";
 
@@ -183,5 +187,50 @@ describe("commodity price ingest helpers", () => {
         unit: "$/BBL",
       },
     ]);
+  });
+
+  it("writes World Bank eu_natural_gas even when 2025-06-01 is already stored", () => {
+    const worldBank = {
+      date: "2025-06-01",
+      commodity: "eu_natural_gas",
+      price: 11.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const storedEia = {
+      date: "2025-06-01",
+      commodity: "brent_crude",
+      price: 70,
+      currency: "USD",
+      unit: "$/BBL",
+    };
+    const freshEia = {
+      date: "2025-06-02",
+      commodity: "brent_crude",
+      price: 71,
+      currency: "USD",
+      unit: "$/BBL",
+    };
+    const stored = [
+      { commodity: "eu_natural_gas", date: "2025-06-01" },
+      { commodity: "brent_crude", date: "2025-06-01" },
+    ];
+
+    expect(selectPriceRowsForIngest([worldBank, storedEia, freshEia], stored)).toEqual([
+      worldBank,
+      freshEia,
+    ]);
+    expect(selectCronWorldBankRows([worldBank], stored)).toEqual([worldBank]);
+    expect(rejectStoredPriceRows([worldBank], stored)).toEqual([]);
+  });
+
+  it("wires the script helper and cron to overwrite stored World Bank keys", () => {
+    const script = readFileSync(resolve(process.cwd(), "scripts/backfill-commodities.ts"), "utf8");
+    const cron = readFileSync(resolve(process.cwd(), "src/app/api/cron-prices/route.ts"), "utf8");
+
+    expect(script).toContain("selectPriceRowsForIngest");
+    expect(script).not.toContain("rejectStoredPriceRows");
+    expect(cron).toContain("selectCronWorldBankRows");
+    expect(cron).not.toContain("rejectStoredPriceRows");
   });
 });

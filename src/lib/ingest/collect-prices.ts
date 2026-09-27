@@ -1,4 +1,7 @@
-import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
+import {
+  filterCanonicalCommodityPrices,
+  isMonthlyPublicCommodity,
+} from "@/lib/commodity-series";
 import { fetchJson } from "@/lib/http";
 import { addUtcDays, formatIsoDate } from "@/lib/london-time";
 import type { EIAPriceData } from "@/lib/types";
@@ -161,6 +164,21 @@ export function rejectStoredPriceRows(
 }
 
 /**
+ * EIA / SAP skip already-stored (commodity, date) keys.
+ * World Bank monthly series (`eu_natural_gas`, `lng_asia`) are always kept so
+ * ReplacingMergeTree last-insert-wins can replace leftover FRED / OilPrice values.
+ */
+export function selectPriceRowsForIngest(
+  rows: PriceRow[],
+  stored: Iterable<{ commodity: string; date: string }>
+): PriceRow[] {
+  const keys = new Set(Array.from(stored, (row) => priceRowKey(row)));
+  return rows.filter(
+    (row) => isMonthlyPublicCommodity(row.commodity) || !keys.has(priceRowKey(row))
+  );
+}
+
+/**
  * Leftover helper. OilPriceAPI ingest is disabled in cron and backfill.
  * vercel.json cron-prices still runs at minute 30 of every 6th hour.
  */
@@ -242,4 +260,12 @@ export function mergePriceRows(preferred: PriceRow[], fallback: PriceRow[]): Pri
 
 export function rejectCrossWiredPriceRows(rows: PriceRow[]): PriceRow[] {
   return filterCanonicalCommodityPrices(rows);
+}
+
+/** Cron always writes World Bank monthly rows, even when the key already exists. */
+export function selectCronWorldBankRows(
+  rows: PriceRow[],
+  stored: Iterable<{ commodity: string; date: string }> = []
+): PriceRow[] {
+  return selectPriceRowsForIngest(rejectCrossWiredPriceRows(rows), stored);
 }

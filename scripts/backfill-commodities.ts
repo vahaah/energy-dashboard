@@ -8,8 +8,10 @@
  *   npx tsx scripts/backfill-commodities.ts --purge-stray --dry-run
  *   npx tsx scripts/backfill-commodities.ts --purge-stray
  *
- * Re-runs are safe: rows are de-duplicated on (commodity, date) and the
- * datasource is ReplacingMergeTree(date, commodity).
+ * Re-runs are safe: EIA / SAP skip already-stored (commodity, date) keys.
+ * World Bank monthly rows (eu_natural_gas, lng_asia) are always appended so
+ * ReplacingMergeTree last-insert-wins + FINAL can replace leftover FRED /
+ * OilPrice values under the same keys.
  *
  * Env vars (from .env.local at the repo root):
  *   TINYBIRD_URL, TINYBIRD_TOKEN  — required to ingest or --purge-stray
@@ -30,7 +32,7 @@ import {
   EIA_COMMODITIES,
   eiaApiKeyFromEnv,
   fetchEiaRange,
-  rejectStoredPriceRows,
+  selectPriceRowsForIngest,
   type PriceRow,
 } from "../src/lib/ingest/collect-prices";
 import { fetchGbGasSapRange, inclusiveDateChunks } from "../src/lib/gb-gas-sap";
@@ -221,7 +223,7 @@ async function main() {
   const stored = TOKEN
     ? await querySql<Array<{ commodity: string; date: string }>>(existingSql)
     : [];
-  const fresh = rejectStoredPriceRows(fetched, stored);
+  const fresh = selectPriceRowsForIngest(fetched, stored);
   const reports = reportPublicCommodityGaps(fetched, from, to);
 
   console.log("Fetched coverage (source, not Tinybird):");
@@ -231,8 +233,11 @@ async function main() {
     );
   }
   console.log("");
-  printRows(dryRun ? "Would ingest (not already stored)" : "Ingesting new rows", fresh);
-  console.log(`Already stored (skipped): ${fetched.length - fresh.length}`);
+  printRows(
+    dryRun ? "Would ingest (new EIA/SAP + all World Bank monthly)" : "Ingesting rows",
+    fresh
+  );
+  console.log(`Already stored EIA/SAP (skipped): ${fetched.length - fresh.length}`);
 
   if (dryRun) {
     console.log("\nDry-run only. Re-run without --dry-run to append the new rows.");
