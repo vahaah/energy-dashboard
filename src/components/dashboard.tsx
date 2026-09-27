@@ -18,12 +18,14 @@ import {
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
 import {
+  COMMODITY_CARD_LABELS,
   COMMODITY_COLORS,
   COMMODITY_LABELS,
   FUELINST_LABELS,
   carbonIndexColor,
   commodityDisplayIndex,
 } from "@/lib/colors";
+import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -98,12 +100,7 @@ export function Dashboard({
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [selectedCommodities, setSelectedCommodities] = useState<string[]>([
-    "brent_crude",
-    "wti_crude",
-    "henry_hub_gas",
-    GB_GAS_SAP_COMMODITY,
-    "eu_ttf",
-    "lng_asia",
+    ...PUBLIC_COMMODITIES,
   ]);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
     history: "push",
@@ -789,11 +786,11 @@ export function Dashboard({
               <p className="mt-2 text-sm leading-7 text-zinc-300">
                 Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
                 Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
-                day-ahead wholesale. Commodity context comes from EIA, FRED monthly $/MMBtu, OilPriceAPI
-                Dutch TTF in EUR/MWh, and National Gas System Average Price in p/kWh (shown as p/therm).
-                TTF series stay separate because the units are not the same. Power and market ranges are
-                intentionally decoupled because intraday grid behavior and commodity settlement cadence
-                move on different clocks.
+                day-ahead wholesale. Oil and gas prices come from EIA (US Energy Information Administration),
+                FRED (Federal Reserve Economic Data) and National Gas, and refresh every 6 hours. FRED
+                supplies the monthly EU gas price and the IMF Japan LNG import price, both in $/MMBtu.
+                Power and market ranges are intentionally decoupled because intraday grid behavior and
+                commodity settlement cadence move on different clocks.
               </p>
             </div>
             <div className="space-y-3">
@@ -1124,7 +1121,7 @@ function CommodityStatCard({
     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-          {COMMODITY_LABELS[commodity] ?? commodity}
+          {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
         </p>
         <span
           className="h-2.5 w-2.5 rounded-full"
