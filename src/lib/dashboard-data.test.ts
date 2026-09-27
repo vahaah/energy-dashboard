@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEffectiveDashboardDate,
   getGenerationQueryParams,
+  getHeadlineSnapshotsQueryParams,
   getInterconnectorQueryParams,
   getSnapshotsQueryParams,
 } from "@/lib/dashboard-data";
@@ -56,6 +57,23 @@ describe("dashboard data query params", () => {
       start: "2026-06-09 23:00:00",
       end: "2026-06-10 22:59:59",
     });
+  });
+
+  it("keeps headline KPIs on unaggregated rolling 24h even when charts are daily", () => {
+    const now = new Date("2026-09-27T12:05:00.000Z");
+
+    expect(getHeadlineSnapshotsQueryParams(now)).toEqual({
+      start: "2026-09-26 12:05:00",
+      end: "2026-09-27 12:05:00",
+    });
+    expect(getSnapshotsQueryParams("30d", now)).toEqual({
+      start: "2026-08-28 12:05:00",
+      end: "2026-09-27 12:05:00",
+      granularity: "day",
+    });
+    expect(getSnapshotsQueryParams("90d", now).granularity).toBe("day");
+    expect(getSnapshotsQueryParams("1y", now).granularity).toBe("day");
+    expect(getHeadlineSnapshotsQueryParams(now)).not.toHaveProperty("granularity");
   });
 
   it("uses the UK date for the date picker default", () => {

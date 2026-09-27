@@ -138,6 +138,26 @@ export function formatLondonClock(date: Date): string {
   return `${hh}:${mm} ${getLondonOffsetLabel(date)}`;
 }
 
+const LONDON_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+export function formatLondonDateLabel(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  return `${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}`;
+}
+
 export function parseUtcDateTime(value: string): Date {
   if (value.endsWith("Z") || value.includes("+") || value.includes("T")) {
     const normalized = value.includes("T") ? value : value.replace(" ", "T");

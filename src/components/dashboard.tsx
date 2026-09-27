@@ -74,6 +74,7 @@ interface Props {
   todayDate: string;
   dataAsOf: string | null;
   initialSnapshots: EnergySnapshot[];
+  headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
   latestGeneration: Generation5min[];
@@ -85,6 +86,7 @@ export function Dashboard({
   todayDate,
   dataAsOf,
   initialSnapshots,
+  headlineSnapshots,
   initialPrices,
   generationHistory,
   latestGeneration,
@@ -118,8 +120,8 @@ export function Dashboard({
   }, [focus]);
 
   const headline = useMemo(
-    () => buildHeadlineMetrics(initialSnapshots),
-    [initialSnapshots]
+    () => buildHeadlineMetrics(headlineSnapshots),
+    [headlineSnapshots]
   );
   const rangeSummary = useMemo(
     () => buildRangeSummary(initialSnapshots),

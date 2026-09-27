@@ -1,6 +1,13 @@
-import { getLondonDateTimeParts, parseUtcDateTime } from "@/lib/london-time";
+import {
+  formatLondonDateLabel,
+  getLondonDateTimeParts,
+  getLondonOffsetLabel,
+  parseUtcDateTime,
+} from "@/lib/london-time";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min, NullableNumber, TimeRange } from "@/lib/types";
+
+export type SnapshotGranularity = "native" | "day" | "week";
 
 export interface MetricSummary {
   latest: number | null;
@@ -248,7 +255,20 @@ export function latestSnapshotWithMix(snapshots: EnergySnapshot[]): EnergySnapsh
   return latest;
 }
 
-export function buildHeadlineMetrics(snapshots: EnergySnapshot[]): HeadlineMetrics {
+export function buildHeadlineMetrics(
+  snapshots: EnergySnapshot[],
+  granularity: SnapshotGranularity = "native"
+): HeadlineMetrics {
+  if (isAggregatedGranularity(granularity)) {
+    return {
+      referenceTimestamp: null,
+      carbon: { value: null, timestamp: null, index: null },
+      demand: { value: null, timestamp: null },
+      price: { value: null, timestamp: null },
+      mixSnapshot: null,
+    };
+  }
+
   const carbonRow = latestSnapshotWithField(snapshots, "carbon_intensity");
   const demandRow = latestSnapshotWithField(snapshots, "demand_mw");
   const priceRow = latestSnapshotWithField(snapshots, "price_gbp_mwh");
@@ -278,20 +298,53 @@ export function buildHeadlineMetrics(snapshots: EnergySnapshot[]): HeadlineMetri
 
 export function formatSettlementWindow(timestamp: string): string {
   const period = getSettlementPeriod(parseUtcDateTime(timestamp));
-  const start = getLondonDateTimeParts(period.startUtc);
-  const end = getLondonDateTimeParts(period.endUtc);
-  return `${clockPart(start.hour)}:${clockPart(start.minute)}–${clockPart(end.hour)}:${clockPart(end.minute)}`;
+  const start = formatClock(period.startUtc);
+  const end = formatClock(period.endUtc);
+  const startZone = getLondonOffsetLabel(period.startUtc);
+  const endZone = getLondonOffsetLabel(period.endUtc);
+  const window =
+    startZone === endZone
+      ? `${start}–${end} ${startZone}`
+      : `${start} ${startZone}–${end} ${endZone}`;
+
+  return `SP ${period.settlementPeriod}, ${window}`;
+}
+
+export function formatHeadlinePeriod(
+  timestamp: string,
+  granularity: SnapshotGranularity = "native"
+): string {
+  if (isAggregatedGranularity(granularity)) {
+    return formatLondonDateLabel(parseUtcDateTime(timestamp));
+  }
+
+  return formatSettlementWindow(timestamp);
 }
 
 export function headlineAsOf(
   timestamp: string | null,
-  referenceTimestamp: string | null
+  referenceTimestamp: string | null,
+  granularity: SnapshotGranularity = "native"
 ): string | null {
   if (timestamp == null || referenceTimestamp == null || sameTimestamp(timestamp, referenceTimestamp)) {
     return null;
   }
 
-  return formatSettlementWindow(timestamp);
+  return formatHeadlinePeriod(timestamp, granularity);
+}
+
+function isAggregatedGranularity(granularity: SnapshotGranularity): boolean {
+  switch (granularity) {
+    case "native":
+      return false;
+    case "day":
+    case "week":
+      return true;
+    default: {
+      const exhaustive: never = granularity;
+      return exhaustive;
+    }
+  }
 }
 
 function latestTimestampAmong(timestamps: Array<string | null | undefined>): string | null {
@@ -314,8 +367,9 @@ function sameTimestamp(left: string, right: string): boolean {
   return parseUtcDateTime(left).getTime() === parseUtcDateTime(right).getTime();
 }
 
-function clockPart(value: number): string {
-  return String(value).padStart(2, "0");
+function formatClock(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
 }
 
 function summarizeMetric(values: NullableNumber[]): MetricSummary {

@@ -12,6 +12,7 @@ import { loadDashboardSearchParams } from "@/lib/dashboard-search-params.server"
 import {
   getEffectiveDashboardDate,
   getGenerationQueryParams,
+  getHeadlineSnapshotsQueryParams,
   getPricesQueryParams,
   getSnapshotsQueryParams,
 } from "@/lib/dashboard-data";
@@ -32,6 +33,7 @@ export default async function Home({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   let snapshots: EnergySnapshot[] = [];
+  let headlineSnapshots: EnergySnapshot[] = [];
   let prices: CommodityPrice[] = [];
   let generationHistory: Generation5min[] = [];
   let latestGeneration: Generation5min[] = [];
@@ -41,7 +43,7 @@ export default async function Home({
   const todayDate = getEffectiveDashboardDate(null, now);
 
   try {
-    [snapshots, prices, generationHistory, latestGeneration] = await Promise.all([
+    [snapshots, headlineSnapshots, prices, generationHistory, latestGeneration] = await Promise.all([
       queryPipe<EnergySnapshot>(
         "snapshots_range",
         getSnapshotsQueryParams(
@@ -50,6 +52,10 @@ export default async function Home({
           dashboardSearchParams.date
         )
       ),
+      queryPipe<EnergySnapshot>(
+        "snapshots_range",
+        getHeadlineSnapshotsQueryParams(now)
+      ).catch(() => []),
       queryPipe<CommodityPrice>(
         "prices_range",
         getPricesQueryParams(dashboardSearchParams.commodityRange, now)
@@ -76,8 +82,9 @@ export default async function Home({
       searchParams={dashboardSearchParams}
       selectedDate={selectedDate}
       todayDate={todayDate}
-      dataAsOf={latestDataAsOf(snapshots, latestGeneration, now)}
+      dataAsOf={latestDataAsOf(headlineSnapshots, latestGeneration, now)}
       initialSnapshots={snapshots}
+      headlineSnapshots={headlineSnapshots}
       initialPrices={filterCanonicalCommodityPrices(prices)}
       generationHistory={generationHistory}
       latestGeneration={latestGeneration}
