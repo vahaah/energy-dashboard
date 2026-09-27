@@ -6,6 +6,7 @@ import { CommodityChart, CommodityNativeTooltip } from "@/components/charts/comm
 import {
   buildCommodityChartSeries,
   commoditySeriesLinePath,
+  commodityTime,
 } from "@/lib/commodity-chart-model";
 import type { CommodityPrice } from "@/lib/types";
 
@@ -72,32 +73,31 @@ describe("CommodityPriceLines", () => {
 
 describe("CommodityNativeTooltip", () => {
   it("shows the native price and unit while the series is indexed", () => {
+    const series = buildCommodityChartSeries(
+      [
+        price("brent_crude", "2026-03-03", 70),
+        price("brent_crude", "2026-03-10", 77),
+        price("lng_asia", "2025-10-01", 12, "$/MMBTU"),
+      ],
+      ["brent_crude", "lng_asia"],
+      "index"
+    );
     const html = renderToStaticMarkup(
       <CommodityNativeTooltip
         active
         range="1y"
-        label={Date.parse("2026-03-10T00:00:00.000Z")}
-        payload={[
-          {
-            color: "#f97316",
-            name: "Brent crude ($/bbl)",
-            payload: {
-              date: "2026-03-10",
-              time: Date.parse("2026-03-10T00:00:00.000Z"),
-              value: 110,
-              native: 77,
-              unit: "$/bbl",
-              commodity: "brent_crude",
-            },
-          },
-        ]}
+        label={commodityTime("2026-03-10")}
+        series={series}
       />
     );
 
     expect(html).toContain("10 Mar 2026");
     expect(html).toContain("77.00 $/bbl");
+    expect(html).toContain("12.00 $/MMBtu");
+    expect(html).toContain("01 Oct 2025");
     expect(html).toContain("Brent crude ($/bbl)");
     expect(html).not.toContain("110");
+    expect(html).not.toContain("100");
   });
 });
 

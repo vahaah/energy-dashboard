@@ -16,10 +16,12 @@ import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import {
   buildCommodityChartSeries,
   COMMODITY_SCALE_OPTIONS,
+  commodityDateFromTime,
   formatCommodityPointNative,
+  parseTooltipTime,
   scaleAxisLabel,
   scaleCaption,
-  type CommodityChartPoint,
+  tooltipRowsAtTime,
   type CommodityChartSeries,
   type CommodityScale,
 } from "@/lib/commodity-chart-model";
@@ -32,44 +34,38 @@ interface Props {
   selectedSeries: string[];
 }
 
-type NativeTooltipItem = {
-  color?: string;
-  name?: string;
-  payload?: CommodityChartPoint;
-};
-
 type NativeTooltipProps = {
   active?: boolean;
-  payload?: NativeTooltipItem[];
   label?: string | number;
   range: CommodityRange;
+  series: CommodityChartSeries[];
 };
 
-export function CommodityNativeTooltip({ active, payload, label, range }: NativeTooltipProps) {
-  if (!active || !payload?.length) {
+export function CommodityNativeTooltip({ active, label, range, series }: NativeTooltipProps) {
+  const time = parseTooltipTime(label);
+  if (!active || time == null) {
     return null;
   }
 
-  const firstPoint = payload.find((item) => item.payload)?.payload;
-  const dateValue = firstPoint?.date ?? label ?? "";
+  const rows = tooltipRowsAtTime(series, time);
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const hoverDate = commodityDateFromTime(time);
 
   return (
     <div
       className="rounded-lg px-3 py-2 text-[13px] text-white"
       style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
     >
-      <p className="mb-1 text-gray-800">{formatChartTooltip(dateValue, range)}</p>
-      {payload.map((item) => {
-        const point = item.payload;
-        if (!point) {
-          return null;
-        }
-        return (
-          <p key={point.commodity} style={{ color: item.color }}>
-            {item.name ?? point.commodity}: {formatCommodityPointNative(point)}
-          </p>
-        );
-      })}
+      <p className="mb-1 text-gray-800">{formatChartTooltip(time, range)}</p>
+      {rows.map((row) => (
+        <p key={row.commodity} style={{ color: row.color }}>
+          {row.label}: {formatCommodityPointNative(row)}
+          {row.date === hoverDate ? "" : ` · ${formatChartTooltip(row.date, range)}`}
+        </p>
+      ))}
     </div>
   );
 }
@@ -122,7 +118,7 @@ export function CommodityPriceLines({
         }}
       />
       <Tooltip
-        content={<CommodityNativeTooltip range={range} />}
+        content={<CommodityNativeTooltip range={range} series={series} />}
         wrapperStyle={{ zIndex: 320 }}
       />
       <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />

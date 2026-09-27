@@ -25,6 +25,15 @@ export type CommodityChartSeries = {
   points: CommodityChartPoint[];
 };
 
+export type CommodityTooltipRow = {
+  commodity: string;
+  label: string;
+  color: string;
+  native: number;
+  unit: string;
+  date: string;
+};
+
 export const COMMODITY_SCALE_OPTIONS = [
   { value: "index", label: "Indexed" },
   { value: "native", label: "Native units" },
@@ -36,6 +45,10 @@ export function commodityDateKey(date: string): string {
 
 export function commodityTime(date: string): number {
   return Date.parse(`${commodityDateKey(date)}T00:00:00.000Z`);
+}
+
+export function commodityDateFromTime(time: number): string {
+  return new Date(time).toISOString().slice(0, 10);
 }
 
 export function indexToFirstValue(values: Array<number | null>): Array<number | null> {
@@ -115,6 +128,46 @@ export function displaySeriesValue(
       return exhaustive;
     }
   }
+}
+
+export function parseTooltipTime(label: string | number | undefined): number | null {
+  if (typeof label === "number" && Number.isFinite(label)) {
+    return label;
+  }
+  if (typeof label !== "string" || label.length === 0) {
+    return null;
+  }
+  const parsed = Date.parse(label.includes("T") ? label : `${commodityDateKey(label)}T00:00:00.000Z`);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function tooltipRowsAtTime(
+  series: CommodityChartSeries[],
+  time: number
+): CommodityTooltipRow[] {
+  const rows: CommodityTooltipRow[] = [];
+  for (const entry of series) {
+    let match: CommodityChartPoint | undefined;
+    for (const point of entry.points) {
+      if (point.time <= time) {
+        match = point;
+        continue;
+      }
+      break;
+    }
+    if (!match) {
+      continue;
+    }
+    rows.push({
+      commodity: entry.commodity,
+      label: entry.label,
+      color: entry.color,
+      native: match.native,
+      unit: match.unit,
+      date: match.date,
+    });
+  }
+  return rows;
 }
 
 export function commoditySeriesLinePath(points: CommodityChartPoint[]): string {

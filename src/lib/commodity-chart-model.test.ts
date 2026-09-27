@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildCommodityChartSeries,
   commoditySeriesLinePath,
+  commodityTime,
   formatCommodityPointNative,
   indexToFirstValue,
   scaleCaption,
+  tooltipRowsAtTime,
 } from "@/lib/commodity-chart-model";
 import type { CommodityPrice } from "@/lib/types";
 
@@ -120,5 +122,25 @@ describe("commodity native tooltip values", () => {
       })
     ).toBe("72.45 $/bbl");
     expect(scaleCaption("index")).toBe("Indexed, start of range = 100");
+  });
+
+  it("joins tooltip rows by timestamp instead of series index", () => {
+    const series = buildCommodityChartSeries(
+      [
+        price("brent_crude", "2026-03-03", 70),
+        price("brent_crude", "2026-03-10", 77),
+        price("lng_asia", "2026-03-01", 14, "$/MMBTU"),
+        price("lng_asia", "2026-04-01", 16, "$/MMBTU"),
+      ],
+      ["brent_crude", "lng_asia"],
+      "index"
+    );
+
+    const rows = tooltipRowsAtTime(series, commodityTime("2026-03-05"));
+    expect(rows.map((row) => [row.commodity, row.date, row.native])).toEqual([
+      ["brent_crude", "2026-03-03", 70],
+      ["lng_asia", "2026-03-01", 14],
+    ]);
+    expect(rows[0]?.native).not.toBe(100);
   });
 });
