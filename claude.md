@@ -27,7 +27,7 @@ GB electricity dashboard (product name **Grid**) with commodity context. Half-ho
 External APIs (hourly cron)
   ├─ Carbon Intensity API → carbon intensity, generation mix %
   ├─ Elexon BMRS → system prices, demand, generation by fuel
-  └─ EIA API → Brent, WTI, Henry Hub prices
+  └─ EIA / World Bank / National Gas → oil and gas prices
        │
        ▼
   /api/cron route (Vercel Cron, every hour)
@@ -103,7 +103,8 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 |--------|----------|------|------|
 | Carbon Intensity API | `api.carbonintensity.org.uk` | None | Carbon intensity (gCO₂/kWh), generation mix % |
 | Elexon BMRS | `data.elexon.co.uk` | None | System prices (£/MWh), demand (MW), generation by fuel (MW) |
-| US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (DEMO_KEY works) | Brent crude, WTI crude, Henry Hub gas |
+| US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent crude, WTI crude, Henry Hub gas |
+| World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | None | EU natural gas, Japan LNG |
 
 ## Environment Variables
 
@@ -196,6 +197,7 @@ The script reads `TINYBIRD_URL` and `TINYBIRD_TOKEN` from `.env.local`. Data sou
 - Carbon Intensity API — intensity + generation mix (14-day max per request, aggregated hourly)
 - Elexon BMRS — system prices, demand, generation by fuel
 - EIA — Brent, WTI, Henry Hub daily (up to 5000 rows)
+- World Bank Pink Sheet — monthly Europe gas and Japan LNG (`scripts/backfill-commodities.ts`)
 
 ### Deploy
 ```bash

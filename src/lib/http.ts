@@ -31,6 +31,14 @@ export async function fetchText(
   return await response.text();
 }
 
+export async function fetchBytes(
+  url: string,
+  options?: RequestInit & { timeoutMs?: number }
+): Promise<Uint8Array> {
+  const response = await fetchOk(url, options);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 export type SourceStatus = {
   source: string;
   ok: boolean;

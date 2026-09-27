@@ -775,7 +775,7 @@ export function Dashboard({
                   })}
                 </div>
 
-                <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {commodityStats.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
                     commodity === GB_GAS_SAP_COMMODITY ? (
                       <GbGasSapCard
@@ -819,8 +819,9 @@ export function Dashboard({
               <p className="mt-2 text-sm leading-7 text-gray-900">
                 Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
                 Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
-                day-ahead wholesale. Oil and gas prices come from EIA (US Energy Information Administration)
-                and National Gas, and refresh every 6 hours. Power and market ranges are intentionally
+                day-ahead wholesale. Oil and gas prices come from EIA (U.S. Energy Information Administration),
+                World Bank Commodity Price Data (The Pink Sheet, CC BY 4.0), and National Gas, and refresh
+                every 6 hours. Power and market ranges are intentionally
                 decoupled because intraday grid behavior and commodity settlement cadence move on different
                 clocks.
               </p>
@@ -1033,13 +1034,13 @@ function CommodityDeskSkeleton() {
   return (
     <>
       <div className="mb-4 flex flex-wrap gap-2">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={`commodity-chip-${index}`} className="h-8 w-32 rounded-full" />
+        {PUBLIC_COMMODITIES.map((commodity) => (
+          <Skeleton key={`commodity-chip-${commodity}`} className="h-8 w-32 rounded-full" />
         ))}
       </div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <CommodityStatCardSkeleton key={`commodity-stat-${index}`} />
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {PUBLIC_COMMODITIES.map((commodity) => (
+          <CommodityStatCardSkeleton key={`commodity-stat-${commodity}`} />
         ))}
       </div>
       <Skeleton className="h-72 w-full rounded-[24px]" />

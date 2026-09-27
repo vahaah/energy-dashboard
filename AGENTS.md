@@ -100,7 +100,8 @@ tinybird/
     └── prices_range.pipe       # Price history (GROUP BY date, commodity)
 
 scripts/
-└── backfill.ts         # Historical data backfill (npx tsx scripts/backfill.ts)
+├── backfill.ts                 # Historical grid + EIA price backfill
+└── backfill-commodities.ts     # Commodity desk healer (EIA + World Bank + SAP)
 
 vercel.json          # Cron config: /api/cron runs at minute 0 every hour
 ARCHITECTURE.md      # Detailed data model and architecture docs
@@ -115,6 +116,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
+| World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | None | EU natural gas + Japan LNG (CC BY 4.0) |
 | National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh** |
 
 ## Environment Variables
@@ -212,7 +214,7 @@ The script loads `.env.local` from the repo root (`scripts/../.env.local`). Data
 - Carbon Intensity + Elexon — half-hourly UK settlement periods, including 46/50-period clock-change days
 - FUELINST + NESO embedded wind + Sheffield PV Live
 - EIA daily Brent/WTI/Henry Hub (requires a real `EIA_API_KEY`)
-- OilPriceAPI and FRED ingest is disabled everywhere (`/api/cron-prices` and `scripts/backfill.ts`); leftover keys are ignored
+- OilPriceAPI leftover keys are ignored. `/api/cron-prices` self-backfills EIA (400 days at 00:30 UTC, 30 days otherwise), World Bank Pink Sheet from 2025-01 on every run, and National Gas SAP. `scripts/backfill-commodities.ts` is optional.
 
 After deploying Nullable snapshot columns and the new pipes, re-run snapshot + generation backfill to replace historical `0` placeholders and the old UTC-mapped prices.
 

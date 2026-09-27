@@ -47,34 +47,53 @@ describe("/api/prices public commodities", () => {
     queryPipe.mockResolvedValue([...withdrawn, brent]);
   });
 
-  it("returns 400 unknown commodity for withdrawn series", async () => {
-    const responses = await Promise.all(
-      ["eu_ttf", "lng_asia", "eu_natural_gas"].map((commodity) =>
-        GET(new NextRequest(`http://localhost/api/prices?commodity=${commodity}`))
-      )
-    );
-    const bodies = await Promise.all(responses.map((response) => response.json()));
+  it("returns 400 unknown commodity for withdrawn TTF", async () => {
+    const response = await GET(new NextRequest("http://localhost/api/prices?commodity=eu_ttf"));
+    const body = await response.json();
 
-    expect(responses.map((response) => response.status)).toEqual([400, 400, 400]);
-    expect(bodies).toEqual([
-      { error: "unknown commodity" },
-      { error: "unknown commodity" },
-      { error: "unknown commodity" },
-    ]);
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: "unknown commodity" });
     expect(queryPipe).not.toHaveBeenCalled();
   });
 
-  it("returns none of the withdrawn series on the default response", async () => {
+  it("drops a daily 2026-03-18 lng_asia leftover from the public response", async () => {
+    const monthStart = {
+      date: "2026-03-01",
+      commodity: "lng_asia",
+      price: 10.84,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    const strayDaily = {
+      date: "2026-03-18",
+      commodity: "lng_asia",
+      price: 9.5,
+      currency: "USD",
+      unit: "$/MMBTU",
+    };
+    queryPipe.mockResolvedValue([strayDaily, monthStart]);
+
+    const response = await GET(new NextRequest("http://localhost/api/prices?commodity=lng_asia"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual([monthStart]);
+    expect(body.count).toBe(1);
+  });
+
+  it("returns World Bank monthly series and hides leftover TTF", async () => {
     const response = await GET(new NextRequest("http://localhost/api/prices"));
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(
-      body.data.some((row: { commodity: string }) =>
-        ["eu_ttf", "lng_asia", "eu_natural_gas"].includes(row.commodity)
-      )
+      body.data.some((row: { commodity: string }) => row.commodity === "eu_ttf")
     ).toBe(false);
-    expect(body.data).toEqual([brent]);
-    expect(body.count).toBe(1);
+    expect(body.data).toEqual([
+      withdrawn[1],
+      withdrawn[2],
+      brent,
+    ]);
+    expect(body.count).toBe(3);
   });
 });

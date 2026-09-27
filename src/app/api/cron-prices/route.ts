@@ -6,19 +6,29 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 import type { SourceStatus } from "@/lib/http";
 import { fetchGbGasSapRange, sapCronWindow } from "@/lib/gb-gas-sap";
 import {
-  fetchEiaLatest,
+  eiaApiKeyFromEnv,
+  eiaCronWindow,
+  fetchEiaRange,
   isRequiredPriceCronSource,
   rejectCrossWiredPriceRows,
+  selectCronWorldBankRows,
   type PriceRow,
 } from "@/lib/ingest/collect-prices";
 import { ingestRows } from "@/lib/tinybird";
+import { fetchWorldBankMonthly, worldBankCronWindow } from "@/lib/world-bank-pink-sheet";
 
 /**
  * GET /api/cron-prices
  *
  * Every 6 hours. Fetches commodity prices from:
- *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu)
- *   2. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
+ *   1. EIA — Brent, WTI, Henry Hub. 00:30 UTC writes a 400-day window;
+ *      other slots write the last 30 days. One v2 request per series.
+ *   2. World Bank Pink Sheet — EU gas and Japan LNG monthly, from 2025-01
+ *      on every run (one xlsx download). Month-start keys are always written
+ *      so leftover stored values are replaced (last-insert-wins + FINAL).
+ *   3. National Gas — GB System Average Price (p/kWh as gb_gas_sap), last ~7 gas days
+ * ReplacingMergeTree(date, commodity) makes the daily heal idempotent. After
+ * deploy, the next 00:30 UTC slot backfills EIA history within 24h.
  */
 
 export const maxDuration = 60;
@@ -30,21 +40,23 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const eiaKey = process.env.EIA_API_KEY;
-
+  const eiaKey = eiaApiKeyFromEnv(process.env.EIA_API_KEY);
+  const eiaWindow = eiaCronWindow(now);
   const sapWindow = sapCronWindow(now);
-  const [eia, sap] = await Promise.all([
-    runOptionalSource("eia", eiaKey && eiaKey !== "DEMO_KEY" ? eiaKey : null, "EIA_API_KEY is not set (DEMO_KEY is not used)", (key) =>
-      fetchEiaLatest(key)
+  const pinkSheetWindow = worldBankCronWindow(now);
+
+  const [eia, worldbank, sap] = await Promise.all([
+    runOptionalSource("eia", eiaKey, "EIA_API_KEY is not set (DEMO_KEY is not used)", (key) =>
+      fetchEiaRange(key, eiaWindow.from, eiaWindow.to)
     ),
+    runKeylessSource("worldbank", () => fetchWorldBankMonthly(pinkSheetWindow)),
     runKeylessSource("nationalgas", () => fetchGbGasSapRange(sapWindow.from, sapWindow.to)),
   ]);
 
-  const sapRows = rejectCrossWiredPriceRows(sap.rowsData ?? []);
-
   const ingestStatuses = await Promise.all([
-    ingestSource("eia", eia, eia.rowsData ?? []),
-    ingestSource("nationalgas", sap, sapRows),
+    ingestSource("eia", eia, rejectCrossWiredPriceRows(eia.rowsData ?? [])),
+    ingestSource("worldbank", worldbank, selectCronWorldBankRows(worldbank.rowsData ?? [])),
+    ingestSource("nationalgas", sap, rejectCrossWiredPriceRows(sap.rowsData ?? [])),
   ]);
 
   const ingested = ingestStatuses.some((source) => source.ok && (source.rows ?? 0) > 0);

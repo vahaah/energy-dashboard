@@ -33,7 +33,7 @@ See `.env.example`. The code uses:
 | `EIA_API_KEY` | US EIA API key | Real key required (`DEMO_KEY` is not used) |
 | `CRON_SECRET` | Vercel cron auth | Any random secret |
 
-Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored. Those series are withdrawn — not fetched by cron or backfill, not published.
+Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored. Cron self-backfills EIA (400 days at 00:30 UTC) and World Bank Pink Sheet from 2025-01. `scripts/backfill-commodities.ts` is optional.
 
 **Token creation:** Resource-scoped tokens (`dashboard_read`, `ingest_token`) are defined via `TOKEN` directives in `.pipe` and `.datasource` files. They are created automatically by `tb --cloud deploy`. You cannot create them via `tb token create static` in Tinybird Forward.
 
