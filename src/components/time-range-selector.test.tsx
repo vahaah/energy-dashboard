@@ -21,4 +21,20 @@ describe("TimeRangeSelector", () => {
     expect(html).not.toContain("sm:h-9");
     expect(html).toContain("min-w-11");
   });
+
+  it("forwards an accessible group name", () => {
+    const html = renderToStaticMarkup(
+      <TimeRangeSelector
+        value="index"
+        onChange={() => undefined}
+        options={[
+          { value: "index", label: "Indexed" },
+          { value: "native", label: "Native units" },
+        ]}
+        ariaLabel="Price scale"
+      />
+    );
+
+    expect(html).toContain('aria-label="Price scale"');
+  });
 });
