@@ -14,9 +14,11 @@ describe("commodity series stay on their own units", () => {
 
     expect(oilCommodities).not.toContain("eu_natural_gas");
     expect(fredCommodities).not.toContain("eu_ttf");
-    expect(OILPRICE_COMMODITIES.some((row) => row.commodity === "eu_ttf" && row.unit === "EUR/MWh")).toBe(
-      true
-    );
+    expect(OILPRICE_COMMODITIES).toEqual([
+      { code: "DUTCH_TTF_EUR", commodity: "eu_ttf", unit: "EUR/MWh", currency: "EUR" },
+    ]);
+    expect(OILPRICE_COMMODITIES.map((row) => row.commodity)).not.toContain("lng_asia");
+    expect(OILPRICE_COMMODITIES.map((row) => row.commodity)).not.toContain("brent_crude");
     expect(
       FRED_COMMODITIES.some((row) => row.commodity === "eu_natural_gas" && row.unit === "$/MMBTU")
     ).toBe(true);

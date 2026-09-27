@@ -224,7 +224,7 @@ async function backfillPrices() {
   }
 
   console.log(`\n   Total: ${totalRows} price rows ingested`);
-  console.log("   Note: live Dutch TTF (eu_ttf, EUR/MWh) comes from OilPriceAPI via /api/cron-prices, not this backfill.\n");
+  console.log("   Note: Dutch TTF (eu_ttf, EUR/MWh) comes from OilPriceAPI via /api/cron-prices (once per day), not this backfill.\n");
 }
 
 async function main() {

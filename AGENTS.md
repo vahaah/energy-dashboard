@@ -1,10 +1,10 @@
-# Energy Grid Monitor — AI Assistant Context
+# Grid — AI Assistant Context
 
 ## Project Overview
 
-Real-time UK electricity grid dashboard combined with global oil and gas commodity prices. Built with Next.js 16 (App Router), Tailwind CSS v4, and Tinybird (ClickHouse) for time-series data storage.
+GB electricity dashboard (product name **Grid**, live at https://grid.vahaah.com) with commodity context. Half-hourly / hourly ingest — not real-time. Built with Next.js 16 (App Router), Tailwind CSS v4, and Tinybird (ClickHouse) for time-series data storage.
 
-**Live at:** Hosted on Vercel
+**Live at:** https://grid.vahaah.com
 **Repo:** `vahaah/energy-dashboard`
 
 ## Tech Stack
@@ -17,7 +17,7 @@ Real-time UK electricity grid dashboard combined with global oil and gas commodi
 | Charts | Recharts | 3.8+ |
 | Data Store | Tinybird (ClickHouse) | — |
 | Hosting | Vercel | — |
-| Rate Limiting | In-memory + @upstash/ratelimit (optional) | — |
+| Rate Limiting | In-memory 60 req/min per instance (`src/proxy.ts`) | — |
 
 ## Architecture
 
@@ -65,6 +65,8 @@ src/
 │       ├── cron-prices/route.ts # 6-hourly commodity ingest
 │       ├── health/route.ts      # Freshness probe for uptime monitors
 │       ├── snapshots/route.ts   # Public API: grid data by time range
+│       ├── generation/route.ts  # Public API: FUELINST + embedded + PV Live
+│       ├── interconnectors/route.ts # Public API: interconnector flows
 │       └── prices/route.ts      # Public API: commodity prices by range
 ├── components/
 │   ├── dashboard.tsx       # Main client component, orchestrates all charts
@@ -82,8 +84,7 @@ src/
 │   ├── types.ts           # All TypeScript interfaces (Tinybird rows + API responses)
 │   ├── tinybird.ts        # Tinybird client (ingest + queryPipe)
 │   ├── settlement-period.ts # UK local settlement period mapping
-│   ├── colors.ts          # Fuel colors, commodity colors, carbon index colors
-│   └── rate-limit.ts      # Upstash rate limit helpers
+│   └── colors.ts          # Fuel colors, commodity colors, carbon index colors
 └── proxy.ts                # CORS + in-memory rate limiting for /api/*
 
 tinybird/
@@ -114,8 +115,8 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
-| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), JKM LNG $/MMBtu |
-| FRED | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`) |
+| OilPriceAPI | `api.oilpriceapi.com` | `OIL_PRICE_API_KEY` | Dutch TTF **EUR/MWh** (`eu_ttf`), at most 1 request/day |
+| FRED / IMF | `api.stlouisfed.org` | `FRED_API_KEY` | Monthly TTF + LNG in **$/MMBtu** (`eu_natural_gas`, `lng_asia`) |
 
 ## Environment Variables
 
@@ -126,12 +127,8 @@ TINYBIRD_TOKEN=<admin-token-for-cron-ingestion>
 TINYBIRD_READ_TOKEN=<dashboard_read-token-from-deployment>
 EIA_API_KEY=<free-eia-key>
 CRON_SECRET=<required-secret-for-vercel-cron>
-OIL_PRICE_API_KEY=<optional>
+OIL_PRICE_API_KEY=<optional — TTF only, ≤1 request/UTC day>
 FRED_API_KEY=<optional>
-
-# Optional — production rate limiting
-UPSTASH_REDIS_REST_URL=<from-upstash-console>
-UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 ```
 
 ### How tokens work
@@ -139,11 +136,6 @@ UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 - `TINYBIRD_READ_TOKEN` — Auto-generated `dashboard_read` token (defined via `TOKEN dashboard_read READ` in pipe files). Required for pipe queries. There is no fallback to the admin token.
 - `CRON_SECRET` — Required. Cron routes fail closed if it is unset.
 - Tokens are created via `tb --cloud deploy` (Tinybird Forward requires resource-scoped tokens in data files, not via CLI `token create`).
-
-### Upstash Redis
-- Used by `src/lib/rate-limit.ts` for distributed rate limiting in production.
-- Without Upstash, rate limiting falls back to an in-memory Map (resets on cold start, not shared across serverless instances).
-- Sign up at https://console.upstash.com → create a Redis database → copy REST URL and REST Token.
 
 ## Conventions
 
@@ -168,6 +160,7 @@ UPSTASH_REDIS_REST_TOKEN=<from-upstash-console>
 - Rate-limited: 60 req/min per IP
 - `/api/cron` and `/api/cron-prices` — fail closed without `CRON_SECRET`, return per-source status, 503 if a required source fails
 - `/api/health` — freshness of snapshots / generation / embedded / prices; 503 if a critical grid stream is stale
+- `/api/interconnectors` — public interconnector flows (`24h` / `7d`)
 - Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
 
 ### Styling
@@ -237,24 +230,7 @@ ORDER BY timestamp;
 DELETE FROM generation_5min WHERE timestamp > now();
 ```
 
-`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null).
-
-### Cleanup mislabelled OilPriceAPI TTF on `eu_natural_gas`
-
-Daily OilPriceAPI leftovers (EUR/MWh values labelled `$/MMBtu`) must not sit on the FRED monthly series. Preview, then delete only non-1st-of-month `eu_natural_gas` rows:
-
-```bash
-npx tsx scripts/cleanup-mislabelled-ttf.ts
-npx tsx scripts/cleanup-mislabelled-ttf.ts --execute
-```
-
-```sql
-DELETE FROM commodity_prices
-WHERE commodity = 'eu_natural_gas'
-  AND toDayOfMonth(date) != 1;
-```
-
-The homepage, `/api/prices`, and `/api/health` already drop those rows. Do not run `--execute` from CI or agents.
+`latest_generation` and `/api/health` already ignore `timestamp > now()`. Incomplete snapshot rows are skipped by `latest_snapshot` (`demand_mw` and `price_gbp_mwh` must be non-null). The homepage, `/api/prices`, and `/api/health` drop leftover daily `eu_natural_gas` rows that are not FRED month-start $/MMBtu.
 
 ### Deploy
 ```bash

@@ -8,20 +8,23 @@ import {
   fetchEiaLatest,
   fetchFredLatest,
   fetchOilPriceLatest,
+  latestCommodityDate,
   mergePriceRows,
   rejectCrossWiredPriceRows,
+  shouldFetchOilPriceTtf,
   type PriceRow,
 } from "@/lib/ingest/collect-prices";
 import { formatIsoDate } from "@/lib/london-time";
-import { ingestRows } from "@/lib/tinybird";
+import { ingestRows, queryPipe } from "@/lib/tinybird";
+import type { CommodityPrice } from "@/lib/types";
 
 /**
  * GET /api/cron-prices
  *
  * Every 6 hours. Fetches commodity prices from:
  *   1. EIA — Brent, WTI, Henry Hub ($/bbl and $/MMBtu)
- *   2. OilPriceAPI — Dutch TTF (EUR/MWh as eu_ttf) and JKM LNG ($/MMBtu)
- *   3. FRED — monthly TTF + LNG in $/MMBtu (eu_natural_gas / lng_asia fallback)
+ *   2. OilPriceAPI — Dutch TTF (EUR/MWh as eu_ttf), at most one request per UTC day
+ *   3. FRED — monthly TTF + LNG in $/MMBtu (eu_natural_gas / lng_asia)
  */
 
 export const maxDuration = 60;
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
       fetchEiaLatest(key)
     ),
     runOptionalSource("oilpriceapi", oilApiKey ?? null, "OIL_PRICE_API_KEY is not set; skipped", (key) =>
-      fetchOilPriceLatest(key, today)
+      fetchOilPriceTtfIfNeeded(key, today)
     ),
     runOptionalSource("fred", fredKey ?? null, "FRED_API_KEY is not set; skipped", (key) => fetchFredLatest(key)),
   ]);
@@ -82,6 +85,17 @@ export async function GET(request: Request) {
     },
     { status: hasHardFailure ? 503 : 200 }
   );
+}
+
+async function fetchOilPriceTtfIfNeeded(apiKey: string, today: string): Promise<PriceRow[]> {
+  const latestTtfDate = latestCommodityDate(
+    await queryPipe<CommodityPrice>("latest_prices"),
+    "eu_ttf"
+  );
+  if (!shouldFetchOilPriceTtf(today, latestTtfDate)) {
+    return [];
+  }
+  return fetchOilPriceLatest(apiKey, today);
 }
 
 type FetchedSource = SourceStatus & { rowsData?: PriceRow[] };

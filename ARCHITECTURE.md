@@ -9,8 +9,8 @@
 | NESO | `api.neso.energy` | Half-hourly | None | Embedded wind (UK settlement periods) |
 | Sheffield Solar PV Live | `api.pvlive.uk` | 30-min | None | National GB solar including embedded |
 | EIA (US Gov) | `api.eia.gov/v2` | Daily | `EIA_API_KEY` (required) | Brent crude, WTI crude ($/BBL), Henry Hub gas ($/MMBTU) |
-| OilPriceAPI | `api.oilpriceapi.com` | Intraday | `OIL_PRICE_API_KEY` | Dutch TTF EUR/MWh (`eu_ttf`), JKM LNG $/MMBtu |
-| FRED | `api.stlouisfed.org` | Monthly | `FRED_API_KEY` | EU TTF and Asia LNG in $/MMBtu (`eu_natural_gas`, `lng_asia`) |
+| OilPriceAPI | `api.oilpriceapi.com` | Daily (≤1 req) | `OIL_PRICE_API_KEY` | Dutch TTF EUR/MWh (`eu_ttf`) |
+| FRED / IMF | `api.stlouisfed.org` | Monthly | `FRED_API_KEY` | EU TTF and Asia LNG in $/MMBtu (`eu_natural_gas`, `lng_asia`) |
 
 ## Tinybird Data Sources (ClickHouse tables)
 

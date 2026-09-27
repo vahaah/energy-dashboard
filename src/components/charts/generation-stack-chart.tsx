@@ -11,7 +11,7 @@ import {
   Legend,
 } from "recharts";
 import type { Generation5min, TimeRange } from "@/lib/types";
-import { FUEL_COLORS, FUEL_LABELS } from "@/lib/colors";
+import { FUEL_COLORS, FUEL_LABELS, FUELINST_LABELS } from "@/lib/colors";
 import {
   formatChartTick,
   formatChartTooltip,
@@ -29,8 +29,8 @@ interface Props {
 
 const EXTENDED_LABELS: Record<string, string> = {
   ...FUEL_LABELS,
-  embedded_solar: "Embedded Solar",
-  embedded_wind: "Embedded Wind",
+  embedded_solar: FUELINST_LABELS.embedded_solar,
+  embedded_wind: FUELINST_LABELS.embedded_wind,
 };
 
 const EXTENDED_COLORS: Record<string, string> = {

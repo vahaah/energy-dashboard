@@ -1,8 +1,8 @@
-# Copilot Instructions — Energy Grid Monitor
+# Copilot Instructions — Grid
 
 ## What This Project Is
 
-A real-time energy dashboard showing UK electricity grid data (carbon intensity, generation mix, demand, system prices) combined with global oil and gas commodity prices (Brent, WTI, Henry Hub). Data is collected hourly via Vercel Cron, stored in Tinybird (ClickHouse), and displayed with Recharts.
+GB electricity dashboard (product name **Grid**) showing half-hourly Great Britain grid data (carbon intensity, generation mix, demand, imbalance prices) plus commodity context. Data is collected hourly via Vercel Cron, stored in Tinybird (ClickHouse), and displayed with Recharts.
 
 ## Stack
 
@@ -38,7 +38,7 @@ This project uses Tailwind CSS v4 — be careful not to suggest v3 patterns:
 3. **Client Components only for interactivity** — charts, time range selector
 4. **ISR 5 min** — `revalidate = 300` on the main page
 5. **Graceful degradation** — dashboard renders with empty data when Tinybird isn't configured
-6. **Rate limiting** — all `/api/*` routes rate-limited to 60 req/min per IP via middleware
+6. **Rate limiting** — public `/api/*` routes rate-limited to 60 req/min per IP per instance via `src/proxy.ts`
 7. **No auth on public APIs** — everything is public, CORS-enabled
 
 ## File Naming
@@ -73,9 +73,11 @@ contentStyle={{
 
 ## API Routes
 
-- `/api/cron` — POST, protected with Bearer token, called by Vercel Cron hourly
-- `/api/snapshots?range=24h|7d|30d|90d` — GET, public, returns grid snapshots
-- `/api/prices?range=30d|90d` — GET, public, returns commodity prices
+- `/api/cron` — GET, protected with Bearer token, called by Vercel Cron hourly
+- `/api/snapshots?range=24h|7d|30d|90d|1y` — GET, public, returns grid snapshots
+- `/api/generation?range=24h|7d|30d|90d|1y` — GET, public, FUELINST + NESO + PV Live
+- `/api/interconnectors?range=24h|7d` — GET, public, interconnector flows
+- `/api/prices?range=30d|90d|1y` — GET, public, returns commodity prices
 
 ## Tinybird
 
@@ -87,9 +89,8 @@ contentStyle={{
 
 ## Rate Limiting
 
-- All `/api/*` routes rate-limited to 60 req/min per IP via `src/lib/rate-limit.ts`
-- Production: uses `@upstash/ratelimit` + `@upstash/redis` (needs `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`)
-- Development: in-memory Map fallback (no Redis needed)
+- Public `/api/*` routes rate-limited to 60 req/min per IP per instance via `src/proxy.ts`
+- In-memory only. Not distributed. `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
 
 ## Do Not
 

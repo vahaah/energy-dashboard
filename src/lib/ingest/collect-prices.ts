@@ -13,9 +13,10 @@ export const FRED_COMMODITIES = [
   { id: "PNGASJPUSDM", commodity: "lng_asia", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
+// Free plan is 50 latest-price requests/month. TTF only — EIA already
+// covers Brent/WTI/Henry Hub, FRED covers monthly Asia LNG.
 export const OILPRICE_COMMODITIES = [
   { code: "DUTCH_TTF_EUR", commodity: "eu_ttf", unit: "EUR/MWh", currency: "EUR" },
-  { code: "JKM_LNG_USD", commodity: "lng_asia", unit: "$/MMBTU", currency: "USD" },
 ] as const;
 
 export type PriceRow = {
@@ -47,6 +48,26 @@ export async function fetchEiaLatest(apiKey: string): Promise<PriceRow[]> {
   );
 
   return results.filter((row) => row != null);
+}
+
+export function commodityDateKey(date: string): string {
+  return date.slice(0, 10);
+}
+
+export function latestCommodityDate(
+  rows: Array<{ commodity: string; date: string }>,
+  commodity: string
+): string | null {
+  const row = rows.find((entry) => entry.commodity === commodity);
+  return row ? commodityDateKey(row.date) : null;
+}
+
+/** One OilPriceAPI request per missing UTC day. Skip if today's eu_ttf already exists. */
+export function shouldFetchOilPriceTtf(
+  today: string,
+  latestTtfDate: string | null
+): boolean {
+  return commodityDateKey(latestTtfDate ?? "") !== today;
 }
 
 export async function fetchOilPriceLatest(

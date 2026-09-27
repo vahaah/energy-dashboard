@@ -70,35 +70,35 @@ export const FUELINST_LABELS: Record<string, string> = {
   oil: "Oil",
   ps: "Pumped Storage",
   other: "Other",
-  embedded_solar: "Embedded Solar",
+  embedded_solar: "Solar (PV Live estimate)",
   embedded_wind: "Embedded Wind",
 };
 
 /** Interconnector colors by country */
 export const INTERCONNECTOR_COLORS: Record<string, string> = {
-  intfr: "#3b82f6",    // France — blue
-  intirl: "#22c55e",   // Ireland — green
-  intned: "#f97316",   // Netherlands — orange
-  intew: "#16a34a",    // East-West (Ireland) — green
-  intnem: "#f59e0b",   // Belgium (Nemo) — amber
-  intnsl: "#06b6d4",   // Norway (North Sea Link) — cyan
-  intelec: "#eab308",  // Belgium (via Eleclink) — amber
-  intvkl: "#ec4899",   // Denmark (Viking Link) — pink
+  intfr: "#3b82f6",    // France (IFA)
+  intirl: "#22c55e",   // Northern Ireland (Moyle)
+  intned: "#f97316",   // Netherlands (BritNed)
+  intew: "#16a34a",    // Ireland (East-West)
+  intnem: "#f59e0b",   // Belgium (Nemo)
+  intnsl: "#06b6d4",   // Norway (North Sea Link)
+  intelec: "#eab308",  // France (ElecLink)
+  intvkl: "#ec4899",   // Denmark (Viking Link)
   intifa2: "#60a5fa",  // France (IFA2)
-  intgrnl: "#a3e635",  // Greenlink
+  intgrnl: "#a3e635",  // Ireland (Greenlink)
 };
 
 export const INTERCONNECTOR_LABELS: Record<string, string> = {
   intfr: "France (IFA)",
-  intirl: "Ireland (Moyle)",
+  intirl: "Northern Ireland (Moyle)",
   intned: "Netherlands (BritNed)",
   intew: "Ireland (East-West)",
   intnem: "Belgium (Nemo)",
   intnsl: "Norway (NSL)",
-  intelec: "Belgium (Eleclink)",
+  intelec: "France (ElecLink)",
   intvkl: "Denmark (Viking Link)",
   intifa2: "France (IFA2)",
-  intgrnl: "Greenlink",
+  intgrnl: "Ireland (Greenlink)",
 };
 
 /** Carbon index → color */

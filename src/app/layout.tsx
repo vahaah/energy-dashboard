@@ -10,13 +10,31 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Energy Grid Monitor — UK Grid + Oil & Gas Prices",
+  metadataBase: new URL("https://grid.vahaah.com"),
+  title: "Grid — GB electricity dashboard",
   description:
-    "Real-time UK electricity grid data (carbon intensity, generation mix, demand, prices) combined with global oil and gas commodity prices. Data from Carbon Intensity API, Elexon BMRS, and US EIA.",
+    "Great Britain electricity dashboard: half-hourly carbon intensity, generation mix, demand, and imbalance prices, with commodity context. Sources: Carbon Intensity API, Elexon BMRS/Insights, NESO, Sheffield Solar PV Live, EIA, FRED/IMF, and OilPriceAPI.",
   openGraph: {
-    title: "Energy Grid Monitor",
-    description: "Live UK grid + global energy commodity dashboard",
+    title: "Grid — GB electricity dashboard",
+    description:
+      "Half-hourly GB electricity: carbon, generation, demand, and imbalance prices. Sources include Carbon Intensity API, Elexon BMRS/Insights, NESO, and Sheffield Solar PV Live, plus EIA, FRED/IMF, and OilPriceAPI for commodities.",
     type: "website",
+    url: "https://grid.vahaah.com",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Grid — GB electricity dashboard",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Grid — GB electricity dashboard",
+    description:
+      "Half-hourly GB electricity: carbon, generation, demand, and imbalance prices from Carbon Intensity API, Elexon, NESO, and Sheffield Solar PV Live.",
+    images: ["/og.png"],
   },
   icons: {
     icon: [
