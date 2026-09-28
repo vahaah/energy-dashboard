@@ -120,6 +120,33 @@ describe("latest generation snapshot alignment", () => {
     expect(shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(917);
     expect(shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
   });
+
+  it("omits embedded rows that are hours older than the fuelinst frame", () => {
+    const split = splitLatestGenerationRows([
+      generation("2026-09-28 10:00:00", "wind", 3746),
+      generation("2026-09-28 10:00:00", "ccgt", 7563),
+      generation("2026-09-28 03:00:00", "embedded_wind", 917, "neso"),
+      generation("2026-09-28 03:00:00", "embedded_solar", 0, "pvlive"),
+    ]);
+
+    expect(split.latestTimestamp).toBe("2026-09-28 10:00:00");
+    expect(split.sources.map((row) => row.fuel_type).sort()).toEqual(["ccgt", "wind"]);
+    expect(split.sources.find((row) => row.fuel_type === "embedded_wind")).toBeUndefined();
+    expect(split.sources.find((row) => row.fuel_type === "embedded_solar")).toBeUndefined();
+    expect(split.totalGenerationMw).toBe(11309);
+  });
+
+  it("still joins embedded rows 60 minutes behind the fuelinst frame", () => {
+    const split = splitLatestGenerationRows([
+      generation("2026-09-28 10:00:00", "wind", 4000),
+      generation("2026-09-28 09:00:00", "embedded_wind", 900, "neso"),
+    ]);
+
+    expect(split.sources.find((row) => row.fuel_type === "embedded_wind")?.generation_mw).toBe(
+      900
+    );
+    expect(split.totalGenerationMw).toBe(4900);
+  });
 });
 
 describe("domestic generation series", () => {

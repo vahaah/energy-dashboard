@@ -116,6 +116,7 @@ export const EMBEDDED_SERIES_FUELS = ["embedded_wind", "embedded_solar"] as cons
 
 export type EmbeddedSeriesFuel = (typeof EMBEDDED_SERIES_FUELS)[number];
 
+/** Latest-snapshot lag bound; matches 24h/7d series carry. */
 export const EMBEDDED_CARRY_INTRADAY_MS = 60 * 60 * 1000;
 
 export type DemandBalancePoint = {
@@ -168,13 +169,15 @@ export function splitLatestGenerationRows(
   }
 
   const fuelinstMs = parseUtcDateTime(fuelinstTimestamp).getTime();
-  const embeddedCutoffMs = fuelinstMs + EMBEDDED_ALIGN_WINDOW_MS;
   const latestByFuel = new Map<string, Generation5min>();
 
   for (const row of rows) {
     const rowMs = parseUtcDateTime(row.timestamp).getTime();
-    const cutoff = isEmbeddedFuel(row.fuel_type) ? embeddedCutoffMs : fuelinstMs;
-    if (rowMs > cutoff) {
+    if (isEmbeddedFuel(row.fuel_type)) {
+      if (!embeddedFitsFuelinstAnchor(rowMs, fuelinstMs)) {
+        continue;
+      }
+    } else if (rowMs > fuelinstMs) {
       continue;
     }
 
@@ -659,6 +662,14 @@ function summarizeMetric(values: NullableNumber[]): MetricSummary {
 
 function roundNumber(value: number): number {
   return Math.round(value);
+}
+
+function embeddedFitsFuelinstAnchor(rowMs: number, fuelinstMs: number): boolean {
+  if (rowMs > fuelinstMs + EMBEDDED_ALIGN_WINDOW_MS) {
+    return false;
+  }
+
+  return fuelinstMs - rowMs <= EMBEDDED_CARRY_INTRADAY_MS;
 }
 
 function getGenerationBucketSizeMs(range: TimeRange): number {
