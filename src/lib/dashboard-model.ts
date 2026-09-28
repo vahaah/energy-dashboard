@@ -112,10 +112,28 @@ export type DemandPoint = {
   demand: number | null;
 };
 
+export const EMBEDDED_SERIES_FUELS = ["embedded_wind", "embedded_solar"] as const;
+
+export type EmbeddedSeriesFuel = (typeof EMBEDDED_SERIES_FUELS)[number];
+
+export const EMBEDDED_CARRY_INTRADAY_MS = 60 * 60 * 1000;
+
 export type DemandBalancePoint = {
   time: string;
   demandMw: number | null;
   domesticGenerationMw: number | null;
+  embeddedMissing: EmbeddedSeriesFuel[];
+};
+
+type EmbeddedObservation = {
+  mw: number;
+  observedAt: number;
+};
+
+type FuelAccumulator = {
+  sum: number;
+  count: number;
+  lastObservedAt: number;
 };
 
 export function mapGenerationFuelToStackKey(fuelType: string): string {
@@ -347,8 +365,9 @@ export function buildDemandBalanceSeries(
   range: TimeRange
 ): DemandBalancePoint[] {
   const bucketMs = getDemandBalanceBucketSizeMs(range);
-  const generationByBucket = new Map<number, Map<string, { sum: number; count: number }>>();
+  const generationByBucket = new Map<number, Map<string, FuelAccumulator>>();
   const demandByBucket = new Map<number, { sum: number; count: number }>();
+  const carryLimitMs = embeddedCarryLimitMs(range, bucketMs);
 
   for (const row of generation) {
     const parsed = parseUtcDateTime(row.timestamp).getTime();
@@ -363,8 +382,13 @@ export function buildDemandBalanceSeries(
     if (existing) {
       existing.sum += row.generation_mw;
       existing.count += 1;
+      existing.lastObservedAt = Math.max(existing.lastObservedAt, parsed);
     } else {
-      fuels.set(fuel, { sum: row.generation_mw, count: 1 });
+      fuels.set(fuel, {
+        sum: row.generation_mw,
+        count: 1,
+        lastObservedAt: parsed,
+      });
     }
     generationByBucket.set(bucket, fuels);
   }
@@ -397,33 +421,51 @@ export function buildDemandBalanceSeries(
     ...snapshotBuckets,
   ]);
   const times = Array.from(buckets).sort((left, right) => left - right);
-  let lastEmbeddedWind: number | null = null;
-  let lastEmbeddedSolar: number | null = null;
+  const lastEmbedded: Record<EmbeddedSeriesFuel, EmbeddedObservation | null> = {
+    embedded_wind: null,
+    embedded_solar: null,
+  };
   const points: DemandBalancePoint[] = [];
 
   for (const time of times) {
-    const averaged = averageFuelsInBucket(generationByBucket.get(time));
-    if (averaged.has("embedded_wind")) {
-      lastEmbeddedWind = averaged.get("embedded_wind") ?? null;
-    } else if (lastEmbeddedWind != null) {
-      averaged.set("embedded_wind", lastEmbeddedWind);
-    }
-
-    if (averaged.has("embedded_solar")) {
-      lastEmbeddedSolar = averaged.get("embedded_solar") ?? null;
-    } else if (lastEmbeddedSolar != null) {
-      averaged.set("embedded_solar", lastEmbeddedSolar);
+    const { averaged, observedAt } = summarizeBucketFuels(generationByBucket.get(time));
+    const missing: EmbeddedSeriesFuel[] = [];
+    for (const fuel of EMBEDDED_SERIES_FUELS) {
+      lastEmbedded[fuel] = applyBoundedEmbeddedCarry(
+        averaged,
+        observedAt,
+        fuel,
+        lastEmbedded[fuel],
+        time,
+        carryLimitMs,
+        missing
+      );
     }
 
     const demand = demandByBucket.get(time);
+    const domesticGenerationMw = domesticGenerationFromFuelMap(averaged);
     points.push({
       time: formatTinybirdDateTime(new Date(time)),
       demandMw: demand ? demand.sum / demand.count : null,
-      domesticGenerationMw: domesticGenerationFromFuelMap(averaged),
+      domesticGenerationMw,
+      embeddedMissing: domesticGenerationMw == null ? [] : missing,
     });
   }
 
   return points;
+}
+
+export function formatEmbeddedMissingNote(missing: EmbeddedSeriesFuel[]): string | null {
+  if (missing.length === 0) {
+    return null;
+  }
+
+  const labels: Record<EmbeddedSeriesFuel, string> = {
+    embedded_wind: "embedded wind",
+    embedded_solar: "embedded solar",
+  };
+
+  return missing.map((fuel) => `excludes ${labels[fuel]} (no data)`).join("; ");
 }
 
 export function buildRangeSummary(snapshots: EnergySnapshot[]): RangeSummary {
@@ -653,19 +695,61 @@ function getDemandBalanceBucketSizeMs(range: TimeRange): number {
   }
 }
 
-function averageFuelsInBucket(
-  fuels: Map<string, { sum: number; count: number }> | undefined
-): Map<string, number> {
+function embeddedCarryLimitMs(range: TimeRange, bucketMs: number): number {
+  switch (range) {
+    case "24h":
+    case "7d":
+      return EMBEDDED_CARRY_INTRADAY_MS;
+    case "30d":
+    case "90d":
+    case "1y":
+      return bucketMs;
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
+  }
+}
+
+function summarizeBucketFuels(
+  fuels: Map<string, FuelAccumulator> | undefined
+): { averaged: Map<string, number>; observedAt: Map<string, number> } {
   const averaged = new Map<string, number>();
+  const observedAt = new Map<string, number>();
   if (!fuels) {
-    return averaged;
+    return { averaged, observedAt };
   }
 
-  for (const [fuel, { sum, count }] of fuels) {
+  for (const [fuel, { sum, count, lastObservedAt }] of fuels) {
     averaged.set(fuel, sum / count);
+    observedAt.set(fuel, lastObservedAt);
   }
 
-  return averaged;
+  return { averaged, observedAt };
+}
+
+function applyBoundedEmbeddedCarry(
+  averaged: Map<string, number>,
+  observedAt: Map<string, number>,
+  fuel: EmbeddedSeriesFuel,
+  last: EmbeddedObservation | null,
+  bucketTime: number,
+  carryLimitMs: number,
+  missing: EmbeddedSeriesFuel[]
+): EmbeddedObservation | null {
+  const current = averaged.get(fuel);
+  const observed = observedAt.get(fuel);
+  if (current !== undefined && observed !== undefined) {
+    return { mw: current, observedAt: observed };
+  }
+
+  if (last && bucketTime - last.observedAt <= carryLimitMs) {
+    averaged.set(fuel, last.mw);
+    return last;
+  }
+
+  missing.push(fuel);
+  return last;
 }
 
 function domesticGenerationFromFuelMap(fuels: Map<string, number>): number | null {

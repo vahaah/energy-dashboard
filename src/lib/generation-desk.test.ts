@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDemandBalanceSeries,
   demandPointsFromSnapshots,
+  formatEmbeddedMissingNote,
   generationSharesFromRows,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
@@ -225,7 +226,7 @@ describe("domestic generation series", () => {
     expect(byDay.get("2026-06-29")?.domesticGenerationMw).not.toBe(4860);
   });
 
-  it("carries embedded wind forward instead of stepping down on a missing day", () => {
+  it("carries embedded wind forward one daily bucket instead of stepping down", () => {
     const withoutCarry = 9800 + 150 + 4200 + 3500 + 1400 + 280 + 120 + 4100;
     const withCarry = withoutCarry + 1800;
     const series = buildDemandBalanceSeries(
@@ -237,6 +238,7 @@ describe("domestic generation series", () => {
 
     expect(june29?.domesticGenerationMw).toBe(withCarry);
     expect(june29?.domesticGenerationMw).not.toBe(withoutCarry);
+    expect(june29?.embeddedMissing).toEqual([]);
   });
 
   it("averages repeated 5-min rows in a daily bucket instead of summing them", () => {
@@ -287,8 +289,162 @@ describe("demand series", () => {
       time: "2026-06-28 00:00:00",
       demandMw: 25000,
       domesticGenerationMw: 20000,
+      embeddedMissing: ["embedded_wind", "embedded_solar"],
     });
     expect(series.find((point) => point.time.startsWith("2026-06-29"))?.demandMw).toBeNull();
     expect(series.find((point) => point.time.startsWith("2026-06-30"))?.demandMw).toBe(25500);
+  });
+});
+
+describe("bounded embedded carry-forward", () => {
+  it("formats the tooltip note for missing embedded series", () => {
+    expect(formatEmbeddedMissingNote([])).toBeNull();
+    expect(formatEmbeddedMissingNote(["embedded_wind"])).toBe(
+      "excludes embedded wind (no data)"
+    );
+    expect(formatEmbeddedMissingNote(["embedded_solar"])).toBe(
+      "excludes embedded solar (no data)"
+    );
+    expect(formatEmbeddedMissingNote(["embedded_wind", "embedded_solar"])).toBe(
+      "excludes embedded wind (no data); excludes embedded solar (no data)"
+    );
+  });
+
+  it("carries 24h embedded readings across a 60-minute gap and flags a 90-minute gap", () => {
+    const series = buildDemandBalanceSeries(
+      [],
+      [
+        generation("2026-06-28 10:00:00", "wind", 10000),
+        generation("2026-06-28 10:00:00", "embedded_wind", 2000, "neso"),
+        generation("2026-06-28 10:00:00", "embedded_solar", 400, "pvlive"),
+        generation("2026-06-28 10:30:00", "wind", 10100),
+        generation("2026-06-28 11:00:00", "wind", 10200),
+        generation("2026-06-28 11:30:00", "wind", 10300),
+      ],
+      "24h"
+    );
+    const byTime = new Map(series.map((point) => [point.time, point]));
+
+    expect(byTime.get("2026-06-28 10:00:00")).toEqual({
+      time: "2026-06-28 10:00:00",
+      demandMw: null,
+      domesticGenerationMw: 12400,
+      embeddedMissing: [],
+    });
+    expect(byTime.get("2026-06-28 10:30:00")).toEqual({
+      time: "2026-06-28 10:30:00",
+      demandMw: null,
+      domesticGenerationMw: 12500,
+      embeddedMissing: [],
+    });
+    expect(byTime.get("2026-06-28 11:00:00")).toEqual({
+      time: "2026-06-28 11:00:00",
+      demandMw: null,
+      domesticGenerationMw: 12600,
+      embeddedMissing: [],
+    });
+    expect(byTime.get("2026-06-28 11:30:00")).toEqual({
+      time: "2026-06-28 11:30:00",
+      demandMw: null,
+      domesticGenerationMw: 10300,
+      embeddedMissing: ["embedded_wind", "embedded_solar"],
+    });
+  });
+
+  it("carries 7d embedded readings across a one-hour gap and flags a two-hour gap", () => {
+    const series = buildDemandBalanceSeries(
+      [],
+      [
+        generation("2026-06-28 10:00:00", "wind", 10000),
+        generation("2026-06-28 10:00:00", "embedded_wind", 1800, "neso"),
+        generation("2026-06-28 10:00:00", "embedded_solar", 500, "pvlive"),
+        generation("2026-06-28 11:00:00", "wind", 11000),
+        generation("2026-06-28 12:00:00", "wind", 12000),
+      ],
+      "7d"
+    );
+    const byTime = new Map(series.map((point) => [point.time, point]));
+
+    expect(byTime.get("2026-06-28 10:00:00")?.domesticGenerationMw).toBe(12300);
+    expect(byTime.get("2026-06-28 10:00:00")?.embeddedMissing).toEqual([]);
+    expect(byTime.get("2026-06-28 11:00:00")?.domesticGenerationMw).toBe(13300);
+    expect(byTime.get("2026-06-28 11:00:00")?.embeddedMissing).toEqual([]);
+    expect(byTime.get("2026-06-28 12:00:00")?.domesticGenerationMw).toBe(12000);
+    expect(byTime.get("2026-06-28 12:00:00")?.embeddedMissing).toEqual([
+      "embedded_wind",
+      "embedded_solar",
+    ]);
+  });
+
+  it("carries 30d embedded wind one daily bucket and flags the next", () => {
+    const series = buildDemandBalanceSeries(
+      [],
+      [
+        generation("2026-06-28 00:00:00", "wind", 20000),
+        generation("2026-06-28 00:00:00", "embedded_wind", 1800, "neso"),
+        generation("2026-06-28 00:00:00", "embedded_solar", 4000, "pvlive"),
+        generation("2026-06-29 00:00:00", "wind", 21000),
+        generation("2026-06-29 00:00:00", "embedded_solar", 3900, "pvlive"),
+        generation("2026-06-30 00:00:00", "wind", 22000),
+        generation("2026-06-30 00:00:00", "embedded_solar", 3800, "pvlive"),
+      ],
+      "30d"
+    );
+    const byDay = new Map(series.map((point) => [point.time.slice(0, 10), point]));
+
+    expect(byDay.get("2026-06-28")?.domesticGenerationMw).toBe(25800);
+    expect(byDay.get("2026-06-28")?.embeddedMissing).toEqual([]);
+    expect(byDay.get("2026-06-29")?.domesticGenerationMw).toBe(26700);
+    expect(byDay.get("2026-06-29")?.embeddedMissing).toEqual([]);
+    expect(byDay.get("2026-06-30")?.domesticGenerationMw).toBe(25800);
+    expect(byDay.get("2026-06-30")?.embeddedMissing).toEqual(["embedded_wind"]);
+  });
+
+  it("does not fabricate 1y embedded wind across a multi-day NESO outage", () => {
+    const days = ["2026-07-03", "2026-07-04", "2026-07-05", "2026-07-06", "2026-07-07"];
+    const rows: Generation5min[] = [];
+    for (const day of days) {
+      rows.push(generation(`${day} 00:00:00`, "wind", 20000));
+      rows.push(generation(`${day} 00:00:00`, "embedded_solar", 3500, "pvlive"));
+    }
+    rows.push(generation("2026-07-03 00:00:00", "embedded_wind", 1600, "neso"));
+
+    const series = buildDemandBalanceSeries([], rows, "1y");
+    const byDay = new Map(series.map((point) => [point.time.slice(0, 10), point]));
+
+    expect(byDay.get("2026-07-03")?.domesticGenerationMw).toBe(25100);
+    expect(byDay.get("2026-07-03")?.embeddedMissing).toEqual([]);
+    expect(byDay.get("2026-07-04")?.domesticGenerationMw).toBe(25100);
+    expect(byDay.get("2026-07-04")?.embeddedMissing).toEqual([]);
+    expect(byDay.get("2026-07-05")?.domesticGenerationMw).toBe(23500);
+    expect(byDay.get("2026-07-05")?.embeddedMissing).toEqual(["embedded_wind"]);
+    expect(byDay.get("2026-07-06")?.domesticGenerationMw).toBe(23500);
+    expect(byDay.get("2026-07-06")?.embeddedMissing).toEqual(["embedded_wind"]);
+    expect(byDay.get("2026-07-07")?.domesticGenerationMw).toBe(23500);
+    expect(byDay.get("2026-07-07")?.embeddedMissing).toEqual(["embedded_wind"]);
+  });
+
+  it("flags 1y leading days that never had an embedded wind observation", () => {
+    const series = buildDemandBalanceSeries(
+      [],
+      [
+        generation("2025-09-29 00:00:00", "wind", 18000),
+        generation("2025-09-29 00:00:00", "embedded_solar", 2000, "pvlive"),
+        generation("2025-09-30 00:00:00", "wind", 18100),
+        generation("2025-09-30 00:00:00", "embedded_solar", 2100, "pvlive"),
+        generation("2025-10-01 00:00:00", "wind", 18200),
+        generation("2025-10-01 00:00:00", "embedded_solar", 2200, "pvlive"),
+        generation("2025-10-01 00:00:00", "embedded_wind", 1500, "neso"),
+      ],
+      "1y"
+    );
+    const byDay = new Map(series.map((point) => [point.time.slice(0, 10), point]));
+
+    expect(byDay.get("2025-09-29")?.domesticGenerationMw).toBe(20000);
+    expect(byDay.get("2025-09-29")?.embeddedMissing).toEqual(["embedded_wind"]);
+    expect(byDay.get("2025-09-30")?.domesticGenerationMw).toBe(20200);
+    expect(byDay.get("2025-09-30")?.embeddedMissing).toEqual(["embedded_wind"]);
+    expect(byDay.get("2025-10-01")?.domesticGenerationMw).toBe(21900);
+    expect(byDay.get("2025-10-01")?.embeddedMissing).toEqual([]);
   });
 });
