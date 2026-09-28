@@ -57,7 +57,7 @@ export function GenerationDesk({
         ))}
       </div>
 
-      <div className="rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
+      <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
         <div className="mb-4 flex items-center gap-2">
           <h3 className="text-xs font-medium text-gray-900">Powering Britain now</h3>
           <InfoTooltip
@@ -69,7 +69,7 @@ export function GenerationDesk({
         <GenerationNowCard view={nowView} />
       </div>
 
-      <div className="rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
+      <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-medium text-gray-900">Demand and domestic generation</h3>

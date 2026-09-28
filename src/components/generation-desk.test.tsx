@@ -111,5 +111,6 @@ describe("generation desk layout", () => {
     expect(html).toContain("19.3");
     expect(html).toContain("h-3");
     expect(html).toContain("rounded-full");
+    expect(html).not.toContain("truncate");
   });
 });
