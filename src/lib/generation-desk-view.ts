@@ -76,11 +76,15 @@ export type DemandBalanceChartPoint = {
   time: string;
   demandGw: number | null;
   generationGw: number | null;
+  demandDailyGw: number | null;
+  generationDailyGw: number | null;
   gapBaseGw: number | null;
   importGw: number | null;
   exportGw: number | null;
   embeddedMissing: DemandBalancePoint["embeddedMissing"];
 };
+
+export const ROLLING_AVERAGE_DAYS = 7;
 
 export function formatPlainSettlementWindow(timestamp: string): string {
   return formatSettlementWindow(timestamp).replace(/^SP \d+, /, "");
@@ -105,7 +109,7 @@ export function buildGenerationDeskView(facts: LatestFacts, now: Date): Generati
       generationRows: aligned.generationRows,
     }),
     nowView: buildNowBySourceView(aligned.generationRows, aligned.demand.value),
-    delayNote: fuelinstDelayNote(facts.generationRows, now),
+    delayNote: facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now),
     alignmentNote: aligned.alignmentNote,
   };
 }
@@ -184,7 +188,7 @@ export function alignAnswerPeriod(facts: LatestFacts): {
     },
     netImportsMw: {
       ...facts.netImportsMw,
-      value: split.interconnectors.length > 0 ? split.netTransfersMw : null,
+      value: netImportsInPeriod(split.interconnectors, alignedTimestamp),
       periodStartUtc: bounds.startUtc,
       periodEndUtc: bounds.endUtc,
     },
@@ -249,6 +253,8 @@ export function buildDemandBalanceChartPoints(
         time: point.time,
         demandGw,
         generationGw,
+        demandDailyGw: null,
+        generationDailyGw: null,
         gapBaseGw: null,
         importGw: null,
         exportGw: null,
@@ -261,12 +267,77 @@ export function buildDemandBalanceChartPoints(
       time: point.time,
       demandGw,
       generationGw,
+      demandDailyGw: null,
+      generationDailyGw: null,
       gapBaseGw,
       importGw: demandGw > generationGw ? demandGw - generationGw : 0,
       exportGw: generationGw > demandGw ? generationGw - demandGw : 0,
       embeddedMissing: point.embeddedMissing,
     };
   });
+}
+
+export function usesLongRangeSmoothing(range: TimeRange): boolean {
+  switch (range) {
+    case "90d":
+    case "1y":
+      return true;
+    case "24h":
+    case "7d":
+    case "30d":
+      return false;
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
+  }
+}
+
+export function prepareDemandBalanceChartData(
+  series: DemandBalancePoint[],
+  range: TimeRange
+): DemandBalanceChartPoint[] {
+  const points = clipTrailingEmptyChartPoints(buildDemandBalanceChartPoints(series));
+  const trimmed = range === "24h" ? dropLeadingIncompleteChartPoints(points) : points;
+  return usesLongRangeSmoothing(range)
+    ? applyRollingAverage(trimmed, ROLLING_AVERAGE_DAYS)
+    : trimmed;
+}
+
+export function dropLeadingIncompleteChartPoints(
+  points: DemandBalanceChartPoint[]
+): DemandBalanceChartPoint[] {
+  const start = points.findIndex(isCompletePlottedPoint);
+  if (start <= 0) {
+    return points;
+  }
+  return points.slice(start);
+}
+
+export function applyRollingAverage(
+  points: DemandBalanceChartPoint[],
+  window: number
+): DemandBalanceChartPoint[] {
+  const demandSmooth = rollingMean(
+    points.map((point) => point.demandGw),
+    window
+  );
+  const generationSmooth = rollingMean(
+    points.map((point) => point.generationGw),
+    window
+  );
+
+  return points.map((point, index) =>
+    withGap(
+      {
+        ...point,
+        demandDailyGw: point.demandGw,
+        generationDailyGw: point.generationGw,
+        demandGw: demandSmooth[index] ?? null,
+        generationGw: generationSmooth[index] ?? null,
+      }
+    )
+  );
 }
 
 export function clipTrailingEmptyChartPoints(
@@ -300,7 +371,13 @@ export function gwAxisTicks(maxGw: number): number[] {
 export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[] {
   let maxGw = 0;
   for (const point of points) {
-    maxGw = Math.max(maxGw, point.demandGw ?? 0, point.generationGw ?? 0);
+    maxGw = Math.max(
+      maxGw,
+      point.demandGw ?? 0,
+      point.generationGw ?? 0,
+      point.demandDailyGw ?? 0,
+      point.generationDailyGw ?? 0
+    );
   }
   return gwAxisTicks(maxGw);
 }
@@ -528,6 +605,63 @@ function mwToGw(valueMw: number | null): number | null {
     return null;
   }
   return valueMw / 1000;
+}
+
+function netImportsInPeriod(rows: Generation5min[], timestamp: string): number | null {
+  const periodStart = settlementStartMs(timestamp);
+  let total = 0;
+  let count = 0;
+
+  for (const row of rows) {
+    if (settlementStartMs(row.timestamp) !== periodStart) {
+      continue;
+    }
+    total += row.generation_mw;
+    count += 1;
+  }
+
+  return count > 0 ? total : null;
+}
+
+function isCompletePlottedPoint(point: DemandBalanceChartPoint): boolean {
+  return point.generationGw != null && point.embeddedMissing.length === 0;
+}
+
+function rollingMean(values: Array<number | null>, window: number): Array<number | null> {
+  return values.map((_, index) => {
+    const start = Math.max(0, index - window + 1);
+    let sum = 0;
+    let count = 0;
+    for (let cursor = start; cursor <= index; cursor += 1) {
+      const value = values[cursor];
+      if (value == null) {
+        continue;
+      }
+      sum += value;
+      count += 1;
+    }
+    return count > 0 ? sum / count : null;
+  });
+}
+
+function withGap(point: DemandBalanceChartPoint): DemandBalanceChartPoint {
+  const demandGw = point.demandGw;
+  const generationGw = point.generationGw;
+  if (demandGw == null || generationGw == null) {
+    return {
+      ...point,
+      gapBaseGw: null,
+      importGw: null,
+      exportGw: null,
+    };
+  }
+
+  return {
+    ...point,
+    gapBaseGw: Math.min(demandGw, generationGw),
+    importGw: demandGw > generationGw ? demandGw - generationGw : 0,
+    exportGw: generationGw > demandGw ? generationGw - demandGw : 0,
+  };
 }
 
 function settlementStartMs(timestamp: string): number {

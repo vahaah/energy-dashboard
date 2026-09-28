@@ -26,14 +26,14 @@ import {
   formatEmbeddedMissingNote,
 } from "@/lib/dashboard-model";
 import {
-  buildDemandBalanceChartPoints,
-  clipTrailingEmptyChartPoints,
   demandBalanceGapLabel,
   demandBalanceXTicks,
   demandBalanceYTicks,
   formatDemandBalanceTick,
   formatDemandBalanceTooltipLabel,
   lastDefinedIndex,
+  prepareDemandBalanceChartData,
+  usesLongRangeSmoothing,
   type DemandBalanceChartPoint,
 } from "@/lib/generation-desk-view";
 
@@ -92,9 +92,16 @@ export function DemandBalanceTooltip({
         }
 
         const key = String(entry.dataKey ?? entry.name ?? "");
+        let daily: number | null = null;
+        if (key === "demandGw") {
+          daily = point?.demandDailyGw ?? null;
+        } else if (key === "generationGw") {
+          daily = point?.generationDailyGw ?? null;
+        }
         return (
           <p key={key}>
             {SERIES_LABELS[key] ?? key}: {Number(entry.value).toFixed(1)} GW
+            {daily != null ? ` · daily ${daily.toFixed(1)} GW` : null}
           </p>
         );
       })}
@@ -108,7 +115,8 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
   const { ref, width } = useElementWidth();
   const compact = width > 0 && width < COMPACT_CHART_WIDTH;
   const series = buildDemandBalanceSeries(snapshots, generation, range);
-  const chartData = clipTrailingEmptyChartPoints(buildDemandBalanceChartPoints(series));
+  const chartData = prepareDemandBalanceChartData(series, range);
+  const smoothed = usesLongRangeSmoothing(range);
   const yTicks = demandBalanceYTicks(chartData);
   const xTicks = demandBalanceXTicks(
     chartData.map((point) => point.time),
@@ -166,6 +174,32 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
               wrapperStyle={{ zIndex: 320 }}
             />
             <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />
+            {smoothed ? (
+              <Line
+                type="monotone"
+                dataKey="demandDailyGw"
+                stroke="transparent"
+                strokeWidth={0}
+                dot={{ r: 1.5, fill: DEMAND_SERIES_COLOR, fillOpacity: 0.28 }}
+                legendType="none"
+                tooltipType="none"
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ) : null}
+            {smoothed ? (
+              <Line
+                type="monotone"
+                dataKey="generationDailyGw"
+                stroke="transparent"
+                strokeWidth={0}
+                dot={{ r: 1.5, fill: DOMESTIC_GENERATION_SERIES_COLOR, fillOpacity: 0.28 }}
+                legendType="none"
+                tooltipType="none"
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ) : null}
             <Area
               type="monotone"
               dataKey="gapBaseGw"
@@ -260,6 +294,11 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
           </ComposedChart>
         </ResponsiveContainer>
       </ResponsiveChartFrame>
+      {smoothed ? (
+        <p className="text-xs font-medium text-gray-1000">
+          Lines are 7-day averages; dots are daily values.
+        </p>
+      ) : null}
       {compact ? <SeriesKey /> : null}
     </div>
   );

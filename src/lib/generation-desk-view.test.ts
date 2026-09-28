@@ -6,8 +6,10 @@ import {
   buildGenerationDeskView,
   buildNowBySourceView,
   clipTrailingEmptyChartPoints,
+  dropLeadingIncompleteChartPoints,
   demandBalanceGapLabel,
   demandBalanceXTicks,
+  prepareDemandBalanceChartData,
   formatDemandBalanceTick,
   formatPlainSettlementWindow,
   FUELINST_STALE_MS,
@@ -15,6 +17,7 @@ import {
   GENERATION_DESK_RANGE_OPTIONS,
   gwAxisTicks,
 } from "@/lib/generation-desk-view";
+import type { DemandBalancePoint } from "@/lib/dashboard-model";
 import type { LatestFacts } from "@/lib/facts";
 import type { Generation5min } from "@/lib/types";
 
@@ -143,6 +146,38 @@ describe("generation answer row", () => {
     );
     expect(view.nowView.totalMw).toBe(19000);
     expect(view.nowView.rows.map((row) => row.fuel).slice(0, 2)).toEqual(["gas", "wind"]);
+  });
+
+  it("does not carry an older interconnector into the aligned settlement period", () => {
+    const aligned = alignAnswerPeriod(
+      facts({
+        generationMw: fact(20215, "2026-09-28T03:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1147, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 03:00:00", "ccgt", 8000),
+          generation("2026-09-28 03:00:00", "intfr", 1147),
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:00:00", "intfr", 900),
+        ],
+      })
+    );
+
+    expect(aligned.netImportsMw.value).toBeNull();
+    expect(aligned.generationMw.value).toBe(19000);
+  });
+
+  it("hides the live delay note on a historical day", () => {
+    const view = buildGenerationDeskView(
+      facts({
+        isHistorical: true,
+        generationRows: [generation("2026-09-20 03:00:00", "ccgt", 8000)],
+      }),
+      new Date("2026-09-28T12:00:00.000Z")
+    );
+
+    expect(view.delayNote).toBeNull();
   });
 
   it("keeps a positive net-imports sign when GB is importing", () => {
@@ -274,6 +309,8 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 07:00:00",
       demandGw: 24,
       generationGw: 20,
+      demandDailyGw: null,
+      generationDailyGw: null,
       gapBaseGw: 20,
       importGw: 4,
       exportGw: 0,
@@ -283,6 +320,8 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 07:30:00",
       demandGw: 18,
       generationGw: 22,
+      demandDailyGw: null,
+      generationDailyGw: null,
       gapBaseGw: 18,
       importGw: 0,
       exportGw: 4,
@@ -292,6 +331,8 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 08:00:00",
       demandGw: null,
       generationGw: 21,
+      demandDailyGw: null,
+      generationDailyGw: null,
       gapBaseGw: null,
       importGw: null,
       exportGw: null,
@@ -396,6 +437,82 @@ describe("demand balance chart view", () => {
       "2026-01-15 18:00:00",
     ]);
   });
+
+  it("drops leading 24h points that are missing embedded generation", () => {
+    const series: DemandBalancePoint[] = [
+      {
+        time: "2026-09-27 10:00:00",
+        demandMw: 27000,
+        domesticGenerationMw: 21000,
+        embeddedMissing: ["embedded_wind", "embedded_solar"],
+      },
+      {
+        time: "2026-09-27 10:30:00",
+        demandMw: 28000,
+        domesticGenerationMw: 30000,
+        embeddedMissing: [],
+      },
+      {
+        time: "2026-09-27 11:00:00",
+        demandMw: 28500,
+        domesticGenerationMw: 30200,
+        embeddedMissing: [],
+      },
+    ];
+    const points = prepareDemandBalanceChartData(series, "24h");
+
+    expect(points.map((point) => point.time)).toEqual([
+      "2026-09-27 10:30:00",
+      "2026-09-27 11:00:00",
+    ]);
+    expect(points[0]?.generationGw).toBe(30);
+    expect(prepareDemandBalanceChartData(series, "7d").map((point) => point.time)).toEqual([
+      "2026-09-27 10:00:00",
+      "2026-09-27 10:30:00",
+      "2026-09-27 11:00:00",
+    ]);
+  });
+
+  it("keeps a leading incomplete 24h point when every point is incomplete", () => {
+    const points = dropLeadingIncompleteChartPoints(
+      buildDemandBalanceChartPoints([
+        {
+          time: "2026-09-27 10:00:00",
+          demandMw: 27000,
+          domesticGenerationMw: 21000,
+          embeddedMissing: ["embedded_wind"],
+        },
+        {
+          time: "2026-09-27 10:30:00",
+          demandMw: 28000,
+          domesticGenerationMw: 22000,
+          embeddedMissing: ["embedded_wind"],
+        },
+      ])
+    );
+
+    expect(points).toHaveLength(2);
+  });
+
+  it("smooths 1y and 90d with a 7-day average over daily values", () => {
+    const series: DemandBalancePoint[] = [10, 20, 30, 40, 50, 60, 70].map((gw, index) => ({
+      time: `2026-01-0${index + 1} 00:00:00`,
+      demandMw: gw * 1000,
+      domesticGenerationMw: (gw - 2) * 1000,
+      embeddedMissing: [],
+    }));
+    const points = prepareDemandBalanceChartData(series, "1y");
+    const last = points.at(-1);
+
+    expect(last?.demandDailyGw).toBe(70);
+    expect(last?.generationDailyGw).toBe(68);
+    expect(last?.demandGw).toBe(40);
+    expect(last?.generationGw).toBe(38);
+    expect(last?.importGw).toBe(2);
+    expect(points[0]?.demandGw).toBe(10);
+    expect(prepareDemandBalanceChartData(series, "90d").at(-1)?.demandGw).toBe(40);
+    expect(prepareDemandBalanceChartData(series, "30d").at(-1)?.demandGw).toBe(70);
+  });
 });
 
 function emptyPoint() {
@@ -403,6 +520,8 @@ function emptyPoint() {
     time: "2026-09-28 07:00:00",
     demandGw: null,
     generationGw: null,
+    demandDailyGw: null,
+    generationDailyGw: null,
     gapBaseGw: null,
     importGw: null,
     exportGw: null,
