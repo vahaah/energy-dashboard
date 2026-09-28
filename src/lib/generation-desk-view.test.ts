@@ -776,6 +776,34 @@ describe("demand balance chart view", () => {
     expect(last?.importGw).toBe(0);
     expect(last?.exportGw).toBe(0);
   });
+
+  it("masks both rolling series when either current sample is missing", () => {
+    const series: DemandBalancePoint[] = [
+      { time: "2026-01-01 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-02 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-03 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-04 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-05 00:00:00", demandMw: 80000, domesticGenerationMw: null, embeddedMissing: [] },
+      { time: "2026-01-06 00:00:00", demandMw: null, domesticGenerationMw: 18000, embeddedMissing: [] },
+      { time: "2026-01-07 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+    ];
+    const points = prepareDemandBalanceChartData(series, "1y");
+    const missingGeneration = points[4];
+    const missingDemand = points[5];
+    const last = points.at(-1);
+
+    expect(missingGeneration?.demandDailyGw).toBe(80);
+    expect(missingGeneration?.generationDailyGw).toBeNull();
+    expect(missingGeneration?.demandGw).toBeNull();
+    expect(missingGeneration?.generationGw).toBeNull();
+    expect(missingDemand?.demandDailyGw).toBeNull();
+    expect(missingDemand?.generationDailyGw).toBe(18);
+    expect(missingDemand?.demandGw).toBeNull();
+    expect(missingDemand?.generationGw).toBeNull();
+    expect(last?.demandGw).toBe(20);
+    expect(last?.generationGw).toBe(20);
+    expect(last?.importGw).toBe(0);
+  });
 });
 
 function emptyPoint() {

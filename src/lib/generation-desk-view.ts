@@ -777,9 +777,16 @@ function pairedRollingMeans(
       count += 1;
     }
 
+    const currentComplete = demand[index] != null && generation[index] != null;
     const enough = count >= minCount;
-    demandOut.push(demand[index] == null || !enough ? null : demandSum / count);
-    generationOut.push(generation[index] == null || !enough ? null : generationSum / count);
+    if (!currentComplete || !enough) {
+      demandOut.push(null);
+      generationOut.push(null);
+      continue;
+    }
+
+    demandOut.push(demandSum / count);
+    generationOut.push(generationSum / count);
   }
 
   return { demand: demandOut, generation: generationOut };
