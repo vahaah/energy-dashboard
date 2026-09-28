@@ -13,6 +13,8 @@ import {
 import { formatHeadlineGw, type Fact, type LatestFacts } from "@/lib/facts";
 import {
   formatLondonClock,
+  formatLondonDateLabel,
+  formatLondonDayMonthYear,
   getLondonDateTimeParts,
   getLondonOffsetLabel,
   parseUtcDateTime,
@@ -71,6 +73,14 @@ export type GenerationDeskView = {
   nowView: NowBySourceView;
   delayNote: string | null;
   alignmentNote: string | null;
+  sourceCopy: GenerationSourceCopy;
+};
+
+export type GenerationSourceCopy = {
+  title: string;
+  subtitle: string;
+  tooltip: string;
+  tooltipLabel: string;
 };
 
 export type DemandBalanceChartPoint = {
@@ -102,9 +112,9 @@ export function buildGenerationAnswerStats(facts: LatestFacts): GenerationAnswer
 export function buildGenerationDeskView(
   facts: LatestFacts,
   now: Date,
-  snapshots: EnergySnapshot[] = []
+  headlineSnapshots: EnergySnapshot[] = []
 ): GenerationDeskView {
-  const aligned = alignAnswerPeriod(facts, snapshots);
+  const aligned = alignAnswerPeriod(facts, headlineSnapshots);
   return {
     answers: buildGenerationAnswerStats({
       ...facts,
@@ -116,6 +126,34 @@ export function buildGenerationDeskView(
     nowView: buildNowBySourceView(aligned.generationRows, aligned.demand.value),
     delayNote: facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now),
     alignmentNote: aligned.alignmentNote,
+    sourceCopy: generationSourceCopy(facts),
+  };
+}
+
+export function generationSourceCopy(facts: LatestFacts): GenerationSourceCopy {
+  if (!facts.isHistorical) {
+    return {
+      title: "Powering Britain now",
+      subtitle: "Now, by source · sorted by size · share of demand",
+      tooltip:
+        "Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list.",
+      tooltipLabel: "What is Powering Britain now?",
+    };
+  }
+
+  const when = historicalSourceWhen(facts);
+  const title = when
+    ? `Powering Britain at ${when}`
+    : `Powering Britain on ${formatLondonDayMonthYear(facts.requestedDate)}`;
+  const frame = when
+    ? `the Elexon FUELINST frame at ${when}`
+    : `the Elexon FUELINST frame for ${formatLondonDayMonthYear(facts.requestedDate)}`;
+
+  return {
+    title,
+    subtitle: "By source · sorted by size · share of demand",
+    tooltip: `Domestic generation from ${frame}, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list.`,
+    tooltipLabel: `What is ${title}?`,
   };
 }
 
@@ -135,7 +173,7 @@ export function fuelinstDelayNote(rows: Generation5min[], now: Date): string | n
 
 export function alignAnswerPeriod(
   facts: LatestFacts,
-  snapshots: EnergySnapshot[] = []
+  headlineSnapshots: EnergySnapshot[] = []
 ): {
   generationMw: Fact<number>;
   demand: Fact<number>;
@@ -169,7 +207,7 @@ export function alignAnswerPeriod(
   }
 
   if (demandStart > preferredStart) {
-    const periodDemand = demandInPeriod(snapshots, preferredStart);
+    const periodDemand = demandInPeriod(headlineSnapshots, preferredStart);
     return stampAlignedPeriod(
       facts,
       facts.generationRows,
@@ -659,6 +697,19 @@ function stampAlignedPeriod(
     generationRows,
     alignmentNote,
   };
+}
+
+function historicalSourceWhen(facts: LatestFacts): string | null {
+  const timestamp =
+    latestFuelinstTimestamp(facts.generationRows) ??
+    facts.generationMw.periodStartUtc ??
+    facts.referenceTimestamp;
+  if (!timestamp) {
+    return null;
+  }
+
+  const date = parseUtcDateTime(timestamp);
+  return `${formatLondonClock(date)} on ${formatLondonDateLabel(date)}`;
 }
 
 function demandInPeriod(snapshots: EnergySnapshot[], periodStartMs: number): number | null {

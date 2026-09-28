@@ -5,6 +5,7 @@ import {
   buildGenerationAnswerStats,
   buildGenerationDeskView,
   buildNowBySourceView,
+  generationSourceCopy,
   clipTrailingEmptyChartPoints,
   dropLeadingIncompleteChartPoints,
   demandBalanceGapLabel,
@@ -313,6 +314,56 @@ describe("generation answer row", () => {
     expect(view.alignmentNote).toBeNull();
     expect(view.nowView.totalDemandPctLabel).toBe("88.4%");
     expect(view.nowView.rows.find((row) => row.fuel === "gas")?.demandPctLabel).toBe("46.5%");
+  });
+
+  it("recovers half-hour demand from native headline snapshots, not a daily chart bucket", () => {
+    const newerDemand = facts({
+      generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+      demand: fact(25000, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+      netImportsMw: fact(1300, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+      generationRows: [
+        generation("2026-09-28 02:30:00", "ccgt", 10000),
+        generation("2026-09-28 02:30:00", "wind", 9000),
+        generation("2026-09-28 02:30:00", "intned", 400),
+      ],
+    });
+    const now = new Date("2026-09-28T03:10:00.000Z");
+    const dailyChart = buildGenerationDeskView(newerDemand, now, [
+      snapshot("2026-09-28 00:00:00", 25000),
+    ]);
+    const headline = buildGenerationDeskView(newerDemand, now, [
+      snapshot("2026-09-28 02:30:00", 21500),
+    ]);
+
+    expect(dailyChart.answers[1]?.value).toBe("—");
+    expect(dailyChart.nowView.totalDemandPctLabel).toBe("—");
+    expect(headline.answers[1]?.value).toBe("21.5");
+    expect(headline.nowView.totalDemandPctLabel).toBe("88.4%");
+  });
+});
+
+describe("generation source copy", () => {
+  it("names the live card now and the historical card by settlement time", () => {
+    expect(generationSourceCopy(facts()).title).toBe("Powering Britain now");
+    expect(generationSourceCopy(facts()).subtitle).toContain("Now, by source");
+    expect(generationSourceCopy(facts()).tooltip).toContain("latest Elexon FUELINST");
+
+    const historical = generationSourceCopy(
+      facts({
+        isHistorical: true,
+        requestedDate: "2026-09-20",
+        generationMw: fact(8000, "2026-09-20T22:30:00.000Z", "Elexon BMRS"),
+        generationRows: [generation("2026-09-20 22:30:00", "ccgt", 8000)],
+        referenceTimestamp: "2026-09-20T22:30:00.000Z",
+      })
+    );
+
+    expect(historical.title).toBe("Powering Britain at 23:30 BST on 20 Sep 2026");
+    expect(historical.subtitle).toBe("By source · sorted by size · share of demand");
+    expect(historical.tooltip).toContain("Elexon FUELINST frame at 23:30 BST on 20 Sep 2026");
+    expect(historical.tooltip).not.toContain("latest");
+    expect(historical.tooltip).not.toContain(" now");
+    expect(historical.tooltipLabel).toBe("What is Powering Britain at 23:30 BST on 20 Sep 2026?");
   });
 });
 

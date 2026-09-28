@@ -13,6 +13,7 @@ import { buildGenerationDeskView, GENERATION_DESK_RANGE_OPTIONS } from "@/lib/ge
 interface Props {
   facts: LatestFacts;
   snapshots: EnergySnapshot[];
+  headlineSnapshots: EnergySnapshot[];
   generation: Generation5min[];
   range: TimeRange;
   pending?: boolean;
@@ -23,16 +24,17 @@ interface Props {
 export function GenerationDesk({
   facts,
   snapshots,
+  headlineSnapshots,
   generation,
   range,
   pending = false,
   now = new Date(),
   onRangeChange,
 }: Props) {
-  const { answers, nowView, delayNote, alignmentNote } = buildGenerationDeskView(
+  const { answers, nowView, delayNote, alignmentNote, sourceCopy } = buildGenerationDeskView(
     facts,
     now,
-    snapshots
+    headlineSnapshots
   );
   const hasChart = snapshots.length > 0 || generation.length > 0;
   const notes: string[] = [];
@@ -76,13 +78,13 @@ export function GenerationDesk({
 
       <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
         <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-xs font-medium text-gray-1000">Powering Britain now</h3>
+          <h3 className="text-xs font-medium text-gray-1000">{sourceCopy.title}</h3>
           <InfoTooltip
-            text="Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list."
-            label="What is Powering Britain now?"
+            text={sourceCopy.tooltip}
+            label={sourceCopy.tooltipLabel}
           />
         </div>
-        <p className="mb-4 text-sm text-gray-900">Now, by source · sorted by size · share of demand</p>
+        <p className="mb-4 text-sm text-gray-900">{sourceCopy.subtitle}</p>
         <GenerationNowCard view={nowView} />
       </div>
 

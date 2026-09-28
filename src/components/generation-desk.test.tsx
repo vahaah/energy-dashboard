@@ -98,6 +98,7 @@ describe("generation desk layout", () => {
       <GenerationDesk
         facts={facts(rows)}
         snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        headlineSnapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
         generation={rows}
         range="24h"
         now={new Date("2026-09-28T07:10:00.000Z")}
@@ -106,6 +107,7 @@ describe("generation desk layout", () => {
     );
     const dashboardSource = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
     const deskSource = readFileSync(resolve(import.meta.dirname, "./generation-desk.tsx"), "utf8");
+    const pageSource = readFileSync(resolve(import.meta.dirname, "../app/page.tsx"), "utf8");
 
     expect(html).toContain("data-stat=\"generating\"");
     expect(html).toContain("data-stat=\"demand\"");
@@ -131,10 +133,43 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Demand profile");
     expect(html).not.toContain("Generation desk");
     expect(dashboardSource).toContain("What's powering Britain");
+    expect(pageSource).toContain("headlineSnapshots={headlineSnapshots}");
+    expect(dashboardSource).toContain("headlineSnapshots={headlineSnapshots}");
     expect(dashboardSource).not.toContain("GenerationMixChart");
     expect(dashboardSource).not.toContain("DemandChart");
     expect(dashboardSource).not.toContain("Demand profile");
     expect(deskSource).toContain("h-60");
+    expect(deskSource).toContain("headlineSnapshots");
+  });
+
+  it("labels a historical day by settlement time instead of now", () => {
+    const historical = facts([generation("2026-09-20 22:30:00", "ccgt", 8000)]);
+    historical.isHistorical = true;
+    historical.requestedDate = "2026-09-20";
+    historical.generationMw = {
+      ...historical.generationMw,
+      value: 8000,
+      periodStartUtc: "2026-09-20T22:30:00.000Z",
+    };
+    historical.referenceTimestamp = "2026-09-20T22:30:00.000Z";
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={historical}
+        snapshots={[snapshot("2026-09-20 00:00:00", 21000)]}
+        headlineSnapshots={[snapshot("2026-09-20 22:30:00", 21000)]}
+        generation={[]}
+        range="1y"
+        now={new Date("2026-09-28T12:00:00.000Z")}
+        onRangeChange={() => undefined}
+      />
+    );
+
+    expect(html).toContain("Powering Britain at 23:30 BST on 20 Sep 2026");
+    expect(html).toContain("By source · sorted by size · share of demand");
+    expect(html).toContain('aria-label="What is Powering Britain at 23:30 BST on 20 Sep 2026?"');
+    expect(html).not.toContain("Powering Britain now");
+    expect(html).not.toContain("Now, by source");
   });
 
   it("shows missing sources as an em dash with a no-data note", () => {
@@ -182,6 +217,7 @@ describe("generation desk layout", () => {
       <GenerationDesk
         facts={delayed}
         snapshots={[]}
+        headlineSnapshots={[]}
         generation={[]}
         range="24h"
         now={new Date("2026-09-28T08:00:00.000Z")}

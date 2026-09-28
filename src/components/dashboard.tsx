@@ -79,6 +79,7 @@ interface Props {
   todayDate: string;
   facts: LatestFacts;
   initialSnapshots: EnergySnapshot[];
+  headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
 }
@@ -89,6 +90,7 @@ export function Dashboard({
   todayDate,
   facts,
   initialSnapshots,
+  headlineSnapshots,
   initialPrices,
   generationHistory,
 }: Props) {
@@ -593,6 +595,7 @@ export function Dashboard({
               <GenerationDesk
                 facts={facts}
                 snapshots={initialSnapshots}
+                headlineSnapshots={headlineSnapshots}
                 generation={generationHistory}
                 range={range}
                 pending={isPending}
