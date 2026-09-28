@@ -132,7 +132,7 @@ function populatedFacts({
   const demandRow = latestSnapshotWithField(daySnapshots, "demand_mw");
   const priceRow = latestSnapshotWithField(daySnapshots, "price_gbp_mwh");
   const mixSnapshot = latestSnapshotWithMix(daySnapshots);
-  const generationTimestamp = latestTimestampFrom(split.sources);
+  const generationTimestamp = split.latestTimestamp || null;
   const transferTimestamp = latestTimestampFrom(split.interconnectors);
   const referenceTimestamp = latestTimestampAmong([
     carbonRow?.timestamp,
@@ -185,7 +185,8 @@ function populatedFacts({
         unit: "MW",
         source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
         definition: "GB generation including estimated embedded wind and solar",
-      }
+      },
+      generationTimestamp
     ),
     netImportsMw: rowsFact(split.interconnectors, split.netTransfersMw, {
       unit: "MW",
@@ -386,10 +387,13 @@ function snapshotFact(
 function rowsFact(
   rows: Generation5min[],
   value: number,
-  meta: { unit: string; source: string; definition: string }
+  meta: { unit: string; source: string; definition: string },
+  observedAt?: string | null
 ): Fact<number> {
   const observed = rows.length > 0;
-  const period = observed ? periodFromTimestamp(latestTimestampFrom(rows)) : null;
+  const period = observed
+    ? periodFromTimestamp(observedAt ?? latestTimestampFrom(rows))
+    : null;
   return {
     value: observed ? value : null,
     unit: meta.unit,

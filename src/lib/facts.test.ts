@@ -553,6 +553,34 @@ describe("getLatestFacts", () => {
     expect(facts.shares).toHaveLength(8);
   });
 
+  it("keeps generation facts on the fuelinst timestamp when embedded is 10 minutes later", () => {
+    const now = new Date("2026-09-28T05:35:00.000Z");
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate(null, now),
+      snapshots: [
+        makeSnapshot({
+          timestamp: "2026-09-28 04:50:00",
+          demand_mw: 21000,
+          carbon_intensity: 48,
+          price_gbp_mwh: 40,
+        }),
+      ],
+      generation: [
+        makeGeneration("2026-09-28 04:50:00", "wind", 10000),
+        makeGeneration("2026-09-28 04:50:00", "ccgt", 7000),
+        makeGeneration("2026-09-28 05:00:00", "embedded_wind", 800, "neso"),
+      ],
+      now,
+    });
+
+    expect(facts.generationMw.value).toBe(17800);
+    expect(facts.generationMw.periodStartUtc).toBe("2026-09-28T04:30:00.000Z");
+    expect(facts.generationMw.periodEndUtc).toBe("2026-09-28T05:00:00.000Z");
+    expect(facts.referenceTimestamp).toBe("2026-09-28 04:50:00");
+    expect(facts.stamp).toBe("Mon 28 Sep 2026, 05:50 BST");
+    expect(facts.shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(800);
+  });
+
   it("uses stale wording after 2.5 hours on the latest view", () => {
     const now = new Date("2026-09-27T18:45:00.000Z");
     const facts = getLatestFacts({
