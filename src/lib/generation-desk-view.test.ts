@@ -11,6 +11,7 @@ import {
   demandBalanceGapLabel,
   demandBalanceXTicks,
   prepareDemandBalanceChartData,
+  ROLLING_AVERAGE_MIN_DAYS,
   formatDemandBalanceTick,
   formatPlainSettlementWindow,
   FUELINST_STALE_MS,
@@ -674,7 +675,9 @@ describe("demand balance chart view", () => {
     expect(last?.demandGw).toBe(40);
     expect(last?.generationGw).toBe(38);
     expect(last?.importGw).toBe(2);
-    expect(points[0]?.demandGw).toBe(10);
+    expect(points[0]?.demandGw).toBeNull();
+    expect(points[3]?.demandGw).toBe(25);
+    expect(points[3]?.generationGw).toBe(23);
     expect(prepareDemandBalanceChartData(series, "90d").at(-1)?.demandGw).toBe(40);
     expect(prepareDemandBalanceChartData(series, "30d").at(-1)?.demandGw).toBe(70);
   });
@@ -712,7 +715,7 @@ describe("demand balance chart view", () => {
     const hole = missingGeneration[2];
 
     expect(hole?.demandDailyGw).toBe(30);
-    expect(hole?.demandGw).toBe(20);
+    expect(hole?.demandGw).toBeNull();
     expect(hole?.generationDailyGw).toBeNull();
     expect(hole?.generationGw).toBeNull();
     expect(hole?.importGw).toBeNull();
@@ -740,9 +743,38 @@ describe("demand balance chart view", () => {
     expect(missingDemand[1]?.demandDailyGw).toBeNull();
     expect(missingDemand[1]?.demandGw).toBeNull();
     expect(missingDemand[1]?.generationDailyGw).toBe(18);
-    expect(missingDemand[1]?.generationGw).toBe(13);
+    expect(missingDemand[1]?.generationGw).toBeNull();
     expect(missingDemand[1]?.importGw).toBeNull();
     expect(missingDemand[1]?.exportGw).toBeNull();
+  });
+
+  it("averages demand and generation over the same paired days", () => {
+    expect(ROLLING_AVERAGE_MIN_DAYS).toBe(4);
+
+    const series: DemandBalancePoint[] = [
+      { time: "2026-01-01 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-02 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-03 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-04 00:00:00", demandMw: 80000, domesticGenerationMw: null, embeddedMissing: [] },
+      { time: "2026-01-05 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-06 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+      { time: "2026-01-07 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
+    ];
+    const points = prepareDemandBalanceChartData(series, "1y");
+    const last = points.at(-1);
+    const hole = points[3];
+
+    expect(hole?.demandDailyGw).toBe(80);
+    expect(hole?.generationDailyGw).toBeNull();
+    expect(hole?.demandGw).toBeNull();
+    expect(hole?.generationGw).toBeNull();
+    expect(hole?.importGw).toBeNull();
+    expect(last?.demandDailyGw).toBe(20);
+    expect(last?.generationDailyGw).toBe(20);
+    expect(last?.demandGw).toBe(20);
+    expect(last?.generationGw).toBe(20);
+    expect(last?.importGw).toBe(0);
+    expect(last?.exportGw).toBe(0);
   });
 });
 

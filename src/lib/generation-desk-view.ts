@@ -96,6 +96,7 @@ export type DemandBalanceChartPoint = {
 };
 
 export const ROLLING_AVERAGE_DAYS = 7;
+export const ROLLING_AVERAGE_MIN_DAYS = 4;
 
 export function formatPlainSettlementWindow(timestamp: string): string {
   return formatSettlementWindow(timestamp).replace(/^SP \d+, /, "");
@@ -364,13 +365,11 @@ export function applyRollingAverage(
   points: DemandBalanceChartPoint[],
   window: number
 ): DemandBalanceChartPoint[] {
-  const demandSmooth = rollingMean(
+  const smoothed = pairedRollingMeans(
     points.map((point) => point.demandGw),
-    window
-  );
-  const generationSmooth = rollingMean(
     points.map((point) => point.generationGw),
-    window
+    window,
+    ROLLING_AVERAGE_MIN_DAYS
   );
 
   return points.map((point, index) =>
@@ -379,8 +378,8 @@ export function applyRollingAverage(
         ...point,
         demandDailyGw: point.demandGw,
         generationDailyGw: point.generationGw,
-        demandGw: demandSmooth[index] ?? null,
-        generationGw: generationSmooth[index] ?? null,
+        demandGw: smoothed.demand[index] ?? null,
+        generationGw: smoothed.generation[index] ?? null,
       }
     )
   );
@@ -752,25 +751,38 @@ function isCompletePlottedPoint(point: DemandBalanceChartPoint): boolean {
   return point.generationGw != null && point.embeddedMissing.length === 0;
 }
 
-function rollingMean(values: Array<number | null>, window: number): Array<number | null> {
-  return values.map((current, index) => {
-    if (current == null) {
-      return null;
-    }
+function pairedRollingMeans(
+  demand: Array<number | null>,
+  generation: Array<number | null>,
+  window: number,
+  minCount: number
+): { demand: Array<number | null>; generation: Array<number | null> } {
+  const demandOut: Array<number | null> = [];
+  const generationOut: Array<number | null> = [];
 
+  for (let index = 0; index < demand.length; index += 1) {
     const start = Math.max(0, index - window + 1);
-    let sum = 0;
+    let demandSum = 0;
+    let generationSum = 0;
     let count = 0;
+
     for (let cursor = start; cursor <= index; cursor += 1) {
-      const value = values[cursor];
-      if (value == null) {
+      const demandValue = demand[cursor];
+      const generationValue = generation[cursor];
+      if (demandValue == null || generationValue == null) {
         continue;
       }
-      sum += value;
+      demandSum += demandValue;
+      generationSum += generationValue;
       count += 1;
     }
-    return count > 0 ? sum / count : null;
-  });
+
+    const enough = count >= minCount;
+    demandOut.push(demand[index] == null || !enough ? null : demandSum / count);
+    generationOut.push(generation[index] == null || !enough ? null : generationSum / count);
+  }
+
+  return { demand: demandOut, generation: generationOut };
 }
 
 function withGap(point: DemandBalanceChartPoint): DemandBalanceChartPoint {
