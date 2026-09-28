@@ -141,10 +141,11 @@ export function generationSourceCopy(
   frameTimestamp: string | null = null
 ): GenerationSourceCopy {
   const preferredTimestamp = latestFuelinstTimestamp(facts.generationRows);
-  const displayedTimestamp =
-    frameTimestamp ?? preferredTimestamp ?? facts.generationMw.periodStartUtc;
+  const fuelinstFrame = frameTimestamp ?? preferredTimestamp;
+  const displayedTimestamp = fuelinstFrame ?? facts.generationMw.periodStartUtc;
   const showingLatestLive =
     !facts.isHistorical &&
+    fuelinstFrame != null &&
     (frameTimestamp == null || frameTimestamp === preferredTimestamp);
   const carry = embeddedCarryPhrase();
 
@@ -282,7 +283,7 @@ export function buildNowBySourceView(
   const split = splitLatestGenerationRows(generationRows);
   const grouped = groupGenerationMw(split.sources);
   const lastSeen = lastSeenByStackFuel(generationRows);
-  const totalMw = split.totalGenerationMw;
+  const totalMw = split.sources.length === 0 ? null : split.totalGenerationMw;
   const present: NowSourceRow[] = [];
   const missing: NowSourceRow[] = [];
 
@@ -308,14 +309,14 @@ export function buildNowBySourceView(
     .map((row) => ({
       fuel: row.fuel,
       mw: row.mw ?? 0,
-      pct: totalMw > 0 ? ((row.mw ?? 0) / totalMw) * 100 : 0,
+      pct: totalMw != null && totalMw > 0 ? ((row.mw ?? 0) / totalMw) * 100 : 0,
     }));
 
   return {
     rows,
     stacked,
-    totalMw,
-    totalGwLabel: formatHeadlineGw(totalMw === 0 && split.sources.length === 0 ? null : totalMw),
+    totalMw: totalMw ?? 0,
+    totalGwLabel: formatHeadlineGw(totalMw),
     totalDemandPctLabel: demandPctLabel(totalMw, demandMw),
   };
 }
@@ -802,19 +803,21 @@ function demandInPeriod(snapshots: EnergySnapshot[], periodStartMs: number): num
 }
 
 function netImportsInPeriod(rows: Generation5min[], timestamp: string): number | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
   const periodStart = settlementStartMs(timestamp);
   let total = 0;
-  let count = 0;
 
   for (const row of rows) {
     if (settlementStartMs(row.timestamp) !== periodStart) {
-      continue;
+      return null;
     }
     total += row.generation_mw;
-    count += 1;
   }
 
-  return count > 0 ? total : null;
+  return total;
 }
 
 function isCompletePlottedPoint(point: DemandBalanceChartPoint): boolean {

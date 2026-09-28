@@ -233,7 +233,7 @@ describe("generation answer row", () => {
     })[2]?.value).toBe("1.5");
   });
 
-  it("excludes a carried-forward interconnector from same-period net imports", () => {
+  it("rejects a partial interconnector book as the national net-imports total", () => {
     const aligned = alignAnswerPeriod(
       facts({
         generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
@@ -249,9 +249,27 @@ describe("generation answer row", () => {
     );
 
     expect(aligned.alignmentNote).toBeNull();
-    expect(aligned.netImportsMw.value).toBe(400);
+    expect(aligned.netImportsMw.value).toBeNull();
     expect(aligned.netImportsMw.periodStartUtc).toBe("2026-09-28T02:30:00.000Z");
     expect(aligned.demand.value).toBe(21500);
+  });
+
+  it("publishes net imports only when every connector is in the target period", () => {
+    const complete = alignAnswerPeriod(
+      facts({
+        generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1300, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intned", 400),
+          generation("2026-09-28 02:30:00", "intfr", 900),
+        ],
+      })
+    );
+
+    expect(complete.netImportsMw.value).toBe(1300);
   });
 
   it("does not pair newer demand with older generation when no matching snapshot exists", () => {
@@ -277,7 +295,7 @@ describe("generation answer row", () => {
     ]);
     expect(view.answers[0]?.value).toBe("19.0");
     expect(view.answers[1]?.value).toBe("—");
-    expect(view.answers[2]?.value).toBe("0.4");
+    expect(view.answers[2]?.value).toBe("—");
     expect(view.alignmentNote).toBe(
       "Demand is 04:00–04:30 BST. Generation is 03:30–04:00 BST. Shares of demand are hidden."
     );
@@ -312,7 +330,7 @@ describe("generation answer row", () => {
     ]);
     expect(view.answers[0]?.value).toBe("19.0");
     expect(view.answers[1]?.value).toBe("21.5");
-    expect(view.answers[2]?.value).toBe("0.4");
+    expect(view.answers[2]?.value).toBe("—");
     expect(view.alignmentNote).toBeNull();
     expect(view.nowView.totalDemandPctLabel).toBe("88.4%");
     expect(view.nowView.rows.find((row) => row.fuel === "gas")?.demandPctLabel).toBe("46.5%");
@@ -385,11 +403,14 @@ describe("generation answer row", () => {
 
 describe("generation source copy", () => {
   it("names the live card now and the historical card by settlement time", () => {
-    expect(generationSourceCopy(facts()).title).toBe("Powering Britain now");
-    expect(generationSourceCopy(facts()).subtitle).toContain("Now, by source");
-    expect(generationSourceCopy(facts()).tooltip).toContain("latest Elexon FUELINST");
-    expect(generationSourceCopy(facts()).tooltip).toContain("joined at or within one hour");
-    expect(generationSourceCopy(facts()).tooltip).not.toContain("30 minutes");
+    const live = facts({
+      generationRows: [generation("2026-09-28 07:00:00", "ccgt", 8000)],
+    });
+    expect(generationSourceCopy(live).title).toBe("Powering Britain now");
+    expect(generationSourceCopy(live).subtitle).toContain("Now, by source");
+    expect(generationSourceCopy(live).tooltip).toContain("latest Elexon FUELINST");
+    expect(generationSourceCopy(live).tooltip).toContain("joined at or within one hour");
+    expect(generationSourceCopy(live).tooltip).not.toContain("30 minutes");
 
     const historical = generationSourceCopy(
       facts({
@@ -464,6 +485,29 @@ describe("generation source copy", () => {
     expect(copy.tooltip).not.toContain("frame at");
     expect(view.sourceCopy.title).toBe("Powering Britain on 20 Sep 2026");
     expect(view.sourceCopy.tooltip).not.toContain("23:30 BST");
+  });
+
+  it("renders no-frame copy when live generation is unavailable", () => {
+    const missingGeneration = facts({
+      generationMw: fact(null, null, "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+      generationRows: [],
+      referenceTimestamp: "2026-09-28T07:00:00.000Z",
+      demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+    });
+    const copy = generationSourceCopy(missingGeneration);
+    const view = buildGenerationDeskView(
+      missingGeneration,
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+
+    expect(copy.title).toBe("Powering Britain on 28 Sep 2026");
+    expect(copy.tooltip).toBe(
+      "No Elexon FUELINST frame is available for 28 Sep 2026. Interconnectors sit in net imports, not this list."
+    );
+    expect(copy.tooltip).not.toContain("latest");
+    expect(copy.subtitle).not.toContain("Now");
+    expect(view.sourceCopy.title).toBe("Powering Britain on 28 Sep 2026");
+    expect(view.sourceCopy.tooltip).not.toContain("latest Elexon FUELINST");
   });
 });
 
@@ -543,6 +587,15 @@ describe("now by source", () => {
     const view = buildNowBySourceView(rows, 24000);
     expect(view.rows.find((row) => row.fuel === "imports")).toBeUndefined();
     expect(view.totalMw).toBe(19298);
+  });
+
+  it("keeps the total percentage missing when no generation sources exist", () => {
+    const view = buildNowBySourceView([], 24000);
+
+    expect(view.totalGwLabel).toBe("—");
+    expect(view.totalDemandPctLabel).toBe("—");
+    expect(view.totalDemandPctLabel).not.toBe("0.0%");
+    expect(view.rows.every((row) => row.demandPctLabel === "—")).toBe(true);
   });
 });
 
