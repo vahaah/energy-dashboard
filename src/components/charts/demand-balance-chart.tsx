@@ -1,9 +1,10 @@
 "use client";
 
 import {
+  Area,
   CartesianGrid,
   ComposedChart,
-  Legend,
+  LabelList,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -12,13 +13,26 @@ import {
   YAxis,
 } from "recharts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
-import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import {
+  DEMAND_SERIES_COLOR,
+  DOMESTIC_GENERATION_SERIES_COLOR,
+  EXPORT_GAP_COLOR,
+  IMPORT_GAP_COLOR,
+} from "@/lib/colors";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import {
   buildDemandBalanceSeries,
   formatEmbeddedMissingNote,
-  type DemandBalancePoint,
 } from "@/lib/dashboard-model";
+import {
+  buildDemandBalanceChartPoints,
+  demandBalanceXTicks,
+  demandBalanceYTicks,
+  formatDemandBalanceTick,
+  formatDemandBalanceTooltipLabel,
+  lastDefinedIndex,
+  type DemandBalanceChartPoint,
+} from "@/lib/generation-desk-view";
 
 interface Props {
   snapshots: EnergySnapshot[];
@@ -27,18 +41,18 @@ interface Props {
 }
 
 const SERIES_LABELS: Record<string, string> = {
-  demandMw: "Demand",
-  domesticGenerationMw: "Domestic generation",
+  demandGw: "Demand",
+  generationGw: "Domestic generation",
 };
 
 type DemandBalanceTooltipProps = {
   active?: boolean;
   label?: string | number;
-  payload?: {
+    payload?: {
     dataKey?: string | number;
     name?: string;
     value?: number | string | null;
-    payload?: DemandBalancePoint;
+    payload?: DemandBalanceChartPoint;
   }[];
   range: TimeRange;
 };
@@ -55,14 +69,18 @@ export function DemandBalanceTooltip({
 
   const point = payload.at(0)?.payload;
   const note = point ? formatEmbeddedMissingNote(point.embeddedMissing) : null;
+  const series = payload.filter((entry) => {
+    const key = String(entry.dataKey ?? entry.name ?? "");
+    return key === "demandGw" || key === "generationGw";
+  });
 
   return (
     <div
       className="rounded-lg px-3 py-2 text-[13px] text-white"
       style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
     >
-      <p className="mb-1">{formatChartTooltip(label, range)}</p>
-      {payload.map((entry) => {
+      <p className="mb-1">{formatDemandBalanceTooltipLabel(String(label), range)}</p>
+      {series.map((entry) => {
         if (entry.value == null) {
           return null;
         }
@@ -70,36 +88,58 @@ export function DemandBalanceTooltip({
         const key = String(entry.dataKey ?? entry.name ?? "");
         return (
           <p key={key}>
-            {SERIES_LABELS[key] ?? key}: {Math.round(Number(entry.value)).toLocaleString()} MW
+            {SERIES_LABELS[key] ?? key}: {Number(entry.value).toFixed(1)} GW
           </p>
         );
       })}
+      {point?.importGw ? (
+        <p>Imports: {point.importGw.toFixed(1)} GW</p>
+      ) : null}
+      {point?.exportGw ? (
+        <p>Exports: {point.exportGw.toFixed(1)} GW</p>
+      ) : null}
       {note ? <p className="mt-1 text-amber-200">{note}</p> : null}
     </div>
   );
 }
 
 export function DemandBalanceChart({ snapshots, generation, range }: Props) {
-  const chartData = buildDemandBalanceSeries(snapshots, generation, range);
+  const series = buildDemandBalanceSeries(snapshots, generation, range);
+  const chartData = buildDemandBalanceChartPoints(series);
+  const yTicks = demandBalanceYTicks(chartData);
+  const xTicks = demandBalanceXTicks(
+    chartData.map((point) => point.time),
+    range
+  );
+  const demandLabelIndex = lastDefinedIndex(chartData, "demandGw");
+  const generationLabelIndex = lastDefinedIndex(chartData, "generationGw");
+  const yMax = yTicks.at(-1) ?? 40;
 
   return (
-    <ResponsiveChartFrame className="h-80">
+    <ResponsiveChartFrame className="h-60 sm:h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 8, right: 108, bottom: 4, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
             dataKey="time"
-            tickFormatter={(value) => formatChartTick(String(value), range)}
+            ticks={xTicks}
+            interval={0}
+            minTickGap={24}
+            tickFormatter={(value) => formatDemandBalanceTick(String(value), range)}
             tick={{ fontSize: 11, fill: "#71717a" }}
             stroke="#27272a"
           />
           <YAxis
+            domain={[0, yMax]}
+            ticks={yTicks}
+            tickFormatter={(value) => Number(value).toFixed(1)}
             tick={{ fontSize: 11, fill: "#71717a" }}
             stroke="#27272a"
+            width={44}
             label={{
-              value: "MW",
-              angle: -90,
-              position: "insideLeft",
+              value: "GW",
+              position: "insideTopLeft",
+              offset: 8,
               style: { fontSize: 11, fill: "#71717a" },
             }}
           />
@@ -107,28 +147,128 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
             content={<DemandBalanceTooltip range={range} />}
             wrapperStyle={{ zIndex: 320 }}
           />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
           <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />
+          <Area
+            type="monotone"
+            dataKey="gapBaseGw"
+            stackId="gap"
+            stroke="none"
+            fill="transparent"
+            legendType="none"
+            tooltipType="none"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="importGw"
+            stackId="gap"
+            stroke="none"
+            fill={IMPORT_GAP_COLOR}
+            fillOpacity={0.28}
+            name="Imports"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="exportGw"
+            stackId="gap"
+            stroke="none"
+            fill={EXPORT_GAP_COLOR}
+            fillOpacity={0.28}
+            name="Exports"
+            connectNulls={false}
+            isAnimationActive={false}
+          />
           <Line
             type="monotone"
-            dataKey="demandMw"
-            stroke="#f8fafc"
+            dataKey="demandGw"
+            stroke={DEMAND_SERIES_COLOR}
             strokeWidth={2}
             dot={false}
             name="Demand"
             connectNulls={false}
-          />
+            isAnimationActive={false}
+          >
+            <LabelList
+              dataKey="demandGw"
+              content={(props) => {
+                const raw = props.value;
+                return endLineLabel({
+                  index: props.index,
+                  x: props.x,
+                  y: props.y,
+                  value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
+                  targetIndex: demandLabelIndex,
+                  text: "Demand",
+                  color: DEMAND_SERIES_COLOR,
+                });
+              }}
+            />
+          </Line>
           <Line
             type="monotone"
-            dataKey="domesticGenerationMw"
-            stroke="#38bdf8"
+            dataKey="generationGw"
+            stroke={DOMESTIC_GENERATION_SERIES_COLOR}
             strokeWidth={2}
             dot={false}
             name="Domestic generation"
             connectNulls={false}
-          />
+            isAnimationActive={false}
+          >
+            <LabelList
+              dataKey="generationGw"
+              content={(props) => {
+                const raw = props.value;
+                return endLineLabel({
+                  index: props.index,
+                  x: props.x,
+                  y: props.y,
+                  value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
+                  targetIndex: generationLabelIndex,
+                  text: "Generation",
+                  color: DOMESTIC_GENERATION_SERIES_COLOR,
+                });
+              }}
+            />
+          </Line>
         </ComposedChart>
       </ResponsiveContainer>
     </ResponsiveChartFrame>
+  );
+}
+
+function endLineLabel({
+  index,
+  x,
+  y,
+  value,
+  targetIndex,
+  text,
+  color,
+}: {
+  index?: number;
+  x?: number | string;
+  y?: number | string;
+  value?: number | string;
+  targetIndex: number;
+  text: string;
+  color: string;
+}) {
+  if (index !== targetIndex || value == null || x == null || y == null) {
+    return null;
+  }
+
+  return (
+    <text
+      x={Number(x) + 8}
+      y={Number(y)}
+      fill={color}
+      fontSize={12}
+      dominantBaseline="middle"
+    >
+      {text}
+    </text>
   );
 }

@@ -3,6 +3,10 @@ import {
   COMMODITY_CARD_LABELS,
   COMMODITY_DISPLAY_ORDER,
   COMMODITY_LABELS,
+  DEMAND_SERIES_COLOR,
+  DOMESTIC_GENERATION_SERIES_COLOR,
+  FUEL_COLORS,
+  FUELINST_COLORS,
   FUELINST_LABELS,
   INTERCONNECTOR_LABELS,
 } from "@/lib/colors";
@@ -37,5 +41,17 @@ describe("user-facing fuel labels", () => {
     expect(`${Object.values(COMMODITY_LABELS).join("\n")}\n${Object.values(COMMODITY_CARD_LABELS).join("\n")}`).not.toMatch(
       /TTF|JKM|IMF/
     );
+  });
+});
+
+describe("non-fuel series colours", () => {
+  it("does not reuse a fuel colour for demand or domestic generation", () => {
+    const fuelHex = new Set([
+      ...Object.values(FUEL_COLORS),
+      ...Object.values(FUELINST_COLORS),
+    ]);
+
+    expect(fuelHex.has(DEMAND_SERIES_COLOR)).toBe(false);
+    expect(fuelHex.has(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(false);
   });
 });

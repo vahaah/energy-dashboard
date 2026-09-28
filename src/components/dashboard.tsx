@@ -17,7 +17,6 @@ import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import {
   buildRangeSummary,
   headlineAsOf,
-  mixPercentagesFromShares,
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
@@ -25,15 +24,10 @@ import {
   COMMODITY_CARD_LABELS,
   COMMODITY_COLORS,
   COMMODITY_LABELS,
-  FUEL_LABELS,
-  FUELINST_LABELS,
   carbonIndexColor,
   commodityDisplayIndex,
+  fuelLabel,
 } from "@/lib/colors";
-import {
-  formatLondonDateTimeStamp,
-  parseUtcDateTime,
-} from "@/lib/london-time";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
@@ -43,14 +37,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
-import { DemandChart } from "@/components/charts/demand-chart";
-import { GenerationMixChart } from "@/components/charts/generation-mix-chart";
 import { GenerationStackChart } from "@/components/charts/generation-stack-chart";
 import { CommodityChart } from "@/components/charts/commodity-chart";
-import { GenerationTable } from "@/components/charts/generation-table";
 import { InterconnectorChart } from "@/components/charts/interconnector-chart";
-import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { InterconnectorFlowsChart } from "@/components/charts/interconnector-flows-chart";
+import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import {
   Activity,
   ArrowDownRight,
@@ -154,10 +145,6 @@ export function Dashboard({
     [facts.generationRows]
   );
 
-  const latestMixData = mixPercentagesFromShares(facts.shares);
-  const generationSnapshotStamp = latestGenerationSplit.latestTimestamp
-    ? formatLondonDateTimeStamp(parseUtcDateTime(latestGenerationSplit.latestTimestamp))
-    : null;
   const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
   const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
   const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
@@ -288,7 +275,6 @@ export function Dashboard({
   ] as const;
 
   const hasSnapshots = initialSnapshots.length > 0;
-  const hasLatestGeneration = latestGenerationSplit.sources.length > 0;
   const hasInterconnectorHistory = generationHistory.some((row) =>
     normalizeFuelType(row.fuel_type).startsWith("int")
   );
@@ -595,81 +581,31 @@ export function Dashboard({
 
           <SectionCard
             id="section-generation"
-            title="Generation desk"
+            title="What's powering Britain"
             icon={<Layers3 className="h-4 w-4 text-sky-300" />}
-            tooltip="Current supply stack plus demand coverage, with source-by-source context."
+            tooltip="Latest domestic generation against demand, with interconnectors shown as net imports."
             active={focus === "generation"}
             fullWidth
           >
             {isPending ? (
               <GenerationDeskSkeleton />
-            ) : hasSnapshots && hasLatestGeneration ? (
-              <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                <div className="space-y-6">
-                  <DemandBalanceChart
-                    snapshots={initialSnapshots}
-                    generation={generationHistory}
-                    range={range}
-                  />
-                  <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-                    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <h3 className="text-xs text-gray-900">
-                          Latest mix
-                        </h3>
-                        <InfoTooltip
-                          text="Same FUELINST snapshot as the table: gas is CCGT+OCGT, imports are positive interconnector flows, and embedded wind/solar are joined at or within 30 minutes of that frame."
-                          label="What is latest mix?"
-                        />
-                        {generationSnapshotStamp ? (
-                          <p className="font-mono text-xs tabular-nums text-gray-900">
-                            as of {generationSnapshotStamp}
-                          </p>
-                        ) : null}
-                      </div>
-                      <GenerationMixChart data={latestMixData} />
-                    </div>
-                    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-xs text-gray-900">
-                            By source
-                          </h3>
-                          <p className="mt-1 text-sm text-gray-900">
-                            Dispatch scaled against current demand.
-                          </p>
-                          {generationSnapshotStamp ? (
-                            <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">
-                              as of {generationSnapshotStamp}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <GenerationTable
-                        data={facts.shares}
-                        demandMw={headline.demand.value}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Gauge className="h-4 w-4 text-blue-300" />
-                    <div>
-                      <h3 className="text-xs text-gray-900">
-                        Demand profile
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-900">
-                        Demand path for the selected power window.
-                      </p>
-                    </div>
-                  </div>
-                  <DemandChart data={initialSnapshots} range={range} />
-                </div>
-              </div>
             ) : (
-              <EmptyState label="No generation data available" />
+              <GenerationDesk
+                facts={facts}
+                snapshots={initialSnapshots}
+                generation={generationHistory}
+                range={range}
+                pending={isPending}
+                onRangeChange={(nextRange) => {
+                  void setUrlState({
+                    range: nextRange,
+                    date: dateParamForRange(
+                      nextRange,
+                      urlState.date ?? searchParams.date
+                    ),
+                  });
+                }}
+              />
             )}
           </SectionCard>
 
@@ -967,47 +903,6 @@ function ChartSectionSkeleton({
         {Array.from({ length: fullWidth ? 3 : 2 }).map((_, index) => (
           <Skeleton key={`chart-detail-${index}`} className="h-10 w-full rounded-2xl" />
         ))}
-      </div>
-    </div>
-  );
-}
-
-function GenerationDeskSkeleton() {
-  return (
-    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-      <div className="space-y-6">
-        <Skeleton className="h-80 w-full rounded-[24px]" />
-        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-            <div className="mb-3 space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-            <Skeleton className="h-72 w-full rounded-[24px]" />
-          </div>
-          <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-            <div className="mb-3 space-y-2">
-              <Skeleton className="h-3 w-18" />
-              <Skeleton className="h-3 w-44" />
-            </div>
-            <div className="space-y-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={`source-row-${index}`} className="grid grid-cols-[1.5fr_0.7fr_0.8fr] gap-3">
-                  <Skeleton className="h-4 w-full rounded-lg" />
-                  <Skeleton className="h-4 w-full rounded-lg" />
-                  <Skeleton className="h-4 w-full rounded-lg" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-        <div className="mb-3 space-y-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-3 w-52" />
-        </div>
-        <Skeleton className="h-64 w-full rounded-[24px]" />
       </div>
     </div>
   );
@@ -1350,8 +1245,7 @@ function formatCommodityPrice(latest: CommodityPrice): string {
 }
 
 function formatFuelLabel(fuelType: string): string {
-  const fuel = normalizeFuelType(fuelType);
-  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuelType.toUpperCase();
+  return fuelLabel(normalizeFuelType(fuelType));
 }
 
 function formatGigawatts(valueMw: number, digits = 1): string {

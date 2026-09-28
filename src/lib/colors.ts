@@ -29,6 +29,12 @@ export const FUEL_LABELS: Record<string, string> = {
   embedded_solar: "Solar (PV Live estimate)",
 };
 
+/** Non-fuel series. Must not collide with FUEL_COLORS / FUELINST_COLORS. */
+export const DEMAND_SERIES_COLOR = "#f4f4f5";
+export const DOMESTIC_GENERATION_SERIES_COLOR = "#5eead4";
+export const IMPORT_GAP_COLOR = "#ec4899";
+export const EXPORT_GAP_COLOR = "#34d399";
+
 export const COMMODITY_COLORS: Record<string, string> = {
   brent_crude: "#f97316",
   wti_crude: "#3b82f6",
@@ -95,6 +101,14 @@ export const FUELINST_LABELS: Record<string, string> = {
   embedded_solar: "Solar (PV Live estimate)",
   embedded_wind: "Embedded Wind",
 };
+
+export function fuelColor(fuel: string): string {
+  return FUEL_COLORS[fuel] ?? FUELINST_COLORS[fuel] ?? "#94a3b8";
+}
+
+export function fuelLabel(fuel: string): string {
+  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuel.toUpperCase();
+}
 
 /** Interconnector colors by country */
 export const INTERCONNECTOR_COLORS: Record<string, string> = {
