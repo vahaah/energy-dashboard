@@ -42,7 +42,7 @@ export function InfoTooltip({ text, label }: Props) {
             dispatch({ type: "escape" });
           }
         }}
-        className="inline-grid size-6 place-items-center rounded-sm text-gray-900 hover:text-gray-1000 motion-reduce:transition-none"
+        className="inline-grid size-11 place-items-center rounded-sm text-gray-900 hover:text-gray-1000 motion-reduce:transition-none"
       >
         <Info className="size-3.5" aria-hidden="true" />
       </button>

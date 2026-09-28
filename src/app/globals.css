@@ -27,13 +27,19 @@
 
   --color-chart-gas: #e8743b;
   --color-chart-coal: #8a8a8a;
-  --color-chart-nuclear: #ff9eb5;
+  --color-chart-nuclear: #c47bdb;
   --color-chart-wind: #56b4e9;
+  --color-chart-embedded-wind: #9ed6f4;
   --color-chart-solar: #f0e442;
+  --color-chart-embedded-solar: #f6ed8a;
   --color-chart-hydro: #4a6fe0;
   --color-chart-biomass: #2fa876;
-  --color-chart-imports: #e6e6e6;
-  --color-chart-other: #6e6e78;
+  --color-chart-imports: #c9899a;
+  --color-chart-other: #8b8b96;
+  --color-chart-demand: #f4f4f5;
+  --color-chart-domestic-generation: #d2a36a;
+  --color-chart-import-gap: #b4536a;
+  --color-chart-export-gap: #7d9a6e;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

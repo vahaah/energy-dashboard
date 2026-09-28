@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  CARD_LABEL_COLOR,
   COMMODITY_CARD_LABELS,
   COMMODITY_DISPLAY_ORDER,
   COMMODITY_LABELS,
+  contrastRatio,
+  DARK_SURFACE,
+  DEMAND_SERIES_COLOR,
+  DOMESTIC_GENERATION_SERIES_COLOR,
+  FUEL_COLORS,
+  FUELINST_COLORS,
   FUELINST_LABELS,
+  hexHue,
   INTERCONNECTOR_LABELS,
+  relativeLuminance,
 } from "@/lib/colors";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 
@@ -37,5 +46,42 @@ describe("user-facing fuel labels", () => {
     expect(`${Object.values(COMMODITY_LABELS).join("\n")}\n${Object.values(COMMODITY_CARD_LABELS).join("\n")}`).not.toMatch(
       /TTF|JKM|IMF/
     );
+  });
+});
+
+describe("shared fuel palette", () => {
+  it("uses one hex per fuel across FUEL_COLORS and FUELINST_COLORS", () => {
+    expect(FUELINST_COLORS.wind).toBe(FUEL_COLORS.wind);
+    expect(FUELINST_COLORS.embedded_wind).toBe(FUEL_COLORS.embedded_wind);
+    expect(FUELINST_COLORS.ccgt).toBe(FUEL_COLORS.gas);
+    expect(FUELINST_COLORS.ocgt).toBe(FUEL_COLORS.gas);
+    expect(FUEL_COLORS.wind).not.toBe(FUEL_COLORS.embedded_wind);
+    expect(relativeLuminance(FUEL_COLORS.embedded_wind)).toBeGreaterThan(
+      relativeLuminance(FUEL_COLORS.wind)
+    );
+  });
+});
+
+describe("non-fuel series colours", () => {
+  it("does not reuse a fuel colour for demand or domestic generation", () => {
+    const fuelHex = new Set([
+      ...Object.values(FUEL_COLORS),
+      ...Object.values(FUELINST_COLORS),
+    ]);
+
+    expect(fuelHex.has(DEMAND_SERIES_COLOR)).toBe(false);
+    expect(fuelHex.has(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(false);
+  });
+
+  it("keeps the generation line off the cyan/teal and solar hues", () => {
+    const hue = hexHue(DOMESTIC_GENERATION_SERIES_COLOR);
+    expect(hue).toBeGreaterThan(20);
+    expect(hue).toBeLessThan(55);
+    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DEMAND_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+  });
+
+  it("gives card titles AA contrast at text-xs on the dark surface", () => {
+    expect(contrastRatio(CARD_LABEL_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
   });
 });

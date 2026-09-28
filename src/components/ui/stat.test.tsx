@@ -28,6 +28,26 @@ describe("Stat", () => {
     expect(html).toContain("tabular-nums");
   });
 
+  it("uses Geist Sans tabular-nums at text-4xl for headline stats", () => {
+    const html = renderToStaticMarkup(
+      <Stat
+        stat="generating"
+        label="Generating"
+        value="20.2"
+        unit="GW"
+        datetime="2026-09-28T07:00:00.000Z"
+        timeLabel="08:00–08:30 BST"
+        source="Elexon BMRS"
+        size="headline"
+      />
+    );
+
+    expect(html).toContain("font-sans");
+    expect(html).toContain("text-4xl");
+    expect(html).toContain("tabular-nums");
+    expect(html).toContain("Generating");
+  });
+
   it("renders a plain source when no href is provided", () => {
     const html = renderToStaticMarkup(
       <Stat

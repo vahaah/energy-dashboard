@@ -11,7 +11,7 @@ import {
   Legend,
 } from "recharts";
 import type { Generation5min, TimeRange } from "@/lib/types";
-import { FUEL_COLORS, FUEL_LABELS, FUELINST_LABELS } from "@/lib/colors";
+import { fuelColor, fuelLabel } from "@/lib/colors";
 import {
   formatChartTick,
   formatChartTooltip,
@@ -26,18 +26,6 @@ interface Props {
   data: Generation5min[];
   range: TimeRange;
 }
-
-const EXTENDED_LABELS: Record<string, string> = {
-  ...FUEL_LABELS,
-  embedded_solar: FUELINST_LABELS.embedded_solar,
-  embedded_wind: FUELINST_LABELS.embedded_wind,
-};
-
-const EXTENDED_COLORS: Record<string, string> = {
-  ...FUEL_COLORS,
-  embedded_solar: "#fbbf24",
-  embedded_wind: "#22d3ee",
-};
 
 export function GenerationStackChart({ data, range }: Props) {
   const chartData = buildGenerationStackSeries(data, range);
@@ -66,7 +54,7 @@ export function GenerationStackChart({ data, range }: Props) {
             labelFormatter={(t) => formatChartTooltip(t as number, range)}
             formatter={(value, name) => [
               `${(typeof value === "number" ? value : 0).toFixed(1)}%`,
-              EXTENDED_LABELS[String(name)] ?? name,
+              fuelLabel(String(name)),
             ]}
             wrapperStyle={{ zIndex: 320 }}
             contentStyle={{
@@ -84,10 +72,10 @@ export function GenerationStackChart({ data, range }: Props) {
               type="monotone"
               dataKey={fuel}
               stackId="generation"
-              stroke={EXTENDED_COLORS[fuel] ?? FUEL_COLORS[fuel]}
-              fill={EXTENDED_COLORS[fuel] ?? FUEL_COLORS[fuel]}
+              stroke={fuelColor(fuel)}
+              fill={fuelColor(fuel)}
               fillOpacity={0.8}
-              name={EXTENDED_LABELS[fuel] ?? fuel}
+              name={fuelLabel(fuel)}
             />
           ))}
         </AreaChart>

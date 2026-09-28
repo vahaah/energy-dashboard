@@ -10,3 +10,17 @@ describe("dashboard header controls", () => {
     expect(source).not.toContain("sm:h-9");
   });
 });
+
+describe("info tooltip hit area", () => {
+  it("keeps a 44px tap target and opens on tap or focus", () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, "./ui/info-tooltip.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("size-11");
+    expect(source).toContain("onFocus");
+    expect(source).toContain("onClick");
+    expect(source).not.toContain("size-6");
+  });
+});

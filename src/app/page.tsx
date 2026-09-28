@@ -111,6 +111,7 @@ export default async function Home({
       todayDate={dateResolution.today}
       facts={facts}
       initialSnapshots={snapshots}
+      headlineSnapshots={headlineSnapshots}
       initialPrices={filterPublicCommodityPrices(prices)}
       generationHistory={generationHistory}
     />
