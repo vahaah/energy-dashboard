@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignAnswerPeriod,
   buildDemandBalanceChartPoints,
   buildGenerationAnswerStats,
+  buildGenerationDeskView,
   buildNowBySourceView,
+  clipTrailingEmptyChartPoints,
+  demandBalanceGapLabel,
   demandBalanceXTicks,
   formatDemandBalanceTick,
   formatPlainSettlementWindow,
+  FUELINST_STALE_MS,
+  fuelinstDelayNote,
   gwAxisTicks,
 } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
@@ -91,6 +97,74 @@ describe("generation answer row", () => {
 
     expect(stats.map((stat) => stat.value)).toEqual(["—", "—", "—"]);
     expect(stats.map((stat) => stat.timeLabel)).toEqual([null, null, null]);
+  });
+
+  it("aligns generating, demand, and net imports to the latest complete settlement period", () => {
+    const view = buildGenerationDeskView(
+      facts({
+        generationMw: fact(20215, "2026-09-28T03:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1147, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 03:00:00", "ccgt", 8000),
+          generation("2026-09-28 03:00:00", "wind", 4000),
+          generation("2026-09-28 03:00:00", "intfr", 1147),
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intfr", -800),
+        ],
+      }),
+      new Date("2026-09-28T03:10:00.000Z")
+    );
+
+    expect(view.answers.map((stat) => stat.timeLabel)).toEqual([
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+    ]);
+    expect(view.answers[0]?.value).toBe("19.0");
+    expect(view.answers[1]?.value).toBe("21.5");
+    expect(view.answers[2]?.value).toBe("-0.8");
+    expect(view.alignmentNote).toBe(
+      "Demand for 04:00–04:30 BST is not in yet. Figures are 03:30–04:00 BST."
+    );
+    expect(view.nowView.totalMw).toBe(19000);
+    expect(view.nowView.rows.map((row) => row.fuel).slice(0, 2)).toEqual(["gas", "wind"]);
+  });
+
+  it("keeps a positive net-imports sign when GB is importing", () => {
+    const aligned = alignAnswerPeriod(
+      facts({
+        generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intfr", 1500),
+        ],
+      })
+    );
+
+    expect(aligned.alignmentNote).toBeNull();
+    expect(aligned.netImportsMw.value).toBe(1500);
+    expect(buildGenerationAnswerStats({
+      ...facts(),
+      netImportsMw: aligned.netImportsMw,
+    })[2]?.value).toBe("1.5");
+  });
+});
+
+describe("fuelinst stale threshold", () => {
+  const rows = [generation("2026-09-28 03:00:00", "ccgt", 8000)];
+
+  it("is silent at or under 30 minutes and notes a delay after that", () => {
+    expect(FUELINST_STALE_MS).toBe(30 * 60 * 1000);
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:30:00.000Z"))).toBeNull();
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:20:00.000Z"))).toBeNull();
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:30:01.000Z"))).toBe(
+      "Data delayed: last Elexon update 04:00 BST"
+    );
   });
 });
 
@@ -232,4 +306,93 @@ describe("demand balance chart view", () => {
     expect(formatDemandBalanceTick("2026-09-28 06:00:00", "24h")).toBe("07:00");
     expect(formatDemandBalanceTick("2026-01-15 00:00:00", "1y")).toBe("Jan");
   });
+
+  it("labels the import and export gap in GW", () => {
+    const points = buildDemandBalanceChartPoints([
+      {
+        time: "2026-09-28 07:00:00",
+        demandMw: 24000,
+        domesticGenerationMw: 20000,
+        embeddedMissing: [],
+      },
+      {
+        time: "2026-09-28 07:30:00",
+        demandMw: 18000,
+        domesticGenerationMw: 22000,
+        embeddedMissing: [],
+      },
+      {
+        time: "2026-09-28 08:00:00",
+        demandMw: 20000,
+        domesticGenerationMw: 20000,
+        embeddedMissing: [],
+      },
+    ]);
+
+    expect(demandBalanceGapLabel(points[0] ?? emptyPoint())).toBe(
+      "Imports (demand above generation): 4.0 GW"
+    );
+    expect(demandBalanceGapLabel(points[1] ?? emptyPoint())).toBe(
+      "Exports (generation above demand): 4.0 GW"
+    );
+    expect(demandBalanceGapLabel(points[2] ?? emptyPoint())).toBe("Gap: 0.0 GW");
+  });
+
+  it("clips trailing empty 24h points and uses at most four compact ticks", () => {
+    const points = buildDemandBalanceChartPoints([
+      {
+        time: "2026-01-15 00:00:00",
+        demandMw: 20000,
+        domesticGenerationMw: 18000,
+        embeddedMissing: [],
+      },
+      {
+        time: "2026-01-15 06:00:00",
+        demandMw: 21000,
+        domesticGenerationMw: 19000,
+        embeddedMissing: [],
+      },
+      {
+        time: "2026-01-15 09:00:00",
+        demandMw: null,
+        domesticGenerationMw: null,
+        embeddedMissing: [],
+      },
+    ]);
+    const clipped = clipTrailingEmptyChartPoints(points);
+
+    expect(clipped.map((point) => point.time)).toEqual([
+      "2026-01-15 00:00:00",
+      "2026-01-15 06:00:00",
+    ]);
+
+    const times = [
+      "2026-01-15 00:00:00",
+      "2026-01-15 03:00:00",
+      "2026-01-15 06:00:00",
+      "2026-01-15 09:00:00",
+      "2026-01-15 12:00:00",
+      "2026-01-15 15:00:00",
+      "2026-01-15 18:00:00",
+      "2026-01-15 21:00:00",
+    ];
+    expect(demandBalanceXTicks(times, "24h", true)).toEqual([
+      "2026-01-15 00:00:00",
+      "2026-01-15 06:00:00",
+      "2026-01-15 12:00:00",
+      "2026-01-15 18:00:00",
+    ]);
+  });
 });
+
+function emptyPoint() {
+  return {
+    time: "2026-09-28 07:00:00",
+    demandGw: null,
+    generationGw: null,
+    gapBaseGw: null,
+    importGw: null,
+    exportGw: null,
+    embeddedMissing: [],
+  };
+}

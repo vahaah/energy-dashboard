@@ -2,7 +2,9 @@ import {
   formatSettlementWindow,
   GENERATION_STACK_FUELS,
   groupGenerationMw,
+  isEmbeddedFuel,
   isInterconnectorFuel,
+  latestFuelinstTimestamp,
   mapGenerationFuelToStackKey,
   splitLatestGenerationRows,
   type DemandBalancePoint,
@@ -15,7 +17,11 @@ import {
   getLondonOffsetLabel,
   parseUtcDateTime,
 } from "@/lib/london-time";
+import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { Generation5min, TimeRange } from "@/lib/types";
+
+export const FUELINST_STALE_MS = 30 * 60 * 1000;
+export const COMPACT_CHART_MAX_TICKS = 4;
 
 export const GENERATION_DESK_RANGE_OPTIONS: ReadonlyArray<{
   value: TimeRange;
@@ -58,6 +64,13 @@ export type GenerationAnswerStat = {
   source: string;
 };
 
+export type GenerationDeskView = {
+  answers: GenerationAnswerStat[];
+  nowView: NowBySourceView;
+  delayNote: string | null;
+  alignmentNote: string | null;
+};
+
 export type DemandBalanceChartPoint = {
   time: string;
   demandGw: number | null;
@@ -78,6 +91,105 @@ export function buildGenerationAnswerStats(facts: LatestFacts): GenerationAnswer
     answerStat("demand", "Demand", facts.demand),
     answerStat("net_imports", "Net imports", facts.netImportsMw),
   ];
+}
+
+export function buildGenerationDeskView(facts: LatestFacts, now: Date): GenerationDeskView {
+  const aligned = alignAnswerPeriod(facts);
+  return {
+    answers: buildGenerationAnswerStats({
+      ...facts,
+      generationMw: aligned.generationMw,
+      demand: aligned.demand,
+      netImportsMw: aligned.netImportsMw,
+      generationRows: aligned.generationRows,
+    }),
+    nowView: buildNowBySourceView(aligned.generationRows, aligned.demand.value),
+    delayNote: fuelinstDelayNote(facts.generationRows, now),
+    alignmentNote: aligned.alignmentNote,
+  };
+}
+
+export function fuelinstDelayNote(rows: Generation5min[], now: Date): string | null {
+  const timestamp = latestFuelinstTimestamp(rows);
+  if (!timestamp) {
+    return null;
+  }
+
+  const ageMs = now.getTime() - parseUtcDateTime(timestamp).getTime();
+  if (ageMs <= FUELINST_STALE_MS) {
+    return null;
+  }
+
+  return `Data delayed: last Elexon update ${formatLondonClock(parseUtcDateTime(timestamp))}`;
+}
+
+export function alignAnswerPeriod(facts: LatestFacts): {
+  generationMw: Fact<number>;
+  demand: Fact<number>;
+  netImportsMw: Fact<number>;
+  generationRows: Generation5min[];
+  alignmentNote: string | null;
+} {
+  const preferredTimestamp = latestFuelinstTimestamp(facts.generationRows);
+  const demandTimestamp = facts.demand.periodStartUtc;
+  if (!preferredTimestamp || facts.demand.value == null || !demandTimestamp) {
+    return {
+      generationMw: facts.generationMw,
+      demand: facts.demand,
+      netImportsMw: facts.netImportsMw,
+      generationRows: facts.generationRows,
+      alignmentNote: null,
+    };
+  }
+
+  const preferredStart = settlementStartMs(preferredTimestamp);
+  const demandStart = settlementStartMs(demandTimestamp);
+  if (preferredStart === demandStart || demandStart > preferredStart) {
+    return {
+      generationMw: facts.generationMw,
+      demand: facts.demand,
+      netImportsMw: facts.netImportsMw,
+      generationRows: facts.generationRows,
+      alignmentNote: null,
+    };
+  }
+
+  const alignedTimestamp = latestFuelinstAtOrBefore(facts.generationRows, demandStart);
+  if (!alignedTimestamp) {
+    return {
+      generationMw: facts.generationMw,
+      demand: facts.demand,
+      netImportsMw: facts.netImportsMw,
+      generationRows: facts.generationRows,
+      alignmentNote: null,
+    };
+  }
+
+  const generationRows = rowsAtOrBeforeFuelinst(facts.generationRows, alignedTimestamp);
+  const split = splitLatestGenerationRows(generationRows);
+  const bounds = settlementBounds(alignedTimestamp);
+
+  return {
+    generationMw: {
+      ...facts.generationMw,
+      value: split.sources.length > 0 ? split.totalGenerationMw : null,
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    demand: {
+      ...facts.demand,
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    netImportsMw: {
+      ...facts.netImportsMw,
+      value: split.interconnectors.length > 0 ? split.netTransfersMw : null,
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    generationRows,
+    alignmentNote: `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`,
+  };
 }
 
 export function buildNowBySourceView(
@@ -156,6 +268,24 @@ export function buildDemandBalanceChartPoints(
   });
 }
 
+export function clipTrailingEmptyChartPoints(
+  points: DemandBalanceChartPoint[]
+): DemandBalanceChartPoint[] {
+  let lastData = -1;
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (point && (point.demandGw != null || point.generationGw != null)) {
+      lastData = index;
+    }
+  }
+
+  if (lastData === -1) {
+    return [];
+  }
+
+  return points.slice(0, lastData + 1);
+}
+
 export function gwAxisTicks(maxGw: number): number[] {
   const ceiling = Math.max(10, Math.ceil(maxGw / 10) * 10);
   const step = ceiling <= 50 ? 10 : ceiling <= 100 ? 20 : 25;
@@ -174,7 +304,11 @@ export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[]
   return gwAxisTicks(maxGw);
 }
 
-export function demandBalanceXTicks(times: string[], range: TimeRange): string[] {
+export function demandBalanceXTicks(
+  times: string[],
+  range: TimeRange,
+  compact = false
+): string[] {
   if (times.length === 0) {
     return [];
   }
@@ -183,13 +317,15 @@ export function demandBalanceXTicks(times: string[], range: TimeRange): string[]
     time,
     parts: getLondonDateTimeParts(parseUtcDateTime(time)),
   }));
+  const hourStep = compact ? 6 : 3;
 
   switch (range) {
     case "24h": {
-      const everyThreeHours = dated
-        .filter((entry) => entry.parts.minute === 0 && entry.parts.hour % 3 === 0)
+      const hourly = dated
+        .filter((entry) => entry.parts.minute === 0 && entry.parts.hour % hourStep === 0)
         .map((entry) => entry.time);
-      return everyThreeHours.length > 0 ? everyThreeHours : pickEvenly(times, 5);
+      const ticks = hourly.length > 0 ? hourly : pickEvenly(times, compact ? 4 : 5);
+      return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     case "7d": {
       const days: string[] = [];
@@ -202,19 +338,21 @@ export function demandBalanceXTicks(times: string[], range: TimeRange): string[]
         days.push(entry.time);
         previousDay = dayKey;
       }
-      return days;
+      return compact ? capTicks(days, COMPACT_CHART_MAX_TICKS) : days;
     }
     case "30d":
     case "90d": {
-      return dated
+      const ticks = dated
         .filter((_, index) => index % 5 === 0 || index === dated.length - 1)
         .map((entry) => entry.time);
+      return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     case "1y": {
       const monthStarts = dated
         .filter((entry) => entry.parts.day === 1)
         .map((entry) => entry.time);
-      return monthStarts.length > 0 ? monthStarts : pickEvenly(times, 6);
+      const ticks = monthStarts.length > 0 ? monthStarts : pickEvenly(times, 6);
+      return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     default: {
       const exhaustive: never = range;
@@ -270,6 +408,19 @@ export function formatDemandBalanceTooltipLabel(
       return exhaustive;
     }
   }
+}
+
+export function demandBalanceGapLabel(point: DemandBalanceChartPoint): string | null {
+  if (point.importGw == null || point.exportGw == null) {
+    return null;
+  }
+  if (point.importGw > 0) {
+    return `Imports (demand above generation): ${point.importGw.toFixed(1)} GW`;
+  }
+  if (point.exportGw > 0) {
+    return `Exports (generation above demand): ${point.exportGw.toFixed(1)} GW`;
+  }
+  return "Gap: 0.0 GW";
 }
 
 export function lastDefinedIndex(
@@ -376,6 +527,49 @@ function mwToGw(valueMw: number | null): number | null {
     return null;
   }
   return valueMw / 1000;
+}
+
+function settlementStartMs(timestamp: string): number {
+  return getSettlementPeriod(parseUtcDateTime(timestamp)).startUtc.getTime();
+}
+
+function settlementBounds(timestamp: string): { startUtc: string; endUtc: string } {
+  const period = getSettlementPeriod(parseUtcDateTime(timestamp));
+  return {
+    startUtc: period.startUtc.toISOString(),
+    endUtc: period.endUtc.toISOString(),
+  };
+}
+
+function latestFuelinstAtOrBefore(rows: Generation5min[], demandStartMs: number): string | null {
+  let latest: string | null = null;
+
+  for (const row of rows) {
+    if (isEmbeddedFuel(row.fuel_type)) {
+      continue;
+    }
+    if (settlementStartMs(row.timestamp) > demandStartMs) {
+      continue;
+    }
+    if (!latest || row.timestamp > latest) {
+      latest = row.timestamp;
+    }
+  }
+
+  return latest;
+}
+
+function rowsAtOrBeforeFuelinst(rows: Generation5min[], timestamp: string): Generation5min[] {
+  return rows.filter((row) => {
+    if (isEmbeddedFuel(row.fuel_type)) {
+      return true;
+    }
+    return row.timestamp <= timestamp;
+  });
+}
+
+function capTicks(ticks: string[], max: number): string[] {
+  return pickEvenly(ticks, max);
 }
 
 function pickEvenly(values: string[], count: number): string[] {

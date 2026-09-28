@@ -8,11 +8,7 @@ import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { GenerationNowCard } from "@/components/charts/generation-now-card";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
-import {
-  buildGenerationAnswerStats,
-  buildNowBySourceView,
-  GENERATION_DESK_RANGE_OPTIONS,
-} from "@/lib/generation-desk-view";
+import { buildGenerationDeskView, GENERATION_DESK_RANGE_OPTIONS } from "@/lib/generation-desk-view";
 
 interface Props {
   facts: LatestFacts;
@@ -20,6 +16,7 @@ interface Props {
   generation: Generation5min[];
   range: TimeRange;
   pending?: boolean;
+  now?: Date;
   onRangeChange: (range: TimeRange) => void;
 }
 
@@ -29,11 +26,19 @@ export function GenerationDesk({
   generation,
   range,
   pending = false,
+  now = new Date(),
   onRangeChange,
 }: Props) {
-  const answers = buildGenerationAnswerStats(facts);
-  const nowView = buildNowBySourceView(facts.generationRows, facts.demand.value);
+  const { answers, nowView, delayNote, alignmentNote } = buildGenerationDeskView(facts, now);
   const hasChart = snapshots.length > 0 || generation.length > 0;
+  const notes: string[] = [];
+  if (delayNote) {
+    notes.push(delayNote);
+  }
+  if (alignmentNote) {
+    notes.push(alignmentNote);
+  }
+  const statusNote = notes.join(" · ");
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -55,11 +60,19 @@ export function GenerationDesk({
             />
           </div>
         ))}
+        {statusNote ? (
+          <p
+            className="col-span-2 text-xs font-medium text-gray-1000 sm:col-span-3"
+            aria-live="polite"
+          >
+            {statusNote}
+          </p>
+        ) : null}
       </div>
 
       <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
         <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-xs font-medium text-gray-900">Powering Britain now</h3>
+          <h3 className="text-xs font-medium text-gray-1000">Powering Britain now</h3>
           <InfoTooltip
             text="Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list."
             label="What is Powering Britain now?"
@@ -72,7 +85,7 @@ export function GenerationDesk({
       <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-medium text-gray-900">Demand and domestic generation</h3>
+            <h3 className="text-xs font-medium text-gray-1000">Demand and domestic generation</h3>
             <InfoTooltip
               text="Demand is transmission system demand. Domestic generation is GB plant plus estimated embedded wind and solar. The shaded gap is imports when demand is higher, and exports when generation is higher."
               label="What is Demand and domestic generation?"

@@ -6,7 +6,7 @@ import { GenerationNowCard } from "@/components/charts/generation-now-card";
 import { GenerationDesk } from "@/components/generation-desk";
 import { buildNowBySourceView } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
-import type { Generation5min } from "@/lib/types";
+import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 function generation(
   timestamp: string,
@@ -51,6 +51,34 @@ function facts(generationRows: Generation5min[]): LatestFacts {
   };
 }
 
+function snapshot(timestamp: string, demandMw: number): EnergySnapshot {
+  return {
+    timestamp,
+    carbon_intensity: 80,
+    carbon_forecast: 80,
+    carbon_index: "low",
+    demand_mw: demandMw,
+    price_gbp_mwh: 50,
+    gen_gas_pct: 30,
+    gen_coal_pct: 0,
+    gen_nuclear_pct: 15,
+    gen_wind_pct: 35,
+    gen_solar_pct: 5,
+    gen_hydro_pct: 5,
+    gen_biomass_pct: 5,
+    gen_imports_pct: 5,
+    gen_other_pct: 0,
+    gen_gas_mw: 6000,
+    gen_coal_mw: 0,
+    gen_nuclear_mw: 3000,
+    gen_wind_mw: 7000,
+    gen_solar_mw: 1000,
+    gen_hydro_mw: 1000,
+    gen_biomass_mw: 1000,
+    gen_other_mw: 0,
+  };
+}
+
 const rows: Generation5min[] = [
   generation("2026-09-28 07:00:00", "ccgt", 7563),
   generation("2026-09-28 07:00:00", "wind", 3746),
@@ -69,9 +97,10 @@ describe("generation desk layout", () => {
     const html = renderToStaticMarkup(
       <GenerationDesk
         facts={facts(rows)}
-        snapshots={[]}
-        generation={[]}
+        snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        generation={rows}
         range="24h"
+        now={new Date("2026-09-28T07:10:00.000Z")}
         onRangeChange={() => undefined}
       />
     );
@@ -91,6 +120,13 @@ describe("generation desk layout", () => {
     expect(html).toContain("xl:col-span-5");
     expect(html).toContain("xl:col-span-7");
     expect(html).toContain("h-11");
+    expect(html).toContain("text-xs font-medium text-gray-1000");
+    expect(html).toContain("Powering Britain now");
+    expect(html).toContain("Demand and domestic generation");
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain("Exports (generation above demand)");
+    expect(html).toContain("Imports (demand above generation)");
     expect(html).not.toContain("Latest mix");
     expect(html).not.toContain("Demand profile");
     expect(html).not.toContain("Generation desk");
@@ -112,5 +148,50 @@ describe("generation desk layout", () => {
     expect(html).toContain("h-3");
     expect(html).toContain("rounded-full");
     expect(html).not.toContain("truncate");
+  });
+
+  it("notes delayed FUELINST and keeps answer-row periods aligned", () => {
+    const delayed = facts([
+      generation("2026-09-28 03:00:00", "ccgt", 8000),
+      generation("2026-09-28 03:00:00", "wind", 4000),
+      generation("2026-09-28 03:00:00", "intfr", 1147),
+      generation("2026-09-28 02:30:00", "ccgt", 10000),
+      generation("2026-09-28 02:30:00", "wind", 9000),
+      generation("2026-09-28 02:30:00", "intfr", -800),
+    ]);
+    delayed.generationMw = {
+      ...delayed.generationMw,
+      value: 20215,
+      periodStartUtc: "2026-09-28T03:00:00.000Z",
+      periodEndUtc: "2026-09-28T03:30:00.000Z",
+    };
+    delayed.demand = {
+      ...delayed.demand,
+      value: 21500,
+      periodStartUtc: "2026-09-28T02:30:00.000Z",
+      periodEndUtc: "2026-09-28T03:00:00.000Z",
+    };
+    delayed.netImportsMw = {
+      ...delayed.netImportsMw,
+      value: 1147,
+      periodStartUtc: "2026-09-28T03:00:00.000Z",
+      periodEndUtc: "2026-09-28T03:30:00.000Z",
+    };
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={delayed}
+        snapshots={[]}
+        generation={[]}
+        range="24h"
+        now={new Date("2026-09-28T08:00:00.000Z")}
+        onRangeChange={() => undefined}
+      />
+    );
+
+    expect(html).toContain("Data delayed: last Elexon update 04:00 BST");
+    expect(html).toContain("Demand for 04:00–04:30 BST is not in yet. Figures are 03:30–04:00 BST.");
+    expect(html.match(/03:30–04:00 BST/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(html).not.toContain("04:00–04:30 BST</time>");
   });
 });

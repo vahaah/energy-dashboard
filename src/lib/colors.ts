@@ -1,18 +1,34 @@
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 
+/**
+ * Site-wide fuel palette. FUEL_COLORS and FUELINST_COLORS share these hexes
+ * so every chart, list, and stacked bar uses one colour per fuel.
+ */
+const GAS = "#e8743b";
+const COAL = "#8a8a8a";
+const NUCLEAR = "#c47bdb";
+const WIND = "#56b4e9";
+const EMBEDDED_WIND = "#9ed6f4";
+const SOLAR = "#f0e442";
+const EMBEDDED_SOLAR = "#f6ed8a";
+const HYDRO = "#4a6fe0";
+const BIOMASS = "#2fa876";
+const IMPORTS = "#c9899a";
+const OTHER = "#8b8b96";
+
 /** Fuel type → chart color mapping. Consistent across all charts. */
 export const FUEL_COLORS: Record<string, string> = {
-  gas: "#f97316",       // orange
-  coal: "#6b7280",      // gray
-  nuclear: "#a855f7",   // purple
-  wind: "#22d3ee",      // cyan
-  solar: "#facc15",     // yellow
-  hydro: "#3b82f6",     // blue
-  biomass: "#22c55e",   // green
-  imports: "#ec4899",   // pink
-  other: "#94a3b8",     // slate
-  embedded_wind: "#22d3ee",
-  embedded_solar: "#fbbf24",
+  gas: GAS,
+  coal: COAL,
+  nuclear: NUCLEAR,
+  wind: WIND,
+  solar: SOLAR,
+  hydro: HYDRO,
+  biomass: BIOMASS,
+  imports: IMPORTS,
+  other: OTHER,
+  embedded_wind: EMBEDDED_WIND,
+  embedded_solar: EMBEDDED_SOLAR,
 };
 
 export const FUEL_LABELS: Record<string, string> = {
@@ -29,11 +45,17 @@ export const FUEL_LABELS: Record<string, string> = {
   embedded_solar: "Solar (PV Live estimate)",
 };
 
+/** Dark card surface used for AA checks on small labels. */
+export const DARK_SURFACE = "#111111";
+/** Card titles (`text-xs font-medium`) — gray-1000 on background-200. */
+export const CARD_LABEL_COLOR = "#ededed";
+
 /** Non-fuel series. Must not collide with FUEL_COLORS / FUELINST_COLORS. */
 export const DEMAND_SERIES_COLOR = "#f4f4f5";
-export const DOMESTIC_GENERATION_SERIES_COLOR = "#5eead4";
-export const IMPORT_GAP_COLOR = "#ec4899";
-export const EXPORT_GAP_COLOR = "#34d399";
+/** Warm sand — not a fuel, not cyan/teal, not solar yellow. */
+export const DOMESTIC_GENERATION_SERIES_COLOR = "#d2a36a";
+export const IMPORT_GAP_COLOR = "#b4536a";
+export const EXPORT_GAP_COLOR = "#7d9a6e";
 
 export const COMMODITY_COLORS: Record<string, string> = {
   brent_crude: "#f97316",
@@ -69,21 +91,21 @@ export function commodityDisplayIndex(commodity: string): number {
   return index === -1 ? COMMODITY_DISPLAY_ORDER.length : index;
 }
 
-/** FUELINST fuel type colors (5-min resolution) */
+/** FUELINST fuel type colors (5-min resolution) — same hexes as FUEL_COLORS. */
 export const FUELINST_COLORS: Record<string, string> = {
-  ccgt: "#f97316",           // orange
-  coal: "#6b7280",           // gray
-  nuclear: "#a855f7",        // purple
-  wind: "#22d3ee",           // cyan
-  solar: "#facc15",          // yellow
-  hydro: "#3b82f6",          // blue
-  biomass: "#22c55e",        // green
-  ocgt: "#f43f5e",           // rose
-  oil: "#78716c",            // stone
-  ps: "#6366f1",             // indigo (pumped storage)
-  other: "#94a3b8",          // slate
-  embedded_solar: "#fbbf24", // amber-400
-  embedded_wind: "#22d3ee",  // cyan
+  ccgt: GAS,
+  coal: COAL,
+  nuclear: NUCLEAR,
+  wind: WIND,
+  solar: SOLAR,
+  hydro: HYDRO,
+  biomass: BIOMASS,
+  ocgt: GAS,
+  oil: OTHER,
+  ps: HYDRO,
+  other: OTHER,
+  embedded_solar: EMBEDDED_SOLAR,
+  embedded_wind: EMBEDDED_WIND,
 };
 
 export const FUELINST_LABELS: Record<string, string> = {
@@ -103,7 +125,7 @@ export const FUELINST_LABELS: Record<string, string> = {
 };
 
 export function fuelColor(fuel: string): string {
-  return FUEL_COLORS[fuel] ?? FUELINST_COLORS[fuel] ?? "#94a3b8";
+  return FUEL_COLORS[fuel] ?? FUELINST_COLORS[fuel] ?? OTHER;
 }
 
 export function fuelLabel(fuel: string): string {
@@ -151,6 +173,53 @@ export function carbonIndexColor(index: string): string {
     case "very high":
       return "#ef4444";
     default:
-      return "#94a3b8";
+      return OTHER;
   }
+}
+
+export function hexToRgb(hex: string): readonly [number, number, number] {
+  const value = hex.replace("#", "");
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ] as const;
+}
+
+export function relativeLuminance(hex: string): number {
+  const channels = hexToRgb(hex).map((channel) => {
+    const srgb = channel / 255;
+    return srgb <= 0.03928 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * (channels[0] ?? 0) + 0.7152 * (channels[1] ?? 0) + 0.0722 * (channels[2] ?? 0);
+}
+
+export function contrastRatio(foreground: string, background: string): number {
+  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function hexHue(hex: string): number {
+  const [redRaw, greenRaw, blueRaw] = hexToRgb(hex);
+  const red = redRaw / 255;
+  const green = greenRaw / 255;
+  const blue = blueRaw / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  if (delta === 0) {
+    return 0;
+  }
+
+  let hue = 0;
+  if (max === red) {
+    hue = ((green - blue) / delta) % 6;
+  } else if (max === green) {
+    hue = (blue - red) / delta + 2;
+  } else {
+    hue = (red - green) / delta + 4;
+  }
+
+  return (hue * 60 + 360) % 360;
 }
