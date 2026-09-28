@@ -1,18 +1,21 @@
 "use client";
 
-import type { Generation5min } from "@/lib/types";
-import { FUELINST_COLORS, FUELINST_LABELS } from "@/lib/colors";
+import { FUEL_COLORS, FUEL_LABELS, FUELINST_COLORS, FUELINST_LABELS } from "@/lib/colors";
+
+export type GenerationTableRow = {
+  fuel: string;
+  mw: number;
+};
 
 interface Props {
-  data: Generation5min[];
+  data: GenerationTableRow[];
   demandMw?: number | null;
 }
 
 export function GenerationTable({ data, demandMw }: Props) {
-  // Aggregate by fuel_type (latest snapshot may have multiple rows per type from different sources)
   const byFuel = new Map<string, number>();
   for (const row of data) {
-    byFuel.set(row.fuel_type, (byFuel.get(row.fuel_type) ?? 0) + row.generation_mw);
+    byFuel.set(row.fuel, (byFuel.get(row.fuel) ?? 0) + row.mw);
   }
 
   const totalGen = Array.from(byFuel.values()).reduce((a, b) => a + b, 0);
@@ -45,10 +48,10 @@ export function GenerationTable({ data, demandMw }: Props) {
               <td className="flex items-center gap-2 py-2">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: FUELINST_COLORS[fuel] ?? "#94a3b8" }}
+                  style={{ backgroundColor: fuelColor(fuel) }}
                 />
                 <span className="text-gray-1000">
-                  {FUELINST_LABELS[fuel] ?? fuel.toUpperCase()}
+                  {fuelLabel(fuel)}
                 </span>
               </td>
               <td className="py-2 text-right font-mono tabular-nums text-gray-900">
@@ -63,7 +66,7 @@ export function GenerationTable({ data, demandMw }: Props) {
                     className="h-1.5 rounded-full motion-reduce:transition-none"
                     style={{
                       width: `${Math.min(100, pct)}%`,
-                      backgroundColor: FUELINST_COLORS[fuel] ?? "#94a3b8",
+                      backgroundColor: fuelColor(fuel),
                     }}
                   />
                 </div>
@@ -86,4 +89,12 @@ export function GenerationTable({ data, demandMw }: Props) {
       </table>
     </div>
   );
+}
+
+function fuelLabel(fuel: string): string {
+  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuel.toUpperCase();
+}
+
+function fuelColor(fuel: string): string {
+  return FUEL_COLORS[fuel] ?? FUELINST_COLORS[fuel] ?? "#94a3b8";
 }

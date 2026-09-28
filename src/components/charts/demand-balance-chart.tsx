@@ -11,37 +11,76 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { EnergySnapshot, TimeRange } from "@/lib/types";
+import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import {
+  buildDemandBalanceSeries,
+  formatEmbeddedMissingNote,
+  type DemandBalancePoint,
+} from "@/lib/dashboard-model";
 
 interface Props {
-  data: EnergySnapshot[];
+  snapshots: EnergySnapshot[];
+  generation: Generation5min[];
   range: TimeRange;
 }
 
-export function DemandBalanceChart({ data, range }: Props) {
-  const chartData = data.map((snapshot) => {
-    const domesticParts = [
-      snapshot.gen_gas_mw,
-      snapshot.gen_coal_mw,
-      snapshot.gen_nuclear_mw,
-      snapshot.gen_wind_mw,
-      snapshot.gen_solar_mw,
-      snapshot.gen_hydro_mw,
-      snapshot.gen_biomass_mw,
-      snapshot.gen_other_mw,
-    ];
-    const present = domesticParts.filter((value): value is number => value != null);
-    const domesticGenerationMw =
-      present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
+const SERIES_LABELS: Record<string, string> = {
+  demandMw: "Demand",
+  domesticGenerationMw: "Domestic generation",
+};
 
-    return {
-      time: snapshot.timestamp,
-      demandMw: snapshot.demand_mw,
-      domesticGenerationMw,
-    };
-  });
+type DemandBalanceTooltipProps = {
+  active?: boolean;
+  label?: string | number;
+  payload?: {
+    dataKey?: string | number;
+    name?: string;
+    value?: number | string | null;
+    payload?: DemandBalancePoint;
+  }[];
+  range: TimeRange;
+};
+
+export function DemandBalanceTooltip({
+  active,
+  label,
+  payload,
+  range,
+}: DemandBalanceTooltipProps) {
+  if (!active || payload == null || payload.length === 0 || label == null) {
+    return null;
+  }
+
+  const point = payload.at(0)?.payload;
+  const note = point ? formatEmbeddedMissingNote(point.embeddedMissing) : null;
+
+  return (
+    <div
+      className="rounded-lg px-3 py-2 text-[13px] text-white"
+      style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
+    >
+      <p className="mb-1">{formatChartTooltip(label, range)}</p>
+      {payload.map((entry) => {
+        if (entry.value == null) {
+          return null;
+        }
+
+        const key = String(entry.dataKey ?? entry.name ?? "");
+        return (
+          <p key={key}>
+            {SERIES_LABELS[key] ?? key}: {Math.round(Number(entry.value)).toLocaleString()} MW
+          </p>
+        );
+      })}
+      {note ? <p className="mt-1 text-amber-200">{note}</p> : null}
+    </div>
+  );
+}
+
+export function DemandBalanceChart({ snapshots, generation, range }: Props) {
+  const chartData = buildDemandBalanceSeries(snapshots, generation, range);
 
   return (
     <ResponsiveChartFrame className="h-80">
@@ -65,26 +104,8 @@ export function DemandBalanceChart({ data, range }: Props) {
             }}
           />
           <Tooltip
-            labelFormatter={(value) => formatChartTooltip(value as string, range)}
-            formatter={(value, name) => {
-              const labelMap: Record<string, string> = {
-                demandMw: "Demand",
-                domesticGenerationMw: "Domestic generation",
-              };
-
-              return [
-                `${Math.round(Number(value)).toLocaleString()} MW`,
-                labelMap[String(name)] ?? name,
-              ];
-            }}
+            content={<DemandBalanceTooltip range={range} />}
             wrapperStyle={{ zIndex: 320 }}
-            contentStyle={{
-              backgroundColor: "rgba(0,0,0,0.85)",
-              border: "none",
-              borderRadius: 8,
-              color: "#fff",
-              fontSize: 13,
-            }}
           />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
           <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />

@@ -17,6 +17,7 @@ import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import {
   buildRangeSummary,
   headlineAsOf,
+  mixPercentagesFromShares,
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
@@ -24,10 +25,15 @@ import {
   COMMODITY_CARD_LABELS,
   COMMODITY_COLORS,
   COMMODITY_LABELS,
+  FUEL_LABELS,
   FUELINST_LABELS,
   carbonIndexColor,
   commodityDisplayIndex,
 } from "@/lib/colors";
+import {
+  formatLondonDateTimeStamp,
+  parseUtcDateTime,
+} from "@/lib/london-time";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
@@ -148,7 +154,10 @@ export function Dashboard({
     [facts.generationRows]
   );
 
-  const latestMixData = headline.mixSnapshot ? mixFromSnapshot(headline.mixSnapshot) : {};
+  const latestMixData = mixPercentagesFromShares(facts.shares);
+  const generationSnapshotStamp = latestGenerationSplit.latestTimestamp
+    ? formatLondonDateTimeStamp(parseUtcDateTime(latestGenerationSplit.latestTimestamp))
+    : null;
   const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
   const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
   const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
@@ -160,19 +169,13 @@ export function Dashboard({
     facts.netImportsMw.value == null ? null : facts.netImportsMw.periodStartUtc,
     headline.referenceTimestamp
   );
-  const mixAsOf = headlineAsOf(
-    headline.mixSnapshot?.timestamp ?? null,
-    headline.referenceTimestamp
-  );
 
-  const topSources = useMemo(
-    () =>
-      [...latestGenerationSplit.sources].sort(
-        (left, right) => right.generation_mw - left.generation_mw
-      ),
-    [latestGenerationSplit.sources]
-  );
-  const topSource = facts.generationMw.value == null ? null : (topSources[0] ?? null);
+  const topShare = useMemo(() => {
+    if (facts.generationMw.value == null || facts.shares.length === 0) {
+      return null;
+    }
+    return [...facts.shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
+  }, [facts.generationMw.value, facts.shares]);
 
   const commodityStats = useMemo(() => {
     const groups = new Map<string, CommodityPrice[]>();
@@ -225,9 +228,9 @@ export function Dashboard({
       : carbonDelta > 0
         ? `Carbon is ${carbonDelta} g above the ${range} average`
         : `Carbon is tracking the ${range} average`,
-    topSource
-      ? `${formatFuelLabel(topSource.fuel_type)} leads supply at ${formatGigawatts(
-          topSource.generation_mw
+    topShare
+        ? `${formatFuelLabel(topShare.fuel)} leads supply at ${formatGigawatts(
+          topShare.mw
         )} GW`
       : "Generation leadership is unavailable",
     transferBriefing(transferStance),
@@ -439,8 +442,8 @@ export function Dashboard({
                         : `${formatHeadlineGw(facts.generationMw.value)} GW`
                     }
                     detail={
-                      topSource
-                        ? `${formatFuelLabel(topSource.fuel_type)} leading`
+                      topShare
+                        ? `${formatFuelLabel(topShare.fuel)} leading`
                         : "Awaiting latest dispatch"
                     }
                     asOf={generationAsOf}
@@ -521,7 +524,7 @@ export function Dashboard({
                 value={formatHeadlineGw(facts.generationMw.value)}
                 unit="GW"
                 detail={
-                  topSource ? `${formatFuelLabel(topSource.fuel_type)} leading` : "Awaiting dispatch"
+                  topShare ? `${formatFuelLabel(topShare.fuel)} leading` : "Awaiting dispatch"
                 }
                 asOf={generationAsOf}
                 icon={<Gauge className="h-3.5 w-3.5" />}
@@ -603,7 +606,11 @@ export function Dashboard({
             ) : hasSnapshots && hasLatestGeneration ? (
               <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <div className="space-y-6">
-                  <DemandBalanceChart data={initialSnapshots} range={range} />
+                  <DemandBalanceChart
+                    snapshots={initialSnapshots}
+                    generation={generationHistory}
+                    range={range}
+                  />
                   <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
                     <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
                       <div className="mb-3 flex items-center gap-2">
@@ -611,11 +618,13 @@ export function Dashboard({
                           Latest mix
                         </h3>
                         <InfoTooltip
-                          text="Uses the latest snapshot percentages to keep high-level categories stable across ranges."
+                          text="Same FUELINST snapshot as the table: gas is CCGT+OCGT, imports are positive interconnector flows, and embedded wind/solar are joined at or within 30 minutes of that frame."
                           label="What is latest mix?"
                         />
-                        {mixAsOf ? (
-                          <p className="font-mono text-xs tabular-nums text-gray-900">as of {mixAsOf}</p>
+                        {generationSnapshotStamp ? (
+                          <p className="font-mono text-xs tabular-nums text-gray-900">
+                            as of {generationSnapshotStamp}
+                          </p>
                         ) : null}
                       </div>
                       <GenerationMixChart data={latestMixData} />
@@ -629,10 +638,15 @@ export function Dashboard({
                           <p className="mt-1 text-sm text-gray-900">
                             Dispatch scaled against current demand.
                           </p>
+                          {generationSnapshotStamp ? (
+                            <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">
+                              as of {generationSnapshotStamp}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <GenerationTable
-                        data={latestGenerationSplit.sources}
+                        data={facts.shares}
                         demandMw={headline.demand.value}
                       />
                     </div>
@@ -1221,28 +1235,6 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
-function mixFromSnapshot(snapshot: EnergySnapshot): Record<string, number> {
-  const entries: Array<[string, number | null]> = [
-    ["gas", snapshot.gen_gas_pct],
-    ["coal", snapshot.gen_coal_pct],
-    ["nuclear", snapshot.gen_nuclear_pct],
-    ["wind", snapshot.gen_wind_pct],
-    ["solar", snapshot.gen_solar_pct],
-    ["hydro", snapshot.gen_hydro_pct],
-    ["biomass", snapshot.gen_biomass_pct],
-    ["imports", snapshot.gen_imports_pct],
-    ["other", snapshot.gen_other_pct],
-  ];
-
-  const mix: Record<string, number> = {};
-  for (const [fuel, value] of entries) {
-    if (value != null) {
-      mix[fuel] = value;
-    }
-  }
-  return mix;
-}
-
 type TransferStance =
   | { kind: "unknown" }
   | { kind: "balanced"; mw: number }
@@ -1358,7 +1350,8 @@ function formatCommodityPrice(latest: CommodityPrice): string {
 }
 
 function formatFuelLabel(fuelType: string): string {
-  return FUELINST_LABELS[normalizeFuelType(fuelType)] ?? fuelType.toUpperCase();
+  const fuel = normalizeFuelType(fuelType);
+  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuelType.toUpperCase();
 }
 
 function formatGigawatts(valueMw: number, digits = 1): string {

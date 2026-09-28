@@ -131,6 +131,74 @@ describe("dashboard model", () => {
     });
   });
 
+  it("does not take a later embedded-only timestamp as the latest snapshot", () => {
+    const split = splitLatestGenerationRows([
+      {
+        timestamp: "2026-09-28 03:00:00",
+        fuel_type: "ccgt",
+        generation_mw: 7563,
+        source: "fuelinst",
+      },
+      {
+        timestamp: "2026-09-28 03:00:00",
+        fuel_type: "wind",
+        generation_mw: 3746,
+        source: "fuelinst",
+      },
+      {
+        timestamp: "2026-09-28 03:00:00",
+        fuel_type: "embedded_wind",
+        generation_mw: 917,
+        source: "neso",
+      },
+      {
+        timestamp: "2026-09-28 05:00:00",
+        fuel_type: "embedded_wind",
+        generation_mw: 817,
+        source: "neso",
+      },
+      {
+        timestamp: "2026-09-28 05:00:00",
+        fuel_type: "embedded_solar",
+        generation_mw: 0,
+        source: "pvlive",
+      },
+    ]);
+
+    expect(split.latestTimestamp).toBe("2026-09-28 03:00:00");
+    expect(split.sources.map((row) => row.fuel_type).sort()).toEqual([
+      "ccgt",
+      "embedded_wind",
+      "wind",
+    ]);
+    expect(split.sources.find((row) => row.fuel_type === "embedded_wind")?.generation_mw).toBe(
+      917
+    );
+    expect(split.totalGenerationMw).toBe(12226);
+  });
+
+  it("joins embedded rows that land within 30 minutes after the fuelinst frame", () => {
+    const split = splitLatestGenerationRows([
+      {
+        timestamp: "2026-09-28 04:50:00",
+        fuel_type: "nuclear",
+        generation_mw: 4000,
+        source: "fuelinst",
+      },
+      {
+        timestamp: "2026-09-28 05:00:00",
+        fuel_type: "embedded_wind",
+        generation_mw: 800,
+        source: "neso",
+      },
+    ]);
+
+    expect(split.latestTimestamp).toBe("2026-09-28 04:50:00");
+    expect(split.sources.find((row) => row.fuel_type === "embedded_wind")?.generation_mw).toBe(
+      800
+    );
+  });
+
   it("maps generation fuels into stable stack keys", () => {
     expect(mapGenerationFuelToStackKey("ccgt")).toBe("gas");
     expect(mapGenerationFuelToStackKey("OCGT")).toBe("gas");

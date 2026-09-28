@@ -12,6 +12,7 @@ import {
 import type { EnergySnapshot, TimeRange } from "@/lib/types";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { demandPointsFromSnapshots } from "@/lib/dashboard-model";
 
 interface Props {
   data: EnergySnapshot[];
@@ -19,9 +20,9 @@ interface Props {
 }
 
 export function DemandChart({ data, range }: Props) {
-  const chartData = data.map((d) => ({
-    time: d.timestamp,
-    demand: d.demand_mw == null ? null : Math.round(d.demand_mw),
+  const chartData = demandPointsFromSnapshots(data).map((point) => ({
+    time: point.time,
+    demand: point.demand == null ? null : Math.round(point.demand),
   }));
 
   return (
