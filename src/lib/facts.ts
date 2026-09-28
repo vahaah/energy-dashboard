@@ -1,5 +1,5 @@
 import {
-  isInterconnectorFuel,
+  generationSharesFromRows,
   latestSnapshotWithField,
   latestSnapshotWithMix,
   normalizeFuelType,
@@ -94,47 +94,7 @@ export function getLatestFacts(input: GetLatestFactsInput): LatestFacts {
 }
 
 export function supplyShares(rows: Generation5min[]): SupplyShare[] {
-  const byFuel = new Map<string, number>();
-  let domesticMw = 0;
-  let netImportsMw = 0;
-
-  let observedInterconnectors = false;
-
-  for (const row of rows) {
-    if (isInterconnectorFuel(row.fuel_type)) {
-      observedInterconnectors = true;
-      netImportsMw += row.generation_mw;
-      continue;
-    }
-
-    const fuel = normalizeFuelType(row.fuel_type);
-    byFuel.set(fuel, (byFuel.get(fuel) ?? 0) + row.generation_mw);
-    domesticMw += row.generation_mw;
-  }
-
-  const supplyMw = domesticMw + netImportsMw;
-  if (supplyMw === 0) {
-    return [];
-  }
-
-  const shares: SupplyShare[] = [];
-  for (const [fuel, mw] of byFuel) {
-    shares.push({
-      fuel,
-      mw,
-      sharePct: (mw / supplyMw) * 100,
-    });
-  }
-
-  if (observedInterconnectors && netImportsMw !== 0) {
-    shares.push({
-      fuel: "imports",
-      mw: netImportsMw,
-      sharePct: (netImportsMw / supplyMw) * 100,
-    });
-  }
-
-  return shares;
+  return generationSharesFromRows(rows);
 }
 
 function emptyFacts(resolution: DashboardDateResolution): LatestFacts {
@@ -367,37 +327,20 @@ function generationForPeriod(
     return [];
   }
 
-  const startMs = period.startUtc.getTime();
   const endMs = period.endUtc.getTime();
-  const inPeriod: Generation5min[] = [];
+  const eligible: Generation5min[] = [];
 
-  for (const row of rows) {
-    const at = parseUtcDateTime(row.timestamp);
-    if (historicalDate && getSettlementPeriod(at).settlementDate !== historicalDate) {
-      continue;
-    }
-    const ms = at.getTime();
-    if (ms >= startMs && ms < endMs) {
-      inPeriod.push(row);
-    }
-  }
-
-  if (inPeriod.length > 0) {
-    return inPeriod;
-  }
-
-  const sameDay: Generation5min[] = [];
   for (const row of rows) {
     const at = parseUtcDateTime(row.timestamp);
     if (historicalDate && getSettlementPeriod(at).settlementDate !== historicalDate) {
       continue;
     }
     if (at.getTime() < endMs) {
-      sameDay.push(row);
+      eligible.push(row);
     }
   }
 
-  return sameDay;
+  return eligible;
 }
 
 function periodFromSnapshot(snapshot: EnergySnapshot | null): {

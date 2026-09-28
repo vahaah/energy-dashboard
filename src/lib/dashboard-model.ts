@@ -1,5 +1,6 @@
 import {
   formatLondonDateLabel,
+  formatTinybirdDateTime,
   getLondonDateTimeParts,
   getLondonOffsetLabel,
   parseUtcDateTime,
@@ -88,6 +89,35 @@ export function isInterconnectorFuel(fuelType: string): boolean {
   return normalizeFuelType(fuelType).startsWith("int");
 }
 
+export function isEmbeddedFuel(fuelType: string): boolean {
+  const fuel = normalizeFuelType(fuelType);
+  return fuel === "embedded_wind" || fuel === "embedded_solar";
+}
+
+export function isPumpedStorageFuel(fuelType: string): boolean {
+  return normalizeFuelType(fuelType) === "ps";
+}
+
+/** NESO / PV Live half-hours can lead the latest FUELINST frame by up to one SP. */
+export const EMBEDDED_ALIGN_WINDOW_MS = 30 * 60 * 1000;
+
+export type GenerationShare = {
+  fuel: string;
+  mw: number;
+  sharePct: number;
+};
+
+export type DemandPoint = {
+  time: string;
+  demand: number | null;
+};
+
+export type DemandBalancePoint = {
+  time: string;
+  demandMw: number | null;
+  domesticGenerationMw: number | null;
+};
+
 export function mapGenerationFuelToStackKey(fuelType: string): string {
   const fuel = normalizeFuelType(fuelType);
 
@@ -108,7 +138,8 @@ export function mapGenerationFuelToStackKey(fuelType: string): string {
 export function splitLatestGenerationRows(
   rows: Generation5min[]
 ): SplitGenerationRows {
-  if (rows.length === 0) {
+  const fuelinstTimestamp = latestFuelinstTimestamp(rows);
+  if (!fuelinstTimestamp) {
     return {
       latestTimestamp: "",
       sources: [],
@@ -118,8 +149,17 @@ export function splitLatestGenerationRows(
     };
   }
 
+  const fuelinstMs = parseUtcDateTime(fuelinstTimestamp).getTime();
+  const embeddedCutoffMs = fuelinstMs + EMBEDDED_ALIGN_WINDOW_MS;
   const latestByFuel = new Map<string, Generation5min>();
+
   for (const row of rows) {
+    const rowMs = parseUtcDateTime(row.timestamp).getTime();
+    const cutoff = isEmbeddedFuel(row.fuel_type) ? embeddedCutoffMs : fuelinstMs;
+    if (rowMs > cutoff) {
+      continue;
+    }
+
     const key = normalizeFuelType(row.fuel_type);
     const existing = latestByFuel.get(key);
     if (!existing || row.timestamp > existing.timestamp) {
@@ -127,18 +167,11 @@ export function splitLatestGenerationRows(
     }
   }
 
-  const latestRows = Array.from(latestByFuel.values());
-  const latestTimestamp = latestRows.reduce(
-    (latest, row) => (row.timestamp > latest ? row.timestamp : latest),
-    ""
-  );
   const sources: Generation5min[] = [];
   const interconnectors: Generation5min[] = [];
-
-  let totalGenerationMw = 0;
   let netTransfersMw = 0;
 
-  for (const row of latestRows) {
+  for (const row of latestByFuel.values()) {
     if (isInterconnectorFuel(row.fuel_type)) {
       interconnectors.push(row);
       netTransfersMw += row.generation_mw;
@@ -146,16 +179,100 @@ export function splitLatestGenerationRows(
     }
 
     sources.push(row);
-    totalGenerationMw += row.generation_mw;
   }
 
   return {
-    latestTimestamp,
+    latestTimestamp: fuelinstTimestamp,
     sources,
     interconnectors,
-    totalGenerationMw,
+    totalGenerationMw: domesticGenerationMw(sources),
     netTransfersMw,
   };
+}
+
+export function latestFuelinstTimestamp(rows: Generation5min[]): string | null {
+  let latest: string | null = null;
+
+  for (const row of rows) {
+    if (isEmbeddedFuel(row.fuel_type)) {
+      continue;
+    }
+    if (!latest || row.timestamp > latest) {
+      latest = row.timestamp;
+    }
+  }
+
+  return latest;
+}
+
+export function domesticGenerationMw(rows: Iterable<Generation5min>): number {
+  let total = 0;
+
+  for (const row of rows) {
+    if (isInterconnectorFuel(row.fuel_type)) {
+      continue;
+    }
+    if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
+      continue;
+    }
+    total += row.generation_mw;
+  }
+
+  return total;
+}
+
+export function groupGenerationMw(rows: Iterable<Generation5min>): Record<string, number> {
+  const grouped: Record<string, number> = {};
+
+  for (const row of rows) {
+    if (isInterconnectorFuel(row.fuel_type)) {
+      if (row.generation_mw > 0) {
+        grouped.imports = (grouped.imports ?? 0) + row.generation_mw;
+      }
+      continue;
+    }
+
+    if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
+      continue;
+    }
+
+    const fuel = mapGenerationFuelToStackKey(row.fuel_type);
+    grouped[fuel] = (grouped[fuel] ?? 0) + row.generation_mw;
+  }
+
+  return grouped;
+}
+
+export function generationSharesFromRows(rows: Iterable<Generation5min>): GenerationShare[] {
+  const grouped = groupGenerationMw(rows);
+  const total = Object.values(grouped).reduce((sum, mw) => sum + mw, 0);
+  if (total === 0) {
+    return [];
+  }
+
+  const shares: GenerationShare[] = [];
+  for (const [fuel, mw] of Object.entries(grouped)) {
+    if (mw === 0) {
+      continue;
+    }
+    shares.push({
+      fuel,
+      mw,
+      sharePct: (mw / total) * 100,
+    });
+  }
+
+  return shares;
+}
+
+export function mixPercentagesFromShares(
+  shares: GenerationShare[]
+): Record<string, number> {
+  const mix: Record<string, number> = {};
+  for (const share of shares) {
+    mix[share.fuel] = share.sharePct;
+  }
+  return mix;
 }
 
 export function buildGenerationStackSeries(
@@ -215,6 +332,98 @@ export function buildGenerationStackSeries(
 
       return point;
     });
+}
+
+export function demandPointsFromSnapshots(snapshots: EnergySnapshot[]): DemandPoint[] {
+  return snapshots.map((snapshot) => ({
+    time: snapshot.timestamp,
+    demand: snapshot.demand_mw,
+  }));
+}
+
+export function buildDemandBalanceSeries(
+  snapshots: EnergySnapshot[],
+  generation: Generation5min[],
+  range: TimeRange
+): DemandBalancePoint[] {
+  const bucketMs = getDemandBalanceBucketSizeMs(range);
+  const generationByBucket = new Map<number, Map<string, { sum: number; count: number }>>();
+  const demandByBucket = new Map<number, { sum: number; count: number }>();
+
+  for (const row of generation) {
+    const parsed = parseUtcDateTime(row.timestamp).getTime();
+    if (Number.isNaN(parsed)) {
+      continue;
+    }
+
+    const bucket = Math.floor(parsed / bucketMs) * bucketMs;
+    const fuels = generationByBucket.get(bucket) ?? new Map();
+    const fuel = normalizeFuelType(row.fuel_type);
+    const existing = fuels.get(fuel);
+    if (existing) {
+      existing.sum += row.generation_mw;
+      existing.count += 1;
+    } else {
+      fuels.set(fuel, { sum: row.generation_mw, count: 1 });
+    }
+    generationByBucket.set(bucket, fuels);
+  }
+
+  const snapshotBuckets = new Set<number>();
+
+  for (const snapshot of snapshots) {
+    const parsed = parseUtcDateTime(snapshot.timestamp).getTime();
+    if (Number.isNaN(parsed)) {
+      continue;
+    }
+
+    const bucket = Math.floor(parsed / bucketMs) * bucketMs;
+    snapshotBuckets.add(bucket);
+    if (snapshot.demand_mw == null) {
+      continue;
+    }
+
+    const existing = demandByBucket.get(bucket);
+    if (existing) {
+      existing.sum += snapshot.demand_mw;
+      existing.count += 1;
+    } else {
+      demandByBucket.set(bucket, { sum: snapshot.demand_mw, count: 1 });
+    }
+  }
+
+  const buckets = new Set<number>([
+    ...generationByBucket.keys(),
+    ...snapshotBuckets,
+  ]);
+  const times = Array.from(buckets).sort((left, right) => left - right);
+  let lastEmbeddedWind: number | null = null;
+  let lastEmbeddedSolar: number | null = null;
+  const points: DemandBalancePoint[] = [];
+
+  for (const time of times) {
+    const averaged = averageFuelsInBucket(generationByBucket.get(time));
+    if (averaged.has("embedded_wind")) {
+      lastEmbeddedWind = averaged.get("embedded_wind") ?? null;
+    } else if (lastEmbeddedWind != null) {
+      averaged.set("embedded_wind", lastEmbeddedWind);
+    }
+
+    if (averaged.has("embedded_solar")) {
+      lastEmbeddedSolar = averaged.get("embedded_solar") ?? null;
+    } else if (lastEmbeddedSolar != null) {
+      averaged.set("embedded_solar", lastEmbeddedSolar);
+    }
+
+    const demand = demandByBucket.get(time);
+    points.push({
+      time: formatTinybirdDateTime(new Date(time)),
+      demandMw: demand ? demand.sum / demand.count : null,
+      domesticGenerationMw: domesticGenerationFromFuelMap(averaged),
+    });
+  }
+
+  return points;
 }
 
 export function buildRangeSummary(snapshots: EnergySnapshot[]): RangeSummary {
@@ -425,6 +634,58 @@ function getGenerationBucketSizeMs(range: TimeRange): number {
       return exhaustive;
     }
   }
+}
+
+function getDemandBalanceBucketSizeMs(range: TimeRange): number {
+  switch (range) {
+    case "24h":
+      return 30 * 60 * 1000;
+    case "7d":
+      return 60 * 60 * 1000;
+    case "30d":
+    case "90d":
+    case "1y":
+      return 24 * 60 * 60 * 1000;
+    default: {
+      const exhaustive: never = range;
+      return exhaustive;
+    }
+  }
+}
+
+function averageFuelsInBucket(
+  fuels: Map<string, { sum: number; count: number }> | undefined
+): Map<string, number> {
+  const averaged = new Map<string, number>();
+  if (!fuels) {
+    return averaged;
+  }
+
+  for (const [fuel, { sum, count }] of fuels) {
+    averaged.set(fuel, sum / count);
+  }
+
+  return averaged;
+}
+
+function domesticGenerationFromFuelMap(fuels: Map<string, number>): number | null {
+  let hasFuelinstDomestic = false;
+  let total = 0;
+
+  for (const [fuel, mw] of fuels) {
+    if (isInterconnectorFuel(fuel)) {
+      continue;
+    }
+    if (isPumpedStorageFuel(fuel) && mw < 0) {
+      continue;
+    }
+    if (!isEmbeddedFuel(fuel)) {
+      hasFuelinstDomestic = true;
+    }
+    total += mw;
+  }
+
+  return hasFuelinstDomestic ? total : null;
 }
 
 function parseGenerationTimestamp(value: string): number {

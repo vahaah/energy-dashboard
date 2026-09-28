@@ -11,6 +11,8 @@ export const FUEL_COLORS: Record<string, string> = {
   biomass: "#22c55e",   // green
   imports: "#ec4899",   // pink
   other: "#94a3b8",     // slate
+  embedded_wind: "#22d3ee",
+  embedded_solar: "#fbbf24",
 };
 
 export const FUEL_LABELS: Record<string, string> = {
@@ -23,6 +25,8 @@ export const FUEL_LABELS: Record<string, string> = {
   biomass: "Biomass",
   imports: "Imports",
   other: "Other",
+  embedded_wind: "Embedded Wind",
+  embedded_solar: "Solar (PV Live estimate)",
 };
 
 export const COMMODITY_COLORS: Record<string, string> = {

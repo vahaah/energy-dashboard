@@ -11,37 +11,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { EnergySnapshot, TimeRange } from "@/lib/types";
+import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { buildDemandBalanceSeries } from "@/lib/dashboard-model";
 
 interface Props {
-  data: EnergySnapshot[];
+  snapshots: EnergySnapshot[];
+  generation: Generation5min[];
   range: TimeRange;
 }
 
-export function DemandBalanceChart({ data, range }: Props) {
-  const chartData = data.map((snapshot) => {
-    const domesticParts = [
-      snapshot.gen_gas_mw,
-      snapshot.gen_coal_mw,
-      snapshot.gen_nuclear_mw,
-      snapshot.gen_wind_mw,
-      snapshot.gen_solar_mw,
-      snapshot.gen_hydro_mw,
-      snapshot.gen_biomass_mw,
-      snapshot.gen_other_mw,
-    ];
-    const present = domesticParts.filter((value): value is number => value != null);
-    const domesticGenerationMw =
-      present.length === 0 ? null : present.reduce((sum, value) => sum + value, 0);
-
-    return {
-      time: snapshot.timestamp,
-      demandMw: snapshot.demand_mw,
-      domesticGenerationMw,
-    };
-  });
+export function DemandBalanceChart({ snapshots, generation, range }: Props) {
+  const chartData = buildDemandBalanceSeries(snapshots, generation, range);
 
   return (
     <ResponsiveChartFrame className="h-80">
