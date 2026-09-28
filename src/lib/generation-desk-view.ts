@@ -1,4 +1,5 @@
 import {
+  EMBEDDED_CARRY_INTRADAY_MS,
   formatSettlementWindow,
   GENERATION_STACK_FUELS,
   groupGenerationMw,
@@ -127,22 +128,38 @@ export function buildGenerationDeskView(
     nowView: buildNowBySourceView(aligned.generationRows, aligned.demand.value),
     delayNote: facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now),
     alignmentNote: aligned.alignmentNote,
-    sourceCopy: generationSourceCopy(facts),
+    sourceCopy: generationSourceCopy(
+      facts,
+      latestFuelinstTimestamp(aligned.generationRows)
+    ),
   };
 }
 
-export function generationSourceCopy(facts: LatestFacts): GenerationSourceCopy {
-  if (!facts.isHistorical) {
+export function generationSourceCopy(
+  facts: LatestFacts,
+  frameTimestamp: string | null = null
+): GenerationSourceCopy {
+  const preferredTimestamp = latestFuelinstTimestamp(facts.generationRows);
+  const displayedTimestamp =
+    frameTimestamp ??
+    preferredTimestamp ??
+    facts.generationMw.periodStartUtc ??
+    facts.referenceTimestamp;
+  const showingLatestLive =
+    !facts.isHistorical &&
+    (frameTimestamp == null || frameTimestamp === preferredTimestamp);
+  const carry = embeddedCarryPhrase();
+
+  if (showingLatestLive) {
     return {
       title: "Powering Britain now",
       subtitle: "Now, by source · sorted by size · share of demand",
-      tooltip:
-        "Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list.",
+      tooltip: `Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
       tooltipLabel: "What is Powering Britain now?",
     };
   }
 
-  const when = historicalSourceWhen(facts);
+  const when = displayedTimestamp ? formatSourceWhen(displayedTimestamp) : null;
   const title = when
     ? `Powering Britain at ${when}`
     : `Powering Britain on ${formatLondonDayMonthYear(facts.requestedDate)}`;
@@ -153,7 +170,7 @@ export function generationSourceCopy(facts: LatestFacts): GenerationSourceCopy {
   return {
     title,
     subtitle: "By source · sorted by size · share of demand",
-    tooltip: `Domestic generation from ${frame}, with embedded wind and solar joined at or within 30 minutes. Interconnectors sit in net imports, not this list.`,
+    tooltip: `Domestic generation from ${frame}, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
     tooltipLabel: `What is ${title}?`,
   };
 }
@@ -234,13 +251,23 @@ export function alignAnswerPeriod(
 
   const generationRows = rowsAtOrBeforeFuelinst(facts.generationRows, alignedTimestamp);
   const split = splitLatestGenerationRows(generationRows);
+  const alignedStart = settlementStartMs(alignedTimestamp);
+  const periodDemand =
+    alignedStart === demandStart
+      ? facts.demand.value
+      : demandInPeriod(headlineSnapshots, alignedStart);
+  let alignmentNote = `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`;
+  if (periodDemand == null && alignedStart !== demandStart) {
+    alignmentNote = `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(alignedTimestamp)}. Shares of demand are hidden.`;
+  }
+
   return stampAlignedPeriod(
     facts,
     generationRows,
     alignedTimestamp,
     split.sources.length > 0 ? split.totalGenerationMw : null,
-    facts.demand.value,
-    `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`
+    periodDemand,
+    alignmentNote
   );
 }
 
@@ -698,17 +725,17 @@ function stampAlignedPeriod(
   };
 }
 
-function historicalSourceWhen(facts: LatestFacts): string | null {
-  const timestamp =
-    latestFuelinstTimestamp(facts.generationRows) ??
-    facts.generationMw.periodStartUtc ??
-    facts.referenceTimestamp;
-  if (!timestamp) {
-    return null;
-  }
-
+function formatSourceWhen(timestamp: string): string {
   const date = parseUtcDateTime(timestamp);
   return `${formatLondonClock(date)} on ${formatLondonDateLabel(date)}`;
+}
+
+function embeddedCarryPhrase(): string {
+  const minutes = Math.round(EMBEDDED_CARRY_INTRADAY_MS / (60 * 1000));
+  if (minutes === 60) {
+    return "joined at or within one hour";
+  }
+  return `joined at or within ${minutes} minutes`;
 }
 
 function demandInPeriod(snapshots: EnergySnapshot[], periodStartMs: number): number | null {

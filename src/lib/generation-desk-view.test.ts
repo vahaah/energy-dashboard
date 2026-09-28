@@ -341,6 +341,45 @@ describe("generation answer row", () => {
     expect(headline.answers[1]?.value).toBe("21.5");
     expect(headline.nowView.totalDemandPctLabel).toBe("88.4%");
   });
+
+  it("does not restamp a later demand onto an older period across a FUELINST gap", () => {
+    const gap = facts({
+      generationMw: fact(8000, "2026-09-28T03:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+      demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+      netImportsMw: fact(1147, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+      generationRows: [
+        generation("2026-09-28 03:00:00", "ccgt", 8000),
+        generation("2026-09-28 03:00:00", "intfr", 1147),
+        generation("2026-09-28 02:00:00", "ccgt", 10000),
+        generation("2026-09-28 02:00:00", "wind", 9000),
+        generation("2026-09-28 02:00:00", "intfr", -400),
+      ],
+    });
+    const now = new Date("2026-09-28T03:10:00.000Z");
+    const withoutSnapshot = buildGenerationDeskView(gap, now);
+    const withSnapshot = buildGenerationDeskView(gap, now, [
+      snapshot("2026-09-28 02:00:00", 20000),
+      snapshot("2026-09-28 02:30:00", 21500),
+    ]);
+
+    expect(withoutSnapshot.answers.map((stat) => stat.timeLabel)).toEqual([
+      "03:00–03:30 BST",
+      "03:00–03:30 BST",
+      "03:00–03:30 BST",
+    ]);
+    expect(withoutSnapshot.answers[0]?.value).toBe("19.0");
+    expect(withoutSnapshot.answers[1]?.value).toBe("—");
+    expect(withoutSnapshot.answers[2]?.value).toBe("-0.4");
+    expect(withoutSnapshot.nowView.totalDemandPctLabel).toBe("—");
+    expect(withoutSnapshot.alignmentNote).toBe(
+      "Demand is 03:30–04:00 BST. Generation is 03:00–03:30 BST. Shares of demand are hidden."
+    );
+    expect(withSnapshot.answers[1]?.value).toBe("20.0");
+    expect(withSnapshot.nowView.totalDemandPctLabel).toBe("95.0%");
+    expect(withSnapshot.alignmentNote).toBe(
+      "Demand for 04:00–04:30 BST is not in yet. Figures are 03:00–03:30 BST."
+    );
+  });
 });
 
 describe("generation source copy", () => {
@@ -348,6 +387,8 @@ describe("generation source copy", () => {
     expect(generationSourceCopy(facts()).title).toBe("Powering Britain now");
     expect(generationSourceCopy(facts()).subtitle).toContain("Now, by source");
     expect(generationSourceCopy(facts()).tooltip).toContain("latest Elexon FUELINST");
+    expect(generationSourceCopy(facts()).tooltip).toContain("joined at or within one hour");
+    expect(generationSourceCopy(facts()).tooltip).not.toContain("30 minutes");
 
     const historical = generationSourceCopy(
       facts({
@@ -362,9 +403,41 @@ describe("generation source copy", () => {
     expect(historical.title).toBe("Powering Britain at 23:30 BST on 20 Sep 2026");
     expect(historical.subtitle).toBe("By source · sorted by size · share of demand");
     expect(historical.tooltip).toContain("Elexon FUELINST frame at 23:30 BST on 20 Sep 2026");
+    expect(historical.tooltip).toContain("joined at or within one hour");
     expect(historical.tooltip).not.toContain("latest");
     expect(historical.tooltip).not.toContain(" now");
     expect(historical.tooltipLabel).toBe("What is Powering Britain at 23:30 BST on 20 Sep 2026?");
+  });
+
+  it("titles the source card from the aligned frame, not a newer unused FUELINST row", () => {
+    const lagged = facts({
+      isHistorical: true,
+      requestedDate: "2026-09-28",
+      generationMw: fact(20215, "2026-09-28T03:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+      demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+      netImportsMw: fact(1147, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+      generationRows: [
+        generation("2026-09-28 03:00:00", "ccgt", 8000),
+        generation("2026-09-28 03:00:00", "wind", 4000),
+        generation("2026-09-28 02:30:00", "ccgt", 10000),
+        generation("2026-09-28 02:30:00", "wind", 9000),
+      ],
+      referenceTimestamp: "2026-09-28T03:00:00.000Z",
+    });
+    const view = buildGenerationDeskView(lagged, new Date("2026-09-28T03:10:00.000Z"));
+
+    expect(view.answers[0]?.value).toBe("19.0");
+    expect(view.sourceCopy.title).toBe("Powering Britain at 03:30 BST on 28 Sep 2026");
+    expect(view.sourceCopy.tooltip).toContain("Elexon FUELINST frame at 03:30 BST on 28 Sep 2026");
+    expect(view.sourceCopy.tooltip).not.toContain("latest");
+    expect(view.sourceCopy.tooltip).not.toContain("04:00 BST");
+
+    const live = buildGenerationDeskView(
+      { ...lagged, isHistorical: false },
+      new Date("2026-09-28T03:10:00.000Z")
+    );
+    expect(live.sourceCopy.title).toBe("Powering Britain at 03:30 BST on 28 Sep 2026");
+    expect(live.sourceCopy.tooltip).not.toContain("latest");
   });
 });
 
