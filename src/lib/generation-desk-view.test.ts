@@ -12,6 +12,7 @@ import {
   formatPlainSettlementWindow,
   FUELINST_STALE_MS,
   fuelinstDelayNote,
+  GENERATION_DESK_RANGE_OPTIONS,
   gwAxisTicks,
 } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
@@ -65,6 +66,18 @@ function facts(overrides: Partial<LatestFacts> = {}): LatestFacts {
     ...overrides,
   };
 }
+
+describe("generation desk ranges", () => {
+  it("includes every public range so the local toggle can stay pressed", () => {
+    expect(GENERATION_DESK_RANGE_OPTIONS.map((option) => option.value)).toEqual([
+      "24h",
+      "7d",
+      "30d",
+      "90d",
+      "1y",
+    ]);
+  });
+});
 
 describe("generation answer row", () => {
   it("formats settlement time without the SP number", () => {

@@ -141,14 +141,16 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
               ticks={xTicks}
               interval={0}
               minTickGap={compact ? 48 : 24}
-              tickFormatter={(value) => formatDemandBalanceTick(String(value), range)}
+              tickFormatter={(value: string | number) =>
+                formatDemandBalanceTick(String(value), range)
+              }
               tick={{ fontSize: 11, fill: "#71717a" }}
               stroke="#27272a"
             />
             <YAxis
               domain={[0, yMax]}
               ticks={yTicks}
-              tickFormatter={(value) => Number(value).toFixed(1)}
+              tickFormatter={(value: number) => Number(value).toFixed(1)}
               tick={{ fontSize: 11, fill: "#71717a" }}
               stroke="#27272a"
               width={44}
