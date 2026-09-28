@@ -29,7 +29,11 @@ export function GenerationDesk({
   now = new Date(),
   onRangeChange,
 }: Props) {
-  const { answers, nowView, delayNote, alignmentNote } = buildGenerationDeskView(facts, now);
+  const { answers, nowView, delayNote, alignmentNote } = buildGenerationDeskView(
+    facts,
+    now,
+    snapshots
+  );
   const hasChart = snapshots.length > 0 || generation.length > 0;
   const notes: string[] = [];
   if (delayNote) {

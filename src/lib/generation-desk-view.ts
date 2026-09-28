@@ -18,7 +18,7 @@ import {
   parseUtcDateTime,
 } from "@/lib/london-time";
 import { getSettlementPeriod } from "@/lib/settlement-period";
-import type { Generation5min, TimeRange } from "@/lib/types";
+import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 
 export const FUELINST_STALE_MS = 30 * 60 * 1000;
 export const COMPACT_CHART_MAX_TICKS = 4;
@@ -98,8 +98,12 @@ export function buildGenerationAnswerStats(facts: LatestFacts): GenerationAnswer
   ];
 }
 
-export function buildGenerationDeskView(facts: LatestFacts, now: Date): GenerationDeskView {
-  const aligned = alignAnswerPeriod(facts);
+export function buildGenerationDeskView(
+  facts: LatestFacts,
+  now: Date,
+  snapshots: EnergySnapshot[] = []
+): GenerationDeskView {
+  const aligned = alignAnswerPeriod(facts, snapshots);
   return {
     answers: buildGenerationAnswerStats({
       ...facts,
@@ -128,7 +132,10 @@ export function fuelinstDelayNote(rows: Generation5min[], now: Date): string | n
   return `Data delayed: last Elexon update ${formatLondonClock(parseUtcDateTime(timestamp))}`;
 }
 
-export function alignAnswerPeriod(facts: LatestFacts): {
+export function alignAnswerPeriod(
+  facts: LatestFacts,
+  snapshots: EnergySnapshot[] = []
+): {
   generationMw: Fact<number>;
   demand: Fact<number>;
   netImportsMw: Fact<number>;
@@ -149,14 +156,29 @@ export function alignAnswerPeriod(facts: LatestFacts): {
 
   const preferredStart = settlementStartMs(preferredTimestamp);
   const demandStart = settlementStartMs(demandTimestamp);
-  if (preferredStart === demandStart || demandStart > preferredStart) {
-    return {
-      generationMw: facts.generationMw,
-      demand: facts.demand,
-      netImportsMw: facts.netImportsMw,
-      generationRows: facts.generationRows,
-      alignmentNote: null,
-    };
+  if (preferredStart === demandStart) {
+    return stampAlignedPeriod(
+      facts,
+      facts.generationRows,
+      preferredTimestamp,
+      facts.generationMw.value,
+      facts.demand.value,
+      null
+    );
+  }
+
+  if (demandStart > preferredStart) {
+    const periodDemand = demandInPeriod(snapshots, preferredStart);
+    return stampAlignedPeriod(
+      facts,
+      facts.generationRows,
+      preferredTimestamp,
+      facts.generationMw.value,
+      periodDemand,
+      periodDemand == null
+        ? `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(preferredTimestamp)}. Shares of demand are hidden.`
+        : null
+    );
   }
 
   const alignedTimestamp = latestFuelinstAtOrBefore(facts.generationRows, demandStart);
@@ -172,29 +194,14 @@ export function alignAnswerPeriod(facts: LatestFacts): {
 
   const generationRows = rowsAtOrBeforeFuelinst(facts.generationRows, alignedTimestamp);
   const split = splitLatestGenerationRows(generationRows);
-  const bounds = settlementBounds(alignedTimestamp);
-
-  return {
-    generationMw: {
-      ...facts.generationMw,
-      value: split.sources.length > 0 ? split.totalGenerationMw : null,
-      periodStartUtc: bounds.startUtc,
-      periodEndUtc: bounds.endUtc,
-    },
-    demand: {
-      ...facts.demand,
-      periodStartUtc: bounds.startUtc,
-      periodEndUtc: bounds.endUtc,
-    },
-    netImportsMw: {
-      ...facts.netImportsMw,
-      value: netImportsInPeriod(split.interconnectors, alignedTimestamp),
-      periodStartUtc: bounds.startUtc,
-      periodEndUtc: bounds.endUtc,
-    },
+  return stampAlignedPeriod(
+    facts,
     generationRows,
-    alignmentNote: `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`,
-  };
+    alignedTimestamp,
+    split.sources.length > 0 ? split.totalGenerationMw : null,
+    facts.demand.value,
+    `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`
+  );
 }
 
 export function buildNowBySourceView(
@@ -359,8 +366,14 @@ export function clipTrailingEmptyChartPoints(
 }
 
 export function gwAxisTicks(maxGw: number): number[] {
-  const ceiling = Math.max(10, Math.ceil(maxGw / 10) * 10);
-  const step = ceiling <= 50 ? 10 : ceiling <= 100 ? 20 : 25;
+  const rawCeiling = Math.max(10, Math.ceil(maxGw / 10) * 10);
+  let step = 25;
+  if (rawCeiling <= 50) {
+    step = 10;
+  } else if (rawCeiling <= 100) {
+    step = 20;
+  }
+  const ceiling = Math.ceil(rawCeiling / step) * step;
   const ticks: number[] = [];
   for (let value = 0; value <= ceiling; value += step) {
     ticks.push(value);
@@ -605,6 +618,66 @@ function mwToGw(valueMw: number | null): number | null {
     return null;
   }
   return valueMw / 1000;
+}
+
+function stampAlignedPeriod(
+  facts: LatestFacts,
+  generationRows: Generation5min[],
+  timestamp: string,
+  generationValue: number | null,
+  demandValue: number | null,
+  alignmentNote: string | null
+): {
+  generationMw: Fact<number>;
+  demand: Fact<number>;
+  netImportsMw: Fact<number>;
+  generationRows: Generation5min[];
+  alignmentNote: string | null;
+} {
+  const split = splitLatestGenerationRows(generationRows);
+  const bounds = settlementBounds(timestamp);
+  return {
+    generationMw: {
+      ...facts.generationMw,
+      value: generationValue,
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    demand: {
+      ...facts.demand,
+      value: demandValue,
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    netImportsMw: {
+      ...facts.netImportsMw,
+      value: netImportsInPeriod(split.interconnectors, timestamp),
+      periodStartUtc: bounds.startUtc,
+      periodEndUtc: bounds.endUtc,
+    },
+    generationRows,
+    alignmentNote,
+  };
+}
+
+function demandInPeriod(snapshots: EnergySnapshot[], periodStartMs: number): number | null {
+  let latest: number | null = null;
+  let latestTimestamp: string | null = null;
+
+  for (const snapshot of snapshots) {
+    if (snapshot.demand_mw == null) {
+      continue;
+    }
+    if (settlementStartMs(snapshot.timestamp) !== periodStartMs) {
+      continue;
+    }
+    if (!latestTimestamp || snapshot.timestamp > latestTimestamp) {
+      latest = snapshot.demand_mw;
+      latestTimestamp = snapshot.timestamp;
+    }
+  }
+
+  return latest;
 }
 
 function netImportsInPeriod(rows: Generation5min[], timestamp: string): number | null {

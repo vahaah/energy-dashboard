@@ -19,7 +19,7 @@ import {
 } from "@/lib/generation-desk-view";
 import type { DemandBalancePoint } from "@/lib/dashboard-model";
 import type { LatestFacts } from "@/lib/facts";
-import type { Generation5min } from "@/lib/types";
+import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 function generation(
   timestamp: string,
@@ -43,6 +43,34 @@ function fact(value: number | null, timestamp: string | null, source: string) {
     periodEndUtc: timestamp,
     source,
     definition: "test",
+  };
+}
+
+function snapshot(timestamp: string, demandMw: number | null): EnergySnapshot {
+  return {
+    timestamp,
+    carbon_intensity: 80,
+    carbon_forecast: 80,
+    carbon_index: "low",
+    demand_mw: demandMw,
+    price_gbp_mwh: 50,
+    gen_gas_pct: 30,
+    gen_coal_pct: 0,
+    gen_nuclear_pct: 15,
+    gen_wind_pct: 35,
+    gen_solar_pct: 5,
+    gen_hydro_pct: 5,
+    gen_biomass_pct: 5,
+    gen_imports_pct: 5,
+    gen_other_pct: 0,
+    gen_gas_mw: 6000,
+    gen_coal_mw: 0,
+    gen_nuclear_mw: 3000,
+    gen_wind_mw: 7000,
+    gen_solar_mw: 1000,
+    gen_hydro_mw: 1000,
+    gen_biomass_mw: 1000,
+    gen_other_mw: 0,
   };
 }
 
@@ -201,6 +229,91 @@ describe("generation answer row", () => {
       netImportsMw: aligned.netImportsMw,
     })[2]?.value).toBe("1.5");
   });
+
+  it("excludes a carried-forward interconnector from same-period net imports", () => {
+    const aligned = alignAnswerPeriod(
+      facts({
+        generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(21500, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1300, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intned", 400),
+          generation("2026-09-28 02:00:00", "intfr", 900),
+        ],
+      })
+    );
+
+    expect(aligned.alignmentNote).toBeNull();
+    expect(aligned.netImportsMw.value).toBe(400);
+    expect(aligned.netImportsMw.periodStartUtc).toBe("2026-09-28T02:30:00.000Z");
+    expect(aligned.demand.value).toBe(21500);
+  });
+
+  it("does not pair newer demand with older generation when no matching snapshot exists", () => {
+    const view = buildGenerationDeskView(
+      facts({
+        generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(25000, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1300, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intned", 400),
+          generation("2026-09-28 02:00:00", "intfr", 900),
+        ],
+      }),
+      new Date("2026-09-28T03:10:00.000Z")
+    );
+
+    expect(view.answers.map((stat) => stat.timeLabel)).toEqual([
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+    ]);
+    expect(view.answers[0]?.value).toBe("19.0");
+    expect(view.answers[1]?.value).toBe("—");
+    expect(view.answers[2]?.value).toBe("0.4");
+    expect(view.alignmentNote).toBe(
+      "Demand is 04:00–04:30 BST. Generation is 03:30–04:00 BST. Shares of demand are hidden."
+    );
+    expect(view.nowView.totalDemandPctLabel).toBe("—");
+    expect(view.nowView.rows.every((row) => row.demandPctLabel === "—")).toBe(true);
+  });
+
+  it("uses demand at the generation settlement period when a newer demand is also present", () => {
+    const view = buildGenerationDeskView(
+      facts({
+        generationMw: fact(19000, "2026-09-28T02:30:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(25000, "2026-09-28T03:00:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(1300, "2026-09-28T02:30:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 02:30:00", "ccgt", 10000),
+          generation("2026-09-28 02:30:00", "wind", 9000),
+          generation("2026-09-28 02:30:00", "intned", 400),
+          generation("2026-09-28 02:00:00", "intfr", 900),
+        ],
+      }),
+      new Date("2026-09-28T03:10:00.000Z"),
+      [
+        snapshot("2026-09-28 02:30:00", 21500),
+        snapshot("2026-09-28 03:00:00", 25000),
+      ]
+    );
+
+    expect(view.answers.map((stat) => stat.timeLabel)).toEqual([
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+      "03:30–04:00 BST",
+    ]);
+    expect(view.answers[0]?.value).toBe("19.0");
+    expect(view.answers[1]?.value).toBe("21.5");
+    expect(view.answers[2]?.value).toBe("0.4");
+    expect(view.alignmentNote).toBeNull();
+    expect(view.nowView.totalDemandPctLabel).toBe("88.4%");
+    expect(view.nowView.rows.find((row) => row.fuel === "gas")?.demandPctLabel).toBe("46.5%");
+  });
 });
 
 describe("fuelinst stale threshold", () => {
@@ -342,6 +455,7 @@ describe("demand balance chart view", () => {
 
   it("uses round GW ticks and 24h ticks every three hours", () => {
     expect(gwAxisTicks(37.4)).toEqual([0, 10, 20, 30, 40]);
+    expect(gwAxisTicks(65)).toEqual([0, 20, 40, 60, 80]);
 
     const times = [
       "2026-01-15 00:00:00",
