@@ -16,6 +16,7 @@ import {
   formatLondonClock,
   formatLondonDateLabel,
   formatLondonDayMonthYear,
+  formatTinybirdDateTime,
   getLondonDateTimeParts,
   getLondonOffsetLabel,
   parseUtcDateTime,
@@ -141,10 +142,7 @@ export function generationSourceCopy(
 ): GenerationSourceCopy {
   const preferredTimestamp = latestFuelinstTimestamp(facts.generationRows);
   const displayedTimestamp =
-    frameTimestamp ??
-    preferredTimestamp ??
-    facts.generationMw.periodStartUtc ??
-    facts.referenceTimestamp;
+    frameTimestamp ?? preferredTimestamp ?? facts.generationMw.periodStartUtc;
   const showingLatestLive =
     !facts.isHistorical &&
     (frameTimestamp == null || frameTimestamp === preferredTimestamp);
@@ -163,14 +161,20 @@ export function generationSourceCopy(
   const title = when
     ? `Powering Britain at ${when}`
     : `Powering Britain on ${formatLondonDayMonthYear(facts.requestedDate)}`;
-  const frame = when
-    ? `the Elexon FUELINST frame at ${when}`
-    : `the Elexon FUELINST frame for ${formatLondonDayMonthYear(facts.requestedDate)}`;
+
+  if (!when) {
+    return {
+      title,
+      subtitle: "By source · sorted by size · share of demand",
+      tooltip: `No Elexon FUELINST frame is available for ${formatLondonDayMonthYear(facts.requestedDate)}. Interconnectors sit in net imports, not this list.`,
+      tooltipLabel: `What is ${title}?`,
+    };
+  }
 
   return {
     title,
     subtitle: "By source · sorted by size · share of demand",
-    tooltip: `Domestic generation from ${frame}, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
+    tooltip: `Domestic generation from the Elexon FUELINST frame at ${when}, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
     tooltipLabel: `What is ${title}?`,
   };
 }
@@ -374,7 +378,7 @@ export function prepareDemandBalanceChartData(
   const points = clipTrailingEmptyChartPoints(buildDemandBalanceChartPoints(series));
   const trimmed = range === "24h" ? dropLeadingIncompleteChartPoints(points) : points;
   return usesLongRangeSmoothing(range)
-    ? applyRollingAverage(trimmed, ROLLING_AVERAGE_DAYS)
+    ? applyRollingAverage(fillDailyCalendarSlots(trimmed), ROLLING_AVERAGE_DAYS)
     : trimmed;
 }
 
@@ -386,6 +390,45 @@ export function dropLeadingIncompleteChartPoints(
     return points;
   }
   return points.slice(start);
+}
+
+export function fillDailyCalendarSlots(
+  points: DemandBalanceChartPoint[]
+): DemandBalanceChartPoint[] {
+  if (points.length === 0) {
+    return points;
+  }
+
+  const byDay = new Map<number, DemandBalanceChartPoint>();
+  for (const point of points) {
+    byDay.set(utcDayStartMs(parseUtcDateTime(point.time)), point);
+  }
+
+  const first = utcDayStartMs(parseUtcDateTime(points[0].time));
+  const last = utcDayStartMs(parseUtcDateTime(points[points.length - 1].time));
+  const filled: DemandBalanceChartPoint[] = [];
+
+  for (let day = first; day <= last; day += UTC_DAY_MS) {
+    const existing = byDay.get(day);
+    if (existing) {
+      filled.push(existing);
+      continue;
+    }
+
+    filled.push({
+      time: formatTinybirdDateTime(new Date(day)),
+      demandGw: null,
+      generationGw: null,
+      demandDailyGw: null,
+      generationDailyGw: null,
+      gapBaseGw: null,
+      importGw: null,
+      exportGw: null,
+      embeddedMissing: [],
+    });
+  }
+
+  return filled;
 }
 
 export function applyRollingAverage(
@@ -837,6 +880,12 @@ function withGap(point: DemandBalanceChartPoint): DemandBalanceChartPoint {
     importGw: demandGw > generationGw ? demandGw - generationGw : 0,
     exportGw: generationGw > demandGw ? generationGw - demandGw : 0,
   };
+}
+
+const UTC_DAY_MS = 24 * 60 * 60 * 1000;
+
+function utcDayStartMs(date: Date): number {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 function settlementStartMs(timestamp: string): number {

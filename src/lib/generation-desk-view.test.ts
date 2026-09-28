@@ -11,6 +11,7 @@ import {
   demandBalanceGapLabel,
   demandBalanceXTicks,
   prepareDemandBalanceChartData,
+  fillDailyCalendarSlots,
   ROLLING_AVERAGE_MIN_DAYS,
   formatDemandBalanceTick,
   formatPlainSettlementWindow,
@@ -438,6 +439,31 @@ describe("generation source copy", () => {
     );
     expect(live.sourceCopy.title).toBe("Powering Britain at 03:30 BST on 28 Sep 2026");
     expect(live.sourceCopy.tooltip).not.toContain("latest");
+  });
+
+  it("does not date a missing generation frame from snapshot reference time", () => {
+    const missingGeneration = facts({
+      isHistorical: true,
+      requestedDate: "2026-09-20",
+      generationMw: fact(null, null, "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+      generationRows: [],
+      referenceTimestamp: "2026-09-20T22:30:00.000Z",
+      demand: fact(21000, "2026-09-20T22:30:00.000Z", "Elexon BMRS"),
+    });
+    const copy = generationSourceCopy(missingGeneration);
+    const view = buildGenerationDeskView(
+      missingGeneration,
+      new Date("2026-09-28T12:00:00.000Z")
+    );
+
+    expect(copy.title).toBe("Powering Britain on 20 Sep 2026");
+    expect(copy.tooltip).toBe(
+      "No Elexon FUELINST frame is available for 20 Sep 2026. Interconnectors sit in net imports, not this list."
+    );
+    expect(copy.tooltip).not.toContain("23:30");
+    expect(copy.tooltip).not.toContain("frame at");
+    expect(view.sourceCopy.title).toBe("Powering Britain on 20 Sep 2026");
+    expect(view.sourceCopy.tooltip).not.toContain("23:30 BST");
   });
 });
 
@@ -876,6 +902,63 @@ describe("demand balance chart view", () => {
     expect(last?.demandGw).toBe(20);
     expect(last?.generationGw).toBe(20);
     expect(last?.importGw).toBe(0);
+  });
+
+  it("keeps an absent calendar day as a hole in the 7-day window", () => {
+    const series: DemandBalancePoint[] = [10, 20, 30, 40, 50, 60, 70].map((gw, index) => {
+      const day = index < 5 ? index + 1 : index + 2;
+      return {
+        time: `2026-01-0${day} 00:00:00`,
+        demandMw: gw * 1000,
+        domesticGenerationMw: (gw - 2) * 1000,
+        embeddedMissing: [],
+      };
+    });
+
+    const filled = fillDailyCalendarSlots(buildDemandBalanceChartPoints(series));
+    expect(filled.map((point) => point.time)).toEqual([
+      "2026-01-01 00:00:00",
+      "2026-01-02 00:00:00",
+      "2026-01-03 00:00:00",
+      "2026-01-04 00:00:00",
+      "2026-01-05 00:00:00",
+      "2026-01-06 00:00:00",
+      "2026-01-07 00:00:00",
+      "2026-01-08 00:00:00",
+    ]);
+    expect(filled[5]).toMatchObject({
+      demandGw: null,
+      generationGw: null,
+    });
+
+    const points = prepareDemandBalanceChartData(series, "1y");
+    const hole = points[5];
+    const last = points.at(-1);
+
+    expect(points).toHaveLength(8);
+    expect(hole?.time).toBe("2026-01-06 00:00:00");
+    expect(hole?.demandDailyGw).toBeNull();
+    expect(hole?.generationDailyGw).toBeNull();
+    expect(hole?.demandGw).toBeNull();
+    expect(hole?.generationGw).toBeNull();
+    expect(hole?.importGw).toBeNull();
+    expect(hole?.exportGw).toBeNull();
+    expect(hole?.gapBaseGw).toBeNull();
+    expect(last?.demandDailyGw).toBe(70);
+    expect(last?.generationDailyGw).toBe(68);
+    expect(last?.demandGw).toBe(45);
+    expect(last?.generationGw).toBe(43);
+    expect(last?.importGw).toBe(2);
+    expect(prepareDemandBalanceChartData(series, "90d").at(-1)?.demandGw).toBe(45);
+    expect(prepareDemandBalanceChartData(series, "30d").map((point) => point.time)).toEqual([
+      "2026-01-01 00:00:00",
+      "2026-01-02 00:00:00",
+      "2026-01-03 00:00:00",
+      "2026-01-04 00:00:00",
+      "2026-01-05 00:00:00",
+      "2026-01-07 00:00:00",
+      "2026-01-08 00:00:00",
+    ]);
   });
 });
 
