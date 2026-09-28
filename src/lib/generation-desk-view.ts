@@ -20,7 +20,8 @@ import {
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 
-export const FUELINST_STALE_MS = 30 * 60 * 1000;
+/** /api/cron is hourly. 90 min = one cycle plus grace; health stays at 2.5h. */
+export const FUELINST_STALE_MS = 90 * 60 * 1000;
 export const COMPACT_CHART_MAX_TICKS = 4;
 
 export const GENERATION_DESK_RANGE_OPTIONS: ReadonlyArray<{
@@ -701,7 +702,11 @@ function isCompletePlottedPoint(point: DemandBalanceChartPoint): boolean {
 }
 
 function rollingMean(values: Array<number | null>, window: number): Array<number | null> {
-  return values.map((_, index) => {
+  return values.map((current, index) => {
+    if (current == null) {
+      return null;
+    }
+
     const start = Math.max(0, index - window + 1);
     let sum = 0;
     let count = 0;

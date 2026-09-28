@@ -319,11 +319,11 @@ describe("generation answer row", () => {
 describe("fuelinst stale threshold", () => {
   const rows = [generation("2026-09-28 03:00:00", "ccgt", 8000)];
 
-  it("is silent at or under 30 minutes and notes a delay after that", () => {
-    expect(FUELINST_STALE_MS).toBe(30 * 60 * 1000);
-    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:30:00.000Z"))).toBeNull();
-    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:20:00.000Z"))).toBeNull();
-    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:30:01.000Z"))).toBe(
+  it("is silent within one hourly cron cycle plus grace and notes a delay after that", () => {
+    expect(FUELINST_STALE_MS).toBe(90 * 60 * 1000);
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T04:30:00.000Z"))).toBeNull();
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T03:45:00.000Z"))).toBeNull();
+    expect(fuelinstDelayNote(rows, new Date("2026-09-28T04:30:01.000Z"))).toBe(
       "Data delayed: last Elexon update 04:00 BST"
     );
   });
@@ -626,6 +626,72 @@ describe("demand balance chart view", () => {
     expect(points[0]?.demandGw).toBe(10);
     expect(prepareDemandBalanceChartData(series, "90d").at(-1)?.demandGw).toBe(40);
     expect(prepareDemandBalanceChartData(series, "30d").at(-1)?.demandGw).toBe(70);
+  });
+
+  it("does not invent a rolling average or gap on a day whose series is missing", () => {
+    const missingGeneration = prepareDemandBalanceChartData(
+      [
+        {
+          time: "2026-01-01 00:00:00",
+          demandMw: 10000,
+          domesticGenerationMw: 8000,
+          embeddedMissing: [],
+        },
+        {
+          time: "2026-01-02 00:00:00",
+          demandMw: 20000,
+          domesticGenerationMw: 18000,
+          embeddedMissing: [],
+        },
+        {
+          time: "2026-01-03 00:00:00",
+          demandMw: 30000,
+          domesticGenerationMw: null,
+          embeddedMissing: [],
+        },
+        {
+          time: "2026-01-04 00:00:00",
+          demandMw: 40000,
+          domesticGenerationMw: 38000,
+          embeddedMissing: [],
+        },
+      ],
+      "1y"
+    );
+    const hole = missingGeneration[2];
+
+    expect(hole?.demandDailyGw).toBe(30);
+    expect(hole?.demandGw).toBe(20);
+    expect(hole?.generationDailyGw).toBeNull();
+    expect(hole?.generationGw).toBeNull();
+    expect(hole?.importGw).toBeNull();
+    expect(hole?.exportGw).toBeNull();
+    expect(hole?.gapBaseGw).toBeNull();
+
+    const missingDemand = prepareDemandBalanceChartData(
+      [
+        {
+          time: "2026-01-01 00:00:00",
+          demandMw: 10000,
+          domesticGenerationMw: 8000,
+          embeddedMissing: [],
+        },
+        {
+          time: "2026-01-02 00:00:00",
+          demandMw: null,
+          domesticGenerationMw: 18000,
+          embeddedMissing: [],
+        },
+      ],
+      "90d"
+    );
+
+    expect(missingDemand[1]?.demandDailyGw).toBeNull();
+    expect(missingDemand[1]?.demandGw).toBeNull();
+    expect(missingDemand[1]?.generationDailyGw).toBe(18);
+    expect(missingDemand[1]?.generationGw).toBe(13);
+    expect(missingDemand[1]?.importGw).toBeNull();
+    expect(missingDemand[1]?.exportGw).toBeNull();
   });
 });
 
