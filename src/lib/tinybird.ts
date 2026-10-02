@@ -11,6 +11,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import {
+  dateForTinybirdCacheKey,
   deserializePipeParams,
   getTinybirdCachePolicy,
   getTinybirdLastGood,
@@ -146,11 +147,12 @@ export async function queryPipe<T = Record<string, unknown>>(
   params?: Record<string, string>,
   options?: QueryPipeOptions
 ): Promise<T[]> {
+  const cacheDate = dateForTinybirdCacheKey(options?.range, options?.date);
   const policy = getTinybirdCachePolicy({
     pipeName,
     params,
     range: options?.range,
-    date: options?.date,
+    date: cacheDate === "" ? undefined : cacheDate,
     now: options?.now,
     purpose: options?.purpose,
   });
@@ -159,7 +161,7 @@ export async function queryPipe<T = Record<string, unknown>>(
     pipeName,
     serializePipeParams(params),
     options?.range ?? "",
-    options?.date ?? "",
+    cacheDate,
     policy.revalidateSeconds
   );
   return rows as T[];

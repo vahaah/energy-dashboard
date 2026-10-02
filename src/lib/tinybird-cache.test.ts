@@ -177,6 +177,58 @@ describe("tinybird cache helpers", () => {
     );
   });
 
+  it("omits leftover dates from cache keys when the range does not use them", () => {
+    expect(
+      tinybirdLogicalCacheKey({
+        pipeName: "snapshots_range",
+        range: "7d",
+        date: "2026-05-19",
+        revalidateSeconds: 300,
+      })
+    ).toBe(
+      tinybirdLogicalCacheKey({
+        pipeName: "snapshots_range",
+        range: "7d",
+        date: "2026-01-02",
+        revalidateSeconds: 300,
+      })
+    );
+    expect(
+      tinybirdLogicalCacheKey({
+        pipeName: "snapshots_range",
+        range: "24h",
+        date: "2026-05-19",
+        revalidateSeconds: 86400,
+      })
+    ).not.toBe(
+      tinybirdLogicalCacheKey({
+        pipeName: "snapshots_range",
+        range: "24h",
+        date: "2026-05-18",
+        revalidateSeconds: 86400,
+      })
+    );
+  });
+
+  it("does not treat a future calendar day as immutable historical data", () => {
+    expect(
+      getTinybirdCachePolicy({
+        pipeName: "snapshots_range",
+        range: "24h",
+        date: "2026-10-03",
+        now,
+        params: { start: "2026-10-02 23:00:00", end: "2026-10-03 22:59:59" },
+      }).tier
+    ).toBe("live");
+    expect(
+      getTinybirdCachePolicy({
+        pipeName: "snapshots_range",
+        now,
+        params: { start: "2026-10-02 23:00:00", end: "2026-10-03 22:59:59" },
+      }).tier
+    ).toBe("live");
+  });
+
   it("keeps live cache keys stable across second-precision start/end changes", () => {
     const first = tinybirdLogicalCacheKey({
       pipeName: "snapshots_range",

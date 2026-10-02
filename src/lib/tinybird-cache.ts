@@ -83,6 +83,17 @@ export function deserializePipeParams(paramsKey: string): Record<string, string>
   return params;
 }
 
+export function dateForTinybirdCacheKey(
+  range: string | null | undefined,
+  date: string | null | undefined
+): string {
+  if (!date || (range && range !== "24h")) {
+    return "";
+  }
+
+  return date;
+}
+
 export function tinybirdLogicalCacheKey(input: {
   pipeName: string;
   range?: string | null;
@@ -94,8 +105,9 @@ export function tinybirdLogicalCacheKey(input: {
     .filter((key) => input.params?.[key])
     .map((key) => `${key}=${input.params?.[key]}`)
     .join("&");
+  const date = dateForTinybirdCacheKey(input.range, input.date);
 
-  return `tb:${input.pipeName}:${input.range ?? ""}:${input.date ?? ""}:${extras}:ttl=${input.revalidateSeconds}`;
+  return `tb:${input.pipeName}:${input.range ?? ""}:${date}:${extras}:ttl=${input.revalidateSeconds}`;
 }
 
 export function tinybirdCacheControl(policy: TinybirdCachePolicy): string {
@@ -241,14 +253,17 @@ function historicalPolicy(): TinybirdCachePolicy {
 
 function isHistoricalQuery(input: TinybirdCacheInput, now: Date): boolean {
   const date = input.date;
-  if (date && isValidDashboardDate(date) && date < getLondonDate(now)) {
-    return !input.range || input.range === "24h";
+  if (date && isValidDashboardDate(date)) {
+    return date < getLondonDate(now) && (!input.range || input.range === "24h");
   }
 
-  return isCompletedCalendarWindow(input.params);
+  return isCompletedCalendarWindow(input.params, now);
 }
 
-function isCompletedCalendarWindow(params?: Record<string, string>): boolean {
+function isCompletedCalendarWindow(
+  params: Record<string, string> | undefined,
+  now: Date
+): boolean {
   if (!params?.start || !params?.end || params.granularity) {
     return false;
   }
@@ -259,6 +274,10 @@ function isCompletedCalendarWindow(params?: Record<string, string>): boolean {
 
   const start = parseUtcDateTime(params.start);
   const end = parseUtcDateTime(params.end);
+  if (end.getTime() >= now.getTime()) {
+    return false;
+  }
+
   const hours = (end.getTime() - start.getTime()) / 3_600_000;
   if (hours < 20 || hours > 26) {
     return false;
