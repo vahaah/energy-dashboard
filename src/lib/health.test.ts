@@ -4,6 +4,7 @@ import {
   latestObservedTimestamp,
   STALE_AFTER_MS,
   streamFreshness,
+  unprobedStream,
 } from "@/lib/health";
 
 describe("health freshness", () => {
@@ -66,6 +67,26 @@ describe("health freshness", () => {
     expect(pastMargin.stale).toBe(true);
     expect(healthHttpStatus([twentyMinutesOld])).toBe(200);
     expect(healthHttpStatus([pastMargin])).toBe(503);
+  });
+
+  it("keeps unprobed streams non-critical so they never trip 503", () => {
+    const snapshots = streamFreshness(
+      "snapshots",
+      "2026-09-27 09:00:00",
+      now,
+      STALE_AFTER_MS.snapshots,
+      true
+    );
+    const generation = unprobedStream("generation", STALE_AFTER_MS.generation);
+    const prices = unprobedStream("prices", STALE_AFTER_MS.prices);
+
+    expect(generation).toMatchObject({
+      stream: "generation",
+      latest: null,
+      stale: false,
+      critical: false,
+    });
+    expect(healthHttpStatus([snapshots, generation, prices])).toBe(200);
   });
 
   it("ignores future timestamps so a NESO forecast cannot become latest", () => {

@@ -66,7 +66,7 @@ export async function ingestRows(datasource: string, rows: Record<string, unknow
   return res.json();
 }
 
-export type QueryPipeOptions = Pick<TinybirdCacheInput, "range" | "date" | "now">;
+export type QueryPipeOptions = Pick<TinybirdCacheInput, "range" | "date" | "now" | "purpose">;
 
 type PipeJson<T> = { data: T[] };
 
@@ -152,6 +152,7 @@ export async function queryPipe<T = Record<string, unknown>>(
     range: options?.range,
     date: options?.date,
     now: options?.now,
+    purpose: options?.purpose,
   });
 
   const rows = await queryPipeDeduped(

@@ -17,6 +17,26 @@ import {
 const now = new Date("2026-10-02T12:00:00.000Z");
 
 describe("getTinybirdCachePolicy", () => {
+  it("caches a health probe for 15 minutes", () => {
+    expect(
+      getTinybirdCachePolicy({
+        pipeName: "latest_snapshot",
+        purpose: "health",
+        now,
+      })
+    ).toMatchObject({
+      tier: "health",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.health,
+      sMaxAge: TINYBIRD_CACHE_SECONDS.health,
+      staleWhileRevalidate: 86_400,
+    });
+    expect(
+      tinybirdCacheControl(
+        getTinybirdCachePolicy({ pipeName: "latest_snapshot", purpose: "health", now })
+      )
+    ).toBe("public, s-maxage=900, stale-while-revalidate=86400");
+  });
+
   it("treats latest_* pipes as live 5-minute data", () => {
     for (const pipeName of ["latest_snapshot", "latest_generation", "latest_prices"]) {
       expect(getTinybirdCachePolicy({ pipeName, now })).toMatchObject({

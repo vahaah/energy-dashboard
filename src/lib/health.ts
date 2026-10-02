@@ -25,6 +25,17 @@ export type StreamFreshness = {
   critical: boolean;
 };
 
+export function unprobedStream(stream: string, staleAfterMs: number): StreamFreshness {
+  return {
+    stream,
+    latest: null,
+    ageMs: null,
+    staleAfterMs,
+    stale: false,
+    critical: false,
+  };
+}
+
 export function streamFreshness(
   stream: string,
   latest: string | null | undefined,

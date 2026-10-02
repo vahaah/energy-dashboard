@@ -3,6 +3,7 @@ import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
 export const TINYBIRD_CACHE_SECONDS = {
   live: 300,
+  health: 900,
   long: 1_800,
   longYear: 3_600,
   historical: 86_400,
@@ -12,7 +13,9 @@ export const TINYBIRD_LIMIT_RETRY_AFTER_SECONDS = 300;
 
 const LATEST_PIPES = new Set(["latest_snapshot", "latest_generation", "latest_prices"]);
 
-export type TinybirdCacheTier = "historical" | "live" | "long";
+export type TinybirdCacheTier = "historical" | "live" | "long" | "health";
+
+export type TinybirdCachePurpose = "dashboard" | "health";
 
 export type KnownQueryRange = "24h" | "7d" | "30d" | "90d" | "1y";
 
@@ -29,6 +32,7 @@ export type TinybirdCacheInput = {
   date?: string | null;
   params?: Record<string, string>;
   now?: Date;
+  purpose?: TinybirdCachePurpose;
 };
 
 export class TinybirdLimitError extends Error {
@@ -129,6 +133,10 @@ export function resolveTinybirdPipeFailure<T>(
 
 export function getTinybirdCachePolicy(input: TinybirdCacheInput): TinybirdCachePolicy {
   const now = input.now ?? new Date();
+  const purposePolicy = policyForPurpose(input.purpose);
+  if (purposePolicy) {
+    return purposePolicy;
+  }
 
   if (LATEST_PIPES.has(input.pipeName)) {
     return livePolicy();
@@ -148,6 +156,21 @@ export function getTinybirdCachePolicy(input: TinybirdCacheInput): TinybirdCache
   }
 
   return livePolicy();
+}
+
+function policyForPurpose(purpose: TinybirdCachePurpose | undefined): TinybirdCachePolicy | null {
+  if (purpose == null || purpose === "dashboard") {
+    return null;
+  }
+
+  switch (purpose) {
+    case "health":
+      return healthPolicy();
+    default: {
+      const exhaustive: never = purpose;
+      return exhaustive;
+    }
+  }
 }
 
 function policyForRange(range: KnownQueryRange): TinybirdCachePolicy {
@@ -186,6 +209,15 @@ function livePolicy(): TinybirdCachePolicy {
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.live,
     sMaxAge: TINYBIRD_CACHE_SECONDS.live,
     staleWhileRevalidate: 3_600,
+  };
+}
+
+function healthPolicy(): TinybirdCachePolicy {
+  return {
+    tier: "health",
+    revalidateSeconds: TINYBIRD_CACHE_SECONDS.health,
+    sMaxAge: TINYBIRD_CACHE_SECONDS.health,
+    staleWhileRevalidate: 86_400,
   };
 }
 
