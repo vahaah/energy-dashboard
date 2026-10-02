@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron-yesterday",
-      "schedule": "30 3 * * *"
+      "schedule": "30 6 * * *"
     }
   ]
 }

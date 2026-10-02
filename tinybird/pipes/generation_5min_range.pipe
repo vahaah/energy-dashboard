@@ -1,8 +1,8 @@
 DESCRIPTION >
     Returns generation data for a time range, optionally filtered by fuel type.
     Supports granularity: 5min (default), hour, day.
-    Collapses (timestamp, fuel_type) first so unmerged ReplacingMergeTree
-    duplicates from the 24h FUELINST look-back cannot bias hour/day averages.
+    FINAL collapses unmerged ReplacingMergeTree duplicates for each
+    (timestamp, fuel_type) so the last ingest wins before hour/day averages.
 
 TOKEN dashboard_read READ
 
@@ -11,58 +11,41 @@ SQL >
     %
     {% if defined(granularity) and granularity == 'hour' %}
         SELECT
-            toStartOfHour(deduped.timestamp) AS timestamp,
-            deduped.fuel_type AS fuel_type,
-            avg(deduped.generation_mw) AS generation_mw,
-            any(deduped.source) AS source
-        FROM (
-            SELECT
-                timestamp,
-                fuel_type,
-                any(generation_mw) AS generation_mw,
-                any(source) AS source
-            FROM generation_5min
-            WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
-            {% if defined(fuel_type) %}
-                AND fuel_type = {{String(fuel_type)}}
-            {% end %}
-            GROUP BY timestamp, fuel_type
-        ) AS deduped
+            toStartOfHour(timestamp) AS timestamp,
+            fuel_type,
+            avg(generation_mw) AS generation_mw,
+            any(source) AS source
+        FROM generation_5min FINAL
+        WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        {% if defined(fuel_type) %}
+            AND fuel_type = {{String(fuel_type)}}
+        {% end %}
         GROUP BY timestamp, fuel_type
         ORDER BY timestamp ASC, fuel_type ASC
     {% elif defined(granularity) and granularity == 'day' %}
         SELECT
-            toStartOfDay(deduped.timestamp) AS timestamp,
-            deduped.fuel_type AS fuel_type,
-            avg(deduped.generation_mw) AS generation_mw,
-            any(deduped.source) AS source
-        FROM (
-            SELECT
-                timestamp,
-                fuel_type,
-                any(generation_mw) AS generation_mw,
-                any(source) AS source
-            FROM generation_5min
-            WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
-            {% if defined(fuel_type) %}
-                AND fuel_type = {{String(fuel_type)}}
-            {% end %}
-            GROUP BY timestamp, fuel_type
-        ) AS deduped
+            toStartOfDay(timestamp) AS timestamp,
+            fuel_type,
+            avg(generation_mw) AS generation_mw,
+            any(source) AS source
+        FROM generation_5min FINAL
+        WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
+        {% if defined(fuel_type) %}
+            AND fuel_type = {{String(fuel_type)}}
+        {% end %}
         GROUP BY timestamp, fuel_type
         ORDER BY timestamp ASC, fuel_type ASC
     {% else %}
         SELECT
             timestamp,
             fuel_type,
-            any(generation_mw) AS generation_mw,
-            any(source) AS source
-        FROM generation_5min
+            generation_mw,
+            source
+        FROM generation_5min FINAL
         WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
         {% if defined(fuel_type) %}
             AND fuel_type = {{String(fuel_type)}}
         {% end %}
-        GROUP BY timestamp, fuel_type
         ORDER BY timestamp ASC, fuel_type ASC
     {% end %}
 

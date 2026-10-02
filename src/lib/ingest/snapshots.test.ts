@@ -38,16 +38,29 @@ describe("snapshot nulls", () => {
     expect(row.gen_nuclear_mw).toBeNull();
   });
 
-  it("keeps a real zero generation share when the mix arrived", () => {
+  it("keeps a real zero generation share when the mix sent 0", () => {
     const row = buildSnapshotRow({
       timestamp: new Date("2026-09-27T08:00:00.000Z"),
-      mix: { gas: 40, wind: 60 },
+      mix: { gas: 40, wind: 60, coal: 0 },
       priceGbpMwh: -13.47,
     });
 
     expect(row.price_gbp_mwh).toBe(-13.47);
     expect(row.gen_coal_pct).toBe(0);
     expect(row.gen_gas_pct).toBe(40);
+  });
+
+  it("leaves omitted mix fuels null so a sparse carbon mix cannot write zeros", () => {
+    const row = buildSnapshotRow({
+      timestamp: new Date("2026-09-27T08:00:00.000Z"),
+      mix: { gas: 40, wind: 60 },
+    });
+
+    expect(row.gen_gas_pct).toBe(40);
+    expect(row.gen_wind_pct).toBe(60);
+    expect(row.gen_coal_pct).toBeNull();
+    expect(row.gen_nuclear_pct).toBeNull();
+    expect(row.gen_imports_pct).toBeNull();
   });
 });
 

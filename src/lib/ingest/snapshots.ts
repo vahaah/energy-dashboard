@@ -35,7 +35,7 @@ export function buildSnapshotRow(input: SnapshotSources): Record<string, unknown
   };
 
   for (const fuel of SNAPSHOT_MIX_FUELS) {
-    row[`gen_${fuel}_pct`] = mix ? (mix[fuel] ?? 0) : null;
+    row[`gen_${fuel}_pct`] = mix ? nullableNumber(mix[fuel]) : null;
   }
 
   for (const fuel of SNAPSHOT_FUELS) {

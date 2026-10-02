@@ -50,7 +50,17 @@ function successfulSourcePayloads(url: string) {
         {
           from: "2026-09-27T09:30Z",
           to: "2026-09-27T10:00Z",
-          generationmix: [{ fuel: "wind", perc: 40 }],
+          generationmix: [
+            { fuel: "gas", perc: 30 },
+            { fuel: "coal", perc: 0 },
+            { fuel: "nuclear", perc: 15 },
+            { fuel: "wind", perc: 40 },
+            { fuel: "solar", perc: 2 },
+            { fuel: "hydro", perc: 3 },
+            { fuel: "biomass", perc: 5 },
+            { fuel: "imports", perc: 5 },
+            { fuel: "other", perc: 0 },
+          ],
         },
       ],
     });
@@ -390,6 +400,31 @@ describe("settlement-date snapshot collection", () => {
     expect(result.rows[0]?.carbon_intensity).toBe(120);
     expect(result.rows[0]?.gen_wind_mw).toBe(4500);
     expect(result.rows[0]?.gen_gas_mw).toBe(8000);
+  });
+
+  it("rejects a period whose carbon mix omitted fuels so gen_*_pct would be null", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("carbonintensity.org.uk/generation")) {
+        return jsonResponse({
+          data: [
+            {
+              from: "2026-09-27T09:30Z",
+              to: "2026-09-27T10:00Z",
+              generationmix: [{ fuel: "wind", perc: 40 }],
+            },
+          ],
+        });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectSnapshotsForSettlementDate(
+      "2026-09-27",
+      new Date("2026-09-28T06:30:00.000Z")
+    );
+
+    expect(result.sources.every((source) => source.ok)).toBe(true);
+    expect(result.rows).toEqual([]);
   });
 
   it("rejects a period where AGPT returned only wind so other gen_*_mw would be null", async () => {
