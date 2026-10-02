@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clampDashboardDate,
   dateParamForRange,
+  DASHBOARD_FOCUSES,
   DASHBOARD_RANGES,
   resolveDashboardDate,
 } from "@/lib/dashboard-search-params";
@@ -52,6 +53,17 @@ describe("dashboard search params", () => {
       focus: "overview",
       date: null,
     });
+  });
+
+  it("keeps share-URL focus ids and puts generation before carbon", () => {
+    expect(DASHBOARD_FOCUSES).toEqual([
+      "overview",
+      "generation",
+      "price",
+      "transfers",
+      "commodities",
+      "carbon",
+    ]);
   });
 
   it("serializes non-default deep-link state", () => {

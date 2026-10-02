@@ -9,11 +9,11 @@ export const DASHBOARD_RANGES = ["24h", "7d", "30d", "90d", "1y"] as const;
 export const COMMODITY_RANGES = ["30d", "90d", "1y"] as const;
 export const DASHBOARD_FOCUSES = [
   "overview",
-  "carbon",
-  "price",
   "generation",
+  "price",
   "transfers",
   "commodities",
+  "carbon",
 ] as const;
 
 export const DASHBOARD_COVERAGE_DAYS = 365;
