@@ -18,7 +18,7 @@ describe("yesterday settlement heal", () => {
     );
 
     expect(vercel).toContain('"/api/cron-yesterday"');
-    expect(vercel).toContain("30 6 * * *");
+    expect(vercel).toContain("30 9 * * *");
     expect(proxy).toContain('pathname === "/api/cron-yesterday"');
     expect(route).toContain("collectSnapshotsForSettlementDate(settlementDate, now)");
     expect(route).toContain("collectGenerationForSettlementDate(settlementDate, now)");
