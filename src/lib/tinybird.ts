@@ -7,7 +7,21 @@
  *   TINYBIRD_READ_TOKEN — required read-only token for pipe queries
  */
 
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import {
+  dateForTinybirdCacheKey,
+  deserializePipeParams,
+  getTinybirdCachePolicy,
+  getTinybirdLastGood,
+  isTinybirdLimitError,
+  serializePipeParams,
+  setTinybirdLastGood,
+  TinybirdLimitError,
+  tinybirdLogicalCacheKey,
+  type TinybirdCacheInput,
+} from "@/lib/tinybird-cache";
 
 const apiUrl = () => process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 
@@ -53,11 +67,13 @@ export async function ingestRows(datasource: string, rows: Record<string, unknow
   return res.json();
 }
 
-// ─── Query (Pipe endpoints) ─────────────────────────────────
+export type QueryPipeOptions = Pick<TinybirdCacheInput, "range" | "date" | "now" | "purpose">;
 
-export async function queryPipe<T = Record<string, unknown>>(
+type PipeJson<T> = { data: T[] };
+
+async function fetchPipeRows<T>(
   pipeName: string,
-  params?: Record<string, string>
+  params: Record<string, string> | undefined
 ): Promise<T[]> {
   const url = new URL(`${apiUrl()}/v0/pipes/${pipeName}.json`);
   if (params) {
@@ -68,14 +84,85 @@ export async function queryPipe<T = Record<string, unknown>>(
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${readToken()}` },
-    next: { revalidate: 60, tags: [DASHBOARD_CACHE_TAG, `pipe:${pipeName}`] },
+    cache: "no-store",
   });
 
   if (!res.ok) {
     const body = await res.text();
+    if (isTinybirdLimitError(res.status, body)) {
+      throw new TinybirdLimitError(`Tinybird query error (${res.status}): ${body}`);
+    }
     throw new Error(`Tinybird query error (${res.status}): ${body}`);
   }
 
-  const json = await res.json();
-  return json.data as T[];
+  const json: PipeJson<T> = await res.json();
+  return json.data;
+}
+
+const queryPipeDeduped = cache(
+  async (
+    pipeName: string,
+    paramsKey: string,
+    range: string,
+    date: string,
+    revalidateSeconds: number
+  ) => {
+    const params = deserializePipeParams(paramsKey);
+    const logicalKey = tinybirdLogicalCacheKey({
+      pipeName,
+      range,
+      date,
+      params,
+      revalidateSeconds,
+    });
+
+    const cached = unstable_cache(
+      async () => {
+        const data = await fetchPipeRows(pipeName, params);
+        setTinybirdLastGood(logicalKey, data);
+        return data;
+      },
+      [logicalKey],
+      { revalidate: revalidateSeconds, tags: [DASHBOARD_CACHE_TAG, `pipe:${pipeName}`] }
+    );
+
+    try {
+      return await cached();
+    } catch (error) {
+      if (error instanceof TinybirdLimitError) {
+        const lastGood = getTinybirdLastGood(logicalKey);
+        if (lastGood) {
+          return lastGood;
+        }
+      }
+      throw error;
+    }
+  }
+);
+
+// ─── Query (Pipe endpoints) ─────────────────────────────────
+
+export async function queryPipe<T = Record<string, unknown>>(
+  pipeName: string,
+  params?: Record<string, string>,
+  options?: QueryPipeOptions
+): Promise<T[]> {
+  const cacheDate = dateForTinybirdCacheKey(options?.range, options?.date);
+  const policy = getTinybirdCachePolicy({
+    pipeName,
+    params,
+    range: options?.range,
+    date: cacheDate === "" ? undefined : cacheDate,
+    now: options?.now,
+    purpose: options?.purpose,
+  });
+
+  const rows = await queryPipeDeduped(
+    pipeName,
+    serializePipeParams(params),
+    options?.range ?? "",
+    cacheDate,
+    policy.revalidateSeconds
+  );
+  return rows as T[];
 }

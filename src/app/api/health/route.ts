@@ -4,76 +4,77 @@ import {
   latestObservedTimestamp,
   STALE_AFTER_MS,
   streamFreshness,
+  unprobedStream,
 } from "@/lib/health";
-import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
+import {
+  TinybirdLimitError,
+  getTinybirdCachePolicy,
+  tinybirdCacheControl,
+} from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
-import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
+import type { EnergySnapshot } from "@/lib/types";
 
 /**
  * GET /api/health
  *
- * Lightweight freshness check for uptime monitors.
- * Returns 503 when a critical grid stream (snapshots or FUELINST) is stale.
- * Stale windows match ingest cadence: hourly cron + 90m margin.
+ * Cheap freshness probe for uptime monitors. One `latest_snapshot` pipe call,
+ * cached 15 minutes. 503 when that critical grid snapshot is stale.
+ * Generation / embedded / prices stay in the payload as non-critical
+ * unprobed streams so existing monitors keep the same shape.
  */
 export async function GET() {
   const now = new Date();
+  const cacheOptions = { purpose: "health" as const, now };
+  const policy = getTinybirdCachePolicy({
+    pipeName: "latest_snapshot",
+    ...cacheOptions,
+  });
 
   try {
-    const [snapshots, generation, prices] = await Promise.all([
-      queryPipe<EnergySnapshot>("latest_snapshot"),
-      queryPipe<Generation5min>("latest_generation"),
-      queryPipe<CommodityPrice>("latest_prices"),
-    ]);
+    const snapshots = await queryPipe<EnergySnapshot>(
+      "latest_snapshot",
+      undefined,
+      cacheOptions
+    );
 
     const latestSnapshot = latestObservedTimestamp(
       snapshots.map((row) => row.timestamp),
       now
     );
-    const fuelinstLatest = latestObservedTimestamp(
-      generation.filter((row) => row.source === "fuelinst").map((row) => row.timestamp),
-      now
-    );
-    const embeddedLatest = latestObservedTimestamp(
-      generation
-        .filter(
-          (row) =>
-            row.fuel_type === "embedded_solar" || row.fuel_type === "embedded_wind"
-        )
-        .map((row) => row.timestamp),
-      now
-    );
-    const priceLatest = latestObservedTimestamp(
-      filterCanonicalCommodityPrices(prices).map((row) => `${row.date} 00:00:00`),
-      now
-    );
 
     const streams = [
       streamFreshness("snapshots", latestSnapshot, now, STALE_AFTER_MS.snapshots, true),
-      streamFreshness("generation", fuelinstLatest, now, STALE_AFTER_MS.generation, true),
-      streamFreshness("embedded", embeddedLatest, now, STALE_AFTER_MS.embedded, false),
-      streamFreshness("prices", priceLatest, now, STALE_AFTER_MS.prices, false),
+      unprobedStream("generation", STALE_AFTER_MS.generation),
+      unprobedStream("embedded", STALE_AFTER_MS.embedded),
+      unprobedStream("prices", STALE_AFTER_MS.prices),
     ];
 
+    const status = healthHttpStatus(streams);
     return NextResponse.json(
       {
-        ok: healthHttpStatus(streams) === 200,
+        ok: status === 200,
         checkedAt: now.toISOString(),
         streams,
       },
-      { status: healthHttpStatus(streams) }
+      {
+        status,
+        headers: { "Cache-Control": tinybirdCacheControl(policy) },
+      }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const retryAfter =
+      error instanceof TinybirdLimitError ? error.retryAfterSeconds : undefined;
     return NextResponse.json(
       {
         ok: false,
         checkedAt: now.toISOString(),
         error: message,
       },
-      { status: 503 }
+      {
+        status: 503,
+        headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined,
+      }
     );
   }
 }

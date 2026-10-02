@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { parseCommodityRange } from "@/lib/api-params";
-import { badRequest, upstreamError } from "@/lib/api-route";
+import { badRequest, cachedJson, upstreamError } from "@/lib/api-route";
 import { filterPublicCommodityPrices, isPublicCommodity } from "@/lib/commodity-series";
 import { getPricesQueryParams } from "@/lib/dashboard-data";
+import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice } from "@/lib/types";
 
@@ -26,16 +26,24 @@ export async function GET(request: NextRequest) {
     return badRequest("unknown commodity");
   }
 
-  const params = getPricesQueryParams(rangeResult.value);
+  const now = new Date();
+  const params = getPricesQueryParams(rangeResult.value, now);
   if (commodity) {
     params.commodity = commodity;
   }
 
+  const cacheOptions = { range: rangeResult.value, now };
+  const policy = getTinybirdCachePolicy({
+    pipeName: "prices_range",
+    params,
+    ...cacheOptions,
+  });
+
   try {
     const data = filterPublicCommodityPrices(
-      await queryPipe<CommodityPrice>("prices_range", params)
+      await queryPipe<CommodityPrice>("prices_range", params, cacheOptions)
     );
-    return NextResponse.json({ data, range: rangeResult.value, count: data.length });
+    return cachedJson({ data, range: rangeResult.value, count: data.length }, policy);
   } catch (error) {
     return upstreamError(error);
   }
