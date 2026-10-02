@@ -1,0 +1,27 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { yesterdayLondonDate } from "@/lib/london-time";
+
+describe("yesterday settlement heal", () => {
+  it("uses the previous London calendar date, including across BST", () => {
+    expect(yesterdayLondonDate(new Date("2026-09-28T02:00:00.000Z"))).toBe("2026-09-27");
+    expect(yesterdayLondonDate(new Date("2026-03-29T10:00:00.000Z"))).toBe("2026-03-28");
+  });
+
+  it("schedules a daily Vercel cron and excludes it from the public rate limit", () => {
+    const vercel = readFileSync(resolve(process.cwd(), "vercel.json"), "utf8");
+    const proxy = readFileSync(resolve(process.cwd(), "src/proxy.ts"), "utf8");
+    const route = readFileSync(
+      resolve(process.cwd(), "src/app/api/cron-yesterday/route.ts"),
+      "utf8"
+    );
+
+    expect(vercel).toContain('"/api/cron-yesterday"');
+    expect(vercel).toContain("30 3 * * *");
+    expect(proxy).toContain('pathname === "/api/cron-yesterday"');
+    expect(route).toContain("collectSnapshotsForSettlementDate");
+    expect(route).toContain("collectGenerationForSettlementDate");
+    expect(route).toContain("yesterdayLondonDate");
+  });
+});

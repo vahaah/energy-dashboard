@@ -549,7 +549,7 @@ describe("getLatestFacts", () => {
     ]);
     expect(facts.shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(917);
     expect(facts.shares.find((share) => share.fuel === "gas")?.mw).toBe(7563);
-    expect(facts.shares.find((share) => share.fuel === "imports")?.mw).toBe(1796);
+    expect(facts.shares.find((share) => share.fuel === "imports")?.mw).toBe(1282);
     expect(facts.shares).toHaveLength(8);
   });
 
@@ -621,18 +621,19 @@ describe("supplyShares", () => {
     expect(shares.find((share) => share.fuel === "ps")).toBeUndefined();
   });
 
-  it("counts only positive interconnector flows as imports", () => {
+  it("uses net interconnector flow as the imports slice of supply", () => {
     const shares = supplyShares([
       makeGeneration("2026-09-27 16:00:00", "wind", 10000),
       makeGeneration("2026-09-27 16:00:00", "INTFR", 1500),
       makeGeneration("2026-09-27 16:00:00", "intned", -400),
     ]);
 
-    expect(shares.find((share) => share.fuel === "imports")?.mw).toBe(1500);
+    expect(shares.find((share) => share.fuel === "imports")?.mw).toBe(1100);
     expect(shares.find((share) => share.fuel === "wind")?.sharePct).toBeCloseTo(
-      (10000 / 11500) * 100,
+      (10000 / 11100) * 100,
       5
     );
+    expect(shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
   });
 
   it("does not add a zero imports share when no interconnector rows exist", () => {

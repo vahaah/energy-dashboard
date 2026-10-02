@@ -244,12 +244,11 @@ export function domesticGenerationMw(rows: Iterable<Generation5min>): number {
 
 export function groupGenerationMw(rows: Iterable<Generation5min>): Record<string, number> {
   const grouped: Record<string, number> = {};
+  let netImportsMw = 0;
 
   for (const row of rows) {
     if (isInterconnectorFuel(row.fuel_type)) {
-      if (row.generation_mw > 0) {
-        grouped.imports = (grouped.imports ?? 0) + row.generation_mw;
-      }
+      netImportsMw += row.generation_mw;
       continue;
     }
 
@@ -259,6 +258,10 @@ export function groupGenerationMw(rows: Iterable<Generation5min>): Record<string
 
     const fuel = mapGenerationFuelToStackKey(row.fuel_type);
     grouped[fuel] = (grouped[fuel] ?? 0) + row.generation_mw;
+  }
+
+  if (netImportsMw > 0) {
+    grouped.imports = netImportsMw;
   }
 
   return grouped;
@@ -321,9 +324,7 @@ export function buildGenerationStackSeries(
     }
 
     if (isInterconnectorFuel(row.fuel_type)) {
-      if (row.generation_mw > 0) {
-        entry.imports = Number(entry.imports ?? 0) + row.generation_mw;
-      }
+      entry.imports = Number(entry.imports ?? 0) + row.generation_mw;
       continue;
     }
 
@@ -339,16 +340,19 @@ export function buildGenerationStackSeries(
     .sort(([left], [right]) => left - right)
     .filter(([, values]) => stackBucketHasTransmissionFuel(values))
     .map(([time, values]) => {
-      const total = GENERATION_STACK_FUELS.reduce(
-        (sum, fuel) => sum + Number(values[fuel] ?? 0),
-        0
-      );
+      const importMw = Math.max(0, Number(values.imports ?? 0));
+      const total = GENERATION_STACK_FUELS.reduce((sum, fuel) => {
+        if (fuel === "imports") {
+          return sum + importMw;
+        }
+        return sum + Number(values[fuel] ?? 0);
+      }, 0);
 
       const point = { time } as GenerationStackPoint;
 
       for (const fuel of GENERATION_STACK_FUELS) {
-        point[fuel] =
-          total > 0 ? (Number(values[fuel] ?? 0) / total) * 100 : 0;
+        const mw = fuel === "imports" ? importMw : Number(values[fuel] ?? 0);
+        point[fuel] = total > 0 ? (mw / total) * 100 : 0;
       }
 
       return point;
@@ -447,9 +451,10 @@ export function buildDemandBalanceSeries(
 
     const demand = demandByBucket.get(time);
     const domesticGenerationMw = domesticGenerationFromFuelMap(averaged);
+    const embeddedMw = embeddedMwFromFuelMap(averaged);
     points.push({
       time: formatTinybirdDateTime(new Date(time)),
-      demandMw: demand ? demand.sum / demand.count : null,
+      demandMw: demand ? demand.sum / demand.count + embeddedMw : null,
       domesticGenerationMw,
       embeddedMissing: domesticGenerationMw == null ? [] : missing,
     });
@@ -761,6 +766,14 @@ function applyBoundedEmbeddedCarry(
 
   missing.push(fuel);
   return last;
+}
+
+function embeddedMwFromFuelMap(fuels: Map<string, number>): number {
+  let total = 0;
+  for (const fuel of EMBEDDED_SERIES_FUELS) {
+    total += fuels.get(fuel) ?? 0;
+  }
+  return total;
 }
 
 function domesticGenerationFromFuelMap(fuels: Map<string, number>): number | null {

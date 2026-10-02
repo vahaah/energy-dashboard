@@ -117,14 +117,14 @@ describe("generation desk layout", () => {
     expect(html).toContain("Net imports");
     expect(html).toContain("Powering Britain now");
     expect(html).toContain("Now, by source");
-    expect(html).toContain("Demand and domestic generation");
+    expect(html).toContain("Demand and generation, including embedded");
     expect(html).toContain("xl:grid-cols-12");
     expect(html).toContain("xl:col-span-5");
     expect(html).toContain("xl:col-span-7");
     expect(html).toContain("h-11");
     expect(html).toContain("text-xs font-medium text-gray-1000");
     expect(html).toContain("Powering Britain now");
-    expect(html).toContain("Demand and domestic generation");
+    expect(html).toContain("Demand and generation, including embedded");
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain("Exports (generation above demand)");
@@ -166,20 +166,20 @@ describe("generation desk layout", () => {
     );
 
     expect(html).toContain("Powering Britain at 23:30 BST on 20 Sep 2026");
-    expect(html).toContain("By source · sorted by size · share of demand");
+    expect(html).toContain("By source · sorted by size · share of supply");
     expect(html).toContain('aria-label="What is Powering Britain at 23:30 BST on 20 Sep 2026?"');
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
   });
 
   it("shows missing sources as an em dash with a no-data note", () => {
-    const view = buildNowBySourceView(rows, 24000);
+    const view = buildNowBySourceView(rows);
     const html = renderToStaticMarkup(<GenerationNowCard view={view} />);
 
     expect(html).toContain("no data since 05:00 BST");
     expect(html).toContain("no data");
-    expect(html).toContain("Domestic total");
-    expect(html).toContain("19.3");
+    expect(html).toContain("Total supply");
+    expect(html).toContain("19.7");
     expect(html).toContain("h-3");
     expect(html).toContain("rounded-full");
     expect(html).not.toContain("truncate");

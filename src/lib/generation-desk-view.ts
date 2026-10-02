@@ -39,15 +39,13 @@ export const GENERATION_DESK_RANGE_OPTIONS: ReadonlyArray<{
   { value: "1y", label: "1y" },
 ];
 
-export const NOW_SOURCE_FUELS = GENERATION_STACK_FUELS.filter(
-  (fuel) => fuel !== "imports"
-);
+export const NOW_SOURCE_FUELS = GENERATION_STACK_FUELS;
 
 export type NowSourceRow = {
   fuel: string;
   mw: number | null;
   gwLabel: string;
-  demandPctLabel: string;
+  sharePctLabel: string;
   barPct: number;
   missingNote: string | null;
 };
@@ -57,7 +55,7 @@ export type NowBySourceView = {
   stacked: Array<{ fuel: string; mw: number; pct: number }>;
   totalMw: number;
   totalGwLabel: string;
-  totalDemandPctLabel: string;
+  totalSharePctLabel: string;
 };
 
 export type GenerationAnswerStat = {
@@ -126,7 +124,7 @@ export function buildGenerationDeskView(
       netImportsMw: aligned.netImportsMw,
       generationRows: aligned.generationRows,
     }),
-    nowView: buildNowBySourceView(aligned.generationRows, aligned.demand.value),
+    nowView: buildNowBySourceView(aligned.generationRows),
     delayNote: facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now),
     alignmentNote: aligned.alignmentNote,
     sourceCopy: generationSourceCopy(
@@ -152,8 +150,8 @@ export function generationSourceCopy(
   if (showingLatestLive) {
     return {
       title: "Powering Britain now",
-      subtitle: "Now, by source · sorted by size · share of demand",
-      tooltip: `Domestic generation from the latest Elexon FUELINST frame, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
+      subtitle: "Now, by source · sorted by size · share of supply",
+      tooltip: `GB generation from the latest Elexon FUELINST frame, with embedded wind and solar ${carry}. Net imports are their own slice of total supply.`,
       tooltipLabel: "What is Powering Britain now?",
     };
   }
@@ -166,16 +164,16 @@ export function generationSourceCopy(
   if (!when) {
     return {
       title,
-      subtitle: "By source · sorted by size · share of demand",
-      tooltip: `No Elexon FUELINST frame is available for ${formatLondonDayMonthYear(facts.requestedDate)}. Interconnectors sit in net imports, not this list.`,
+      subtitle: "By source · sorted by size · share of supply",
+      tooltip: `No Elexon FUELINST frame is available for ${formatLondonDayMonthYear(facts.requestedDate)}. Net imports are their own slice of total supply.`,
       tooltipLabel: `What is ${title}?`,
     };
   }
 
   return {
     title,
-    subtitle: "By source · sorted by size · share of demand",
-    tooltip: `Domestic generation from the Elexon FUELINST frame at ${when}, with embedded wind and solar ${carry}. Interconnectors sit in net imports, not this list.`,
+    subtitle: "By source · sorted by size · share of supply",
+    tooltip: `GB generation from the Elexon FUELINST frame at ${when}, with embedded wind and solar ${carry}. Net imports are their own slice of total supply.`,
     tooltipLabel: `What is ${title}?`,
   };
 }
@@ -209,7 +207,7 @@ export function alignAnswerPeriod(
   if (!preferredTimestamp || facts.demand.value == null || !demandTimestamp) {
     return {
       generationMw: facts.generationMw,
-      demand: facts.demand,
+      demand: demandFactIncludingEmbedded(facts.demand, facts.generationRows),
       netImportsMw: facts.netImportsMw,
       generationRows: facts.generationRows,
       alignmentNote: null,
@@ -238,7 +236,7 @@ export function alignAnswerPeriod(
       facts.generationMw.value,
       periodDemand,
       periodDemand == null
-        ? `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(preferredTimestamp)}. Shares of demand are hidden.`
+        ? `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(preferredTimestamp)}.`
         : null
     );
   }
@@ -247,7 +245,7 @@ export function alignAnswerPeriod(
   if (!alignedTimestamp) {
     return {
       generationMw: facts.generationMw,
-      demand: facts.demand,
+      demand: demandFactIncludingEmbedded(facts.demand, facts.generationRows),
       netImportsMw: facts.netImportsMw,
       generationRows: facts.generationRows,
       alignmentNote: null,
@@ -263,7 +261,7 @@ export function alignAnswerPeriod(
       : demandInPeriod(headlineSnapshots, alignedStart);
   let alignmentNote = `Demand for ${formatPlainSettlementWindow(preferredTimestamp)} is not in yet. Figures are ${formatPlainSettlementWindow(alignedTimestamp)}.`;
   if (periodDemand == null && alignedStart !== demandStart) {
-    alignmentNote = `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(alignedTimestamp)}. Shares of demand are hidden.`;
+    alignmentNote = `Demand is ${formatPlainSettlementWindow(demandTimestamp)}. Generation is ${formatPlainSettlementWindow(alignedTimestamp)}.`;
   }
 
   return stampAlignedPeriod(
@@ -276,26 +274,32 @@ export function alignAnswerPeriod(
   );
 }
 
-export function buildNowBySourceView(
-  generationRows: Generation5min[],
-  demandMw: number | null
-): NowBySourceView {
+export function buildNowBySourceView(generationRows: Generation5min[]): NowBySourceView {
   const split = splitLatestGenerationRows(generationRows);
   const grouped = groupGenerationMw(split.sources);
+  const netImportsMw = split.latestTimestamp
+    ? netImportsInPeriod(split.interconnectors, split.latestTimestamp)
+    : null;
+  if (netImportsMw != null && netImportsMw > 0) {
+    grouped.imports = netImportsMw;
+  } else if (netImportsMw != null) {
+    grouped.imports = 0;
+  }
   const lastSeen = lastSeenByStackFuel(generationRows);
-  const totalMw = split.sources.length === 0 ? null : split.totalGenerationMw;
+  const totalMw =
+    split.sources.length === 0 && split.interconnectors.length === 0
+      ? null
+      : Object.values(grouped).reduce((sum, mw) => sum + mw, 0);
   const present: NowSourceRow[] = [];
   const missing: NowSourceRow[] = [];
 
   for (const fuel of NOW_SOURCE_FUELS) {
     if (Object.hasOwn(grouped, fuel)) {
-      present.push(sourceRow(fuel, grouped[fuel], demandMw, null));
+      present.push(sourceRow(fuel, grouped[fuel], totalMw, null));
       continue;
     }
 
-    missing.push(
-      sourceRow(fuel, null, demandMw, missingNote(lastSeen[fuel] ?? null))
-    );
+    missing.push(sourceRow(fuel, null, totalMw, missingNote(lastSeen[fuel] ?? null)));
   }
 
   const rows = [
@@ -317,7 +321,7 @@ export function buildNowBySourceView(
     stacked,
     totalMw: totalMw ?? 0,
     totalGwLabel: formatHeadlineGw(totalMw),
-    totalDemandPctLabel: demandPctLabel(totalMw, demandMw),
+    totalSharePctLabel: sharePctLabel(totalMw, totalMw),
   };
 }
 
@@ -655,31 +659,31 @@ function answerStat(
 function sourceRow(
   fuel: string,
   mw: number | null,
-  demandMw: number | null,
+  supplyMw: number | null,
   missingNote: string | null
 ): NowSourceRow {
   return {
     fuel,
     mw,
     gwLabel: formatHeadlineGw(mw),
-    demandPctLabel: demandPctLabel(mw, demandMw),
-    barPct: demandBarPct(mw, demandMw),
+    sharePctLabel: sharePctLabel(mw, supplyMw),
+    barPct: supplyBarPct(mw, supplyMw),
     missingNote,
   };
 }
 
-function demandPctLabel(mw: number | null, demandMw: number | null): string {
-  if (mw == null || demandMw == null || demandMw <= 0) {
+function sharePctLabel(mw: number | null, supplyMw: number | null): string {
+  if (mw == null || supplyMw == null || supplyMw <= 0) {
     return "—";
   }
-  return `${((mw / demandMw) * 100).toFixed(1)}%`;
+  return `${((mw / supplyMw) * 100).toFixed(1)}%`;
 }
 
-function demandBarPct(mw: number | null, demandMw: number | null): number {
-  if (mw == null || demandMw == null || demandMw <= 0) {
+function supplyBarPct(mw: number | null, supplyMw: number | null): number {
+  if (mw == null || supplyMw == null || supplyMw <= 0) {
     return 0;
   }
-  return Math.min(100, Math.max(0, (mw / demandMw) * 100));
+  return Math.min(100, Math.max(0, (mw / supplyMw) * 100));
 }
 
 function missingNote(timestamp: string | null): string {
@@ -695,11 +699,9 @@ function lastSeenByStackFuel(
   const lastSeen: Partial<Record<GenerationStackFuel, string>> = {};
 
   for (const row of rows) {
-    if (isInterconnectorFuel(row.fuel_type)) {
-      continue;
-    }
-
-    const fuel = mapGenerationFuelToStackKey(row.fuel_type);
+    const fuel = isInterconnectorFuel(row.fuel_type)
+      ? "imports"
+      : mapGenerationFuelToStackKey(row.fuel_type);
     if (!isNowSourceFuel(fuel)) {
       continue;
     }
@@ -711,6 +713,36 @@ function lastSeenByStackFuel(
   }
 
   return lastSeen;
+}
+
+function demandFactIncludingEmbedded(
+  demand: Fact<number>,
+  generationRows: Generation5min[]
+): Fact<number> {
+  return {
+    ...demand,
+    value: demandIncludingEmbedded(demand.value, generationRows),
+    definition: "ITSDO plus estimated embedded wind and solar",
+  };
+}
+
+function demandIncludingEmbedded(
+  demandMw: number | null,
+  generationRows: Generation5min[]
+): number | null {
+  if (demandMw == null) {
+    return null;
+  }
+
+  const sources = splitLatestGenerationRows(generationRows).sources;
+  let embeddedMw = 0;
+  for (const row of sources) {
+    if (isEmbeddedFuel(row.fuel_type)) {
+      embeddedMw += row.generation_mw;
+    }
+  }
+
+  return demandMw + embeddedMw;
 }
 
 function isNowSourceFuel(fuel: string): fuel is (typeof NOW_SOURCE_FUELS)[number] {
@@ -753,8 +785,8 @@ function stampAlignedPeriod(
       periodEndUtc: bounds.endUtc,
     },
     demand: {
-      ...facts.demand,
-      value: demandValue,
+      ...demandFactIncludingEmbedded(facts.demand, split.sources),
+      value: demandIncludingEmbedded(demandValue, split.sources),
       periodStartUtc: bounds.startUtc,
       periodEndUtc: bounds.endUtc,
     },

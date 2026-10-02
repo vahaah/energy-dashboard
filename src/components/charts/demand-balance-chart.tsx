@@ -44,8 +44,8 @@ interface Props {
 }
 
 const SERIES_LABELS: Record<string, string> = {
-  demandGw: "Demand",
-  generationGw: "Domestic generation",
+  demandGw: "Demand (incl. embedded)",
+  generationGw: "Generation (incl. embedded)",
 };
 
 const COMPACT_CHART_WIDTH = 480;
@@ -239,7 +239,7 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
               stroke={DEMAND_SERIES_COLOR}
               strokeWidth={2}
               dot={false}
-              name="Demand"
+              name="Demand (incl. embedded)"
               connectNulls={false}
               isAnimationActive={false}
             >
@@ -268,7 +268,7 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
               stroke={DOMESTIC_GENERATION_SERIES_COLOR}
               strokeWidth={2}
               dot={false}
-              name="Domestic generation"
+              name="Generation (incl. embedded)"
               connectNulls={false}
               isAnimationActive={false}
             >

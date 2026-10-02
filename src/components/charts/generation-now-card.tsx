@@ -13,7 +13,7 @@ export function GenerationNowCard({ view }: Props) {
       <div
         className="flex h-3 w-full overflow-hidden rounded-full bg-gray-200"
         role="img"
-        aria-label="Share of domestic generation"
+        aria-label="Share of total supply"
       >
         {view.stacked.map((segment) => (
           <span
@@ -49,7 +49,7 @@ export function GenerationNowCard({ view }: Props) {
                 {row.mw != null ? <span className="ml-1 text-xs text-gray-900">GW</span> : null}
               </p>
               <p className="min-w-[4.5rem] text-right font-sans text-sm tabular-nums text-gray-900">
-                {row.demandPctLabel}
+                {row.sharePctLabel}
               </p>
               <div className="h-1.5 min-w-0 flex-1 rounded-full bg-gray-200">
                 <div
@@ -66,12 +66,12 @@ export function GenerationNowCard({ view }: Props) {
       </ul>
 
       <div className="grid grid-cols-1 gap-1 border-t border-gray-alpha-400 pt-3 text-sm font-medium text-gray-1000 sm:grid-cols-[minmax(0,1.5fr)_4.5rem_4.5rem_minmax(3.5rem,1fr)] sm:items-center sm:gap-3">
-        <p>Domestic total</p>
+        <p>Total supply</p>
         <p className="text-right font-sans tabular-nums">
           {view.totalGwLabel}
           <span className="ml-1 text-xs font-normal text-gray-900">GW</span>
         </p>
-        <p className="text-right font-sans tabular-nums text-gray-900">{view.totalDemandPctLabel}</p>
+        <p className="text-right font-sans tabular-nums text-gray-900">{view.totalSharePctLabel}</p>
         <span className="hidden sm:block" />
       </div>
     </div>

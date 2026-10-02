@@ -102,30 +102,91 @@ export function carbonPointFromRow(row: IntensityRow | undefined): CarbonPoint |
   };
 }
 
+/** Installed-capacity headroom above published GB records (wind ~23.9 GW, solar ~15.4 GW). */
+export const GB_GENERATION_MAX_MW: Record<string, number> = {
+  wind: 28_000,
+  solar: 18_000,
+  gas: 40_000,
+  coal: 6_000,
+  nuclear: 12_000,
+  hydro: 6_000,
+  biomass: 6_000,
+  other: 10_000,
+  oil: 4_000,
+};
+
+export function generationPeriodKey(row: ElexonGeneration): string {
+  return row.startTime
+    ? hourKey(parseUtcDateTime(row.startTime))
+    : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+}
+
+export function latestPublishTimeWins<T extends { publishTime?: string }>(
+  current: T | undefined,
+  next: T
+): boolean {
+  if (!current) {
+    return true;
+  }
+  return (next.publishTime ?? "") > (current.publishTime ?? "");
+}
+
+export function generationMwWithinPlausibleMaxima(fuels: Record<string, number>): boolean {
+  for (const [fuel, mw] of Object.entries(fuels)) {
+    const maxMw = GB_GENERATION_MAX_MW[fuel];
+    if (maxMw != null && mw > maxMw) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function generationMwByPeriod(
   rows: ElexonGeneration[]
 ): Map<string, Record<string, number>> {
-  const byTime = new Map<string, Record<string, number>>();
+  const latestByPeriodAndPsr = new Map<string, ElexonGeneration>();
 
   for (const row of rows) {
-    const timestamp = row.startTime
-      ? hourKey(parseUtcDateTime(row.startTime))
-      : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+    const timestamp = generationPeriodKey(row);
+    const key = `${timestamp}\0${row.psrType}`;
+    const existing = latestByPeriodAndPsr.get(key);
+    if (latestPublishTimeWins(existing, row)) {
+      latestByPeriodAndPsr.set(key, row);
+    }
+  }
+
+  const byTime = new Map<string, Record<string, number>>();
+  for (const row of latestByPeriodAndPsr.values()) {
+    const timestamp = generationPeriodKey(row);
     const current = byTime.get(timestamp) ?? {};
     const fuel = mapElexonFuel(row.psrType);
     current[fuel] = (current[fuel] ?? 0) + row.quantity;
     byTime.set(timestamp, current);
   }
 
+  for (const [timestamp, fuels] of byTime) {
+    if (!generationMwWithinPlausibleMaxima(fuels)) {
+      byTime.delete(timestamp);
+    }
+  }
+
   return byTime;
 }
 
 export function demandByPeriod(rows: ElexonDemand[]): Map<string, number> {
-  const byTime = new Map<string, number>();
+  const latestByTime = new Map<string, ElexonDemand>();
   for (const row of rows) {
     const timestamp = row.startTime
       ? hourKey(parseUtcDateTime(row.startTime))
       : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+    const existing = latestByTime.get(timestamp);
+    if (latestPublishTimeWins(existing, row)) {
+      latestByTime.set(timestamp, row);
+    }
+  }
+
+  const byTime = new Map<string, number>();
+  for (const [timestamp, row] of latestByTime) {
     byTime.set(timestamp, row.demand);
   }
   return byTime;

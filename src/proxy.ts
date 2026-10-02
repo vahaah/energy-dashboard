@@ -27,6 +27,7 @@ export function proxy(request: NextRequest) {
   if (
     pathname === "/api/cron" ||
     pathname === "/api/cron-prices" ||
+    pathname === "/api/cron-yesterday" ||
     pathname === "/api/health"
   ) {
     return NextResponse.next();

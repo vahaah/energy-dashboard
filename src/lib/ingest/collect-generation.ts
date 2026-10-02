@@ -108,6 +108,9 @@ export function pvLiveRowsToIngest(
 
 export type { CollectionResult };
 
+/** Hourly cron look-back. ReplacingMergeTree(timestamp, fuel_type) makes repeats idempotent. */
+export const FUELINST_RECENT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
 // generation_5min is long-format ReplacingMergeTree on (timestamp, fuel_type).
 // A failed source emits no rows, so it cannot overwrite another fuel's values.
 export function mergeSettledGeneration(parts: Array<{
@@ -148,7 +151,7 @@ async function settleSource<T>(
 }
 
 export async function collectRecentGeneration(now: Date): Promise<CollectionResult> {
-  const from = new Date(now.getTime() - 65 * 60 * 1000);
+  const from = new Date(now.getTime() - FUELINST_RECENT_LOOKBACK_MS);
   const today = getLondonDate(now);
   const yesterday = addUtcDays(today, -1);
   const pvFrom = new Date(now.getTime() - 3 * 60 * 60 * 1000);

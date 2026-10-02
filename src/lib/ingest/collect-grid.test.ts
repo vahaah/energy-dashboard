@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectRecentSnapshots,
+  generationMwByPeriod,
+  generationMwWithinPlausibleMaxima,
   snapshotCollectionFromSources,
 } from "@/lib/ingest/collect-grid";
 import { listRecentSettlementPeriods } from "@/lib/settlement-period";
+import type { ElexonGeneration } from "@/lib/types";
 
 function jsonResponse(data: unknown) {
   return {
@@ -146,5 +149,128 @@ describe("snapshot ingest refuses incomplete overwrites", () => {
 
     expect(result.rows).toEqual([]);
     expect(result.sources[0]?.ok).toBe(false);
+  });
+});
+
+function agpt(
+  overrides: Pick<ElexonGeneration, "psrType" | "quantity" | "startTime"> &
+    Partial<ElexonGeneration>
+): ElexonGeneration {
+  return {
+    dataset: "AGPT",
+    publishTime: "2026-07-02T12:59:01Z",
+    businessType: "Production",
+    settlementDate: "2026-07-02",
+    settlementPeriod: 27,
+    ...overrides,
+  };
+}
+
+describe("AGPT generation de-duplication", () => {
+  it("keeps one row per period and psrType before summing onshore and offshore wind", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7778,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Offshore",
+        quantity: 8373,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Solar",
+        quantity: 12926,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7778,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Offshore",
+        quantity: 8373,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Solar",
+        quantity: 12926,
+      }),
+    ]);
+
+    expect(byTime.get("2026-07-02 12:00:00")).toEqual({
+      wind: 16_151,
+      solar: 12_926,
+    });
+  });
+
+  it("prefers the later publishTime when Elexon revises a period", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7000,
+      }),
+      agpt({
+        publishTime: "2026-07-02T13:10:00Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7778,
+      }),
+      agpt({
+        publishTime: "2026-07-02T13:10:00Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Offshore",
+        quantity: 8373,
+      }),
+    ]);
+
+    expect(byTime.get("2026-07-02 12:00:00")?.wind).toBe(16_151);
+  });
+
+  it("drops a half-hour that exceeds plausible GB maxima instead of storing doubled MW", () => {
+    const doubled = {
+      wind: 32_302,
+      solar: 25_852,
+      gas: 7734,
+      nuclear: 6014,
+    };
+
+    expect(generationMwWithinPlausibleMaxima(doubled)).toBe(false);
+    expect(
+      generationMwWithinPlausibleMaxima({
+        wind: 16_151,
+        solar: 12_926,
+        gas: 3867,
+        nuclear: 3007,
+      })
+    ).toBe(true);
+
+    const byTime = generationMwByPeriod([
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 32_302,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Solar",
+        quantity: 12_926,
+      }),
+    ]);
+
+    expect(byTime.has("2026-07-02 12:00:00")).toBe(false);
   });
 });
