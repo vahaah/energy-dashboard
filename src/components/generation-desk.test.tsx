@@ -8,6 +8,12 @@ import { buildNowBySourceView } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
+function indexAfter(source: string, snippet: string): number {
+  const index = source.indexOf(snippet);
+  expect(index, `missing ${snippet}`).toBeGreaterThanOrEqual(0);
+  return index;
+}
+
 function generation(
   timestamp: string,
   fuelType: string,
@@ -138,6 +144,36 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("GenerationMixChart");
     expect(dashboardSource).not.toContain("DemandChart");
     expect(dashboardSource).not.toContain("Demand profile");
+    expect(indexAfter(dashboardSource, 'id="section-generation"')).toBeLessThan(
+      indexAfter(dashboardSource, "Generation mix over time")
+    );
+    expect(indexAfter(dashboardSource, "Generation mix over time")).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-price"')
+    );
+    expect(indexAfter(dashboardSource, 'id="section-price"')).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-transfers"')
+    );
+    expect(indexAfter(dashboardSource, 'id="section-transfers"')).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-commodities"')
+    );
+    expect(indexAfter(dashboardSource, 'id="section-commodities"')).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-carbon"')
+    );
+    expect(indexAfter(dashboardSource, "What's powering Britain")).toBeLessThan(
+      indexAfter(dashboardSource, "Carbon pulse")
+    );
+    expect(indexAfter(dashboardSource, 'label="Domestic generation"')).toBeLessThan(
+      indexAfter(dashboardSource, 'label="Current carbon"')
+    );
+    expect(indexAfter(dashboardSource, 'label="Domestic Supply"')).toBeLessThan(
+      indexAfter(dashboardSource, 'label="Carbon Intensity"')
+    );
+    expect(indexAfter(dashboardSource, 'title: "Demand pressure"')).toBeLessThan(
+      indexAfter(dashboardSource, 'title: "Carbon stance"')
+    );
+    expect(indexAfter(dashboardSource, "leads supply at")).toBeLessThan(
+      indexAfter(dashboardSource, "Carbon is ${Math.abs(carbonDelta)} g cleaner")
+    );
     expect(deskSource).toContain("h-60");
     expect(deskSource).toContain("headlineSnapshots");
   });

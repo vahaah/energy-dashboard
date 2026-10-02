@@ -212,32 +212,20 @@ export function Dashboard({
       : null;
 
   const briefingLine = [
-    carbonDelta < 0
-      ? `Carbon is ${Math.abs(carbonDelta)} g cleaner than the ${range} average`
-      : carbonDelta > 0
-        ? `Carbon is ${carbonDelta} g above the ${range} average`
-        : `Carbon is tracking the ${range} average`,
     topShare
         ? `${formatFuelLabel(topShare.fuel)} leads supply at ${formatGigawatts(
           topShare.mw
         )} GW`
       : "Generation leadership is unavailable",
     transferBriefing(transferStance),
+    carbonDelta < 0
+      ? `Carbon is ${Math.abs(carbonDelta)} g cleaner than the ${range} average`
+      : carbonDelta > 0
+        ? `Carbon is ${carbonDelta} g above the ${range} average`
+        : `Carbon is tracking the ${range} average`,
   ].join(", ");
 
   const insightCards = [
-    {
-      title: "Carbon stance",
-      value:
-        carbonDelta === 0
-          ? "In line"
-          : carbonDelta < 0
-            ? `${Math.abs(carbonDelta)} g cleaner`
-            : `${carbonDelta} g hotter`,
-      detail: `Range low ${formatOptionalNumber(rangeSummary.carbon.min)} g · high ${formatOptionalNumber(rangeSummary.carbon.max)} g`,
-      tone: carbonDelta <= 0 ? "emerald" : "amber",
-      icon: <Wind className="w-4 h-4" />,
-    },
     {
       title: "Demand pressure",
       value:
@@ -253,6 +241,16 @@ export function Dashboard({
       icon: <Activity className="w-4 h-4" />,
     },
     {
+      title: "Import dependency",
+      value: transferInsightValue(transferStance, importShare),
+      detail:
+        transferStance.kind === "unknown"
+          ? "No interconnector observations"
+          : `${activeInterconnectors} active links in the latest dispatch frame`,
+      tone: transferStance.kind === "export" ? "violet" : "cyan",
+      icon: <ArrowLeftRight className="w-4 h-4" />,
+    },
+    {
       title: "Price regime",
       value:
         priceDelta === 0
@@ -265,14 +263,16 @@ export function Dashboard({
       icon: <Zap className="w-4 h-4" />,
     },
     {
-      title: "Import dependency",
-      value: transferInsightValue(transferStance, importShare),
-      detail:
-        transferStance.kind === "unknown"
-          ? "No interconnector observations"
-          : `${activeInterconnectors} active links in the latest dispatch frame`,
-      tone: transferStance.kind === "export" ? "violet" : "cyan",
-      icon: <ArrowLeftRight className="w-4 h-4" />,
+      title: "Carbon stance",
+      value:
+        carbonDelta === 0
+          ? "In line"
+          : carbonDelta < 0
+            ? `${Math.abs(carbonDelta)} g cleaner`
+            : `${carbonDelta} g hotter`,
+      detail: `Range low ${formatOptionalNumber(rangeSummary.carbon.min)} g · high ${formatOptionalNumber(rangeSummary.carbon.max)} g`,
+      tone: carbonDelta <= 0 ? "emerald" : "amber",
+      icon: <Wind className="w-4 h-4" />,
     },
   ] as const;
 
@@ -409,20 +409,6 @@ export function Dashboard({
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <HeroFact
-                    label="Current carbon"
-                    value={
-                      headline.carbon.value != null
-                        ? `${Math.round(headline.carbon.value)} gCO₂/kWh`
-                        : "—"
-                    }
-                    detail={
-                      headline.carbon.index
-                        ? `${headline.carbon.index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
-                        : "Awaiting data"
-                    }
-                    asOf={carbonAsOf}
-                  />
-                  <HeroFact
                     label="Domestic generation"
                     value={
                       facts.generationMw.value == null
@@ -456,6 +442,20 @@ export function Dashboard({
                     detail={`Range avg £${formatOptionalNumber(rangeSummary.price.average)}/MWh`}
                     asOf={priceAsOf}
                   />
+                  <HeroFact
+                    label="Current carbon"
+                    value={
+                      headline.carbon.value != null
+                        ? `${Math.round(headline.carbon.value)} gCO₂/kWh`
+                        : "—"
+                    }
+                    detail={
+                      headline.carbon.index
+                        ? `${headline.carbon.index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
+                        : "Awaiting data"
+                    }
+                    asOf={carbonAsOf}
+                  />
                 </div>
               </div>
 
@@ -475,24 +475,15 @@ export function Dashboard({
           ) : (
             <>
               <KpiCard
-                label="Carbon Intensity"
-                value={
-                  headline.carbon.value != null
-                    ? String(Math.round(headline.carbon.value))
-                    : "—"
-                }
-                unit="gCO₂/kWh"
+                label="Domestic Supply"
+                value={formatHeadlineGw(facts.generationMw.value)}
+                unit="GW"
                 detail={
-                  headline.carbon.index
-                    ? `${headline.carbon.index} · ${formatSignedNumber(carbonDelta)} vs avg`
-                    : undefined
+                  topShare ? `${formatFuelLabel(topShare.fuel)} leading` : "Awaiting dispatch"
                 }
-                asOf={carbonAsOf}
-                color={
-                  headline.carbon.index ? carbonIndexColor(headline.carbon.index) : undefined
-                }
-                icon={<Wind className="h-3.5 w-3.5" />}
-                tooltip="Current carbon intensity, benchmarked against the selected window average."
+                asOf={generationAsOf}
+                icon={<Gauge className="h-3.5 w-3.5" />}
+                tooltip="Latest domestic generation across fuel and embedded renewable sources."
               />
               <KpiCard
                 label="Demand"
@@ -506,17 +497,6 @@ export function Dashboard({
                 asOf={demandAsOf}
                 icon={<Activity className="h-3.5 w-3.5" />}
                 tooltip="Transmission demand right now versus the selected window."
-              />
-              <KpiCard
-                label="Domestic Supply"
-                value={formatHeadlineGw(facts.generationMw.value)}
-                unit="GW"
-                detail={
-                  topShare ? `${formatFuelLabel(topShare.fuel)} leading` : "Awaiting dispatch"
-                }
-                asOf={generationAsOf}
-                icon={<Gauge className="h-3.5 w-3.5" />}
-                tooltip="Latest domestic generation across fuel and embedded renewable sources."
               />
               <KpiCard
                 label="Net Transfers"
@@ -543,44 +523,32 @@ export function Dashboard({
                 icon={<Zap className="h-3.5 w-3.5" />}
                 tooltip="Elexon imbalance cash-out (system buy) price versus the selected range average. This is not the day-ahead wholesale price."
               />
+              <KpiCard
+                label="Carbon Intensity"
+                value={
+                  headline.carbon.value != null
+                    ? String(Math.round(headline.carbon.value))
+                    : "—"
+                }
+                unit="gCO₂/kWh"
+                detail={
+                  headline.carbon.index
+                    ? `${headline.carbon.index} · ${formatSignedNumber(carbonDelta)} vs avg`
+                    : undefined
+                }
+                asOf={carbonAsOf}
+                color={
+                  headline.carbon.index ? carbonIndexColor(headline.carbon.index) : undefined
+                }
+                icon={<Wind className="h-3.5 w-3.5" />}
+                tooltip="Current carbon intensity, benchmarked against the selected window average."
+              />
             </>
           )}
         </section>
         )}
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <SectionCard
-            id="section-carbon"
-            title="Carbon pulse"
-            icon={<Wind className="h-4 w-4 text-emerald-300" />}
-            tooltip="How clean the grid is through the selected window, with forecast context."
-            active={focus === "carbon"}
-          >
-            {isPending ? (
-              <ChartSectionSkeleton heightClassName="h-64" />
-            ) : hasSnapshots ? (
-              <CarbonIntensityChart data={initialSnapshots} range={range} />
-            ) : (
-              <EmptyState label="No carbon data available" />
-            )}
-          </SectionCard>
-
-          <SectionCard
-            id="section-price"
-            title="Imbalance price"
-            icon={<Zap className="h-4 w-4 text-amber-300" />}
-            tooltip="GB imbalance cash-out (system buy) price over the selected window. Negative prices are real."
-            active={focus === "price"}
-          >
-            {isPending ? (
-              <ChartSectionSkeleton heightClassName="h-64" />
-            ) : hasSnapshots ? (
-              <ElectricityPriceChart data={initialSnapshots} range={range} />
-            ) : (
-              <EmptyState label="No price data available" />
-            )}
-          </SectionCard>
-
           <SectionCard
             id="section-generation"
             title="What's powering Britain"
@@ -624,6 +592,23 @@ export function Dashboard({
               <GenerationStackChart data={generationHistory} range={range} />
             ) : (
               <EmptyState label="No generation history available" />
+            )}
+          </SectionCard>
+
+          <SectionCard
+            id="section-price"
+            title="Imbalance price"
+            icon={<Zap className="h-4 w-4 text-amber-300" />}
+            tooltip="GB imbalance cash-out (system buy) price over the selected window. Negative prices are real."
+            active={focus === "price"}
+            fullWidth
+          >
+            {isPending ? (
+              <ChartSectionSkeleton heightClassName="h-64" />
+            ) : hasSnapshots ? (
+              <ElectricityPriceChart data={initialSnapshots} range={range} />
+            ) : (
+              <EmptyState label="No price data available" />
             )}
           </SectionCard>
 
@@ -759,6 +744,23 @@ export function Dashboard({
                   <EmptyState label="No commodity data available" />
                 )}
               </>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            id="section-carbon"
+            title="Carbon pulse"
+            icon={<Wind className="h-4 w-4 text-emerald-300" />}
+            tooltip="How clean the grid is through the selected window, with forecast context."
+            active={focus === "carbon"}
+            fullWidth
+          >
+            {isPending ? (
+              <ChartSectionSkeleton heightClassName="h-64" />
+            ) : hasSnapshots ? (
+              <CarbonIntensityChart data={initialSnapshots} range={range} />
+            ) : (
+              <EmptyState label="No carbon data available" />
             )}
           </SectionCard>
         </div>
