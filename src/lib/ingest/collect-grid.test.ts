@@ -144,6 +144,26 @@ describe("snapshot ingest refuses incomplete overwrites", () => {
     expect(latest?.gen_wind_mw).toBe(4500);
   });
 
+  it("omits a recent period when AGPT exceeds GB maxima so hourly cron cannot write null MW", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("datasets/AGPT")) {
+        return jsonResponse({
+          data: [
+            { startTime: "2026-09-27T09:30:00Z", psrType: "Wind Onshore", quantity: 32_302 },
+            { startTime: "2026-09-27T09:30:00Z", psrType: "Fossil Gas", quantity: 8000 },
+            { startTime: "2026-09-27T09:30:00Z", psrType: "Nuclear", quantity: 3000 },
+          ],
+        });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectRecentSnapshots(new Date("2026-09-27T10:08:00.000Z"));
+
+    expect(result.sources.every((source) => source.ok)).toBe(true);
+    expect(result.rows.some((row) => row.timestamp === "2026-09-27 09:30:00")).toBe(false);
+  });
+
   it("drops a built batch when a source status is failed so ReplacingMergeTree cannot clobber", () => {
     const periods = listRecentSettlementPeriods(
       new Date("2026-09-27T10:08:00.000Z"),
