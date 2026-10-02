@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectRecentSnapshots,
+  collectSnapshotsForSettlementDate,
+  elexonPublishWindow,
+  ELEXON_PUBLISH_LAG_MS,
   generationMwByPeriod,
   generationMwWithinPlausibleMaxima,
   snapshotCollectionFromSources,
+  snapshotRowReadyToIngest,
 } from "@/lib/ingest/collect-grid";
 import { listRecentSettlementPeriods } from "@/lib/settlement-period";
 import type { ElexonGeneration } from "@/lib/types";
@@ -272,5 +276,108 @@ describe("AGPT generation de-duplication", () => {
     ]);
 
     expect(byTime.has("2026-07-02 12:00:00")).toBe(false);
+  });
+});
+
+describe("elexonPublishWindow", () => {
+  it("extends publishDateTimeTo by 6 hours so late ITSDO/AGPT publishes are included", () => {
+    expect(ELEXON_PUBLISH_LAG_MS).toBe(6 * 60 * 60 * 1000);
+
+    const window = elexonPublishWindow(
+      new Date("2026-09-26T23:00:00.000Z"),
+      new Date("2026-09-27T23:00:00.000Z")
+    );
+
+    expect(window.fromIso).toBe("2026-09-26T23:00:00.000Z");
+    expect(window.toIso).toBe("2026-09-28T05:00:00.000Z");
+  });
+
+  it("caps the lag at now so a 03:30 heal does not query the future", () => {
+    const window = elexonPublishWindow(
+      new Date("2026-09-26T23:00:00.000Z"),
+      new Date("2026-09-27T23:00:00.000Z"),
+      new Date("2026-09-28T03:30:00.000Z")
+    );
+
+    expect(window.toIso).toBe("2026-09-28T03:30:00.000Z");
+  });
+
+  it("does not extend past the 6 hour lag even when now is later", () => {
+    const window = elexonPublishWindow(
+      new Date("2026-09-26T23:00:00.000Z"),
+      new Date("2026-09-27T23:00:00.000Z"),
+      new Date("2026-09-29T12:00:00.000Z")
+    );
+
+    expect(window.toIso).toBe("2026-09-28T05:00:00.000Z");
+  });
+});
+
+describe("snapshotRowReadyToIngest", () => {
+  it("requires numeric demand and at least one numeric gen_*_mw", () => {
+    expect(
+      snapshotRowReadyToIngest({
+        demand_mw: 28_000,
+        gen_wind_mw: 4500,
+      })
+    ).toBe(true);
+    expect(snapshotRowReadyToIngest({ demand_mw: 28_000 })).toBe(false);
+    expect(snapshotRowReadyToIngest({ gen_wind_mw: 4500 })).toBe(false);
+    expect(
+      snapshotRowReadyToIngest({
+        demand_mw: null,
+        gen_wind_mw: 4500,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("settlement-date snapshot collection", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("queries ITSDO/AGPT with a 6h publish lag and drops periods missing demand or generation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      successfulSourcePayloads(String(input))
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const now = new Date("2026-09-28T03:30:00.000Z");
+    const result = await collectSnapshotsForSettlementDate("2026-09-27", now);
+
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    const itsdo = urls.find((url) => url.includes("datasets/ITSDO"));
+    const agptUrl = urls.find((url) => url.includes("datasets/AGPT"));
+    const carbon = urls.find((url) => url.includes("carbonintensity.org.uk/intensity"));
+
+    expect(itsdo).toContain("publishDateTimeFrom=2026-09-26T23:00:00.000Z");
+    expect(itsdo).toContain("publishDateTimeTo=2026-09-28T03:30:00.000Z");
+    expect(agptUrl).toContain("publishDateTimeFrom=2026-09-26T23:00:00.000Z");
+    expect(agptUrl).toContain("publishDateTimeTo=2026-09-28T03:30:00.000Z");
+    expect(carbon).toContain("2026-09-26T23:00:00Z");
+    expect(carbon).not.toContain("2026-09-28T03:30:00");
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.timestamp).toBe("2026-09-27 09:30:00");
+    expect(result.rows[0]?.demand_mw).toBe(28_000);
+    expect(result.rows[0]?.gen_wind_mw).toBe(4500);
+  });
+
+  it("does not emit null demand/generation rows that would clobber complete ReplacingMergeTree values", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("datasets/ITSDO") || url.includes("datasets/AGPT")) {
+        return jsonResponse({ data: [] });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectSnapshotsForSettlementDate(
+      "2026-09-27",
+      new Date("2026-09-28T03:30:00.000Z")
+    );
+
+    expect(result.sources.every((source) => source.ok)).toBe(true);
+    expect(result.rows).toEqual([]);
   });
 });

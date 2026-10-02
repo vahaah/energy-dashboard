@@ -1,4 +1,5 @@
 import { fetchJson, type CollectionResult, type SourceStatus } from "@/lib/http";
+import { elexonPublishWindow } from "@/lib/ingest/collect-grid";
 import {
   addUtcDays,
   formatTinybirdDateTime,
@@ -201,6 +202,7 @@ export async function collectGenerationForSettlementDate(
   const periods = listSettlementPeriods(settlementDate);
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
+  const publish = elexonPublishWindow(from, to, now);
 
   const nesoSql = [
     'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","FORECAST_ACTUAL_INDICATOR",',
@@ -215,7 +217,7 @@ export async function collectGenerationForSettlementDate(
       "fuelinst",
       () =>
         fetchJson<FuelInstRow[]>(
-          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${to.toISOString()}`
+          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${publish.fromIso}&publishDateTimeTo=${publish.toIso}`
         ),
       (rows) => fuelInstRowsToIngest(rows ?? [])
     ),

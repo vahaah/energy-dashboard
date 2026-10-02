@@ -4,7 +4,7 @@ import {
   type CollectionResult,
   type SourceStatus,
 } from "@/lib/http";
-import { mapElexonFuel } from "@/lib/ingest/fuels";
+import { mapElexonFuel, SNAPSHOT_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
 import {
@@ -77,6 +77,36 @@ export async function fetchSystemPrices(settlementDate: string): Promise<ElexonS
     `https://data.elexon.co.uk/bmrs/api/v1/balancing/settlement/system-prices/${settlementDate}`
   );
   return json.data ?? [];
+}
+
+/** AGPT/ITSDO publish about an hour after the period; revisions arrive later. */
+export const ELEXON_PUBLISH_LAG_MS = 6 * 60 * 60 * 1000;
+
+export function elexonPublishWindow(
+  from: Date,
+  to: Date,
+  now?: Date
+): { fromIso: string; toIso: string } {
+  const lagged = new Date(to.getTime() + ELEXON_PUBLISH_LAG_MS);
+  const publishTo = now && lagged.getTime() > now.getTime() ? now : lagged;
+  return {
+    fromIso: from.toISOString(),
+    toIso: publishTo.toISOString(),
+  };
+}
+
+export function snapshotRowReadyToIngest(row: Record<string, unknown>): boolean {
+  if (typeof row.demand_mw !== "number") {
+    return false;
+  }
+
+  for (const fuel of SNAPSHOT_FUELS) {
+    if (typeof row[`gen_${fuel}_mw`] === "number") {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function fetchElexonWindow<T>(
@@ -287,12 +317,14 @@ export function snapshotCollectionFromSources(
 
 async function collectSnapshotsForPeriods(
   periods: SettlementPeriod[],
-  fromIso: string,
-  toIso: string,
-  priceDates: string[]
+  priceDates: string[],
+  now?: Date
 ): Promise<CollectionResult> {
-  const carbonFrom = fromIso.replace(".000", "");
-  const carbonTo = toIso.replace(".000", "");
+  const from = periods[0].startUtc;
+  const to = periods[periods.length - 1].endUtc;
+  const carbonFrom = from.toISOString().replace(".000", "");
+  const carbonTo = to.toISOString().replace(".000", "");
+  const publish = elexonPublishWindow(from, to, now);
 
   const [intensity, mix, prices, demand, generation] = await Promise.all([
     settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
@@ -301,8 +333,12 @@ async function collectSnapshotsForPeriods(
       const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date)));
       return sets.flat();
     }),
-    settleFetch("demand", () => fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso)),
-    settleFetch("generation_mw", () => fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso)),
+    settleFetch("demand", () =>
+      fetchElexonWindow<ElexonDemand>("ITSDO", publish.fromIso, publish.toIso)
+    ),
+    settleFetch("generation_mw", () =>
+      fetchElexonWindow<ElexonGeneration>("AGPT", publish.fromIso, publish.toIso)
+    ),
   ]);
 
   const statuses = [
@@ -332,26 +368,21 @@ export async function collectRecentSnapshots(now: Date): Promise<CollectionResul
     return { rows: [], sources: [] };
   }
 
-  const from = periods[0].startUtc;
-  const to = periods[periods.length - 1].endUtc;
   const dates = [...new Set(periods.map((period) => period.settlementDate))];
 
-  return collectSnapshotsForPeriods(periods, from.toISOString(), to.toISOString(), dates);
+  return collectSnapshotsForPeriods(periods, dates, now);
 }
 
 export async function collectSnapshotsForSettlementDate(
-  settlementDate: string
+  settlementDate: string,
+  now?: Date
 ): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
-  const from = periods[0].startUtc;
-  const to = periods[periods.length - 1].endUtc;
-
-  return collectSnapshotsForPeriods(
-    periods,
-    from.toISOString(),
-    to.toISOString(),
-    [settlementDate]
-  );
+  const result = await collectSnapshotsForPeriods(periods, [settlementDate], now);
+  return {
+    ...result,
+    rows: result.rows.filter(snapshotRowReadyToIngest),
+  };
 }
 
 export function currentHalfHourTimestamp(now: Date): string {

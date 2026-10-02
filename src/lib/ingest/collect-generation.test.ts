@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  collectGenerationForSettlementDate,
   collectRecentGeneration,
   FUELINST_RECENT_LOOKBACK_MS,
   mergeSettledGeneration,
@@ -88,5 +89,39 @@ describe("FUELINST recent look-back", () => {
 
     expect(fuelinstUrl).toContain("publishDateTimeFrom=2026-09-27T10:00:00.000Z");
     expect(fuelinstUrl).toContain("publishDateTimeTo=2026-09-28T10:00:00.000Z");
+  });
+
+  it("uses a 6h publish lag for settlement-date FUELINST so late publishes are included", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("FUELINST")) {
+        return { ok: true, json: async () => [] };
+      }
+      if (url.includes("neso.energy")) {
+        return { ok: true, json: async () => ({ result: { records: [] } }) };
+      }
+      if (url.includes("pvlive.uk")) {
+        return { ok: true, json: async () => ({ data: [] }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await collectGenerationForSettlementDate(
+      "2026-09-27",
+      new Date("2026-09-28T03:30:00.000Z")
+    );
+
+    const fuelinstUrl = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .find((url) => url.includes("FUELINST"));
+    const pvLiveUrl = fetchMock.mock.calls
+      .map((call) => String(call[0]))
+      .find((url) => url.includes("pvlive.uk"));
+
+    expect(fuelinstUrl).toContain("publishDateTimeFrom=2026-09-26T23:00:00.000Z");
+    expect(fuelinstUrl).toContain("publishDateTimeTo=2026-09-28T03:30:00.000Z");
+    expect(pvLiveUrl).toContain("start=2026-09-26T23:00:00.000Z");
+    expect(pvLiveUrl).toContain("end=2026-09-27T23:00:00.000Z");
   });
 });

@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const now = new Date();
   const settlementDate = yesterdayLondonDate(now);
   const [snapshots, generation] = await Promise.all([
-    collectSnapshotsForSettlementDate(settlementDate),
+    collectSnapshotsForSettlementDate(settlementDate, now),
     collectGenerationForSettlementDate(settlementDate, now),
   ]);
 
