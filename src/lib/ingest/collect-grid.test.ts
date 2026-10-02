@@ -6,11 +6,12 @@ import {
   ELEXON_PUBLISH_LAG_MS,
   generationMwByPeriod,
   generationMwWithinPlausibleMaxima,
+  groupGenerationMwByPeriod,
   snapshotCollectionFromSources,
   snapshotRowReadyToIngest,
 } from "@/lib/ingest/collect-grid";
 import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
-import { listRecentSettlementPeriods } from "@/lib/settlement-period";
+import { listRecentSettlementPeriods, listSettlementPeriods } from "@/lib/settlement-period";
 import type { ElexonGeneration } from "@/lib/types";
 
 function jsonResponse(data: unknown) {
@@ -288,6 +289,45 @@ describe("AGPT generation de-duplication", () => {
     ]);
 
     expect(byTime.has("2026-07-02 12:00:00")).toBe(false);
+  });
+
+  it("skips the whole snapshot when maxima reject generation so hourly ingest cannot write null MW", () => {
+    const grouped = groupGenerationMwByPeriod([
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Wind Onshore",
+        quantity: 32_302,
+      }),
+      agpt({
+        publishTime: "2026-07-02T12:59:01Z",
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Solar",
+        quantity: 12_926,
+      }),
+    ]);
+
+    expect(grouped.rejectedTimes.has("2026-07-02 12:00:00")).toBe(true);
+
+    const periods = listSettlementPeriods("2026-07-02");
+    const result = snapshotCollectionFromSources(
+      periods,
+      {
+        intensityByTime: new Map(),
+        mixByTime: new Map(),
+        priceByTime: new Map([["2026-07-02 12:00:00", 42.5]]),
+        demandByTime: new Map([["2026-07-02 12:00:00", 28_000]]),
+        genMwByTime: grouped.byTime,
+        rejectedGenTimes: grouped.rejectedTimes,
+      },
+      [
+        { source: "carbon_intensity", ok: true, rows: 1 },
+        { source: "generation_mw", ok: true, rows: 1 },
+      ]
+    );
+
+    expect(result.rows.some((row) => row.timestamp === "2026-07-02 12:00:00")).toBe(false);
+    expect(result.rows).toHaveLength(periods.length - 1);
   });
 });
 

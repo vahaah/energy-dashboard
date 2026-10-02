@@ -186,9 +186,10 @@ export function generationMwWithinPlausibleMaxima(fuels: Record<string, number>)
   return true;
 }
 
-export function generationMwByPeriod(
-  rows: ElexonGeneration[]
-): Map<string, Record<string, number>> {
+export function groupGenerationMwByPeriod(rows: ElexonGeneration[]): {
+  byTime: Map<string, Record<string, number>>;
+  rejectedTimes: Set<string>;
+} {
   const latestByPeriodAndPsr = new Map<string, ElexonGeneration>();
 
   for (const row of rows) {
@@ -209,13 +210,21 @@ export function generationMwByPeriod(
     byTime.set(timestamp, current);
   }
 
+  const rejectedTimes = new Set<string>();
   for (const [timestamp, fuels] of byTime) {
     if (!generationMwWithinPlausibleMaxima(fuels)) {
       byTime.delete(timestamp);
+      rejectedTimes.add(timestamp);
     }
   }
 
-  return byTime;
+  return { byTime, rejectedTimes };
+}
+
+export function generationMwByPeriod(
+  rows: ElexonGeneration[]
+): Map<string, Record<string, number>> {
+  return groupGenerationMwByPeriod(rows).byTime;
 }
 
 export function demandByPeriod(rows: ElexonDemand[]): Map<string, number> {
@@ -256,18 +265,24 @@ export function buildSnapshotRowsForPeriods(
     priceByTime: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
+    rejectedGenTimes?: Set<string>;
   }
 ): Record<string, unknown>[] {
-  return periods.map((period) => {
+  return periods.flatMap((period) => {
     const key = hourKey(period.startUtc);
-    return buildSnapshotRow({
-      timestamp: period.startUtc,
-      carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
-      mix: sources.mixByTime.get(key) ?? null,
-      demandMw: sources.demandByTime.get(key) ?? null,
-      priceGbpMwh: sources.priceByTime.get(key) ?? null,
-      genMw: sources.genMwByTime.get(key) ?? null,
-    });
+    if (sources.rejectedGenTimes?.has(key)) {
+      return [];
+    }
+    return [
+      buildSnapshotRow({
+        timestamp: period.startUtc,
+        carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
+        mix: sources.mixByTime.get(key) ?? null,
+        demandMw: sources.demandByTime.get(key) ?? null,
+        priceGbpMwh: sources.priceByTime.get(key) ?? null,
+        genMw: sources.genMwByTime.get(key) ?? null,
+      }),
+    ];
   });
 }
 
@@ -306,13 +321,16 @@ function snapshotMapsFromFetches(parts: {
   priceByTime: Map<string, number>;
   demandByTime: Map<string, number>;
   genMwByTime: Map<string, Record<string, number>>;
+  rejectedGenTimes: Set<string>;
 } {
+  const generation = groupGenerationMwByPeriod(parts.generation);
   return {
     intensityByTime: indexByTimestamp(parts.intensity, (row) => row.from),
     mixByTime: mixByTimestamp(parts.mix),
     priceByTime: priceByPeriod(parts.prices),
     demandByTime: demandByPeriod(parts.demand),
-    genMwByTime: generationMwByPeriod(parts.generation),
+    genMwByTime: generation.byTime,
+    rejectedGenTimes: generation.rejectedTimes,
   };
 }
 
@@ -324,6 +342,7 @@ export function snapshotCollectionFromSources(
     priceByTime: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
+    rejectedGenTimes?: Set<string>;
   },
   statuses: SourceStatus[]
 ): CollectionResult {
