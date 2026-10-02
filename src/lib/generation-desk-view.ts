@@ -719,11 +719,62 @@ function demandFactIncludingEmbedded(
   demand: Fact<number>,
   generationRows: Generation5min[]
 ): Fact<number> {
+  const contributors = embeddedDemandContributors(generationRows);
+  const source = compositeDemandSource(demand.source, contributors);
   return {
     ...demand,
     value: demandIncludingEmbedded(demand.value, generationRows),
-    definition: "ITSDO plus estimated embedded wind and solar",
+    source,
+    definition: compositeDemandDefinition(demand.definition, contributors),
   };
+}
+
+function embeddedDemandContributors(generationRows: Generation5min[]): {
+  wind: boolean;
+  solar: boolean;
+} {
+  const sources = splitLatestGenerationRows(generationRows).sources;
+  let wind = false;
+  let solar = false;
+  for (const row of sources) {
+    if (row.fuel_type === "embedded_wind" && row.generation_mw !== 0) {
+      wind = true;
+    }
+    if (row.fuel_type === "embedded_solar" && row.generation_mw !== 0) {
+      solar = true;
+    }
+  }
+  return { wind, solar };
+}
+
+function compositeDemandSource(
+  transmissionSource: string,
+  contributors: { wind: boolean; solar: boolean }
+): string {
+  const names = [transmissionSource];
+  if (contributors.wind) {
+    names.push("NESO");
+  }
+  if (contributors.solar) {
+    names.push("Sheffield Solar PV Live");
+  }
+  return names.join(", ");
+}
+
+function compositeDemandDefinition(
+  transmissionDefinition: string,
+  contributors: { wind: boolean; solar: boolean }
+): string {
+  if (contributors.wind && contributors.solar) {
+    return "ITSDO plus estimated embedded wind and solar";
+  }
+  if (contributors.wind) {
+    return "ITSDO plus estimated embedded wind";
+  }
+  if (contributors.solar) {
+    return "ITSDO plus estimated embedded solar";
+  }
+  return transmissionDefinition;
 }
 
 function demandIncludingEmbedded(

@@ -9,6 +9,7 @@ import {
   groupGenerationMwByPeriod,
   snapshotCollectionFromSources,
   snapshotRowReadyToIngest,
+  withSettlementDateCoverage,
 } from "@/lib/ingest/collect-grid";
 import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { listRecentSettlementPeriods, listSettlementPeriods } from "@/lib/settlement-period";
@@ -460,6 +461,9 @@ describe("settlement-date snapshot collection", () => {
     expect(result.rows[0]?.carbon_intensity).toBe(120);
     expect(result.rows[0]?.gen_wind_mw).toBe(4500);
     expect(result.rows[0]?.gen_gas_mw).toBe(8000);
+    expect(
+      result.sources.some((source) => source.source === "snapshot_coverage" && !source.ok)
+    ).toBe(true);
   });
 
   it("rejects a period whose carbon mix omitted fuels so gen_*_pct would be null", async () => {
@@ -483,8 +487,10 @@ describe("settlement-date snapshot collection", () => {
       new Date("2026-09-28T06:30:00.000Z")
     );
 
-    expect(result.sources.every((source) => source.ok)).toBe(true);
     expect(result.rows).toEqual([]);
+    expect(
+      result.sources.some((source) => source.source === "snapshot_coverage" && !source.ok)
+    ).toBe(true);
   });
 
   it("rejects a period where AGPT returned only wind so other gen_*_mw would be null", async () => {
@@ -508,8 +514,10 @@ describe("settlement-date snapshot collection", () => {
       new Date("2026-09-28T03:30:00.000Z")
     );
 
-    expect(result.sources.every((source) => source.ok)).toBe(true);
     expect(result.rows).toEqual([]);
+    expect(
+      result.sources.some((source) => source.source === "snapshot_coverage" && !source.ok)
+    ).toBe(true);
   });
 
   it("does not emit null demand/generation rows that would clobber complete ReplacingMergeTree values", async () => {
@@ -525,7 +533,55 @@ describe("settlement-date snapshot collection", () => {
       new Date("2026-09-28T03:30:00.000Z")
     );
 
-    expect(result.sources.every((source) => source.ok)).toBe(true);
     expect(result.rows).toEqual([]);
+    expect(
+      result.sources.some((source) => source.source === "snapshot_coverage" && !source.ok)
+    ).toBe(true);
+  });
+});
+
+describe("withSettlementDateCoverage", () => {
+  it("fails the heal when fewer than the expected settlement periods are ready", () => {
+    const result = withSettlementDateCoverage(
+      {
+        rows: [completeHistoricalSnapshot()],
+        sources: [{ source: "demand", ok: true, rows: 1 }],
+      },
+      48
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.sources).toContainEqual({
+      source: "snapshot_coverage",
+      ok: false,
+      rows: 1,
+      error: "incomplete settlement-date coverage: 1 of 48 periods ready",
+    });
+  });
+
+  it("keeps sources ok when every settlement period is ready", () => {
+    const rows = Array.from({ length: 48 }, () => completeHistoricalSnapshot());
+    const result = withSettlementDateCoverage(
+      {
+        rows,
+        sources: [{ source: "demand", ok: true, rows: 48 }],
+      },
+      48
+    );
+
+    expect(result.rows).toHaveLength(48);
+    expect(result.sources.every((source) => source.ok)).toBe(true);
+  });
+
+  it("does not hide an upstream source failure behind a coverage status", () => {
+    const result = withSettlementDateCoverage(
+      {
+        rows: [],
+        sources: [{ source: "demand", ok: false, error: "HTTP 503" }],
+      },
+      48
+    );
+
+    expect(result.sources.map((source) => source.source)).toEqual(["demand"]);
   });
 });

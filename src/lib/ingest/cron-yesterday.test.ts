@@ -23,5 +23,7 @@ describe("yesterday settlement heal", () => {
     expect(route).toContain("collectSnapshotsForSettlementDate(settlementDate, now)");
     expect(route).toContain("collectGenerationForSettlementDate(settlementDate, now)");
     expect(route).toContain("yesterdayLondonDate");
+    expect(route).toContain("sourceStatusesHaveFailure");
+    expect(route).toContain("status: failed ? 503 : 200");
   });
 });

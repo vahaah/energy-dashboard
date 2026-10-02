@@ -134,7 +134,32 @@ describe("generation answer row", () => {
     );
 
     expect(view.answers[1]?.value).toBe("25.7");
-    expect(view.answers[1]?.source).toBe("Elexon BMRS");
+    expect(view.answers[1]?.source).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
+  });
+
+  it("credits only the embedded feeds that contribute to demand", () => {
+    const windOnly = buildGenerationDeskView(
+      facts({
+        generationRows: [
+          generation("2026-09-28 07:00:00", "ccgt", 7563),
+          generation("2026-09-28 07:00:00", "embedded_wind", 917, "neso"),
+          generation("2026-09-28 07:00:00", "embedded_solar", 0, "pvlive"),
+        ],
+      }),
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+    const solarOnly = buildGenerationDeskView(
+      facts({
+        generationRows: [
+          generation("2026-09-28 07:00:00", "ccgt", 7563),
+          generation("2026-09-28 07:00:00", "embedded_solar", 800, "pvlive"),
+        ],
+      }),
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+
+    expect(windOnly.answers[1]?.source).toBe("Elexon BMRS, NESO");
+    expect(solarOnly.answers[1]?.source).toBe("Elexon BMRS, Sheffield Solar PV Live");
   });
 
   it("builds generating, demand, and net imports in GW with source and window", () => {

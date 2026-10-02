@@ -1,6 +1,7 @@
 import {
   collectionIfSourcesOk,
   fetchJson,
+  sourceStatusesHaveFailure,
   type CollectionResult,
   type SourceStatus,
 } from "@/lib/http";
@@ -407,16 +408,40 @@ export async function collectRecentSnapshots(now: Date): Promise<CollectionResul
   return collectSnapshotsForPeriods(periods, dates, now);
 }
 
+export function withSettlementDateCoverage(
+  result: CollectionResult,
+  expectedPeriods: number
+): CollectionResult {
+  if (sourceStatusesHaveFailure(result.sources)) {
+    return result;
+  }
+
+  const rows = result.rows.filter(snapshotRowReadyToIngest);
+  if (rows.length >= expectedPeriods) {
+    return { ...result, rows };
+  }
+
+  return {
+    rows,
+    sources: [
+      ...result.sources,
+      {
+        source: "snapshot_coverage",
+        ok: false,
+        rows: rows.length,
+        error: `incomplete settlement-date coverage: ${rows.length} of ${expectedPeriods} periods ready`,
+      },
+    ],
+  };
+}
+
 export async function collectSnapshotsForSettlementDate(
   settlementDate: string,
   now?: Date
 ): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
   const result = await collectSnapshotsForPeriods(periods, [settlementDate], now);
-  return {
-    ...result,
-    rows: result.rows.filter(snapshotRowReadyToIngest),
-  };
+  return withSettlementDateCoverage(result, periods.length);
 }
 
 export function currentHalfHourTimestamp(now: Date): string {
