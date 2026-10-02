@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { parseOptionalDate, parseTimeRange } from "@/lib/api-params";
-import { badRequest, upstreamError } from "@/lib/api-route";
+import { badRequest, cachedJson, upstreamError } from "@/lib/api-route";
 import { getGenerationQueryParams } from "@/lib/dashboard-data";
+import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { Generation5min } from "@/lib/types";
 
@@ -23,17 +23,26 @@ export async function GET(request: NextRequest) {
     return badRequest(dateResult.error);
   }
 
+  const now = new Date();
+  const params = getGenerationQueryParams(rangeResult.value, now, dateResult.value);
+  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const policy = getTinybirdCachePolicy({
+    pipeName: "generation_5min_range",
+    params,
+    ...cacheOptions,
+  });
+
   try {
-    const data = await queryPipe<Generation5min>(
-      "generation_5min_range",
-      getGenerationQueryParams(rangeResult.value, new Date(), dateResult.value)
+    const data = await queryPipe<Generation5min>("generation_5min_range", params, cacheOptions);
+    return cachedJson(
+      {
+        data,
+        range: rangeResult.value,
+        date: dateResult.value,
+        count: data.length,
+      },
+      policy
     );
-    return NextResponse.json({
-      data,
-      range: rangeResult.value,
-      date: dateResult.value,
-      count: data.length,
-    });
   } catch (error) {
     return upstreamError(error);
   }

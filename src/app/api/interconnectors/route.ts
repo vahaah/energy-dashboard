@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { parseInterconnectorRange, parseOptionalDate } from "@/lib/api-params";
-import { badRequest, upstreamError } from "@/lib/api-route";
+import { badRequest, cachedJson, upstreamError } from "@/lib/api-route";
 import { getInterconnectorQueryParams } from "@/lib/dashboard-data";
+import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { InterconnectorFlow } from "@/lib/types";
 
@@ -23,17 +23,26 @@ export async function GET(request: NextRequest) {
     return badRequest(dateResult.error);
   }
 
+  const now = new Date();
+  const params = getInterconnectorQueryParams(rangeResult.value, now, dateResult.value);
+  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const policy = getTinybirdCachePolicy({
+    pipeName: "interconnector_flows",
+    params,
+    ...cacheOptions,
+  });
+
   try {
-    const data = await queryPipe<InterconnectorFlow>(
-      "interconnector_flows",
-      getInterconnectorQueryParams(rangeResult.value, new Date(), dateResult.value)
+    const data = await queryPipe<InterconnectorFlow>("interconnector_flows", params, cacheOptions);
+    return cachedJson(
+      {
+        data,
+        range: rangeResult.value,
+        date: dateResult.value,
+        count: data.length,
+      },
+      policy
     );
-    return NextResponse.json({
-      data,
-      range: rangeResult.value,
-      date: dateResult.value,
-      count: data.length,
-    });
   } catch (error) {
     return upstreamError(error);
   }

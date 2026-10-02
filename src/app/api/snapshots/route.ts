@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { parseOptionalDate, parseTimeRange } from "@/lib/api-params";
-import { badRequest, upstreamError } from "@/lib/api-route";
+import { badRequest, cachedJson, upstreamError } from "@/lib/api-route";
 import { getSnapshotsQueryParams } from "@/lib/dashboard-data";
+import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { EnergySnapshot } from "@/lib/types";
 
@@ -24,17 +24,26 @@ export async function GET(request: NextRequest) {
     return badRequest(dateResult.error);
   }
 
+  const now = new Date();
+  const params = getSnapshotsQueryParams(rangeResult.value, now, dateResult.value);
+  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const policy = getTinybirdCachePolicy({
+    pipeName: "snapshots_range",
+    params,
+    ...cacheOptions,
+  });
+
   try {
-    const data = await queryPipe<EnergySnapshot>(
-      "snapshots_range",
-      getSnapshotsQueryParams(rangeResult.value, new Date(), dateResult.value)
+    const data = await queryPipe<EnergySnapshot>("snapshots_range", params, cacheOptions);
+    return cachedJson(
+      {
+        data,
+        range: rangeResult.value,
+        date: dateResult.value,
+        count: data.length,
+      },
+      policy
     );
-    return NextResponse.json({
-      data,
-      range: rangeResult.value,
-      date: dateResult.value,
-      count: data.length,
-    });
   } catch (error) {
     return upstreamError(error);
   }

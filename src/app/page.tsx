@@ -25,7 +25,7 @@ import { getLatestFacts } from "@/lib/facts";
  *
  * If Tinybird is not configured yet, renders with empty data gracefully.
  */
-export const revalidate = 60;
+export const revalidate = 300;
 
 export default async function Home({
   searchParams,
@@ -61,17 +61,20 @@ export default async function Home({
                 dashboardSearchParams.range,
                 now,
                 headlineDate
-              )
+              ),
+              { range: dashboardSearchParams.range, date: headlineDate, now }
             ),
         skipGrid
           ? Promise.resolve(noSnapshots)
           : queryPipe<EnergySnapshot>(
               "snapshots_range",
-              getHeadlineSnapshotsQueryParams(now, headlineDate)
+              getHeadlineSnapshotsQueryParams(now, headlineDate),
+              { range: "24h", date: headlineDate, now }
             ).catch(() => noSnapshots),
         queryPipe<CommodityPrice>(
           "prices_range",
-          getPricesQueryParams(dashboardSearchParams.commodityRange, now)
+          getPricesQueryParams(dashboardSearchParams.commodityRange, now),
+          { range: dashboardSearchParams.commodityRange, now }
         ),
         skipGrid
           ? Promise.resolve(noGeneration)
@@ -81,13 +84,15 @@ export default async function Home({
                 dashboardSearchParams.range,
                 now,
                 headlineDate
-              )
+              ),
+              { range: dashboardSearchParams.range, date: headlineDate, now }
             ).catch(() => noGeneration),
         skipGrid
           ? Promise.resolve(noGeneration)
           : queryPipe<Generation5min>(
               "generation_5min_range",
-              getHeadlineGenerationQueryParams(now, headlineDate)
+              getHeadlineGenerationQueryParams(now, headlineDate),
+              { range: "24h", date: headlineDate, now }
             ).catch(() => noGeneration),
       ]);
   } catch {

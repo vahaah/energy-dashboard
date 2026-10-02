@@ -6,6 +6,11 @@ import {
   streamFreshness,
 } from "@/lib/health";
 import { filterCanonicalCommodityPrices } from "@/lib/commodity-series";
+import {
+  TinybirdLimitError,
+  getTinybirdCachePolicy,
+  tinybirdCacheControl,
+} from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -57,23 +62,36 @@ export async function GET() {
       streamFreshness("prices", priceLatest, now, STALE_AFTER_MS.prices, false),
     ];
 
+    const status = healthHttpStatus(streams);
     return NextResponse.json(
       {
-        ok: healthHttpStatus(streams) === 200,
+        ok: status === 200,
         checkedAt: now.toISOString(),
         streams,
       },
-      { status: healthHttpStatus(streams) }
+      {
+        status,
+        headers: {
+          "Cache-Control": tinybirdCacheControl(
+            getTinybirdCachePolicy({ pipeName: "latest_snapshot", now })
+          ),
+        },
+      }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const retryAfter =
+      error instanceof TinybirdLimitError ? error.retryAfterSeconds : undefined;
     return NextResponse.json(
       {
         ok: false,
         checkedAt: now.toISOString(),
         error: message,
       },
-      { status: 503 }
+      {
+        status: 503,
+        headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined,
+      }
     );
   }
 }
