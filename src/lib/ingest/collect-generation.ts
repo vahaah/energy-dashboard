@@ -1,4 +1,5 @@
 import { fetchJson, type CollectionResult, type SourceStatus } from "@/lib/http";
+import { elexonPublishWindow } from "@/lib/ingest/collect-grid";
 import {
   addUtcDays,
   formatTinybirdDateTime,
@@ -108,6 +109,9 @@ export function pvLiveRowsToIngest(
 
 export type { CollectionResult };
 
+/** Hourly cron look-back. ReplacingMergeTree(timestamp, fuel_type) makes repeats idempotent. */
+export const FUELINST_RECENT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
 // generation_5min is long-format ReplacingMergeTree on (timestamp, fuel_type).
 // A failed source emits no rows, so it cannot overwrite another fuel's values.
 export function mergeSettledGeneration(parts: Array<{
@@ -148,7 +152,7 @@ async function settleSource<T>(
 }
 
 export async function collectRecentGeneration(now: Date): Promise<CollectionResult> {
-  const from = new Date(now.getTime() - 65 * 60 * 1000);
+  const from = new Date(now.getTime() - FUELINST_RECENT_LOOKBACK_MS);
   const today = getLondonDate(now);
   const yesterday = addUtcDays(today, -1);
   const pvFrom = new Date(now.getTime() - 3 * 60 * 60 * 1000);
@@ -198,6 +202,7 @@ export async function collectGenerationForSettlementDate(
   const periods = listSettlementPeriods(settlementDate);
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
+  const publish = elexonPublishWindow(from, to, now);
 
   const nesoSql = [
     'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","FORECAST_ACTUAL_INDICATOR",',
@@ -212,7 +217,7 @@ export async function collectGenerationForSettlementDate(
       "fuelinst",
       () =>
         fetchJson<FuelInstRow[]>(
-          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${to.toISOString()}`
+          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${publish.fromIso}&publishDateTimeTo=${publish.toIso}`
         ),
       (rows) => fuelInstRowsToIngest(rows ?? [])
     ),

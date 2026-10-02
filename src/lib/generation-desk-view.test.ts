@@ -118,6 +118,50 @@ describe("generation answer row", () => {
     expect(formatPlainSettlementWindow("2026-09-27 11:00:00")).toBe("12:00–12:30 BST");
   });
 
+  it("adds embedded generation onto ITSDO so demand matches the generation basis", () => {
+    const view = buildGenerationDeskView(
+      facts({
+        generationMw: fact(20215, "2026-09-28T07:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
+        demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+        generationRows: [
+          generation("2026-09-28 07:00:00", "ccgt", 7563),
+          generation("2026-09-28 07:00:00", "wind", 3746),
+          generation("2026-09-28 07:00:00", "embedded_wind", 917, "neso"),
+          generation("2026-09-28 07:00:00", "embedded_solar", 800, "pvlive"),
+        ],
+      }),
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+
+    expect(view.answers[1]?.value).toBe("25.7");
+    expect(view.answers[1]?.source).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
+  });
+
+  it("credits only the embedded feeds that contribute to demand", () => {
+    const windOnly = buildGenerationDeskView(
+      facts({
+        generationRows: [
+          generation("2026-09-28 07:00:00", "ccgt", 7563),
+          generation("2026-09-28 07:00:00", "embedded_wind", 917, "neso"),
+          generation("2026-09-28 07:00:00", "embedded_solar", 0, "pvlive"),
+        ],
+      }),
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+    const solarOnly = buildGenerationDeskView(
+      facts({
+        generationRows: [
+          generation("2026-09-28 07:00:00", "ccgt", 7563),
+          generation("2026-09-28 07:00:00", "embedded_solar", 800, "pvlive"),
+        ],
+      }),
+      new Date("2026-09-28T07:10:00.000Z")
+    );
+
+    expect(windOnly.answers[1]?.source).toBe("Elexon BMRS, NESO");
+    expect(solarOnly.answers[1]?.source).toBe("Elexon BMRS, Sheffield Solar PV Live");
+  });
+
   it("builds generating, demand, and net imports in GW with source and window", () => {
     const stats = buildGenerationAnswerStats(facts());
 
@@ -297,10 +341,10 @@ describe("generation answer row", () => {
     expect(view.answers[1]?.value).toBe("—");
     expect(view.answers[2]?.value).toBe("—");
     expect(view.alignmentNote).toBe(
-      "Demand is 04:00–04:30 BST. Generation is 03:30–04:00 BST. Shares of demand are hidden."
+      "Demand is 04:00–04:30 BST. Generation is 03:30–04:00 BST."
     );
-    expect(view.nowView.totalDemandPctLabel).toBe("—");
-    expect(view.nowView.rows.every((row) => row.demandPctLabel === "—")).toBe(true);
+    expect(view.nowView.totalSharePctLabel).toBe("100.0%");
+    expect(view.nowView.rows.find((row) => row.fuel === "gas")?.sharePctLabel).toBe("52.6%");
   });
 
   it("uses demand at the generation settlement period when a newer demand is also present", () => {
@@ -332,8 +376,8 @@ describe("generation answer row", () => {
     expect(view.answers[1]?.value).toBe("21.5");
     expect(view.answers[2]?.value).toBe("—");
     expect(view.alignmentNote).toBeNull();
-    expect(view.nowView.totalDemandPctLabel).toBe("88.4%");
-    expect(view.nowView.rows.find((row) => row.fuel === "gas")?.demandPctLabel).toBe("46.5%");
+    expect(view.nowView.totalSharePctLabel).toBe("100.0%");
+    expect(view.nowView.rows.find((row) => row.fuel === "gas")?.sharePctLabel).toBe("52.6%");
   });
 
   it("recovers half-hour demand from native headline snapshots, not a daily chart bucket", () => {
@@ -356,9 +400,9 @@ describe("generation answer row", () => {
     ]);
 
     expect(dailyChart.answers[1]?.value).toBe("—");
-    expect(dailyChart.nowView.totalDemandPctLabel).toBe("—");
+    expect(dailyChart.nowView.totalSharePctLabel).toBe("100.0%");
     expect(headline.answers[1]?.value).toBe("21.5");
-    expect(headline.nowView.totalDemandPctLabel).toBe("88.4%");
+    expect(headline.nowView.totalSharePctLabel).toBe("100.0%");
   });
 
   it("does not restamp a later demand onto an older period across a FUELINST gap", () => {
@@ -389,12 +433,12 @@ describe("generation answer row", () => {
     expect(withoutSnapshot.answers[0]?.value).toBe("19.0");
     expect(withoutSnapshot.answers[1]?.value).toBe("—");
     expect(withoutSnapshot.answers[2]?.value).toBe("-0.4");
-    expect(withoutSnapshot.nowView.totalDemandPctLabel).toBe("—");
+    expect(withoutSnapshot.nowView.totalSharePctLabel).toBe("100.0%");
     expect(withoutSnapshot.alignmentNote).toBe(
-      "Demand is 03:30–04:00 BST. Generation is 03:00–03:30 BST. Shares of demand are hidden."
+      "Demand is 03:30–04:00 BST. Generation is 03:00–03:30 BST."
     );
     expect(withSnapshot.answers[1]?.value).toBe("20.0");
-    expect(withSnapshot.nowView.totalDemandPctLabel).toBe("95.0%");
+    expect(withSnapshot.nowView.totalSharePctLabel).toBe("100.0%");
     expect(withSnapshot.alignmentNote).toBe(
       "Demand for 04:00–04:30 BST is not in yet. Figures are 03:00–03:30 BST."
     );
@@ -423,7 +467,7 @@ describe("generation source copy", () => {
     );
 
     expect(historical.title).toBe("Powering Britain at 23:30 BST on 20 Sep 2026");
-    expect(historical.subtitle).toBe("By source · sorted by size · share of demand");
+    expect(historical.subtitle).toBe("By source · sorted by size · share of supply");
     expect(historical.tooltip).toContain("Elexon FUELINST frame at 23:30 BST on 20 Sep 2026");
     expect(historical.tooltip).toContain("joined at or within one hour");
     expect(historical.tooltip).not.toContain("latest");
@@ -479,7 +523,7 @@ describe("generation source copy", () => {
 
     expect(copy.title).toBe("Powering Britain on 20 Sep 2026");
     expect(copy.tooltip).toBe(
-      "No Elexon FUELINST frame is available for 20 Sep 2026. Interconnectors sit in net imports, not this list."
+      "No Elexon FUELINST frame is available for 20 Sep 2026. Net imports are their own slice of total supply."
     );
     expect(copy.tooltip).not.toContain("23:30");
     expect(copy.tooltip).not.toContain("frame at");
@@ -502,7 +546,7 @@ describe("generation source copy", () => {
 
     expect(copy.title).toBe("Powering Britain on 28 Sep 2026");
     expect(copy.tooltip).toBe(
-      "No Elexon FUELINST frame is available for 28 Sep 2026. Interconnectors sit in net imports, not this list."
+      "No Elexon FUELINST frame is available for 28 Sep 2026. Net imports are their own slice of total supply."
     );
     expect(copy.tooltip).not.toContain("latest");
     expect(copy.subtitle).not.toContain("Now");
@@ -539,7 +583,8 @@ describe("now by source", () => {
   ];
 
   it("sorts present sources by GW and keeps missing fuels as no-data rows", () => {
-    const view = buildNowBySourceView(rows, 24000);
+    const view = buildNowBySourceView(rows);
+    const supplyMw = 19298 + 396;
 
     expect(view.rows.map((row) => row.fuel)).toEqual([
       "gas",
@@ -547,6 +592,7 @@ describe("now by source", () => {
       "wind",
       "biomass",
       "hydro",
+      "imports",
       "other",
       "embedded_solar",
       "embedded_wind",
@@ -555,7 +601,11 @@ describe("now by source", () => {
     expect(view.rows[0]).toMatchObject({
       fuel: "gas",
       gwLabel: "7.6",
-      demandPctLabel: "31.5%",
+      sharePctLabel: "38.4%",
+    });
+    expect(view.rows.find((row) => row.fuel === "imports")).toMatchObject({
+      gwLabel: "0.4",
+      sharePctLabel: "2.0%",
     });
     expect(view.rows.find((row) => row.fuel === "embedded_solar")).toMatchObject({
       gwLabel: "0.0",
@@ -563,39 +613,55 @@ describe("now by source", () => {
     });
     expect(view.rows.find((row) => row.fuel === "embedded_wind")).toMatchObject({
       gwLabel: "—",
-      demandPctLabel: "—",
+      sharePctLabel: "—",
       missingNote: "no data since 05:00 BST",
     });
     expect(view.rows.find((row) => row.fuel === "coal")).toMatchObject({
       gwLabel: "—",
-      demandPctLabel: "—",
+      sharePctLabel: "—",
       missingNote: "no data",
     });
-    expect(view.totalGwLabel).toBe("19.3");
+    expect(view.totalMw).toBe(supplyMw);
+    expect(view.totalGwLabel).toBe("19.7");
+    expect(view.totalSharePctLabel).toBe("100.0%");
     expect(view.stacked.map((segment) => segment.fuel)).toEqual([
       "gas",
       "nuclear",
       "wind",
       "biomass",
       "hydro",
+      "imports",
       "other",
     ]);
     expect(view.stacked.reduce((sum, segment) => sum + segment.pct, 0)).toBeCloseTo(100, 5);
+    expect(view.stacked.find((segment) => segment.fuel === "gas")?.pct).toBeCloseTo(
+      (7563 / supplyMw) * 100,
+      5
+    );
   });
 
-  it("excludes interconnectors from the list total", () => {
-    const view = buildNowBySourceView(rows, 24000);
-    expect(view.rows.find((row) => row.fuel === "imports")).toBeUndefined();
-    expect(view.totalMw).toBe(19298);
+  it("keeps a single gas share of total supply", () => {
+    const view = buildNowBySourceView([
+      generation("2026-09-28 07:00:00", "ccgt", 7000),
+      generation("2026-09-28 07:00:00", "ocgt", 563),
+      generation("2026-09-28 07:00:00", "wind", 3746),
+      generation("2026-09-28 07:00:00", "intfr", 396),
+    ]);
+
+    const gasRows = view.rows.filter((row) => row.fuel === "gas");
+    const stackedGas = view.stacked.find((row) => row.fuel === "gas");
+    expect(gasRows).toHaveLength(1);
+    expect(gasRows[0]?.mw).toBe(7563);
+    expect(gasRows[0]?.sharePctLabel).toBe(`${stackedGas?.pct.toFixed(1)}%`);
   });
 
   it("keeps the total percentage missing when no generation sources exist", () => {
-    const view = buildNowBySourceView([], 24000);
+    const view = buildNowBySourceView([]);
 
     expect(view.totalGwLabel).toBe("—");
-    expect(view.totalDemandPctLabel).toBe("—");
-    expect(view.totalDemandPctLabel).not.toBe("0.0%");
-    expect(view.rows.every((row) => row.demandPctLabel === "—")).toBe(true);
+    expect(view.totalSharePctLabel).toBe("—");
+    expect(view.totalSharePctLabel).not.toBe("0.0%");
+    expect(view.rows.every((row) => row.sharePctLabel === "—")).toBe(true);
   });
 });
 

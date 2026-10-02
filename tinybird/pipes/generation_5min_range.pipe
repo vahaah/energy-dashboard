@@ -1,7 +1,8 @@
 DESCRIPTION >
     Returns generation data for a time range, optionally filtered by fuel type.
     Supports granularity: 5min (default), hour, day.
-    Groups on the sorting key so unmerged duplicates are collapsed.
+    FINAL collapses unmerged ReplacingMergeTree duplicates for each
+    (timestamp, fuel_type) so the last ingest wins before hour/day averages.
 
 TOKEN dashboard_read READ
 
@@ -14,7 +15,7 @@ SQL >
             fuel_type,
             avg(generation_mw) AS generation_mw,
             any(source) AS source
-        FROM generation_5min
+        FROM generation_5min FINAL
         WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
         {% if defined(fuel_type) %}
             AND fuel_type = {{String(fuel_type)}}
@@ -27,7 +28,7 @@ SQL >
             fuel_type,
             avg(generation_mw) AS generation_mw,
             any(source) AS source
-        FROM generation_5min
+        FROM generation_5min FINAL
         WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
         {% if defined(fuel_type) %}
             AND fuel_type = {{String(fuel_type)}}
@@ -38,14 +39,13 @@ SQL >
         SELECT
             timestamp,
             fuel_type,
-            any(generation_mw) AS generation_mw,
-            any(source) AS source
-        FROM generation_5min
+            generation_mw,
+            source
+        FROM generation_5min FINAL
         WHERE timestamp BETWEEN {{DateTime(start)}} AND {{DateTime(end)}}
         {% if defined(fuel_type) %}
             AND fuel_type = {{String(fuel_type)}}
         {% end %}
-        GROUP BY timestamp, fuel_type
         ORDER BY timestamp ASC, fuel_type ASC
     {% end %}
 

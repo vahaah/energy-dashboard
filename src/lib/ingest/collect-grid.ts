@@ -1,10 +1,11 @@
 import {
   collectionIfSourcesOk,
   fetchJson,
+  sourceStatusesHaveFailure,
   type CollectionResult,
   type SourceStatus,
 } from "@/lib/http";
-import { mapElexonFuel } from "@/lib/ingest/fuels";
+import { mapElexonFuel, SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
 import {
@@ -79,6 +80,51 @@ export async function fetchSystemPrices(settlementDate: string): Promise<ElexonS
   return json.data ?? [];
 }
 
+/** AGPT/ITSDO publish about an hour after the period; revisions arrive later. */
+export const ELEXON_PUBLISH_LAG_MS = 6 * 60 * 60 * 1000;
+
+export function elexonPublishWindow(
+  from: Date,
+  to: Date,
+  now?: Date
+): { fromIso: string; toIso: string } {
+  const lagged = new Date(to.getTime() + ELEXON_PUBLISH_LAG_MS);
+  const publishTo = now && lagged.getTime() > now.getTime() ? now : lagged;
+  return {
+    fromIso: from.toISOString(),
+    toIso: publishTo.toISOString(),
+  };
+}
+
+/**
+ * Settlement-date rewrite / backfill only. A sparse wide row would replace a
+ * complete ReplacingMergeTree value with nulls, so demand, price, carbon,
+ * mix, and every gen_*_mw must already be numeric.
+ */
+export function snapshotRowReadyToIngest(row: Record<string, unknown>): boolean {
+  if (
+    typeof row.demand_mw !== "number" ||
+    typeof row.price_gbp_mwh !== "number" ||
+    typeof row.carbon_intensity !== "number"
+  ) {
+    return false;
+  }
+
+  for (const fuel of SNAPSHOT_MIX_FUELS) {
+    if (typeof row[`gen_${fuel}_pct`] !== "number") {
+      return false;
+    }
+  }
+
+  for (const fuel of SNAPSHOT_FUELS) {
+    if (typeof row[`gen_${fuel}_mw`] !== "number") {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export async function fetchElexonWindow<T>(
   dataset: "ITSDO" | "AGPT",
   fromIso: string,
@@ -102,30 +148,100 @@ export function carbonPointFromRow(row: IntensityRow | undefined): CarbonPoint |
   };
 }
 
-export function generationMwByPeriod(
-  rows: ElexonGeneration[]
-): Map<string, Record<string, number>> {
-  const byTime = new Map<string, Record<string, number>>();
+/** Installed-capacity headroom above published GB records (wind ~23.9 GW, solar ~15.4 GW). */
+export const GB_GENERATION_MAX_MW: Record<string, number> = {
+  wind: 28_000,
+  solar: 18_000,
+  gas: 40_000,
+  coal: 6_000,
+  nuclear: 12_000,
+  hydro: 6_000,
+  biomass: 6_000,
+  other: 10_000,
+  oil: 4_000,
+};
+
+export function generationPeriodKey(row: ElexonGeneration): string {
+  return row.startTime
+    ? hourKey(parseUtcDateTime(row.startTime))
+    : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+}
+
+export function latestPublishTimeWins<T extends { publishTime?: string }>(
+  current: T | undefined,
+  next: T
+): boolean {
+  if (!current) {
+    return true;
+  }
+  return (next.publishTime ?? "") > (current.publishTime ?? "");
+}
+
+export function generationMwWithinPlausibleMaxima(fuels: Record<string, number>): boolean {
+  for (const [fuel, mw] of Object.entries(fuels)) {
+    const maxMw = GB_GENERATION_MAX_MW[fuel];
+    if (maxMw != null && mw > maxMw) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function groupGenerationMwByPeriod(rows: ElexonGeneration[]): {
+  byTime: Map<string, Record<string, number>>;
+  rejectedTimes: Set<string>;
+} {
+  const latestByPeriodAndPsr = new Map<string, ElexonGeneration>();
 
   for (const row of rows) {
-    const timestamp = row.startTime
-      ? hourKey(parseUtcDateTime(row.startTime))
-      : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+    const timestamp = generationPeriodKey(row);
+    const key = `${timestamp}\0${row.psrType}`;
+    const existing = latestByPeriodAndPsr.get(key);
+    if (latestPublishTimeWins(existing, row)) {
+      latestByPeriodAndPsr.set(key, row);
+    }
+  }
+
+  const byTime = new Map<string, Record<string, number>>();
+  for (const row of latestByPeriodAndPsr.values()) {
+    const timestamp = generationPeriodKey(row);
     const current = byTime.get(timestamp) ?? {};
     const fuel = mapElexonFuel(row.psrType);
     current[fuel] = (current[fuel] ?? 0) + row.quantity;
     byTime.set(timestamp, current);
   }
 
-  return byTime;
+  const rejectedTimes = new Set<string>();
+  for (const [timestamp, fuels] of byTime) {
+    if (!generationMwWithinPlausibleMaxima(fuels)) {
+      byTime.delete(timestamp);
+      rejectedTimes.add(timestamp);
+    }
+  }
+
+  return { byTime, rejectedTimes };
+}
+
+export function generationMwByPeriod(
+  rows: ElexonGeneration[]
+): Map<string, Record<string, number>> {
+  return groupGenerationMwByPeriod(rows).byTime;
 }
 
 export function demandByPeriod(rows: ElexonDemand[]): Map<string, number> {
-  const byTime = new Map<string, number>();
+  const latestByTime = new Map<string, ElexonDemand>();
   for (const row of rows) {
     const timestamp = row.startTime
       ? hourKey(parseUtcDateTime(row.startTime))
       : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+    const existing = latestByTime.get(timestamp);
+    if (latestPublishTimeWins(existing, row)) {
+      latestByTime.set(timestamp, row);
+    }
+  }
+
+  const byTime = new Map<string, number>();
+  for (const [timestamp, row] of latestByTime) {
     byTime.set(timestamp, row.demand);
   }
   return byTime;
@@ -150,18 +266,24 @@ export function buildSnapshotRowsForPeriods(
     priceByTime: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
+    rejectedGenTimes?: Set<string>;
   }
 ): Record<string, unknown>[] {
-  return periods.map((period) => {
+  return periods.flatMap((period) => {
     const key = hourKey(period.startUtc);
-    return buildSnapshotRow({
-      timestamp: period.startUtc,
-      carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
-      mix: sources.mixByTime.get(key) ?? null,
-      demandMw: sources.demandByTime.get(key) ?? null,
-      priceGbpMwh: sources.priceByTime.get(key) ?? null,
-      genMw: sources.genMwByTime.get(key) ?? null,
-    });
+    if (sources.rejectedGenTimes?.has(key)) {
+      return [];
+    }
+    return [
+      buildSnapshotRow({
+        timestamp: period.startUtc,
+        carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
+        mix: sources.mixByTime.get(key) ?? null,
+        demandMw: sources.demandByTime.get(key) ?? null,
+        priceGbpMwh: sources.priceByTime.get(key) ?? null,
+        genMw: sources.genMwByTime.get(key) ?? null,
+      }),
+    ];
   });
 }
 
@@ -200,13 +322,16 @@ function snapshotMapsFromFetches(parts: {
   priceByTime: Map<string, number>;
   demandByTime: Map<string, number>;
   genMwByTime: Map<string, Record<string, number>>;
+  rejectedGenTimes: Set<string>;
 } {
+  const generation = groupGenerationMwByPeriod(parts.generation);
   return {
     intensityByTime: indexByTimestamp(parts.intensity, (row) => row.from),
     mixByTime: mixByTimestamp(parts.mix),
     priceByTime: priceByPeriod(parts.prices),
     demandByTime: demandByPeriod(parts.demand),
-    genMwByTime: generationMwByPeriod(parts.generation),
+    genMwByTime: generation.byTime,
+    rejectedGenTimes: generation.rejectedTimes,
   };
 }
 
@@ -218,6 +343,7 @@ export function snapshotCollectionFromSources(
     priceByTime: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
+    rejectedGenTimes?: Set<string>;
   },
   statuses: SourceStatus[]
 ): CollectionResult {
@@ -226,12 +352,14 @@ export function snapshotCollectionFromSources(
 
 async function collectSnapshotsForPeriods(
   periods: SettlementPeriod[],
-  fromIso: string,
-  toIso: string,
-  priceDates: string[]
+  priceDates: string[],
+  now?: Date
 ): Promise<CollectionResult> {
-  const carbonFrom = fromIso.replace(".000", "");
-  const carbonTo = toIso.replace(".000", "");
+  const from = periods[0].startUtc;
+  const to = periods[periods.length - 1].endUtc;
+  const carbonFrom = from.toISOString().replace(".000", "");
+  const carbonTo = to.toISOString().replace(".000", "");
+  const publish = elexonPublishWindow(from, to, now);
 
   const [intensity, mix, prices, demand, generation] = await Promise.all([
     settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
@@ -240,8 +368,12 @@ async function collectSnapshotsForPeriods(
       const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date)));
       return sets.flat();
     }),
-    settleFetch("demand", () => fetchElexonWindow<ElexonDemand>("ITSDO", fromIso, toIso)),
-    settleFetch("generation_mw", () => fetchElexonWindow<ElexonGeneration>("AGPT", fromIso, toIso)),
+    settleFetch("demand", () =>
+      fetchElexonWindow<ElexonDemand>("ITSDO", publish.fromIso, publish.toIso)
+    ),
+    settleFetch("generation_mw", () =>
+      fetchElexonWindow<ElexonGeneration>("AGPT", publish.fromIso, publish.toIso)
+    ),
   ]);
 
   const statuses = [
@@ -271,26 +403,45 @@ export async function collectRecentSnapshots(now: Date): Promise<CollectionResul
     return { rows: [], sources: [] };
   }
 
-  const from = periods[0].startUtc;
-  const to = periods[periods.length - 1].endUtc;
   const dates = [...new Set(periods.map((period) => period.settlementDate))];
 
-  return collectSnapshotsForPeriods(periods, from.toISOString(), to.toISOString(), dates);
+  return collectSnapshotsForPeriods(periods, dates, now);
+}
+
+export function withSettlementDateCoverage(
+  result: CollectionResult,
+  expectedPeriods: number
+): CollectionResult {
+  if (sourceStatusesHaveFailure(result.sources)) {
+    return result;
+  }
+
+  const rows = result.rows.filter(snapshotRowReadyToIngest);
+  if (rows.length >= expectedPeriods) {
+    return { ...result, rows };
+  }
+
+  return {
+    rows,
+    sources: [
+      ...result.sources,
+      {
+        source: "snapshot_coverage",
+        ok: false,
+        rows: rows.length,
+        error: `incomplete settlement-date coverage: ${rows.length} of ${expectedPeriods} periods ready`,
+      },
+    ],
+  };
 }
 
 export async function collectSnapshotsForSettlementDate(
-  settlementDate: string
+  settlementDate: string,
+  now?: Date
 ): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
-  const from = periods[0].startUtc;
-  const to = periods[periods.length - 1].endUtc;
-
-  return collectSnapshotsForPeriods(
-    periods,
-    from.toISOString(),
-    to.toISOString(),
-    [settlementDate]
-  );
+  const result = await collectSnapshotsForPeriods(periods, [settlementDate], now);
+  return withSettlementDateCoverage(result, periods.length);
 }
 
 export function currentHalfHourTimestamp(now: Date): string {

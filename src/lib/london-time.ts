@@ -113,6 +113,10 @@ export function londonMidnightUtc(dateStr: string): Date {
   return londonDateTimeToUtc(year, month, day, 0, 0, 0);
 }
 
+export function yesterdayLondonDate(now: Date): string {
+  return addUtcDays(getLondonDate(now), -1);
+}
+
 export function addUtcDays(dateStr: string, days: number): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const shifted = new Date(Date.UTC(year, month - 1, day + days));

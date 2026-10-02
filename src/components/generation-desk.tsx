@@ -91,10 +91,10 @@ export function GenerationDesk({
       <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-medium text-gray-1000">Demand and domestic generation</h3>
+            <h3 className="text-xs font-medium text-gray-1000">Demand and generation, including embedded</h3>
             <InfoTooltip
-              text="Demand is transmission system demand. Domestic generation is GB plant plus estimated embedded wind and solar. The shaded gap is imports when demand is higher, and exports when generation is higher."
-              label="What is Demand and domestic generation?"
+              text="Demand is ITSDO plus estimated embedded wind and solar. Generation is GB plant plus the same embedded series. Both sit on one basis, so the shaded gap is imports when demand is higher and exports when generation is higher."
+              label="What is Demand and generation, including embedded?"
             />
           </div>
           <TimeRangeSelector

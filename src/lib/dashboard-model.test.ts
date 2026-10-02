@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 import {
+  buildDemandBalanceSeries,
   buildGenerationStackSeries,
   buildHeadlineMetrics,
   buildRangeSummary,
@@ -497,5 +498,42 @@ describe("dashboard model", () => {
     expect(formatSettlementWindow("2026-10-25 01:30:00")).toBe(
       "SP 6, 01:30–02:00 GMT"
     );
+  });
+
+  it("puts demand on the same embedded-inclusive basis as generation", () => {
+    const series = buildDemandBalanceSeries(
+      [makeSnapshot({ timestamp: "2026-10-01 12:00:00", demand_mw: 24000 })],
+      [
+        {
+          timestamp: "2026-10-01 12:00:00",
+          fuel_type: "ccgt",
+          generation_mw: 8000,
+          source: "fuelinst",
+        },
+        {
+          timestamp: "2026-10-01 12:00:00",
+          fuel_type: "wind",
+          generation_mw: 6000,
+          source: "fuelinst",
+        },
+        {
+          timestamp: "2026-10-01 12:00:00",
+          fuel_type: "embedded_wind",
+          generation_mw: 4000,
+          source: "neso",
+        },
+        {
+          timestamp: "2026-10-01 12:00:00",
+          fuel_type: "embedded_solar",
+          generation_mw: 3000,
+          source: "pvlive",
+        },
+      ],
+      "24h"
+    );
+
+    expect(series[0]?.demandMw).toBe(31_000);
+    expect(series[0]?.domesticGenerationMw).toBe(21_000);
+    expect(series[0]?.embeddedMissing).toEqual([]);
   });
 });
