@@ -12,10 +12,12 @@ import { ingestRows } from "@/lib/tinybird";
 /**
  * GET /api/cron-yesterday
  *
- * Daily Vercel Cron. Re-collects yesterday's UK settlement date for
- * energy_snapshots and generation_5min so outages longer than the hourly
- * look-back do not leave permanent holes. ReplacingMergeTree keys make
- * the rewrite idempotent.
+ * Daily Vercel Cron (`30 9 * * *` UTC in vercel.json). Re-collects
+ * yesterday's UK settlement date for energy_snapshots and generation_5min
+ * so outages longer than the hourly look-back do not leave permanent holes.
+ * 09:30 UTC is after the full 6h Elexon publish lag for both GMT (day ends
+ * 00:00 UTC) and BST (day ends 23:00 UTC), so a truncated first pass is not
+ * needed. ReplacingMergeTree keys make the rewrite idempotent.
  */
 
 export const maxDuration = 60;
