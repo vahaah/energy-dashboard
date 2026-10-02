@@ -32,6 +32,17 @@ describe("tinybird pipes stay deploy-valid and deterministic", () => {
     expect(source).not.toMatch(/argMax\([^)]*,\s*timestamp\s*\)/);
   });
 
+  it("collapses exact FUELINST keys before hour and day averages", () => {
+    const source = pipeSource("generation_5min_range");
+
+    expect(source).toContain("toStartOfHour(deduped.timestamp)");
+    expect(source).toContain("toStartOfDay(deduped.timestamp)");
+    expect(source).toContain("GROUP BY timestamp, fuel_type");
+    expect(source).toMatch(
+      /FROM \(\s*SELECT[\s\S]*GROUP BY timestamp, fuel_type\s*\) AS deduped/
+    );
+  });
+
   it("picks the latest snapshot that has core settled fields", () => {
     const source = pipeSource("latest_snapshot");
 
