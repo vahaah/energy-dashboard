@@ -9,6 +9,7 @@ import {
   snapshotCollectionFromSources,
   snapshotRowReadyToIngest,
 } from "@/lib/ingest/collect-grid";
+import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { listRecentSettlementPeriods } from "@/lib/settlement-period";
 import type { ElexonGeneration } from "@/lib/types";
 
@@ -82,13 +83,14 @@ function successfulSourcePayloads(url: string) {
   if (url.includes("datasets/AGPT")) {
     return jsonResponse({
       data: [
-        {
-          startTime: "2026-09-27T09:30:00Z",
-          settlementDate: "2026-09-27",
-          settlementPeriod: 21,
-          psrType: "Wind Onshore",
-          quantity: 4500,
-        },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Fossil Gas", quantity: 8000 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Fossil Hard coal", quantity: 0 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Nuclear", quantity: 3000 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Wind Onshore", quantity: 4500 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Solar", quantity: 200 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Hydro Run-of-river and poundage", quantity: 400 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Biomass", quantity: 600 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Other", quantity: 100 },
       ],
     });
   }
@@ -313,22 +315,45 @@ describe("elexonPublishWindow", () => {
   });
 });
 
+function completeHistoricalSnapshot(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {
+    demand_mw: 28_000,
+    price_gbp_mwh: 42.5,
+    carbon_intensity: 120,
+  };
+  for (const fuel of SNAPSHOT_MIX_FUELS) {
+    row[`gen_${fuel}_pct`] = fuel === "wind" ? 40 : 0;
+  }
+  for (const fuel of SNAPSHOT_FUELS) {
+    row[`gen_${fuel}_mw`] = fuel === "wind" ? 4500 : 0;
+  }
+  return { ...row, ...overrides };
+}
+
 describe("snapshotRowReadyToIngest", () => {
-  it("requires numeric demand and at least one numeric gen_*_mw", () => {
+  it("requires demand, price, carbon, mix, and every gen_*_mw before a historical rewrite", () => {
+    expect(snapshotRowReadyToIngest(completeHistoricalSnapshot())).toBe(true);
     expect(
-      snapshotRowReadyToIngest({
-        demand_mw: 28_000,
-        gen_wind_mw: 4500,
-      })
-    ).toBe(true);
-    expect(snapshotRowReadyToIngest({ demand_mw: 28_000 })).toBe(false);
-    expect(snapshotRowReadyToIngest({ gen_wind_mw: 4500 })).toBe(false);
-    expect(
-      snapshotRowReadyToIngest({
-        demand_mw: null,
-        gen_wind_mw: 4500,
-      })
+      snapshotRowReadyToIngest(
+        completeHistoricalSnapshot({
+          demand_mw: 28_000,
+          gen_wind_mw: 4500,
+          price_gbp_mwh: undefined,
+          carbon_intensity: undefined,
+        })
+      )
     ).toBe(false);
+    expect(snapshotRowReadyToIngest({ demand_mw: 28_000, gen_wind_mw: 4500 })).toBe(false);
+    expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ price_gbp_mwh: null }))).toBe(
+      false
+    );
+    expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ carbon_intensity: null }))).toBe(
+      false
+    );
+    expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ gen_gas_pct: null }))).toBe(false);
+    expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ gen_gas_mw: null }))).toBe(false);
   });
 });
 
@@ -361,7 +386,35 @@ describe("settlement-date snapshot collection", () => {
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]?.timestamp).toBe("2026-09-27 09:30:00");
     expect(result.rows[0]?.demand_mw).toBe(28_000);
+    expect(result.rows[0]?.price_gbp_mwh).toBe(42.5);
+    expect(result.rows[0]?.carbon_intensity).toBe(120);
     expect(result.rows[0]?.gen_wind_mw).toBe(4500);
+    expect(result.rows[0]?.gen_gas_mw).toBe(8000);
+  });
+
+  it("rejects a period where AGPT returned only wind so other gen_*_mw would be null", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("datasets/AGPT")) {
+        return jsonResponse({
+          data: [
+            {
+              startTime: "2026-09-27T09:30:00Z",
+              psrType: "Wind Onshore",
+              quantity: 4500,
+            },
+          ],
+        });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectSnapshotsForSettlementDate(
+      "2026-09-27",
+      new Date("2026-09-28T03:30:00.000Z")
+    );
+
+    expect(result.sources.every((source) => source.ok)).toBe(true);
+    expect(result.rows).toEqual([]);
   });
 
   it("does not emit null demand/generation rows that would clobber complete ReplacingMergeTree values", async () => {

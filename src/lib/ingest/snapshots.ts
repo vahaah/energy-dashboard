@@ -39,7 +39,7 @@ export function buildSnapshotRow(input: SnapshotSources): Record<string, unknown
   }
 
   for (const fuel of SNAPSHOT_FUELS) {
-    row[`gen_${fuel}_mw`] = genMw ? (genMw[fuel] ?? 0) : null;
+    row[`gen_${fuel}_mw`] = genMw ? nullableNumber(genMw[fuel]) : null;
   }
 
   return row;

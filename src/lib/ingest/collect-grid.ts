@@ -4,7 +4,7 @@ import {
   type CollectionResult,
   type SourceStatus,
 } from "@/lib/http";
-import { mapElexonFuel, SNAPSHOT_FUELS } from "@/lib/ingest/fuels";
+import { mapElexonFuel, SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
 import {
@@ -95,18 +95,33 @@ export function elexonPublishWindow(
   };
 }
 
+/**
+ * Settlement-date rewrite / backfill only. A sparse wide row would replace a
+ * complete ReplacingMergeTree value with nulls, so demand, price, carbon,
+ * mix, and every gen_*_mw must already be numeric.
+ */
 export function snapshotRowReadyToIngest(row: Record<string, unknown>): boolean {
-  if (typeof row.demand_mw !== "number") {
+  if (
+    typeof row.demand_mw !== "number" ||
+    typeof row.price_gbp_mwh !== "number" ||
+    typeof row.carbon_intensity !== "number"
+  ) {
     return false;
   }
 
-  for (const fuel of SNAPSHOT_FUELS) {
-    if (typeof row[`gen_${fuel}_mw`] === "number") {
-      return true;
+  for (const fuel of SNAPSHOT_MIX_FUELS) {
+    if (typeof row[`gen_${fuel}_pct`] !== "number") {
+      return false;
     }
   }
 
-  return false;
+  for (const fuel of SNAPSHOT_FUELS) {
+    if (typeof row[`gen_${fuel}_mw`] !== "number") {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export async function fetchElexonWindow<T>(
