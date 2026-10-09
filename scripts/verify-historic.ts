@@ -21,8 +21,12 @@ import {
 const TOLERANCE = 0.005;
 
 async function fetchWeekly(): Promise<NesoHistoricRow[]> {
-  const url = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(45_000) });
+  const response = await fetch(NESO_HISTORIC_SQL_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ sql: historicWeeklySql() }),
+    signal: AbortSignal.timeout(45_000),
+  });
   if (!response.ok) {
     throw new Error(`NESO HTTP ${response.status}`);
   }

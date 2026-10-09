@@ -23,30 +23,49 @@ type NesoSqlResponse = {
   error?: { message?: string };
 };
 
-async function fetchNesoSql(sql: string): Promise<NesoHistoricRow[]> {
-  const url = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(sql)}`;
-  const init: RequestInit & { next: { revalidate: number; tags: string[] } } = {
+export function nesoSqlRequestInit(sql: string): RequestInit & {
+  next: { revalidate: number; tags: string[] };
+} {
+  return {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ sql }),
     next: { revalidate: NESO_HISTORIC_REVALIDATE_SECONDS, tags: [NESO_HISTORIC_CACHE_TAG] },
     signal: AbortSignal.timeout(45_000),
   };
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    throw new Error(`NESO historic mix HTTP ${response.status}`);
-  }
+}
 
-  const json = (await response.json()) as NesoSqlResponse;
-  if (json.success === false) {
-    return [];
-  }
+let nesoFetchTail: Promise<void> = Promise.resolve();
 
-  const rows: NesoHistoricRow[] = [];
-  for (const raw of json.result?.records ?? []) {
-    const row = parseNesoHistoricRow(raw);
-    if (row) {
-      rows.push(row);
+async function fetchNesoSql(sql: string): Promise<NesoHistoricRow[]> {
+  const run = nesoFetchTail.then(async () => {
+    const response = await fetch(NESO_HISTORIC_SQL_URL, nesoSqlRequestInit(sql));
+    if (!response.ok) {
+      throw new Error(`NESO historic mix HTTP ${response.status}`);
     }
-  }
-  return rows;
+
+    const json = (await response.json()) as NesoSqlResponse;
+    if (json.success === false) {
+      throw new Error(json.error?.message ?? "NESO historic mix query failed");
+    }
+
+    const rows: NesoHistoricRow[] = [];
+    for (const raw of json.result?.records ?? []) {
+      const row = parseNesoHistoricRow(raw);
+      if (row) {
+        rows.push(row);
+      }
+    }
+    return rows;
+  });
+  nesoFetchTail = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
 }
 
 const cachedWeeklyRows = unstable_cache(
@@ -66,6 +85,7 @@ export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> 
 });
 
 export const getGridRecords = cache(async (now = new Date()): Promise<GridRecords> => {
+  await getHistoricWeeklyRows();
   const rows = await cachedRecordRows();
   return computeRecords(rows, now);
 });

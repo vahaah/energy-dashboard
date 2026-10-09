@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   computeRecords,
+  historicRecordsSql,
+  historicWeeklySql,
   isSaneHistoricRow,
+  NESO_HISTORIC_SQL_URL,
   parseNesoHistoricRow,
   periodAverages,
   transitionSentences,
@@ -107,6 +110,15 @@ describe("NESO historic sanity", () => {
 
   it("keeps a normal half-hour", () => {
     expect(isSaneHistoricRow(row({ DATETIME: "2026-05-23T09:00:00" }))).toBe(true);
+  });
+
+  it("avoids COALESCE in NESO SQL and still excludes zero-carbon above 100% on carbon extrema", () => {
+    expect(historicWeeklySql()).not.toMatch(/COALESCE|ABS\s*\(/);
+    expect(historicRecordsSql()).not.toMatch(/COALESCE|ABS\s*\(/);
+    expect(historicRecordsSql()).toContain('"ZERO_CARBON_perc" <= 100');
+    expect(historicRecordsSql()).toContain("WITH sane AS");
+    const weeklyUrl = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
+    expect(weeklyUrl.length).toBeLessThan(2500);
   });
 });
 

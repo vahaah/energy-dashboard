@@ -613,27 +613,43 @@ export function rowsInLastYear(rows: NesoHistoricRow[], now = new Date()): NesoH
   return rows.filter((row) => parseUtcDateTime(row.DATETIME).getTime() >= start);
 }
 
-export const NESO_SANITY_SQL = [
-  `COALESCE("WIND",0) + COALESCE("WIND_EMB",0) <= ${MAX_WIND_MW}`,
-  `COALESCE("SOLAR",0) <= ${MAX_SOLAR_MW}`,
-  `COALESCE("GENERATION",0) > 0`,
-  `COALESCE("GAS_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("COAL_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("NUCLEAR_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("WIND_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("WIND_EMB_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("HYDRO_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("IMPORTS_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("BIOMASS_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("OTHER_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("SOLAR_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("STORAGE_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("ZERO_CARBON_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("RENEWABLE_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("LOW_CARBON_perc",0) BETWEEN 0 AND 100`,
-  `COALESCE("FOSSIL_perc",0) BETWEEN 0 AND 100`,
-  `ABS(COALESCE("GAS_perc",0)+COALESCE("COAL_perc",0)+COALESCE("NUCLEAR_perc",0)+COALESCE("WIND_perc",0)+COALESCE("WIND_EMB_perc",0)+COALESCE("HYDRO_perc",0)+COALESCE("IMPORTS_perc",0)+COALESCE("BIOMASS_perc",0)+COALESCE("OTHER_perc",0)+COALESCE("SOLAR_perc",0)+COALESCE("STORAGE_perc",0) - 100) <= ${SHARE_SUM_TOLERANCE_PCT}`,
-].join(" AND ");
+export const NESO_SANITY_SQL = '"GENERATION" > 0';
+
+const NESO_RECORD_COLUMNS = [
+  '"DATETIME"',
+  '"GAS"',
+  '"COAL"',
+  '"NUCLEAR"',
+  '"WIND"',
+  '"WIND_EMB"',
+  '"HYDRO"',
+  '"IMPORTS"',
+  '"BIOMASS"',
+  '"OTHER"',
+  '"SOLAR"',
+  '"STORAGE"',
+  '"GENERATION"',
+  '"CARBON_INTENSITY"',
+  '"LOW_CARBON"',
+  '"ZERO_CARBON"',
+  '"RENEWABLE"',
+  '"FOSSIL"',
+  '"GAS_perc"',
+  '"COAL_perc"',
+  '"NUCLEAR_perc"',
+  '"WIND_perc"',
+  '"WIND_EMB_perc"',
+  '"HYDRO_perc"',
+  '"IMPORTS_perc"',
+  '"BIOMASS_perc"',
+  '"OTHER_perc"',
+  '"SOLAR_perc"',
+  '"STORAGE_perc"',
+  '"LOW_CARBON_perc"',
+  '"ZERO_CARBON_perc"',
+  '"RENEWABLE_perc"',
+  '"FOSSIL_perc"',
+].join(",");
 
 export function historicWeeklySql(): string {
   return [
@@ -652,28 +668,27 @@ export function historicWeeklySql(): string {
     'AVG("RENEWABLE_perc") AS "RENEWABLE_perc", AVG("FOSSIL_perc") AS "FOSSIL_perc"',
     `FROM "${NESO_HISTORIC_RESOURCE_ID}"`,
     `WHERE ${NESO_SANITY_SQL}`,
-    'GROUP BY 1 ORDER BY 1',
+    "GROUP BY 1 ORDER BY 1",
   ].join(" ");
 }
 
 export function historicRecordsSql(): string {
-  const table = `"${NESO_HISTORIC_RESOURCE_ID}"`;
-  const sane = `FROM ${table} WHERE ${NESO_SANITY_SQL}`;
-  const cols = '"DATETIME","GAS","COAL","NUCLEAR","WIND","WIND_EMB","HYDRO","IMPORTS","BIOMASS","OTHER","SOLAR","STORAGE","GENERATION","CARBON_INTENSITY","LOW_CARBON","ZERO_CARBON","RENEWABLE","FOSSIL","GAS_perc","COAL_perc","NUCLEAR_perc","WIND_perc","WIND_EMB_perc","HYDRO_perc","IMPORTS_perc","BIOMASS_perc","OTHER_perc","SOLAR_perc","STORAGE_perc","LOW_CARBON_perc","ZERO_CARBON_perc","RENEWABLE_perc","FOSSIL_perc"';
-
   const parts = [
-    `(SELECT ${cols} ${sane} ORDER BY (COALESCE("WIND",0)+COALESCE("WIND_EMB",0)) DESC LIMIT 1)`,
-    `(SELECT ${cols} ${sane} ORDER BY COALESCE("SOLAR",0) DESC LIMIT 1)`,
-    `(SELECT ${cols} ${sane} AND "CARBON_INTENSITY" > 0 ORDER BY "CARBON_INTENSITY" ASC LIMIT 1)`,
-    `(SELECT ${cols} ${sane} ORDER BY COALESCE("RENEWABLE_perc",0) DESC LIMIT 1)`,
-    `(SELECT ${cols} ${sane} AND "COAL" > ${COAL_ACTIVE_MW} ORDER BY "DATETIME" DESC LIMIT 1)`,
+    `SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND ("WIND" + "WIND_EMB") <= ${MAX_WIND_MW} ORDER BY ("WIND" + "WIND_EMB") DESC LIMIT 5`,
+    `SELECT * FROM sane WHERE "SOLAR" IS NOT NULL AND "SOLAR" <= ${MAX_SOLAR_MW} ORDER BY "SOLAR" DESC LIMIT 5`,
+    'SELECT * FROM sane WHERE "CARBON_INTENSITY" > 0 AND "ZERO_CARBON_perc" <= 100 ORDER BY "CARBON_INTENSITY" ASC LIMIT 10',
+    'SELECT * FROM sane WHERE "RENEWABLE_perc" <= 100 ORDER BY "RENEWABLE_perc" DESC LIMIT 5',
+    `SELECT * FROM sane WHERE "COAL" > ${COAL_ACTIVE_MW} ORDER BY "DATETIME" DESC LIMIT 5`,
   ];
 
   for (let gw = WIND_MILESTONE_START_GW; gw <= 30; gw += 1) {
     parts.push(
-      `(SELECT ${cols} ${sane} AND (COALESCE("WIND",0)+COALESCE("WIND_EMB",0)) >= ${gw * 1000} ORDER BY "DATETIME" ASC LIMIT 1)`
+      `SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND ("WIND" + "WIND_EMB") >= ${gw * 1000} ORDER BY "DATETIME" ASC LIMIT 1`
     );
   }
 
-  return parts.join(" UNION ALL ");
+  return [
+    `WITH sane AS (SELECT ${NESO_RECORD_COLUMNS} FROM "${NESO_HISTORIC_RESOURCE_ID}" WHERE ${NESO_SANITY_SQL})`,
+    parts.map((part) => `(${part})`).join(" UNION ALL "),
+  ].join(" ");
 }
