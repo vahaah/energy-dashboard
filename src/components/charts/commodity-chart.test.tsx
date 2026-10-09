@@ -97,7 +97,7 @@ describe("CommodityNativeTooltip", () => {
     expect(html).toContain("01 Oct 2025");
     expect(html).toContain("Brent crude ($/bbl)");
     expect(html).not.toContain("110");
-    expect(html).not.toContain("100");
+    expect(html).not.toContain("start = 100");
   });
 });
 

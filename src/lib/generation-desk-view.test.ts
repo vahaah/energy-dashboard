@@ -167,7 +167,7 @@ describe("generation answer row", () => {
 
     expect(stats.map((stat) => stat.stat)).toEqual(["generating", "demand", "net_imports"]);
     expect(stats[0]).toMatchObject({
-      label: "Generating",
+      label: "Generation",
       value: "20.2",
       unit: "GW",
       source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
@@ -334,7 +334,7 @@ describe("generation answer row", () => {
 
     expect(view.answers.map((stat) => stat.timeLabel)).toEqual([
       "03:30–04:00 BST",
-      "03:30–04:00 BST",
+      "04:00–04:30 BST",
       "03:30–04:00 BST",
     ]);
     expect(view.answers[0]?.value).toBe("19.0");
@@ -427,7 +427,7 @@ describe("generation answer row", () => {
 
     expect(withoutSnapshot.answers.map((stat) => stat.timeLabel)).toEqual([
       "03:00–03:30 BST",
-      "03:00–03:30 BST",
+      "03:30–04:00 BST",
       "03:00–03:30 BST",
     ]);
     expect(withoutSnapshot.answers[0]?.value).toBe("19.0");
@@ -723,7 +723,7 @@ describe("demand balance chart view", () => {
     });
   });
 
-  it("uses round GW ticks and 24h ticks every three hours", () => {
+  it("uses round GW ticks and 24h ticks at 00/06/12/18", () => {
     expect(gwAxisTicks(37.4)).toEqual([0, 10, 20, 30, 40]);
     expect(gwAxisTicks(65)).toEqual([0, 20, 40, 60, 80]);
 
@@ -737,7 +737,6 @@ describe("demand balance chart view", () => {
     ];
     expect(demandBalanceXTicks(times, "24h")).toEqual([
       "2026-01-15 00:00:00",
-      "2026-01-15 03:00:00",
       "2026-01-15 06:00:00",
       "2026-01-15 12:00:00",
     ]);

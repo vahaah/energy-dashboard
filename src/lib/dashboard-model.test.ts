@@ -378,12 +378,12 @@ describe("dashboard model", () => {
     });
     expect(headline.mixSnapshot?.timestamp).toBe("2026-09-27 11:00:00");
     expect(headlineAsOf(headline.price.timestamp, headline.referenceTimestamp)).toBe(
-      "SP 25, 12:00–12:30 BST"
+      "12:00–12:30 BST"
     );
     expect(headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp)).toBeNull();
     expect(headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp)).toBeNull();
     expect(headlineAsOf(headline.mixSnapshot?.timestamp ?? null, headline.referenceTimestamp)).toBe(
-      "SP 25, 12:00–12:30 BST"
+      "12:00–12:30 BST"
     );
   });
 
@@ -433,12 +433,12 @@ describe("dashboard model", () => {
   });
 
   it("formats UK settlement windows and only labels a KPI that lags the others", () => {
-    expect(formatSettlementWindow("2026-09-27 11:00:00")).toBe("SP 25, 12:00–12:30 BST");
-    expect(formatSettlementWindow("2026-01-15 12:00:00")).toBe("SP 25, 12:00–12:30 GMT");
+    expect(formatSettlementWindow("2026-09-27 11:00:00")).toBe("12:00–12:30 BST");
+    expect(formatSettlementWindow("2026-01-15 12:00:00")).toBe("12:00–12:30 GMT");
     expect(headlineAsOf("2026-09-27 11:00:00", "2026-09-27 11:00:00")).toBeNull();
     expect(headlineAsOf(null, "2026-09-27 11:30:00")).toBeNull();
     expect(headlineAsOf("2026-09-27 11:00:00", "2026-09-27T11:30:00Z")).toBe(
-      "SP 25, 12:00–12:30 BST"
+      "12:00–12:30 BST"
     );
   });
 
@@ -470,33 +470,33 @@ describe("dashboard model", () => {
     );
     expect(formatHeadlinePeriod("2026-09-26 00:00:00", "day")).toBe("26 Sep 2026");
     expect(formatHeadlinePeriod("2026-09-26 00:00:00", "week")).toBe("26 Sep 2026");
-    expect(formatHeadlinePeriod("2026-09-26 00:00:00")).toBe("SP 3, 01:00–01:30 BST");
+    expect(formatHeadlinePeriod("2026-09-26 00:00:00")).toBe("01:00–01:30 BST");
   });
 
-  it("labels the 46-period spring-forward gap with SP and both zones", () => {
+  it("labels the 46-period spring-forward gap with both zones", () => {
     expect(formatSettlementWindow("2026-03-29 00:30:00")).toBe(
-      "SP 2, 00:30 GMT–02:00 BST"
+      "00:30 GMT–02:00 BST"
     );
     expect(formatSettlementWindow("2026-03-29 00:00:00")).toBe(
-      "SP 1, 00:00–00:30 GMT"
+      "00:00–00:30 GMT"
     );
     expect(formatSettlementWindow("2026-03-29 01:00:00")).toBe(
-      "SP 3, 02:00–02:30 BST"
+      "02:00–02:30 BST"
     );
   });
 
-  it("labels the 50-period fall-back overlap with SP and the correct zone", () => {
+  it("labels the 50-period fall-back overlap with the correct zone", () => {
     expect(formatSettlementWindow("2026-10-25 00:00:00")).toBe(
-      "SP 3, 01:00–01:30 BST"
+      "01:00–01:30 BST"
     );
     expect(formatSettlementWindow("2026-10-25 00:30:00")).toBe(
-      "SP 4, 01:30 BST–01:00 GMT"
+      "01:30 BST–01:00 GMT"
     );
     expect(formatSettlementWindow("2026-10-25 01:00:00")).toBe(
-      "SP 5, 01:00–01:30 GMT"
+      "01:00–01:30 GMT"
     );
     expect(formatSettlementWindow("2026-10-25 01:30:00")).toBe(
-      "SP 6, 01:30–02:00 GMT"
+      "01:30–02:00 GMT"
     );
   });
 

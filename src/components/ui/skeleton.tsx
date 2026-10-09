@@ -7,7 +7,7 @@ export function Skeleton({
   return (
     <div
       data-slot="skeleton"
-      className={`animate-pulse motion-reduce:animate-none rounded-md bg-white/[0.08] ${className}`}
+      className={`animate-pulse motion-reduce:animate-none rounded-md bg-gray-alpha-200 ${className}`}
       {...props}
     />
   );

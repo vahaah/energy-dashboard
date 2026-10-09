@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   CARD_LABEL_COLOR,
+  CARBON_INDEX_BANDS,
   COMMODITY_CARD_LABELS,
   COMMODITY_DISPLAY_ORDER,
   COMMODITY_LABELS,
   contrastRatio,
   DARK_SURFACE,
   DEMAND_SERIES_COLOR,
+  DEMAND_SERIES_COLOR_DARK,
   DOMESTIC_GENERATION_SERIES_COLOR,
+  DOMESTIC_GENERATION_SERIES_COLOR_DARK,
+  LIGHT_CARD_LABEL,
+  LIGHT_SURFACE,
   FUEL_COLORS,
   FUELINST_COLORS,
   FUELINST_LABELS,
+  fuelColor,
   hexHue,
   INTERCONNECTOR_LABELS,
   relativeLuminance,
@@ -50,6 +56,12 @@ describe("user-facing fuel labels", () => {
 });
 
 describe("shared fuel palette", () => {
+  it("paints charts and markers from the theme chart tokens", () => {
+    expect(fuelColor("solar")).toBe("var(--chart-solar)");
+    expect(fuelColor("gas")).toBe("var(--chart-gas)");
+    expect(fuelColor("ccgt")).toBe("var(--chart-gas)");
+  });
+
   it("uses one hex per fuel across FUEL_COLORS and FUELINST_COLORS", () => {
     expect(FUELINST_COLORS.wind).toBe(FUEL_COLORS.wind);
     expect(FUELINST_COLORS.embedded_wind).toBe(FUEL_COLORS.embedded_wind);
@@ -73,15 +85,29 @@ describe("non-fuel series colours", () => {
     expect(fuelHex.has(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(false);
   });
 
-  it("keeps the generation line off the cyan/teal and solar hues", () => {
-    const hue = hexHue(DOMESTIC_GENERATION_SERIES_COLOR);
-    expect(hue).toBeGreaterThan(20);
-    expect(hue).toBeLessThan(55);
-    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
-    expect(contrastRatio(DEMAND_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+  it("keeps demand and generation as neutrals with AA contrast in both themes", () => {
+    expect(hexHue(DEMAND_SERIES_COLOR)).toBe(0);
+    expect(hexHue(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(0);
+    expect(contrastRatio(DEMAND_SERIES_COLOR, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DEMAND_SERIES_COLOR_DARK, DARK_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR_DARK, DARK_SURFACE)).toBeGreaterThan(4.5);
   });
 
-  it("gives card titles AA contrast at text-xs on the dark surface", () => {
+  it("gives card titles AA contrast at text-xs on both surfaces", () => {
     expect(contrastRatio(CARD_LABEL_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(LIGHT_CARD_LABEL, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+  });
+});
+
+describe("carbon index bands", () => {
+  it("uses the current NESO national methodology thresholds", () => {
+    expect(CARBON_INDEX_BANDS.map((band) => [band.index, band.max])).toEqual([
+      ["very low", 39],
+      ["low", 119],
+      ["moderate", 199],
+      ["high", 290],
+      ["very high", Number.POSITIVE_INFINITY],
+    ]);
   });
 });

@@ -571,7 +571,7 @@ export function formatSettlementWindow(timestamp: string): string {
       ? `${start}–${end} ${startZone}`
       : `${start} ${startZone}–${end} ${endZone}`;
 
-  return `SP ${period.settlementPeriod}, ${window}`;
+  return window;
 }
 
 export function formatHeadlinePeriod(

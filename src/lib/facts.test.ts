@@ -252,10 +252,10 @@ describe("getLatestFacts", () => {
     expect(lagged.netImportsMw.periodStartUtc).toBe("2026-09-27T15:00:00.000Z");
     expect(lagged.referenceTimestamp).toBe("2026-09-27 16:00:00");
     expect(headlineAsOf(lagged.generationMw.periodStartUtc, lagged.referenceTimestamp)).toBe(
-      "SP 33, 16:00–16:30 BST"
+      "16:00–16:30 BST"
     );
     expect(headlineAsOf(lagged.netImportsMw.periodStartUtc, lagged.referenceTimestamp)).toBe(
-      "SP 33, 16:00–16:30 BST"
+      "16:00–16:30 BST"
     );
 
     const missingGeneration = getLatestFacts({

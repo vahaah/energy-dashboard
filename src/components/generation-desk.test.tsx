@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { GenerationNowCard } from "@/components/charts/generation-now-card";
 import { GenerationDesk } from "@/components/generation-desk";
+import { DISPLAYED_DEMAND_STAT } from "@/lib/displayed-demand";
 import { buildNowBySourceView } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
@@ -94,88 +95,124 @@ const rows: Generation5min[] = [
   generation("2026-09-28 07:00:00", "ps", 231),
   generation("2026-09-28 07:00:00", "other", 224),
   generation("2026-09-28 07:00:00", "intfr", 396),
-  generation("2026-09-28 04:00:00", "embedded_wind", 917, "neso"),
+  generation("2026-09-28 07:00:00", "embedded_wind", 917, "neso"),
   generation("2026-09-28 07:00:00", "embedded_solar", 0, "pvlive"),
 ];
 
 describe("generation desk layout", () => {
-  it("leads with the answer row and drops the donut and demand profile", () => {
+  it("opens with the equation, mix bar and grouped source table", () => {
     const html = renderToStaticMarkup(
       <GenerationDesk
         facts={facts(rows)}
         snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
         headlineSnapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
         generation={rows}
+        headlineGeneration={rows}
         range="24h"
         now={new Date("2026-09-28T07:10:00.000Z")}
-        onRangeChange={() => undefined}
       />
     );
     const dashboardSource = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
     const deskSource = readFileSync(resolve(import.meta.dirname, "./generation-desk.tsx"), "utf8");
     const pageSource = readFileSync(resolve(import.meta.dirname, "../app/page.tsx"), "utf8");
 
-    expect(html).toContain("data-stat=\"generating\"");
-    expect(html).toContain("data-stat=\"demand\"");
-    expect(html).toContain("data-stat=\"net_imports\"");
-    expect(html).toContain("Generating");
+    expect(html).toContain(`data-stat="${DISPLAYED_DEMAND_STAT}"`);
+    expect(html).toContain('data-stat="generating"');
+    expect(html).toContain('data-stat="net_imports"');
     expect(html).toContain("Demand");
-    expect(html).toContain("Net imports");
-    expect(html).toContain("Powering Britain now");
-    expect(html).toContain("Now, by source");
+    expect(html).toContain("Generation");
+    expect(html).toContain("Importing");
+    expect(html).toContain("Share of demand by source");
+    expect(html).toContain("Fossil fuels");
+    expect(html).toContain("Renewables");
+    expect(html).toContain("Other sources");
+    expect(html).toContain("Interconnectors");
+    expect(html).toContain("Storage");
     expect(html).toContain("Demand and generation, including embedded");
-    expect(html).toContain("xl:grid-cols-12");
-    expect(html).toContain("xl:col-span-5");
-    expect(html).toContain("xl:col-span-7");
-    expect(html).toContain("h-11");
-    expect(html).toContain("text-xs font-medium text-gray-1000");
-    expect(html).toContain("Powering Britain now");
-    expect(html).toContain("Demand and generation, including embedded");
-    expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain("Exports (generation above demand)");
-    expect(html).toContain("Imports (demand above generation)");
+    expect(html).toContain("24.9");
+    expect(html).not.toContain(">24.0<");
+    expect(html).not.toContain("Powering Britain now");
+    expect(html).not.toContain("Now, by source");
     expect(html).not.toContain("Latest mix");
     expect(html).not.toContain("Demand profile");
     expect(html).not.toContain("Generation desk");
-    expect(dashboardSource).toContain("What's powering Britain");
+    expect(html).not.toContain("SP ");
+    expect(dashboardSource).toContain("What&apos;s powering Britain");
+    expect(dashboardSource).toContain("What does power cost?");
+    expect(dashboardSource).toContain("Where is power flowing?");
+    expect(dashboardSource).toContain("How has the mix changed?");
+    expect(dashboardSource).toContain("Gas & oil");
+    expect(dashboardSource).toContain("How clean is it?");
+    expect(dashboardSource).not.toContain("recut as a live briefing");
+    expect(dashboardSource).not.toContain("Shareable URL state");
+    expect(dashboardSource).not.toContain("Demand pressure");
+    expect(dashboardSource).not.toContain("transfer stance");
+    expect(dashboardSource).not.toContain("Imbalance price");
+    expect(dashboardSource).not.toContain("Carbon pulse");
+    expect(dashboardSource).not.toContain("KpiCard");
     expect(pageSource).toContain("headlineSnapshots={headlineSnapshots}");
+    expect(pageSource).toContain("headlineGeneration={headlineGeneration}");
+    expect(pageSource).toContain('"snapshots_range"');
+    expect(pageSource).toContain('"generation_5min_range"');
+    expect(pageSource).toContain('"prices_range"');
+    expect(pageSource.match(/queryPipe</g)?.length).toBe(5);
     expect(dashboardSource).toContain("headlineSnapshots={headlineSnapshots}");
+    expect(dashboardSource).toContain("headlineGeneration={headlineGeneration}");
     expect(dashboardSource).not.toContain("GenerationMixChart");
     expect(dashboardSource).not.toContain("DemandChart");
-    expect(dashboardSource).not.toContain("Demand profile");
-    expect(indexAfter(dashboardSource, 'id="section-generation"')).toBeLessThan(
-      indexAfter(dashboardSource, "Generation mix over time")
+    expect(indexAfter(dashboardSource, 'id="section-overview"')).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-generation"')
     );
-    expect(indexAfter(dashboardSource, "Generation mix over time")).toBeLessThan(
+    expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-price"')
     );
     expect(indexAfter(dashboardSource, 'id="section-price"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-transfers"')
     );
     expect(indexAfter(dashboardSource, 'id="section-transfers"')).toBeLessThan(
+      indexAfter(dashboardSource, "How has the mix changed?")
+    );
+    expect(indexAfter(dashboardSource, "How has the mix changed?")).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-commodities"')
     );
     expect(indexAfter(dashboardSource, 'id="section-commodities"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-carbon"')
     );
-    expect(indexAfter(dashboardSource, "What's powering Britain")).toBeLessThan(
-      indexAfter(dashboardSource, "Carbon pulse")
+    expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
+      indexAfter(dashboardSource, "How clean is it?")
     );
-    expect(indexAfter(dashboardSource, 'label="Domestic generation"')).toBeLessThan(
-      indexAfter(dashboardSource, 'label="Current carbon"')
+    expect(deskSource).toContain("getDisplayedPower");
+    expect(deskSource).toContain("buildGroupedSourceTable");
+    expect(deskSource).toContain("headlineGeneration");
+    expect(readFileSync(resolve(import.meta.dirname, "./mix-bar.tsx"), "utf8")).toContain("shrink-0");
+    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain("formatLondonDayMonthYear");
+    expect(dashboardSource).toContain("stale={facts.isStale}");
+    expect(dashboardSource).toContain('id="section-overview"');
+    expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
+  });
+
+  it("subtracts exports in the demand equation", () => {
+    const exporting = facts([
+      ...rows.filter((row) => row.fuel_type !== "intfr"),
+      generation("2026-09-28 07:00:00", "intfr", -1800),
+    ]);
+    exporting.netImportsMw = fact(-1800, "2026-09-28T07:00:00.000Z", "Elexon BMRS");
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={exporting}
+        snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        headlineSnapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        generation={exporting.generationRows}
+        headlineGeneration={exporting.generationRows}
+        range="24h"
+        now={new Date("2026-09-28T07:10:00.000Z")}
+      />
     );
-    expect(indexAfter(dashboardSource, 'label="Domestic Supply"')).toBeLessThan(
-      indexAfter(dashboardSource, 'label="Carbon Intensity"')
-    );
-    expect(indexAfter(dashboardSource, 'title: "Demand pressure"')).toBeLessThan(
-      indexAfter(dashboardSource, 'title: "Carbon stance"')
-    );
-    expect(indexAfter(dashboardSource, "leads supply at")).toBeLessThan(
-      indexAfter(dashboardSource, "Carbon is ${Math.abs(carbonDelta)} g cleaner")
-    );
-    expect(deskSource).toContain("h-60");
-    expect(deskSource).toContain("headlineSnapshots");
+
+    expect(html).toContain("Exporting");
+    expect(html).toContain("−");
+    expect(html).not.toMatch(/>\+</);
   });
 
   it("labels a historical day by settlement time instead of now", () => {
@@ -187,6 +224,11 @@ describe("generation desk layout", () => {
       value: 8000,
       periodStartUtc: "2026-09-20T22:30:00.000Z",
     };
+    historical.demand = {
+      ...historical.demand,
+      value: 21000,
+      periodStartUtc: "2026-09-20T22:30:00.000Z",
+    };
     historical.referenceTimestamp = "2026-09-20T22:30:00.000Z";
 
     const html = renderToStaticMarkup(
@@ -195,21 +237,24 @@ describe("generation desk layout", () => {
         snapshots={[snapshot("2026-09-20 00:00:00", 21000)]}
         headlineSnapshots={[snapshot("2026-09-20 22:30:00", 21000)]}
         generation={[]}
+        headlineGeneration={[]}
         range="1y"
         now={new Date("2026-09-28T12:00:00.000Z")}
-        onRangeChange={() => undefined}
       />
     );
 
-    expect(html).toContain("Powering Britain at 23:30 BST on 20 Sep 2026");
-    expect(html).toContain("By source · sorted by size · share of supply");
-    expect(html).toContain('aria-label="What is Powering Britain at 23:30 BST on 20 Sep 2026?"');
+    expect(html).toContain("23:30–00:00 BST");
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
+    expect(html).not.toContain("SP ");
   });
 
   it("shows missing sources as an em dash with a no-data note", () => {
-    const view = buildNowBySourceView(rows);
+    const staleEmbedded = [
+      ...rows.filter((row) => row.fuel_type !== "embedded_wind"),
+      generation("2026-09-28 04:00:00", "embedded_wind", 917, "neso"),
+    ];
+    const view = buildNowBySourceView(staleEmbedded);
     const html = renderToStaticMarkup(<GenerationNowCard view={view} />);
 
     expect(html).toContain("no data since 05:00 BST");
@@ -255,9 +300,9 @@ describe("generation desk layout", () => {
         snapshots={[]}
         headlineSnapshots={[]}
         generation={[]}
+        headlineGeneration={[]}
         range="24h"
         now={new Date("2026-09-28T08:00:00.000Z")}
-        onRangeChange={() => undefined}
       />
     );
 

@@ -119,6 +119,7 @@ export default async function Home({
       headlineSnapshots={headlineSnapshots}
       initialPrices={filterPublicCommodityPrices(prices)}
       generationHistory={generationHistory}
+      headlineGeneration={headlineGeneration}
     />
   );
 }

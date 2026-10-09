@@ -99,14 +99,14 @@ export const ROLLING_AVERAGE_DAYS = 7;
 export const ROLLING_AVERAGE_MIN_DAYS = 4;
 
 export function formatPlainSettlementWindow(timestamp: string): string {
-  return formatSettlementWindow(timestamp).replace(/^SP \d+, /, "");
+  return formatSettlementWindow(timestamp);
 }
 
 export function buildGenerationAnswerStats(facts: LatestFacts): GenerationAnswerStat[] {
   return [
-    answerStat("generating", "Generating", facts.generationMw),
+    answerStat("generating", "Generation", facts.generationMw),
     answerStat("demand", "Demand", facts.demand),
-    answerStat("net_imports", "Net imports", facts.netImportsMw),
+    answerStat("net_imports", "Transfers", facts.netImportsMw),
   ];
 }
 
@@ -521,12 +521,10 @@ export function demandBalanceXTicks(
     time,
     parts: getLondonDateTimeParts(parseUtcDateTime(time)),
   }));
-  const hourStep = compact ? 6 : 3;
-
   switch (range) {
     case "24h": {
       const hourly = dated
-        .filter((entry) => entry.parts.minute === 0 && entry.parts.hour % hourStep === 0)
+        .filter((entry) => entry.parts.minute === 0 && entry.parts.hour % 6 === 0)
         .map((entry) => entry.time);
       const ticks = hourly.length > 0 ? hourly : pickEvenly(times, compact ? 4 : 5);
       return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
@@ -576,6 +574,7 @@ export function formatDemandBalanceTick(timestamp: string, range: TimeRange): st
     case "24h":
       return `${hour}:${minute}`;
     case "7d":
+      return LONDON_WEEKDAYS[new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];
     case "30d":
     case "90d":
       return `${parts.day} ${month}`;
@@ -838,8 +837,8 @@ function stampAlignedPeriod(
     demand: {
       ...demandFactIncludingEmbedded(facts.demand, split.sources),
       value: demandIncludingEmbedded(demandValue, split.sources),
-      periodStartUtc: bounds.startUtc,
-      periodEndUtc: bounds.endUtc,
+      periodStartUtc: demandValue == null ? facts.demand.periodStartUtc : bounds.startUtc,
+      periodEndUtc: demandValue == null ? facts.demand.periodEndUtc : bounds.endUtc,
     },
     netImportsMw: {
       ...facts.netImportsMw,
@@ -1048,3 +1047,5 @@ const LONDON_MONTHS = [
   "Nov",
   "Dec",
 ] as const;
+
+const LONDON_WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"] as const;

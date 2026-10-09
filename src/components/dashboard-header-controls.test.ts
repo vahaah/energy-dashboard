@@ -3,11 +3,21 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("dashboard header controls", () => {
-  it("keeps date, Refresh, and Share 44px at every viewport", () => {
+  it("keeps a 44px mobile tap target and a 32px desktop control", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8");
+
+    expect(source).toContain("h-8");
+    expect(source).toContain("min-h-11");
+    expect(source).toContain("sm:min-h-8");
+    expect(source).not.toContain("Refresh");
+  });
+
+  it("refetches on tab focus instead of a Refresh button", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
 
-    expect(source).toContain("h-11");
-    expect(source).not.toContain("sm:h-9");
+    expect(source).toContain("visibilitychange");
+    expect(source).toContain("router.refresh()");
+    expect(source).not.toContain("Refresh");
   });
 });
 

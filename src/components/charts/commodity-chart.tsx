@@ -9,7 +9,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
 } from "recharts";
 import type {
   CommodityChartSeries,
@@ -17,7 +16,9 @@ import type {
   CommodityRange,
   CommodityScale,
 } from "@/lib/types";
+import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { chartAnimation, chartAxisLine, chartAxisTick, chartGrid, chartLine, CHART_HEIGHT_HERO } from "@/lib/chart-theme";
 import {
   buildCommodityChartSeries,
   COMMODITY_SCALE_OPTIONS,
@@ -59,18 +60,20 @@ export function CommodityNativeTooltip({ active, label, range, series }: NativeT
   const hoverDate = commodityDateFromTime(time);
 
   return (
-    <div
-      className="rounded-lg px-3 py-2 text-[13px] text-white"
-      style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
-    >
-      <p className="mb-1 text-gray-800">{formatChartTooltip(time, range)}</p>
+    <ChartTooltipCard time={formatChartTooltip(time, range)}>
       {rows.map((row) => (
-        <p key={row.commodity} style={{ color: row.color }}>
-          {row.label}: {formatCommodityPointNative(row)}
-          {row.date === hoverDate ? "" : ` · ${formatChartTooltip(row.date, range)}`}
+        <p key={row.commodity} className="flex justify-between gap-6">
+          <span className="inline-flex items-center gap-2">
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: row.color }} />
+            {row.label}
+          </span>
+          <span className="tabular-nums">
+            {formatCommodityPointNative(row)}
+            {row.date === hoverDate ? "" : ` · ${formatChartTooltip(row.date, range)}`}
+          </span>
         </p>
       ))}
-    </div>
+    </ChartTooltipCard>
   );
 }
 
@@ -114,15 +117,15 @@ export function CommodityPriceLines({
       height={height}
       margin={{ top: 5, right: 5, bottom: 5, left: 12 }}
     >
-      <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+      <CartesianGrid {...chartGrid} />
       <XAxis
         dataKey="time"
         type="number"
         domain={domain}
         scale="time"
         tickFormatter={(tick) => formatChartTick(Number(tick), range)}
-        tick={{ fontSize: 11, fill: "#71717a" }}
-        stroke="#27272a"
+        tick={chartAxisTick}
+        {...chartAxisLine}
       />
       <YAxis
         type="number"
@@ -130,24 +133,24 @@ export function CommodityPriceLines({
         domain={yAxis.domain}
         ticks={yAxis.ticks}
         allowDataOverflow
-        tick={{ fontSize: 11, fill: "#71717a" }}
-        stroke="#27272a"
+        tick={chartAxisTick}
+        {...chartAxisLine}
         label={
           yAxisTitle
             ? {
                 value: yAxisTitle,
                 angle: -90,
                 position: "insideLeft",
-                style: { fontSize: 11, fill: "#71717a" },
+                style: chartAxisTick,
               }
             : undefined
         }
       />
       <Tooltip
+        cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
         content={<CommodityNativeTooltip range={range} series={series} />}
         wrapperStyle={{ zIndex: 320 }}
       />
-      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
       {series.map((entry) => (
         <Line
           key={entry.commodity}
@@ -155,11 +158,11 @@ export function CommodityPriceLines({
           type="monotone"
           dataKey="value"
           stroke={entry.color}
-          strokeWidth={2}
-          dot={entry.monthly ? { r: 3, fill: entry.color, stroke: entry.color } : false}
-          connectNulls
-          isAnimationActive={false}
           name={entry.label}
+          {...chartLine}
+          {...chartAnimation}
+          connectNulls
+          dot={entry.monthly ? { r: 3, fill: entry.color, stroke: entry.color } : false}
         />
       ))}
     </LineChart>
@@ -182,7 +185,7 @@ export function CommodityChart({ data, range, selectedSeries }: Props) {
           ariaLabel="Price scale"
         />
       </div>
-      <ResponsiveChartFrame className="h-72">
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
           <CommodityPriceLines series={series} range={range} scale={scale} />
         </ResponsiveContainer>

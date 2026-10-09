@@ -27,23 +27,21 @@ export function Stat({
 
   return (
     <div data-stat={stat} className="flex flex-col gap-1">
-      {label ? (
-        <p className={headline ? "text-sm text-gray-900" : "text-xs text-gray-900"}>{label}</p>
-      ) : null}
+      {label ? <p className="text-label-13 text-gray-900">{label}</p> : null}
       <p
         className={
           headline
-            ? "font-sans text-4xl font-semibold tabular-nums tracking-tight text-gray-1000"
-            : "font-mono text-2xl font-semibold tabular-nums text-gray-1000"
+            ? "font-sans text-display tabular-nums text-gray-1000"
+            : "font-sans text-heading-24 tabular-nums text-gray-1000"
         }
       >
         <span>{value}</span>
-        <span data-unit={unit} className="ml-1 font-sans text-sm font-normal text-gray-900">
+        <span data-unit={unit} className="text-gray-700">
           {unit}
         </span>
       </p>
-      {detail ? <p className="text-sm text-gray-900">{detail}</p> : null}
-      <p className="text-xs text-gray-900">
+      {detail ? <p className="text-copy-14 text-gray-900">{detail}</p> : null}
+      <p className="text-label-12 text-gray-900">
         {sourceHref ? (
           <a
             href={sourceHref}
@@ -58,7 +56,9 @@ export function Stat({
         {datetime && timeLabel ? (
           <>
             {" · "}
-            <time dateTime={datetime}>{timeLabel}</time>
+            <time className="text-mono-12" dateTime={datetime}>
+              {timeLabel}
+            </time>
           </>
         ) : null}
       </p>

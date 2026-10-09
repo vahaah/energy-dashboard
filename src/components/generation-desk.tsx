@@ -1,24 +1,26 @@
 "use client";
 
-import { Stat } from "@/components/ui/stat";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TimeRangeSelector } from "@/components/time-range-selector";
+import { EquationRow } from "@/components/equation-row";
+import { MixBar } from "@/components/mix-bar";
+import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
-import { GenerationNowCard } from "@/components/charts/generation-now-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { getDisplayedPower } from "@/lib/displayed-demand";
+import { fuelinstDelayNote } from "@/lib/generation-desk-view";
+import { buildGroupedSourceTable } from "@/lib/source-groups";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
-import { buildGenerationDeskView, GENERATION_DESK_RANGE_OPTIONS } from "@/lib/generation-desk-view";
 
 interface Props {
   facts: LatestFacts;
   snapshots: EnergySnapshot[];
   headlineSnapshots: EnergySnapshot[];
   generation: Generation5min[];
+  headlineGeneration: Generation5min[];
   range: TimeRange;
   pending?: boolean;
   now?: Date;
-  onRangeChange: (range: TimeRange) => void;
 }
 
 export function GenerationDesk({
@@ -26,95 +28,80 @@ export function GenerationDesk({
   snapshots,
   headlineSnapshots,
   generation,
+  headlineGeneration,
   range,
   pending = false,
   now = new Date(),
-  onRangeChange,
 }: Props) {
-  const { answers, nowView, delayNote, alignmentNote, sourceCopy } = buildGenerationDeskView(
-    facts,
-    now,
-    headlineSnapshots
+  const power = getDisplayedPower(facts, headlineSnapshots);
+  const table = buildGroupedSourceTable(
+    power.generationRows,
+    power.demandMw,
+    headlineGeneration.length > 0 ? headlineGeneration : generation
   );
   const hasChart = snapshots.length > 0 || generation.length > 0;
   const notes: string[] = [];
+  const delayNote = facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now);
   if (delayNote) {
     notes.push(delayNote);
   }
-  if (alignmentNote) {
-    notes.push(alignmentNote);
+  if (power.alignmentNote) {
+    notes.push(power.alignmentNote);
   }
   const statusNote = notes.join(" · ");
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-      <div className="grid grid-cols-2 gap-4 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 sm:grid-cols-3 xl:col-span-12">
-        {answers.map((answer, index) => (
-          <div
-            key={answer.stat}
-            className={index === 2 ? "col-span-2 sm:col-span-1" : undefined}
-          >
-            <Stat
-              stat={answer.stat}
-              label={answer.label}
-              value={answer.value}
-              unit={answer.unit}
-              datetime={answer.datetime}
-              timeLabel={answer.timeLabel}
-              source={answer.source}
-              size="headline"
-            />
-          </div>
-        ))}
-        {statusNote ? (
-          <p
-            className="col-span-2 text-xs font-medium text-gray-1000 sm:col-span-3"
-            aria-live="polite"
-          >
-            {statusNote}
-          </p>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-5">
+      {pending ? (
+        <EquationSkeleton />
+      ) : (
+        <EquationRow
+          demandMw={power.demandMw}
+          generationMw={power.generationMw}
+          transfersMw={power.transfersMw}
+          demandSource={power.demandSource}
+          generationSource={power.generationSource}
+          transfersSource={power.transfersSource}
+          demandDefinition={power.demandDefinition}
+          transmissionDemandMw={power.transmissionDemandMw}
+          demandStartUtc={power.demandStartUtc}
+          generationStartUtc={power.generationStartUtc}
+          transfersStartUtc={power.transfersStartUtc}
+        />
+      )}
+      {statusNote ? (
+        <p className="text-label-12 text-gray-900" aria-live="polite">
+          {statusNote}
+        </p>
+      ) : null}
 
-      <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
-        <div className="mb-4 flex items-center gap-2">
-          <h3 className="text-xs font-medium text-gray-1000">{sourceCopy.title}</h3>
+      {pending ? <Skeleton className="h-3 w-full rounded-full" /> : <MixBar table={table} />}
+
+      {pending ? (
+        <SourceTableSkeleton />
+      ) : (
+        <SourceTable table={table} />
+      )}
+
+      <div>
+        <div className="mb-3 flex items-center gap-2">
+          <h3 className="text-heading-16 text-gray-1000">Demand and generation, including embedded</h3>
           <InfoTooltip
-            text={sourceCopy.tooltip}
-            label={sourceCopy.tooltipLabel}
+            text="Demand is transmission demand plus estimated embedded wind and solar. Generation is GB plant plus the same embedded series. The gap is imports when demand is higher and exports when generation is higher."
+            label="What is Demand and generation, including embedded?"
           />
         </div>
-        <p className="mb-4 text-sm text-gray-900">{sourceCopy.subtitle}</p>
-        <GenerationNowCard view={nowView} />
-      </div>
-
-      <div className="min-w-0 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-medium text-gray-1000">Demand and generation, including embedded</h3>
-            <InfoTooltip
-              text="Demand is ITSDO plus estimated embedded wind and solar. Generation is GB plant plus the same embedded series. Both sit on one basis, so the shaded gap is imports when demand is higher and exports when generation is higher."
-              label="What is Demand and generation, including embedded?"
-            />
-          </div>
-          <TimeRangeSelector
-            value={range}
-            onChange={onRangeChange}
-            options={GENERATION_DESK_RANGE_OPTIONS}
-            pending={pending}
-            compact
-            ariaLabel="Generation time range"
-          />
-        </div>
-        {hasChart ? (
+        {pending ? (
+          <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+        ) : hasChart ? (
           <DemandBalanceChart
             snapshots={snapshots}
             generation={generation}
             range={range}
           />
         ) : (
-          <div className="flex h-60 items-center justify-center rounded-xl border border-dashed border-gray-alpha-400 text-sm text-gray-900 sm:h-80">
-            No demand or generation history for this window
+          <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-gray-alpha-400 text-copy-14 text-gray-900 sm:h-[280px]">
+            Data is catching up. Last update {facts.headerStamp.replace("Data as of ", "")}
           </div>
         )}
       </div>
@@ -124,32 +111,34 @@ export function GenerationDesk({
 
 export function GenerationDeskSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-      <div className="grid grid-cols-2 gap-4 rounded-xl border border-gray-alpha-400 bg-background-200 p-6 sm:grid-cols-3 xl:col-span-12">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={`answer-${index}`} className="space-y-2">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-10 w-28" />
-            <Skeleton className="h-3 w-40" />
-          </div>
-        ))}
-      </div>
-      <div className="rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-5">
-        <Skeleton className="mb-4 h-3 w-36" />
-        <Skeleton className="mb-5 h-3 w-full rounded-full" />
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <Skeleton key={`source-${index}`} className="h-6 w-full rounded-lg" />
-          ))}
+    <div className="flex flex-col gap-5">
+      <EquationSkeleton />
+      <Skeleton className="h-3 w-full rounded-full" />
+      <SourceTableSkeleton />
+      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+    </div>
+  );
+}
+
+function EquationSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`eq-${index}`} className="space-y-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-10 w-24" />
         </div>
-      </div>
-      <div className="rounded-xl border border-gray-alpha-400 bg-background-200 p-6 xl:col-span-7">
-        <div className="mb-4 flex items-center justify-between">
-          <Skeleton className="h-3 w-48" />
-          <Skeleton className="h-11 w-48 rounded-full" />
-        </div>
-        <Skeleton className="h-60 w-full rounded-xl sm:h-80" />
-      </div>
+      ))}
+    </div>
+  );
+}
+
+function SourceTableSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <Skeleton key={`row-${index}`} className="h-9 w-full" />
+      ))}
     </div>
   );
 }

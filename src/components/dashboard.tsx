@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryStates } from "nuqs";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type {
   CommodityPrice,
   EnergySnapshot,
@@ -13,59 +14,35 @@ import {
   dashboardSearchParamParsers,
   dateParamForRange,
 } from "@/lib/dashboard-search-params";
-import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
+import { buildAnswerSentence } from "@/lib/answer-sentence";
+import { getDisplayedPower } from "@/lib/displayed-demand";
 import {
-  buildRangeSummary,
-  headlineAsOf,
-  normalizeFuelType,
-  splitLatestGenerationRows,
-} from "@/lib/dashboard-model";
-import {
+  COMMODITY_CARD_KEYS,
   COMMODITY_CARD_LABELS,
   COMMODITY_COLORS,
   COMMODITY_LABELS,
-  carbonIndexColor,
   commodityDisplayIndex,
-  fuelLabel,
 } from "@/lib/colors";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
-import { GbGasSapCard } from "@/components/gb-gas-sap-card";
-import { KpiCard } from "@/components/ui/kpi-card";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  generationSharesFromRows,
+  normalizeFuelType,
+  splitLatestGenerationRows,
+} from "@/lib/dashboard-model";
+import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
+import { SectionBlock } from "@/components/section-block";
+import { SiteHeader } from "@/components/site-header";
 import { TimeRangeSelector } from "@/components/time-range-selector";
+import { GbGasSapCard } from "@/components/gb-gas-sap-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
 import { GenerationStackChart } from "@/components/charts/generation-stack-chart";
 import { CommodityChart } from "@/components/charts/commodity-chart";
 import { InterconnectorChart } from "@/components/charts/interconnector-chart";
 import { InterconnectorFlowsChart } from "@/components/charts/interconnector-flows-chart";
-import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
-import {
-  Activity,
-  ArrowDownRight,
-  ArrowLeftRight,
-  ArrowUpRight,
-  CalendarDays,
-  Check,
-  Copy,
-  Droplets,
-  Gauge,
-  Layers3,
-  LineChart,
-  RefreshCw,
-  Wind,
-  Zap,
-} from "lucide-react";
-
-const GLOBAL_RANGE_OPTIONS = [
-  { value: "24h", label: "24h" },
-  { value: "7d", label: "7d" },
-  { value: "30d", label: "30d" },
-  { value: "90d", label: "90d" },
-  { value: "1y", label: "1y" },
-] as const;
+import type { LatestFacts } from "@/lib/facts";
 
 const COMMODITY_RANGE_OPTIONS = [
   { value: "30d", label: "30d" },
@@ -82,6 +59,7 @@ interface Props {
   headlineSnapshots: EnergySnapshot[];
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
+  headlineGeneration: Generation5min[];
 }
 
 export function Dashboard({
@@ -93,13 +71,11 @@ export function Dashboard({
   headlineSnapshots,
   initialPrices,
   generationHistory,
+  headlineGeneration,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [selectedCommodities, setSelectedCommodities] = useState<string[]>([
-    ...PUBLIC_COMMODITIES,
-  ]);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
     history: "push",
     shallow: false,
@@ -111,6 +87,7 @@ export function Dashboard({
   const commodityRange = urlState.commodityRange ?? searchParams.commodityRange;
   const focus = urlState.focus ?? searchParams.focus;
   const activeDate = urlState.date ?? searchParams.date ?? selectedDate ?? todayDate;
+  const power = getDisplayedPower(facts, headlineSnapshots);
 
   useEffect(() => {
     if (focus === "overview") return;
@@ -118,53 +95,33 @@ export function Dashboard({
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [focus]);
 
-  const headline = useMemo(
-    () => ({
-      referenceTimestamp: facts.referenceTimestamp,
-      carbon: {
-        value: facts.carbon.value,
-        timestamp: facts.carbon.periodStartUtc,
-        index: facts.carbon.index,
-      },
-      demand: {
-        value: facts.demand.value,
-        timestamp: facts.demand.periodStartUtc,
-      },
-      price: {
-        value: facts.price.value,
-        timestamp: facts.price.periodStartUtc,
-      },
-      mixSnapshot: facts.mixSnapshot,
-    }),
-    [facts]
-  );
-  const rangeSummary = useMemo(
-    () => buildRangeSummary(initialSnapshots),
-    [initialSnapshots]
-  );
-  const latestGenerationSplit = useMemo(
-    () => splitLatestGenerationRows(facts.generationRows),
-    [facts.generationRows]
-  );
-
-  const carbonAsOf = headlineAsOf(headline.carbon.timestamp, headline.referenceTimestamp);
-  const demandAsOf = headlineAsOf(headline.demand.timestamp, headline.referenceTimestamp);
-  const priceAsOf = headlineAsOf(headline.price.timestamp, headline.referenceTimestamp);
-  const generationAsOf = headlineAsOf(
-    facts.generationMw.value == null ? null : facts.generationMw.periodStartUtc,
-    headline.referenceTimestamp
-  );
-  const transfersAsOf = headlineAsOf(
-    facts.netImportsMw.value == null ? null : facts.netImportsMw.periodStartUtc,
-    headline.referenceTimestamp
-  );
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        startTransition(() => {
+          router.refresh();
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [router, startTransition]);
 
   const topShare = useMemo(() => {
-    if (facts.generationMw.value == null || facts.shares.length === 0) {
+    const shares = generationSharesFromRows(power.generationRows);
+    if (shares.length === 0) {
       return null;
     }
-    return [...facts.shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
-  }, [facts.generationMw.value, facts.shares]);
+    return [...shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
+  }, [power.generationRows]);
+
+  const answer = buildAnswerSentence({
+    topFuel: topShare?.fuel ?? null,
+    topMw: topShare?.mw ?? null,
+    topSharePct: topShare?.sharePct ?? null,
+    transfersMw: power.transfersMw,
+    empty: facts.empty,
+  });
 
   const commodityStats = useMemo(() => {
     const groups = new Map<string, CommodityPrice[]>();
@@ -172,109 +129,38 @@ export function Dashboard({
       if (!groups.has(price.commodity)) {
         groups.set(price.commodity, []);
       }
-      groups.get(price.commodity)!.push(price);
+      groups.get(price.commodity)?.push(price);
     }
 
     return Array.from(groups.entries())
       .sort(([left], [right]) => commodityDisplayIndex(left) - commodityDisplayIndex(right))
       .map(([commodity, rows]) => {
-      const sortedRows = [...rows].sort(
-        (left, right) =>
-          new Date(left.date).getTime() - new Date(right.date).getTime()
-      );
-      const first = sortedRows[0];
-      const latest = sortedRows[sortedRows.length - 1];
-      const absoluteDelta = latest ? latest.price - first.price : 0;
-      const percentageDelta =
-        first && first.price !== 0 ? (absoluteDelta / first.price) * 100 : 0;
+        const sortedRows = [...rows].sort(
+          (left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()
+        );
+        const first = sortedRows[0];
+        const latest = sortedRows.at(-1);
+        const absoluteDelta = latest && first ? latest.price - first.price : 0;
+        const percentageDelta =
+          first && first.price !== 0 ? (absoluteDelta / first.price) * 100 : 0;
 
-      return {
-        commodity,
-        latest,
-        absoluteDelta,
-        percentageDelta,
-      };
-    });
+        return {
+          commodity,
+          latest,
+          absoluteDelta,
+          percentageDelta,
+        };
+      });
   }, [initialPrices]);
 
-  const carbonDelta = rangeSummary.carbon.deltaFromAverage ?? 0;
-  const demandDelta = rangeSummary.demand.deltaFromAverage ?? 0;
-  const priceDelta = rangeSummary.price.deltaFromAverage ?? 0;
-  const transferStance = transferStanceFrom(facts.netImportsMw.value);
-  const activeInterconnectors = latestGenerationSplit.interconnectors.filter(
-    (row) => Math.abs(row.generation_mw) >= 25
-  ).length;
-  const importShare =
-    transferStance.kind !== "unknown" &&
-    headline.demand.value != null &&
-    headline.demand.value > 0
-      ? (transferStance.mw / headline.demand.value) * 100
-      : null;
+  const commodityCards = commodityStats.filter((stat) =>
+    COMMODITY_CARD_KEYS.some((key) => key === stat.commodity)
+  );
 
-  const briefingLine = [
-    topShare
-        ? `${formatFuelLabel(topShare.fuel)} leads supply at ${formatGigawatts(
-          topShare.mw
-        )} GW`
-      : "Generation leadership is unavailable",
-    transferBriefing(transferStance),
-    carbonDelta < 0
-      ? `Carbon is ${Math.abs(carbonDelta)} g cleaner than the ${range} average`
-      : carbonDelta > 0
-        ? `Carbon is ${carbonDelta} g above the ${range} average`
-        : `Carbon is tracking the ${range} average`,
-  ].join(", ");
-
-  const insightCards = [
-    {
-      title: "Demand pressure",
-      value:
-        demandDelta === 0
-          ? "At trend"
-          : demandDelta > 0
-            ? `${formatGigawatts(demandDelta)} GW above`
-            : `${formatGigawatts(Math.abs(demandDelta))} GW below`,
-      detail: `Peak ${formatOptionalGw(rangeSummary.demand.max)} GW · low ${formatOptionalGw(
-        rangeSummary.demand.min
-      )} GW`,
-      tone: demandDelta > 0 ? "blue" : "sky",
-      icon: <Activity className="w-4 h-4" />,
-    },
-    {
-      title: "Import dependency",
-      value: transferInsightValue(transferStance, importShare),
-      detail:
-        transferStance.kind === "unknown"
-          ? "No interconnector observations"
-          : `${activeInterconnectors} active links in the latest dispatch frame`,
-      tone: transferStance.kind === "export" ? "violet" : "cyan",
-      icon: <ArrowLeftRight className="w-4 h-4" />,
-    },
-    {
-      title: "Price regime",
-      value:
-        priceDelta === 0
-          ? "At trend"
-          : priceDelta > 0
-            ? `£${priceDelta} above avg`
-            : `£${Math.abs(priceDelta)} below avg`,
-      detail: `Range £${formatOptionalNumber(rangeSummary.price.min)} to £${formatOptionalNumber(rangeSummary.price.max)}/MWh`,
-      tone: priceDelta > 0 ? "rose" : "emerald",
-      icon: <Zap className="w-4 h-4" />,
-    },
-    {
-      title: "Carbon stance",
-      value:
-        carbonDelta === 0
-          ? "In line"
-          : carbonDelta < 0
-            ? `${Math.abs(carbonDelta)} g cleaner`
-            : `${carbonDelta} g hotter`,
-      detail: `Range low ${formatOptionalNumber(rangeSummary.carbon.min)} g · high ${formatOptionalNumber(rangeSummary.carbon.max)} g`,
-      tone: carbonDelta <= 0 ? "emerald" : "amber",
-      icon: <Wind className="w-4 h-4" />,
-    },
-  ] as const;
+  const latestInterconnectors = useMemo(
+    () => splitLatestGenerationRows(power.generationRows).interconnectors,
+    [power.generationRows]
+  );
 
   const hasSnapshots = initialSnapshots.length > 0;
   const hasInterconnectorHistory = generationHistory.some((row) =>
@@ -282,770 +168,225 @@ export function Dashboard({
   );
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#04070f] text-zinc-100">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-[-10%] top-[-12%] h-80 w-80 rounded-full bg-emerald-500/12 blur-3xl" />
-        <div className="absolute right-[-12%] top-[12%] h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-[-16%] left-[20%] h-96 w-96 rounded-full bg-amber-500/10 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_42%),linear-gradient(180deg,rgba(8,15,30,0.88),rgba(4,7,15,1))]" />
-      </div>
+    <div className="min-h-screen bg-background-100 text-gray-1000">
+      <a
+        href="#section-overview"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
+      >
+        Skip to content
+      </a>
+      <SiteHeader
+        range={range}
+        onRangeChange={(nextRange) => {
+          void setUrlState({
+            range: nextRange,
+            date: dateParamForRange(nextRange, urlState.date ?? searchParams.date),
+          });
+        }}
+        activeDate={activeDate}
+        minDate={facts.coverageStart}
+        maxDate={todayDate}
+        onDateChange={(date) => {
+          void setUrlState({ date: date || todayDate });
+        }}
+        showDate={range === "24h"}
+        stamp={facts.headerStamp}
+        stale={facts.isStale}
+        pending={isPending}
+        copied={copied}
+        onShare={async () => {
+          await navigator.clipboard.writeText(window.location.href);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        }}
+      />
 
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050915]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/12">
-                <Zap className="h-5 w-5 text-emerald-300" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-gray-900">
-                  Operations briefing
-                </p>
-                <h1 className="truncate text-2xl font-semibold tracking-tight text-gray-1000">
-                  Grid
-                </h1>
-                <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">
-                  {facts.headerStamp}
-                </p>
-              </div>
-            </div>
+      <main className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
+        {facts.empty && facts.emptyState && !isPending ? (
+          <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
+            <h1 className="text-heading-32">{answer}</h1>
+            <p className="mt-3 text-copy-16 text-gray-900">{facts.emptyState.message}</p>
+            <a
+              href={facts.emptyState.href}
+              className="mt-4 inline-flex h-8 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
+            >
+              {facts.emptyState.action}
+            </a>
           </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <TimeRangeSelector
-              value={range}
-              onChange={(nextRange) => {
-                void setUrlState({
-                  range: nextRange,
-                  date: dateParamForRange(
-                    nextRange,
-                    urlState.date ?? searchParams.date
-                  ),
-                });
-              }}
-              options={GLOBAL_RANGE_OPTIONS}
-              pending={isPending}
-            />
-            {range === "24h" ? (
-              <label className="inline-flex h-11 items-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm text-gray-1000">
-                <CalendarDays className="h-4 w-4 text-gray-900" />
-                <span className="text-xs text-gray-900">
-                  Date
-                </span>
-                <input
-                  type="date"
-                  value={activeDate}
-                  min={facts.coverageStart}
-                  max={todayDate}
-                  onChange={(event) => {
-                    void setUrlState({ date: event.target.value || todayDate });
-                  }}
-                  disabled={isPending}
-                  className="min-w-[9.5rem] bg-transparent font-mono text-sm tabular-nums text-gray-1000 [color-scheme:dark]"
+        ) : (
+          <section id="section-overview" className="scroll-mt-28">
+            <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
+            {isPending ? (
+              <Skeleton className="mt-2 h-10 w-full max-w-3xl" />
+            ) : (
+              <h1 className="mt-1 text-heading-32 text-gray-1000">{answer}</h1>
+            )}
+            <div id="section-generation" className="mt-6 scroll-mt-28">
+              {isPending ? (
+                <GenerationDeskSkeleton />
+              ) : (
+                <GenerationDesk
+                  facts={facts}
+                  snapshots={initialSnapshots}
+                  headlineSnapshots={headlineSnapshots}
+                  generation={generationHistory}
+                  headlineGeneration={headlineGeneration}
+                  range={range}
+                  pending={isPending}
                 />
-              </label>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => startTransition(() => router.refresh())}
-              disabled={isPending}
-              className="inline-flex h-11 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100 disabled:opacity-60"
-            >
-              <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin motion-reduce:animate-none" : ""}`} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(window.location.href);
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1400);
-              }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-alpha-400 bg-background-200 px-4 text-sm font-medium text-gray-1000 motion-reduce:transition-none hover:bg-gray-100"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-300" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied" : "Share view"}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto flex max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section
-          id="section-overview"
-          className="relative grid gap-5 rounded-[28px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_40px_120px_rgba(0,0,0,0.35)] backdrop-blur sm:p-6 lg:grid-cols-[1.5fr_1fr]"
-        >
-          {isPending ? (
-            <OverviewSectionSkeleton />
-          ) : facts.empty && facts.emptyState ? (
-            <div className="rounded-lg border border-zinc-700/80 p-6 text-sm text-zinc-300 lg:col-span-2">
-              <p>{facts.emptyState.message}</p>
-              <a
-                href={facts.emptyState.href}
-                className="mt-4 inline-flex items-center justify-center rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/10"
-              >
-                {facts.emptyState.action}
-              </a>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge label="GB grid + market context" tone="emerald" />
-                  <Badge label="Shareable URL state" tone="sky" />
-                  <Badge label={`${range} power view`} tone="violet" />
-                  <Badge label={`${commodityRange} commodity view`} tone="amber" />
-                </div>
-
-                <div className="space-y-3">
-                  <h2 className="max-w-3xl text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-                    Britain&apos;s electricity system, recut as a live briefing instead of a card wall.
-                  </h2>
-                  <p className="max-w-3xl text-sm leading-7 text-gray-900 sm:text-base">
-                    {briefingLine}. The top layer explains what matters now; the deeper sections keep the raw
-                    curves, source mix, transfer behavior, and commodity context available for power users.
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <HeroFact
-                    label="Domestic generation"
-                    value={
-                      facts.generationMw.value == null
-                        ? "—"
-                        : `${formatHeadlineGw(facts.generationMw.value)} GW`
-                    }
-                    detail={
-                      topShare
-                        ? `${formatFuelLabel(topShare.fuel)} leading`
-                        : "Awaiting latest dispatch"
-                    }
-                    asOf={generationAsOf}
-                  />
-                  <HeroFact
-                    label="Transfer stance"
-                    value={transferHeroValue(transferStance)}
-                    detail={
-                      transferStance.kind === "unknown"
-                        ? "No interconnector observations"
-                        : `${activeInterconnectors} active interconnectors`
-                    }
-                    asOf={transfersAsOf}
-                  />
-                  <HeroFact
-                    label="Imbalance price"
-                    value={
-                      headline.price.value != null
-                        ? `£${Math.round(headline.price.value)}/MWh`
-                        : "—"
-                    }
-                    detail={`Range avg £${formatOptionalNumber(rangeSummary.price.average)}/MWh`}
-                    asOf={priceAsOf}
-                  />
-                  <HeroFact
-                    label="Current carbon"
-                    value={
-                      headline.carbon.value != null
-                        ? `${Math.round(headline.carbon.value)} gCO₂/kWh`
-                        : "—"
-                    }
-                    detail={
-                      headline.carbon.index
-                        ? `${headline.carbon.index} · avg ${formatOptionalNumber(rangeSummary.carbon.average)} g`
-                        : "Awaiting data"
-                    }
-                    asOf={carbonAsOf}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                {insightCards.map((card) => (
-                  <InsightCard key={card.title} {...card} />
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-
-        {facts.empty && !isPending ? null : (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {isPending ? (
-            <KpiGridSkeleton />
-          ) : (
-            <>
-              <KpiCard
-                label="Domestic Supply"
-                value={formatHeadlineGw(facts.generationMw.value)}
-                unit="GW"
-                detail={
-                  topShare ? `${formatFuelLabel(topShare.fuel)} leading` : "Awaiting dispatch"
-                }
-                asOf={generationAsOf}
-                icon={<Gauge className="h-3.5 w-3.5" />}
-                tooltip="Latest domestic generation across fuel and embedded renewable sources."
-              />
-              <KpiCard
-                label="Demand"
-                value={
-                  headline.demand.value != null
-                    ? formatGigawatts(headline.demand.value)
-                    : "—"
-                }
-                unit="GW"
-                detail={`${formatSignedNumber(formatGigawattsNumber(demandDelta))} vs avg`}
-                asOf={demandAsOf}
-                icon={<Activity className="h-3.5 w-3.5" />}
-                tooltip="Transmission demand right now versus the selected window."
-              />
-              <KpiCard
-                label="Net Transfers"
-                value={transferKpiValue(transferStance)}
-                unit="GW"
-                detail={transferKpiDetail(transferStance)}
-                asOf={transfersAsOf}
-                color={
-                  transferStance.kind === "export" ? "#f97316" : "#34d399"
-                }
-                icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
-                tooltip="Net import/export stance based on the latest interconnector frame."
-              />
-              <KpiCard
-                label="Imbalance Price"
-                value={
-                  headline.price.value != null
-                    ? `£${Math.round(headline.price.value)}`
-                    : "—"
-                }
-                unit="/MWh"
-                detail={`${formatSignedNumber(priceDelta)} vs avg`}
-                asOf={priceAsOf}
-                icon={<Zap className="h-3.5 w-3.5" />}
-                tooltip="Elexon imbalance cash-out (system buy) price versus the selected range average. This is not the day-ahead wholesale price."
-              />
-              <KpiCard
-                label="Carbon Intensity"
-                value={
-                  headline.carbon.value != null
-                    ? String(Math.round(headline.carbon.value))
-                    : "—"
-                }
-                unit="gCO₂/kWh"
-                detail={
-                  headline.carbon.index
-                    ? `${headline.carbon.index} · ${formatSignedNumber(carbonDelta)} vs avg`
-                    : undefined
-                }
-                asOf={carbonAsOf}
-                color={
-                  headline.carbon.index ? carbonIndexColor(headline.carbon.index) : undefined
-                }
-                icon={<Wind className="h-3.5 w-3.5" />}
-                tooltip="Current carbon intensity, benchmarked against the selected window average."
-              />
-            </>
-          )}
-        </section>
+          </section>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <SectionCard
-            id="section-generation"
-            title="What's powering Britain"
-            icon={<Layers3 className="h-4 w-4 text-sky-300" />}
-            tooltip="Latest domestic generation against demand, with interconnectors shown as net imports."
-            active={focus === "generation"}
-            fullWidth
-          >
-            {isPending ? (
-              <GenerationDeskSkeleton />
-            ) : (
-              <GenerationDesk
-                facts={facts}
-                snapshots={initialSnapshots}
-                headlineSnapshots={headlineSnapshots}
-                generation={generationHistory}
-                range={range}
-                pending={isPending}
-                onRangeChange={(nextRange) => {
-                  void setUrlState({
-                    range: nextRange,
-                    date: dateParamForRange(
-                      nextRange,
-                      urlState.date ?? searchParams.date
-                    ),
-                  });
-                }}
-              />
-            )}
-          </SectionCard>
+        <SectionBlock
+          id="section-price"
+          title="What does power cost?"
+          tooltip="The system (imbalance) price is the cash-out price for being long or short in a half-hour. It is not the day-ahead wholesale price."
+          active={focus === "price"}
+        >
+          {isPending ? (
+            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+          ) : hasSnapshots ? (
+            <ElectricityPriceChart data={initialSnapshots} range={range} />
+          ) : (
+            <EmptyState stamp={facts.headerStamp} />
+          )}
+        </SectionBlock>
 
-          <SectionCard
-            title="Generation mix over time"
-            icon={<LineChart className="h-4 w-4 text-cyan-300" />}
-            tooltip="How the generation stack shifts through the selected range, including embedded solar and wind."
-            fullWidth
-          >
-            {isPending ? (
-              <ChartSectionSkeleton heightClassName="h-72" fullWidth />
-            ) : generationHistory.length > 0 ? (
-              <GenerationStackChart data={generationHistory} range={range} />
-            ) : (
-              <EmptyState label="No generation history available" />
-            )}
-          </SectionCard>
-
-          <SectionCard
-            id="section-price"
-            title="Imbalance price"
-            icon={<Zap className="h-4 w-4 text-amber-300" />}
-            tooltip="GB imbalance cash-out (system buy) price over the selected window. Negative prices are real."
-            active={focus === "price"}
-            fullWidth
-          >
-            {isPending ? (
-              <ChartSectionSkeleton heightClassName="h-64" />
-            ) : hasSnapshots ? (
-              <ElectricityPriceChart data={initialSnapshots} range={range} />
-            ) : (
-              <EmptyState label="No price data available" />
-            )}
-          </SectionCard>
-
-          <SectionCard
-            id="section-transfers"
-            title="Transmission desk"
-            icon={<ArrowLeftRight className="h-4 w-4 text-cyan-300" />}
-            tooltip="Current interconnector stance plus connector-level history."
-            active={focus === "transfers"}
-            fullWidth
-          >
-            {isPending ? (
-              <TransfersDeskSkeleton />
-            ) : hasInterconnectorHistory ? (
-              <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="mb-3">
-                    <h3 className="text-xs text-gray-900">
-                      Latest connector book
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-900">
-                      Positive bars are imports into Great Britain.
-                    </p>
-                  </div>
-                  <InterconnectorChart data={latestGenerationSplit.interconnectors} />
-                </div>
-                <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="mb-3">
-                    <h3 className="text-xs text-gray-900">
-                      Connector history
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-900">
-                      Each line is one link, making import/export swings visible without losing per-link detail.
-                    </p>
-                  </div>
-                  <InterconnectorFlowsChart data={generationHistory} range={range} />
-                </div>
+        <SectionBlock
+          id="section-transfers"
+          title="Where is power flowing?"
+          tooltip="Interconnector flows into and out of Great Britain. Positive values are imports."
+          active={focus === "transfers"}
+        >
+          {isPending ? (
+            <TransfersSkeleton />
+          ) : hasInterconnectorHistory ? (
+            <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
+              <div>
+                <h3 className="mb-3 text-heading-16 text-gray-1000">Latest flows</h3>
+                <InterconnectorChart data={latestInterconnectors} />
               </div>
-            ) : (
-              <EmptyState label="No interconnector history available" />
-            )}
-          </SectionCard>
+              <div>
+                <h3 className="mb-3 text-heading-16 text-gray-1000">Flows over time</h3>
+                <InterconnectorFlowsChart data={generationHistory} range={range} />
+              </div>
+            </div>
+          ) : (
+            <EmptyState stamp={facts.headerStamp} />
+          )}
+        </SectionBlock>
 
-          <SectionCard
-            id="section-commodities"
-            title="Commodity desk"
-            icon={<Droplets className="h-4 w-4 text-amber-300" />}
-            tooltip="Oil and gas context with its own slower market horizon."
-            active={focus === "commodities"}
-            fullWidth
-            headerRight={
-              <TimeRangeSelector
-                value={commodityRange}
-                onChange={(nextRange) => {
-                  void setUrlState({ commodityRange: nextRange });
-                }}
-                options={COMMODITY_RANGE_OPTIONS}
-                pending={isPending}
-                compact
-              />
-            }
-          >
-            {isPending ? (
-              <CommodityDeskSkeleton />
-            ) : (
-              <>
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {commodityStats.map(({ commodity }) => {
-                    const active = selectedCommodities.includes(commodity);
-                    return (
-                      <button
-                        key={commodity}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => {
-                          setSelectedCommodities((current) => {
-                            if (current.includes(commodity)) {
-                              return current.length === 1
-                                ? current
-                                : current.filter((value) => value !== commodity);
-                            }
-                            return [...current, commodity];
-                          });
-                        }}
-                        className={`h-9 rounded-full border px-3 text-xs font-medium motion-reduce:transition-none ${
-                          active
-                            ? "border-gray-alpha-400 bg-gray-100 text-gray-1000"
-                            : "border-gray-alpha-400 text-gray-900 hover:text-gray-1000"
-                        }`}
-                        style={
-                          active
-                            ? {
-                                backgroundColor: `${COMMODITY_COLORS[commodity] ?? "#64748b"}20`,
-                                borderColor: `${COMMODITY_COLORS[commodity] ?? "#64748b"}66`,
-                              }
-                            : undefined
-                        }
-                      >
-                        {COMMODITY_LABELS[commodity] ?? commodity}
-                      </button>
-                    );
-                  })}
-                </div>
+        <SectionBlock
+          title="How has the mix changed?"
+          tooltip="How the generation stack shifts through the selected window, including embedded solar and wind."
+        >
+          {isPending ? (
+            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+          ) : generationHistory.length > 0 ? (
+            <GenerationStackChart data={generationHistory} range={range} />
+          ) : (
+            <EmptyState stamp={facts.headerStamp} />
+          )}
+        </SectionBlock>
 
-                <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {commodityStats.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
-                    commodity === GB_GAS_SAP_COMMODITY ? (
-                      <GbGasSapCard
-                        key={commodity}
-                        latest={latest}
-                        absoluteDelta={absoluteDelta}
-                        percentageDelta={percentageDelta}
-                      />
-                    ) : (
-                      <CommodityStatCard
-                        key={commodity}
-                        commodity={commodity}
-                        latest={latest}
-                        absoluteDelta={absoluteDelta}
-                        percentageDelta={percentageDelta}
-                      />
-                    )
-                  )}
-                </div>
-
-                {initialPrices.length > 0 ? (
-                  <CommodityChart
-                    data={initialPrices}
-                    range={commodityRange}
-                    selectedSeries={selectedCommodities}
-                  />
-                ) : (
-                  <EmptyState label="No commodity data available" />
+        <SectionBlock
+          id="section-commodities"
+          title="Gas & oil"
+          tooltip="Oil and gas context on a slower market horizon. The chart keeps the full published set."
+          active={focus === "commodities"}
+          headerRight={
+            <TimeRangeSelector
+              value={commodityRange}
+              onChange={(nextRange) => {
+                void setUrlState({ commodityRange: nextRange });
+              }}
+              options={COMMODITY_RANGE_OPTIONS}
+              pending={isPending}
+              compact
+              variant="tabs"
+              ariaLabel="Commodity range"
+            />
+          }
+        >
+          {isPending ? (
+            <CommoditySkeleton />
+          ) : (
+            <>
+              <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                {commodityCards.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
+                  commodity === GB_GAS_SAP_COMMODITY ? (
+                    <GbGasSapCard
+                      key={commodity}
+                      latest={latest}
+                      absoluteDelta={absoluteDelta}
+                      percentageDelta={percentageDelta}
+                    />
+                  ) : (
+                    <CommodityStatCard
+                      key={commodity}
+                      commodity={commodity}
+                      latest={latest}
+                      absoluteDelta={absoluteDelta}
+                      percentageDelta={percentageDelta}
+                    />
+                  )
                 )}
-              </>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            id="section-carbon"
-            title="Carbon pulse"
-            icon={<Wind className="h-4 w-4 text-emerald-300" />}
-            tooltip="How clean the grid is through the selected window, with forecast context."
-            active={focus === "carbon"}
-            fullWidth
-          >
-            {isPending ? (
-              <ChartSectionSkeleton heightClassName="h-64" />
-            ) : hasSnapshots ? (
-              <CarbonIntensityChart data={initialSnapshots} range={range} />
-            ) : (
-              <EmptyState label="No carbon data available" />
-            )}
-          </SectionCard>
-        </div>
-
-        <footer className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5">
-          <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-gray-1000">
-                Methodology
-              </h2>
-              <p className="mt-2 text-sm leading-7 text-gray-900">
-                Grid metrics are refreshed from Carbon Intensity API, Elexon BMRS, NESO embedded wind, and
-                Sheffield Solar PV Live. The power price is the Elexon imbalance (cash-out) price, not
-                day-ahead wholesale. Oil and gas prices come from EIA (U.S. Energy Information Administration),
-                World Bank Commodity Price Data (The Pink Sheet, CC BY 4.0), and National Gas, and refresh
-                every 6 hours. Power and market ranges are intentionally
-                decoupled because intraday grid behavior and commodity settlement cadence move on different
-                clocks.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2 font-mono text-xs text-gray-900">
-                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
-                  GET /api/snapshots?range={range}
-                </code>
-                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
-                  GET /api/generation?range={range}
-                </code>
-                <code className="rounded-full border border-gray-alpha-400 bg-background-200 px-3 py-1">
-                  GET /api/prices?range={commodityRange}
-                </code>
               </div>
-              <p className="text-xs text-gray-900">
-                URL state is canonical for the selected range, commodity horizon, and section focus. Rate limit remains 60 requests per minute.
-              </p>
-            </div>
+              {initialPrices.length > 0 ? (
+                <CommodityChart
+                  data={initialPrices}
+                  range={commodityRange}
+                  selectedSeries={[...PUBLIC_COMMODITIES]}
+                />
+              ) : (
+                <EmptyState stamp={facts.headerStamp} />
+              )}
+            </>
+          )}
+        </SectionBlock>
+
+        <SectionBlock
+          id="section-carbon"
+          title="How clean is it?"
+          tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges."
+          active={focus === "carbon"}
+        >
+          {isPending ? (
+            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+          ) : hasSnapshots ? (
+            <CarbonIntensityChart data={initialSnapshots} range={range} />
+          ) : (
+            <EmptyState stamp={facts.headerStamp} />
+          )}
+        </SectionBlock>
+
+        <footer className="border-t border-gray-alpha-400 pt-8 pb-4">
+          <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
+          <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
+            Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
+            wind, and Sheffield Solar PV Live. The system price is the Elexon imbalance (cash-out)
+            price, not day-ahead wholesale. Oil and gas prices come from EIA, World Bank Commodity
+            Price Data (The Pink Sheet, CC BY 4.0), and National Gas.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-mono-12 text-gray-900">
+            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
+              GET /api/snapshots?range={range}
+            </code>
+            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
+              GET /api/generation?range={range}
+            </code>
+            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
+              GET /api/prices?range={commodityRange}
+            </code>
           </div>
+          <p className="mt-3 text-label-12 text-gray-900">
+            URL state is canonical for the selected range, commodity horizon, and section focus.
+            Rate limit remains 60 requests per minute.
+          </p>
         </footer>
       </main>
-    </div>
-  );
-}
-
-function SectionCard({
-  id,
-  title,
-  icon,
-  tooltip,
-  headerRight,
-  children,
-  fullWidth = false,
-  active = false,
-}: {
-  id?: string;
-  title: string;
-  icon?: React.ReactNode;
-  tooltip?: string;
-  headerRight?: React.ReactNode;
-  children: React.ReactNode;
-  fullWidth?: boolean;
-  active?: boolean;
-}) {
-  return (
-    <section
-      id={id}
-      className={`relative min-w-0 rounded-[28px] border bg-white/[0.035] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)] ${
-        fullWidth ? "xl:col-span-2" : ""
-      } ${
-        active
-          ? "border-emerald-300/30 shadow-[0_24px_80px_rgba(16,185,129,0.12)]"
-          : "border-white/10"
-      }`}
-    >
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          {icon ? (
-            <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-              {icon}
-            </div>
-          ) : null}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-semibold tracking-tight text-gray-1000">{title}</h2>
-              {tooltip ? <InfoTooltip text={tooltip} label={`What is ${title}?`} /> : null}
-            </div>
-          </div>
-        </div>
-        {headerRight}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function OverviewSectionSkeleton() {
-  return (
-    <>
-      <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
-          <Skeleton className="h-7 w-36 rounded-full" />
-          <Skeleton className="h-7 w-32 rounded-full" />
-          <Skeleton className="h-7 w-28 rounded-full" />
-        </div>
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-full max-w-3xl" />
-          <Skeleton className="h-4 w-full max-w-2xl" />
-          <Skeleton className="h-4 w-3/4 max-w-2xl" />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <HeroFactSkeleton key={`hero-${index}`} />
-          ))}
-        </div>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <InsightCardSkeleton key={`insight-${index}`} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function KpiGridSkeleton() {
-  return (
-    <>
-      {Array.from({ length: 5 }).map((_, index) => (
-        <KpiCardSkeleton key={`kpi-${index}`} />
-      ))}
-    </>
-  );
-}
-
-function ChartSectionSkeleton({
-  heightClassName,
-  fullWidth = false,
-}: {
-  heightClassName: string;
-  fullWidth?: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      <Skeleton className={`${heightClassName} w-full rounded-[24px]`} />
-      <div className={`grid gap-3 ${fullWidth ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-        {Array.from({ length: fullWidth ? 3 : 2 }).map((_, index) => (
-          <Skeleton key={`chart-detail-${index}`} className="h-10 w-full rounded-2xl" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TransfersDeskSkeleton() {
-  return (
-    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-        <div className="mb-3 space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-3 w-52" />
-        </div>
-        <div className="space-y-3">
-          {Array.from({ length: 7 }).map((_, index) => (
-            <div key={`connector-${index}`} className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Skeleton className="h-4 w-28 rounded-lg" />
-                <Skeleton className="h-4 w-16 rounded-lg" />
-              </div>
-              <Skeleton className="h-4 w-full rounded-full" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-        <div className="mb-3 space-y-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-3 w-64" />
-        </div>
-        <Skeleton className="h-72 w-full rounded-[24px]" />
-      </div>
-    </div>
-  );
-}
-
-function CommodityDeskSkeleton() {
-  return (
-    <>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {PUBLIC_COMMODITIES.map((commodity) => (
-          <Skeleton key={`commodity-chip-${commodity}`} className="h-8 w-32 rounded-full" />
-        ))}
-      </div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {PUBLIC_COMMODITIES.map((commodity) => (
-          <CommodityStatCardSkeleton key={`commodity-stat-${commodity}`} />
-        ))}
-      </div>
-      <Skeleton className="h-72 w-full rounded-[24px]" />
-    </>
-  );
-}
-
-function HeroFactSkeleton() {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
-      <Skeleton className="h-3 w-24" />
-      <Skeleton className="mt-3 h-7 w-28" />
-      <Skeleton className="mt-2 h-3 w-36" />
-    </div>
-  );
-}
-
-function InsightCardSkeleton() {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-      <div className="mb-4 flex items-center gap-2">
-        <Skeleton className="h-4 w-4 rounded-full" />
-        <Skeleton className="h-4 w-28" />
-      </div>
-      <Skeleton className="h-8 w-24" />
-      <Skeleton className="mt-2 h-3 w-40" />
-    </div>
-  );
-}
-
-function KpiCardSkeleton() {
-  return (
-    <div className="rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-4 w-4 rounded-full" />
-        <Skeleton className="h-3 w-24" />
-      </div>
-      <div className="mt-3 flex items-baseline gap-2">
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="h-4 w-12" />
-      </div>
-      <Skeleton className="mt-2 h-3 w-28" />
-    </div>
-  );
-}
-
-function CommodityStatCardSkeleton() {
-  return (
-    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-2.5 w-2.5 rounded-full" />
-      </div>
-      <Skeleton className="mt-3 h-8 w-24" />
-      <Skeleton className="mt-2 h-4 w-32" />
-      <Skeleton className="mt-2 h-3 w-20" />
-    </div>
-  );
-}
-
-function InsightCard({
-  title,
-  value,
-  detail,
-  tone,
-  icon,
-}: {
-  title: string;
-  value: string;
-  detail: string;
-  tone: "emerald" | "amber" | "blue" | "sky" | "rose" | "cyan" | "violet";
-  icon: React.ReactNode;
-}) {
-  const toneClasses: Record<string, string> = {
-    emerald: "border-emerald-400/20 bg-emerald-400/[0.08]",
-    amber: "border-amber-400/20 bg-amber-400/[0.08]",
-    blue: "border-blue-400/20 bg-blue-400/[0.08]",
-    sky: "border-sky-400/20 bg-sky-400/[0.08]",
-    rose: "border-rose-400/20 bg-rose-400/[0.08]",
-    cyan: "border-cyan-400/20 bg-cyan-400/[0.08]",
-    violet: "border-violet-400/20 bg-violet-400/[0.08]",
-  };
-
-  return (
-    <div className={`rounded-3xl border p-4 ${toneClasses[tone]}`}>
-      <div className="mb-4 flex items-center gap-2 text-sm text-gray-900">
-        {icon}
-        <span>{title}</span>
-      </div>
-      <p className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-gray-900">{detail}</p>
     </div>
   );
 }
@@ -1062,203 +403,70 @@ function CommodityStatCard({
   percentageDelta: number;
 }) {
   const rising = absoluteDelta >= 0;
-  const deltaColor = rising ? "text-emerald-300" : "text-rose-300";
 
   return (
-    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+    <div className="surface-card p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-900">
+        <p className="text-label-13 text-gray-900">
           {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
         </p>
         <span
-          className="h-2.5 w-2.5 rounded-full"
+          className="size-2.5 rounded-full"
           style={{ backgroundColor: COMMODITY_COLORS[commodity] ?? "#64748b" }}
+          aria-hidden="true"
         />
       </div>
-      <p className="mt-3 font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">
+      <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">
         {latest ? formatCommodityPrice(latest) : "—"}
+        {latest ? (
+          <span className="text-heading-32 text-gray-700">{commodityUnitSuffix(latest.unit)}</span>
+        ) : null}
       </p>
-      <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
-        {rising ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-        <span>
-          {formatSignedCurrency(absoluteDelta, latest?.currency)} · {formatSignedPercentage(percentageDelta)}
-        </span>
+      <p className={`mt-1 text-label-12 ${rising ? "text-green-700" : "text-red-700"}`}>
+        {rising ? (
+          <ArrowUpRight className="mr-0.5 inline size-3.5" aria-hidden="true" />
+        ) : (
+          <ArrowDownRight className="mr-0.5 inline size-3.5" aria-hidden="true" />
+        )}
+        {formatSignedCurrency(absoluteDelta, latest?.currency)} · {formatSignedPercentage(percentageDelta)}
+      </p>
+    </div>
+  );
+}
+
+function TransfersSkeleton() {
+  return (
+    <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
+      <Skeleton className="h-64 w-full rounded-xl" />
+      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+    </div>
+  );
+}
+
+function CommoditySkeleton() {
+  return (
+    <>
+      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+        {COMMODITY_CARD_KEYS.map((commodity) => (
+          <Skeleton key={commodity} className="h-28 w-full rounded-xl" />
+        ))}
       </div>
-      <p className="mt-1 text-xs text-gray-900">{latest ? normalizeUnit(latest.unit) : "No current value"}</p>
+      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+    </>
+  );
+}
+
+function EmptyState({ stamp }: { stamp: string }) {
+  return (
+    <div className="flex h-40 items-center justify-center rounded-xl border border-gray-alpha-400 bg-background-200 text-copy-14 text-gray-900">
+      Data is catching up. Last update {stamp.replace("Data as of ", "")}
     </div>
   );
-}
-
-function HeroFact({
-  label,
-  value,
-  detail,
-  asOf,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  asOf?: string | null;
-}) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-black/15 p-4">
-      <p className="text-xs text-gray-900">{label}</p>
-      {asOf ? (
-        <p className="mt-1 font-mono text-xs tabular-nums text-gray-900">as of {asOf}</p>
-      ) : null}
-      <p className="mt-3 font-mono text-2xl font-semibold tabular-nums tracking-tight text-gray-1000">{value}</p>
-      <p className="mt-2 text-sm text-gray-900">{detail}</p>
-    </div>
-  );
-}
-
-function Badge({ label, tone }: { label: string; tone: "emerald" | "sky" | "violet" | "amber" }) {
-  const toneMap: Record<string, string> = {
-    emerald: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
-    sky: "border-sky-300/25 bg-sky-300/10 text-sky-100",
-    violet: "border-violet-300/25 bg-violet-300/10 text-violet-100",
-    amber: "border-amber-300/25 bg-amber-300/10 text-amber-100",
-  };
-
-  return (
-    <span className={`rounded-full border px-3 py-1 text-xs font-medium ${toneMap[tone]}`}>
-      {label}
-    </span>
-  );
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-gray-alpha-400 bg-background-200 text-sm text-gray-900">
-      {label}
-    </div>
-  );
-}
-
-type TransferStance =
-  | { kind: "unknown" }
-  | { kind: "balanced"; mw: number }
-  | { kind: "import"; mw: number }
-  | { kind: "export"; mw: number };
-
-function transferStanceFrom(netImportsMw: number | null): TransferStance {
-  if (netImportsMw == null) {
-    return { kind: "unknown" };
-  }
-  if (Math.abs(netImportsMw) < 25) {
-    return { kind: "balanced", mw: netImportsMw };
-  }
-  return netImportsMw > 0
-    ? { kind: "import", mw: netImportsMw }
-    : { kind: "export", mw: netImportsMw };
-}
-
-function transferBriefing(stance: TransferStance): string {
-  switch (stance.kind) {
-    case "unknown":
-      return "cross-border transfer stance is unknown";
-    case "balanced":
-      return "cross-border flows are broadly balanced";
-    case "import":
-      return `Britain is importing ${formatGigawatts(stance.mw, 2)} GW`;
-    case "export":
-      return `Britain is exporting ${formatGigawatts(Math.abs(stance.mw), 2)} GW`;
-    default: {
-      const exhaustive: never = stance;
-      return exhaustive;
-    }
-  }
-}
-
-function transferHeroValue(stance: TransferStance): string {
-  switch (stance.kind) {
-    case "unknown":
-      return "Unknown";
-    case "balanced":
-      return "Balanced";
-    case "import":
-    case "export":
-      return `${formatGigawatts(Math.abs(stance.mw), 2)} GW ${stance.kind}`;
-    default: {
-      const exhaustive: never = stance;
-      return exhaustive;
-    }
-  }
-}
-
-function transferInsightValue(stance: TransferStance, importShare: number | null): string {
-  switch (stance.kind) {
-    case "unknown":
-      return "Unknown";
-    case "balanced":
-      return "Balanced";
-    case "import":
-    case "export":
-      if (importShare == null) {
-        return stance.kind;
-      }
-      return `${formatSignedPercentage(importShare)} of demand`;
-    default: {
-      const exhaustive: never = stance;
-      return exhaustive;
-    }
-  }
-}
-
-function transferKpiValue(stance: TransferStance): string {
-  switch (stance.kind) {
-    case "unknown":
-      return "—";
-    case "balanced":
-      return "0.00";
-    case "import":
-    case "export":
-      return formatGigawatts(Math.abs(stance.mw), 2);
-    default: {
-      const exhaustive: never = stance;
-      return exhaustive;
-    }
-  }
-}
-
-function transferKpiDetail(stance: TransferStance): string {
-  switch (stance.kind) {
-    case "unknown":
-      return "unknown";
-    case "balanced":
-    case "import":
-    case "export":
-      return stance.kind;
-    default: {
-      const exhaustive: never = stance;
-      return exhaustive;
-    }
-  }
-}
-
-function formatOptionalNumber(value: number | null): string {
-  return value == null ? "—" : String(value);
-}
-
-function formatOptionalGw(value: number | null): string {
-  return value == null ? "—" : formatGigawatts(value);
 }
 
 function formatCommodityPrice(latest: CommodityPrice): string {
   const symbol = latest.currency === "EUR" ? "€" : latest.currency === "GBP" ? "£" : "$";
   return `${symbol}${latest.price.toFixed(2)}`;
-}
-
-function formatFuelLabel(fuelType: string): string {
-  return fuelLabel(normalizeFuelType(fuelType));
-}
-
-function formatGigawatts(valueMw: number, digits = 1): string {
-  return (valueMw / 1000).toFixed(digits);
-}
-
-function formatGigawattsNumber(valueMw: number, digits = 1): number {
-  return Number(formatGigawatts(valueMw, digits));
 }
 
 function formatSignedCurrency(value: number, currency?: string): string {
@@ -1272,11 +480,6 @@ function formatSignedPercentage(value: number): string {
   return `${prefix}${Math.abs(value).toFixed(1)}%`;
 }
 
-function formatSignedNumber(value: number): string {
-  if (value === 0) return "0";
-  return `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
-}
-
-function normalizeUnit(unit: string): string {
-  return unit.replace("BBL", "bbl").replace("MMBTU", "MMBtu");
+function commodityUnitSuffix(unit: string): string {
+  return ` ${unit.replace(/^[$€£]\s*/, "").replace("BBL", "bbl").replace("MMBTU", "MMBtu")}`;
 }
