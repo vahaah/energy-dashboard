@@ -32,7 +32,7 @@ export function EquationRow({
       : ` Transmission-only demand is ${formatHeadlineGw(transmissionDemandMw)} GW.`;
 
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-end gap-2 sm:gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-1 sm:gap-4">
       <EquationStat
         stat={DISPLAYED_DEMAND_STAT}
         label="Demand"
@@ -42,7 +42,7 @@ export function EquationRow({
         timeLabel={timeLabel}
         datetime={demandStartUtc}
       />
-      <span className="mb-6 text-2xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
+      <span className="mb-7 text-xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
         =
       </span>
       <EquationStat
@@ -54,7 +54,7 @@ export function EquationRow({
         timeLabel={timeLabel}
         datetime={demandStartUtc}
       />
-      <span className="mb-6 text-2xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
+      <span className="mb-7 text-xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
         +
       </span>
       <EquationStat
@@ -96,16 +96,18 @@ function EquationStat({
         <p className="text-label-13 text-gray-900">{label}</p>
         <InfoTooltip text={help} label={`What is ${label}?`} />
       </div>
-      <p className="text-display font-sans tabular-nums text-gray-1000">
+      <p className="font-sans text-[1.75rem] leading-9 font-semibold tracking-[-0.04em] tabular-nums text-gray-1000 sm:text-display sm:leading-[3.25rem]">
         {signed ? <span className="text-gray-700">{signed}</span> : null}
         <span>{value}</span>
-        <span className="text-display text-gray-700">GW</span>
+        <span className="text-gray-700">GW</span>
       </p>
       <p className="text-label-12 text-gray-900">
-        <span data-source={source}>{source}</span>
+        <span data-source={source} className="hidden sm:inline">
+          {source}
+        </span>
         {datetime && timeLabel ? (
           <>
-            {" · "}
+            <span className="hidden sm:inline">{" · "}</span>
             <time className="text-mono-12" dateTime={datetime}>
               {timeLabel}
             </time>
