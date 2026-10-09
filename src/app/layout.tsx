@@ -32,14 +32,6 @@ export const metadata: Metadata = {
       "Half-hourly GB electricity: carbon, generation, demand, and system prices from Carbon Intensity API, Elexon, NESO, and Sheffield Solar PV Live.",
     images: ["/og.png"],
   },
-  icons: {
-    icon: [
-      {
-        url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23171717'/><text x='16' y='21' text-anchor='middle' font-size='14' fill='white' font-family='system-ui'>G</text></svg>",
-        type: "image/svg+xml",
-      },
-    ],
-  },
 };
 
 export default function RootLayout({

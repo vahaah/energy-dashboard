@@ -53,6 +53,7 @@ export type LatestFacts = {
   carbon: Fact<number> & { index: string | null };
   demand: Fact<number>;
   price: Fact<number>;
+  systemPrice: Fact<number>;
   generationMw: Fact<number>;
   netImportsMw: Fact<number>;
   pumpedStorageMw: Fact<number>;
@@ -130,6 +131,7 @@ function populatedFacts({
 
   const carbonRow = latestSnapshotWithField(daySnapshots, "carbon_intensity");
   const demandRow = latestSnapshotWithField(daySnapshots, "demand_mw");
+  const midRow = latestSnapshotWithField(daySnapshots, "price_mid_gbp_mwh");
   const priceRow = latestSnapshotWithField(daySnapshots, "price_gbp_mwh");
   const mixSnapshot = latestSnapshotWithMix(daySnapshots);
   const generationTimestamp = split.latestTimestamp || null;
@@ -137,6 +139,7 @@ function populatedFacts({
   const referenceTimestamp = latestTimestampAmong([
     carbonRow?.timestamp,
     demandRow?.timestamp,
+    midRow?.timestamp,
     priceRow?.timestamp,
     generationTimestamp,
     transferTimestamp,
@@ -173,10 +176,15 @@ function populatedFacts({
       source: "Elexon BMRS",
       definition: "Initial Transmission System Demand Outturn (ITSDO)",
     }),
-    price: snapshotFact(priceRow, "price_gbp_mwh", {
+    price: snapshotFact(midRow, "price_mid_gbp_mwh", {
       unit: "£/MWh",
       source: "Elexon BMRS",
-      definition: "Imbalance (system buy) price",
+      definition: "Short-term wholesale market price (Market Index, APXMIDP)",
+    }),
+    systemPrice: snapshotFact(priceRow, "price_gbp_mwh", {
+      unit: "£/MWh",
+      source: "Elexon BMRS",
+      definition: "System (imbalance) cash-out price",
     }),
     generationMw: rowsFact(
       hasFuelinstDomestic ? split.sources : [],
@@ -242,7 +250,15 @@ function blankFacts(resolution: DashboardDateResolution, empty: boolean): Latest
       periodStartUtc: null,
       periodEndUtc: null,
       source: "Elexon BMRS",
-      definition: "Imbalance (system buy) price",
+      definition: "Short-term wholesale market price (Market Index, APXMIDP)",
+    },
+    systemPrice: {
+      value: null,
+      unit: "£/MWh",
+      periodStartUtc: null,
+      periodEndUtc: null,
+      source: "Elexon BMRS",
+      definition: "System (imbalance) cash-out price",
     },
     generationMw: {
       value: null,
@@ -368,7 +384,7 @@ function periodFromTimestamp(timestamp: string | null): {
 
 function snapshotFact(
   row: EnergySnapshot | null,
-  field: "carbon_intensity" | "demand_mw" | "price_gbp_mwh",
+  field: "carbon_intensity" | "demand_mw" | "price_gbp_mwh" | "price_mid_gbp_mwh",
   meta: { unit: string; source: string; definition: string }
 ): Fact<number> {
   const value = row?.[field] ?? null;

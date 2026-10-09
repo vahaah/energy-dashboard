@@ -16,6 +16,8 @@ SQL >
             any(carbon_index) AS carbon_index,
             avg(demand_mw) AS demand_mw,
             avg(price_gbp_mwh) AS price_gbp_mwh,
+            avg(price_mid_gbp_mwh) AS price_mid_gbp_mwh,
+            avg(mid_volume_mwh) AS mid_volume_mwh,
             avg(gen_gas_pct) AS gen_gas_pct,
             avg(gen_coal_pct) AS gen_coal_pct,
             avg(gen_nuclear_pct) AS gen_nuclear_pct,
@@ -32,7 +34,9 @@ SQL >
             avg(gen_solar_mw) AS gen_solar_mw,
             avg(gen_hydro_mw) AS gen_hydro_mw,
             avg(gen_biomass_mw) AS gen_biomass_mw,
-            avg(gen_other_mw) AS gen_other_mw
+            avg(gen_other_mw) AS gen_other_mw,
+            avg(gen_pumped_mw) AS gen_pumped_mw,
+            avg(gen_battery_mw) AS gen_battery_mw
         FROM energy_snapshots FINAL
         WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
           AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}
@@ -46,6 +50,8 @@ SQL >
             any(carbon_index) AS carbon_index,
             avg(demand_mw) AS demand_mw,
             avg(price_gbp_mwh) AS price_gbp_mwh,
+            avg(price_mid_gbp_mwh) AS price_mid_gbp_mwh,
+            avg(mid_volume_mwh) AS mid_volume_mwh,
             avg(gen_gas_pct) AS gen_gas_pct,
             avg(gen_coal_pct) AS gen_coal_pct,
             avg(gen_nuclear_pct) AS gen_nuclear_pct,
@@ -62,7 +68,9 @@ SQL >
             avg(gen_solar_mw) AS gen_solar_mw,
             avg(gen_hydro_mw) AS gen_hydro_mw,
             avg(gen_biomass_mw) AS gen_biomass_mw,
-            avg(gen_other_mw) AS gen_other_mw
+            avg(gen_other_mw) AS gen_other_mw,
+            avg(gen_pumped_mw) AS gen_pumped_mw,
+            avg(gen_battery_mw) AS gen_battery_mw
         FROM energy_snapshots FINAL
         WHERE timestamp >= {{DateTime(start, '2026-01-01 00:00:00')}}
           AND timestamp <= {{DateTime(end, '2099-01-01 00:00:00')}}

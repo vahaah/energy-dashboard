@@ -10,6 +10,7 @@ import type {
   Generation5min,
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
+import { elexonBmrsAttribution, ELEXON_BMRS_LICENCE_URL } from "@/lib/attribution";
 import {
   dashboardSearchParamParsers,
   dateParamForRange,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/dashboard-model";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SiteHeader } from "@/components/site-header";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
@@ -49,6 +51,17 @@ const COMMODITY_RANGE_OPTIONS = [
   { value: "90d", label: "90d" },
   { value: "1y", label: "1y" },
 ] as const;
+
+const PRICE_SERIES_OPTIONS = [
+  { value: "mid", label: "Market" },
+  { value: "system", label: "System" },
+] as const;
+
+const COMMODITY_HELP: Record<string, string> = {
+  brent_crude: "North Sea crude oil benchmark. Source: US EIA.",
+  henry_hub_gas: "US natural gas benchmark. Source: US EIA.",
+  gb_gas_sap: "Great Britain System Average Price for gas. Source: National Gas.",
+};
 
 interface Props {
   searchParams: DashboardSearchParams;
@@ -86,6 +99,7 @@ export function Dashboard({
   const range = urlState.range ?? searchParams.range;
   const commodityRange = urlState.commodityRange ?? searchParams.commodityRange;
   const focus = urlState.focus ?? searchParams.focus;
+  const priceSeries = urlState.price ?? searchParams.price;
   const activeDate = urlState.date ?? searchParams.date ?? selectedDate ?? todayDate;
   const power = getDisplayedPower(facts, headlineSnapshots);
 
@@ -201,7 +215,7 @@ export function Dashboard({
         }}
       />
 
-      <main className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-12 overflow-x-clip px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
         {facts.empty && facts.emptyState && !isPending ? (
           <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
             <h1 className="text-heading-32">{answer}</h1>
@@ -215,7 +229,13 @@ export function Dashboard({
           </div>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
+            <div className="flex items-center gap-2">
+              <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
+              <InfoTooltip
+                text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
+                label="What is What's powering Britain?"
+              />
+            </div>
             {isPending ? (
               <Skeleton className="mt-2 h-10 w-full max-w-3xl" />
             ) : (
@@ -242,13 +262,26 @@ export function Dashboard({
         <SectionBlock
           id="section-price"
           title="What does power cost?"
-          tooltip="The system (imbalance) price is the cash-out price for being long or short in a half-hour. It is not the day-ahead wholesale price."
+          tooltip="Market is the short-term wholesale market price from Elexon’s Market Index (APXMIDP). It is not the day-ahead auction price. System is the imbalance (cash-out) price for being long or short in a half-hour."
           active={focus === "price"}
+          headerRight={
+            <TimeRangeSelector
+              value={priceSeries}
+              onChange={(nextSeries) => {
+                void setUrlState({ price: nextSeries });
+              }}
+              options={PRICE_SERIES_OPTIONS}
+              pending={isPending}
+              compact
+              variant="segmented"
+              ariaLabel="Price series"
+            />
+          }
         >
           {isPending ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : hasSnapshots ? (
-            <ElectricityPriceChart data={initialSnapshots} range={range} />
+            <ElectricityPriceChart data={initialSnapshots} range={range} series={priceSeries} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -263,13 +296,25 @@ export function Dashboard({
           {isPending ? (
             <TransfersSkeleton />
           ) : hasInterconnectorHistory ? (
-            <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
-              <div>
-                <h3 className="mb-3 text-heading-16 text-gray-1000">Latest flows</h3>
+            <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+              <div className="min-w-0">
+                <div className="mb-3 flex items-center gap-2">
+                  <h3 className="text-heading-16 text-gray-1000">Latest flows</h3>
+                  <InfoTooltip
+                    text="The latest metered flow on each interconnector. Positive is an import into Great Britain. Source: Elexon FUELINST."
+                    label="What is Latest flows?"
+                  />
+                </div>
                 <InterconnectorChart data={latestInterconnectors} />
               </div>
-              <div>
-                <h3 className="mb-3 text-heading-16 text-gray-1000">Flows over time</h3>
+              <div className="min-w-0">
+                <div className="mb-3 flex items-center gap-2">
+                  <h3 className="text-heading-16 text-gray-1000">Flows over time</h3>
+                  <InfoTooltip
+                    text="How those interconnector flows moved through the selected window. Source: Elexon FUELINST."
+                    label="What is Flows over time?"
+                  />
+                </div>
                 <InterconnectorFlowsChart data={generationHistory} range={range} />
               </div>
             </div>
@@ -366,9 +411,20 @@ export function Dashboard({
           <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
             Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
-            wind, and Sheffield Solar PV Live. The system price is the Elexon imbalance (cash-out)
-            price, not day-ahead wholesale. Oil and gas prices come from EIA, World Bank Commodity
-            Price Data (The Pink Sheet, CC BY 4.0), and National Gas.
+            wind, and Sheffield Solar PV Live. The headline price is the short-term wholesale
+            market price from Elexon’s Market Index (APXMIDP), not the day-ahead auction. System
+            price is the imbalance (cash-out) price. Oil and gas prices come from EIA, World Bank
+            Commodity Price Data (The Pink Sheet, CC BY 4.0), and National Gas.
+          </p>
+          <p className="mt-3 max-w-3xl text-copy-14 text-gray-900">
+            {elexonBmrsAttribution()}{" "}
+            <a
+              href={ELEXON_BMRS_LICENCE_URL}
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+            >
+              BMRS Data Licence
+            </a>
+            .
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-mono-12 text-gray-900">
             <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
@@ -407,9 +463,15 @@ function CommodityStatCard({
   return (
     <div className="surface-card p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-label-13 text-gray-900">
-          {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
-        </p>
+        <div className="flex min-w-0 items-center gap-1">
+          <p className="text-label-13 text-gray-900">
+            {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
+          </p>
+          <InfoTooltip
+            text={COMMODITY_HELP[commodity] ?? "Oil or gas price context. Source listed on the card."}
+            label={`What is ${COMMODITY_CARD_LABELS[commodity] ?? commodity}?`}
+          />
+        </div>
         <span
           className="size-2.5 rounded-full"
           style={{ backgroundColor: COMMODITY_COLORS[commodity] ?? "#64748b" }}

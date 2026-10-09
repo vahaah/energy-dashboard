@@ -1,4 +1,4 @@
-import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
+import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS, SNAPSHOT_STORAGE_FUELS } from "@/lib/ingest/fuels";
 import { formatTinybirdDateTime } from "@/lib/london-time";
 
 export type CarbonPoint = {
@@ -13,6 +13,8 @@ export type SnapshotSources = {
   mix?: Record<string, number> | null;
   demandMw?: number | null;
   priceGbpMwh?: number | null;
+  priceMidGbpMwh?: number | null;
+  midVolumeMwh?: number | null;
   genMw?: Record<string, number> | null;
 };
 
@@ -32,6 +34,8 @@ export function buildSnapshotRow(input: SnapshotSources): Record<string, unknown
     carbon_index: carbon?.index ?? "unknown",
     demand_mw: nullableNumber(input.demandMw),
     price_gbp_mwh: nullableNumber(input.priceGbpMwh),
+    price_mid_gbp_mwh: nullableNumber(input.priceMidGbpMwh),
+    mid_volume_mwh: nullableNumber(input.midVolumeMwh),
   };
 
   for (const fuel of SNAPSHOT_MIX_FUELS) {
@@ -39,6 +43,10 @@ export function buildSnapshotRow(input: SnapshotSources): Record<string, unknown
   }
 
   for (const fuel of SNAPSHOT_FUELS) {
+    row[`gen_${fuel}_mw`] = genMw ? nullableNumber(genMw[fuel]) : null;
+  }
+
+  for (const fuel of SNAPSHOT_STORAGE_FUELS) {
     row[`gen_${fuel}_mw`] = genMw ? nullableNumber(genMw[fuel]) : null;
   }
 

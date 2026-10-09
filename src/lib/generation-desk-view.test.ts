@@ -90,6 +90,7 @@ function facts(overrides: Partial<LatestFacts> = {}): LatestFacts {
     carbon: { ...fact(80, "2026-09-28T07:00:00.000Z", "Carbon Intensity API"), index: "low" },
     demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     price: fact(50, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+    systemPrice: fact(50, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     generationMw: fact(20215, "2026-09-28T07:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
     netImportsMw: fact(1147, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     pumpedStorageMw: fact(231, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
@@ -593,9 +594,12 @@ describe("now by source", () => {
       "biomass",
       "hydro",
       "imports",
+      "pumped_storage",
       "other",
       "embedded_solar",
       "embedded_wind",
+      "battery",
+      "oil",
       "coal",
     ]);
     expect(view.rows[0]).toMatchObject({
@@ -631,6 +635,7 @@ describe("now by source", () => {
       "biomass",
       "hydro",
       "imports",
+      "pumped_storage",
       "other",
     ]);
     expect(view.stacked.reduce((sum, segment) => sum + segment.pct, 0)).toBeCloseTo(100, 5);

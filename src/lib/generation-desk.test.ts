@@ -112,10 +112,12 @@ describe("latest generation snapshot alignment", () => {
       "imports",
       "nuclear",
       "other",
+      "pumped_storage",
       "wind",
     ]);
     expect(shares.find((share) => share.fuel === "gas")?.mw).toBe(7563);
-    expect(shares.find((share) => share.fuel === "hydro")?.mw).toBe(802);
+    expect(shares.find((share) => share.fuel === "hydro")?.mw).toBe(571);
+    expect(shares.find((share) => share.fuel === "pumped_storage")?.mw).toBe(231);
     expect(shares.find((share) => share.fuel === "imports")?.mw).toBe(1147);
     expect(shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(917);
     expect(shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);

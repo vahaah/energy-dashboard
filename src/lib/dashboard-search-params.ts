@@ -15,6 +15,7 @@ export const DASHBOARD_FOCUSES = [
   "commodities",
   "carbon",
 ] as const;
+export const PRICE_SERIES = ["mid", "system"] as const;
 
 export const DASHBOARD_COVERAGE_DAYS = 365;
 
@@ -91,6 +92,7 @@ export const dashboardSearchParamParsers = {
   range: parseAsStringLiteral(DASHBOARD_RANGES).withDefault("24h"),
   commodityRange: parseAsStringLiteral(COMMODITY_RANGES).withDefault("90d"),
   focus: parseAsStringLiteral(DASHBOARD_FOCUSES).withDefault("overview"),
+  price: parseAsStringLiteral(PRICE_SERIES).withDefault("mid"),
   date: parseAsDashboardDate,
 };
 

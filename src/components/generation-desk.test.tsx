@@ -48,6 +48,7 @@ function facts(generationRows: Generation5min[]): LatestFacts {
     carbon: { ...fact(80, "2026-09-28T07:00:00.000Z", "Carbon Intensity API"), index: "low" },
     demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     price: fact(50, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+    systemPrice: fact(50, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     generationMw: fact(19298, "2026-09-28T07:00:00.000Z", "Elexon BMRS, NESO, Sheffield Solar PV Live"),
     netImportsMw: fact(396, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
     pumpedStorageMw: fact(231, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),

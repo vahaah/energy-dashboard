@@ -17,6 +17,7 @@ describe("dashboard search params", () => {
       range: "24h",
       commodityRange: "90d",
       focus: "overview",
+      price: "mid",
       date: null,
     });
   });
@@ -28,6 +29,7 @@ describe("dashboard search params", () => {
           range: "7d",
           commodityRange: "1y",
           focus: "commodities",
+          price: "system",
           date: "2026-03-10",
         })
       )
@@ -35,6 +37,7 @@ describe("dashboard search params", () => {
       range: "7d",
       commodityRange: "1y",
       focus: "commodities",
+      price: "system",
       date: "2026-03-10",
     });
 
@@ -51,6 +54,7 @@ describe("dashboard search params", () => {
       range: "24h",
       commodityRange: "90d",
       focus: "overview",
+      price: "mid",
       date: null,
     });
   });
@@ -72,9 +76,10 @@ describe("dashboard search params", () => {
         range: "30d",
         commodityRange: "1y",
         focus: "transfers",
+        price: "system",
         date: "2026-03-10",
       })
-    ).toBe("?range=30d&commodityRange=1y&focus=transfers&date=2026-03-10");
+    ).toBe("?range=30d&commodityRange=1y&focus=transfers&price=system&date=2026-03-10");
   });
 });
 

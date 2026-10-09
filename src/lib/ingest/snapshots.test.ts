@@ -10,6 +10,10 @@ describe("snapshot nulls", () => {
 
     expect(row.timestamp).toBe("2026-09-27 08:00:00");
     expect(row.price_gbp_mwh).toBeNull();
+    expect(row.price_mid_gbp_mwh).toBeNull();
+    expect(row.mid_volume_mwh).toBeNull();
+    expect(row.gen_pumped_mw).toBeNull();
+    expect(row.gen_battery_mw).toBeNull();
     expect(row.demand_mw).toBeNull();
     expect(row.carbon_intensity).toBeNull();
     expect(row.gen_gas_pct).toBeNull();

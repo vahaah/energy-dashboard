@@ -22,16 +22,29 @@ import {
 } from "@/lib/chart-theme";
 import type { EnergySnapshot, TimeRange } from "@/lib/types";
 
+export type PriceSeries = "mid" | "system";
+
 interface Props {
   data: EnergySnapshot[];
   range: TimeRange;
+  series?: PriceSeries;
 }
 
-export function ElectricityPriceChart({ data, range }: Props) {
+export function ElectricityPriceChart({ data, range, series = "mid" }: Props) {
   const chartData = data.map((d) => ({
     time: d.timestamp,
-    price: d.price_gbp_mwh == null ? null : Math.round(d.price_gbp_mwh * 100) / 100,
+    price: priceValue(d, series),
   }));
+  const name = series === "mid" ? "Market price" : "System price";
+  if (!chartData.some((point) => point.price != null)) {
+    return (
+      <p className="text-copy-14 text-gray-900">
+        {series === "mid"
+          ? "No short-term wholesale market prices in this window."
+          : "No system prices in this window."}
+      </p>
+    );
+  }
 
   return (
     <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
@@ -66,7 +79,7 @@ export function ElectricityPriceChart({ data, range }: Props) {
               return (
                 <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
                   <p className="flex justify-between gap-6">
-                    <span>System price</span>
+                    <span>{name}</span>
                     <span className="tabular-nums">{value == null ? "—" : `£${Number(value).toFixed(2)}`}</span>
                   </p>
                 </ChartTooltipCard>
@@ -78,7 +91,7 @@ export function ElectricityPriceChart({ data, range }: Props) {
             type="monotone"
             dataKey="price"
             stroke="var(--gray-1000)"
-            name="System price"
+            name={name}
             {...chartHeroLine}
             {...chartAnimation}
           />
@@ -86,4 +99,9 @@ export function ElectricityPriceChart({ data, range }: Props) {
       </ResponsiveContainer>
     </ResponsiveChartFrame>
   );
+}
+
+function priceValue(snapshot: EnergySnapshot, series: PriceSeries): number | null {
+  const value = series === "mid" ? snapshot.price_mid_gbp_mwh : snapshot.price_gbp_mwh;
+  return value == null ? null : Math.round(value * 100) / 100;
 }

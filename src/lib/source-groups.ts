@@ -4,6 +4,7 @@ import {
   INTERCONNECTOR_LABELS,
 } from "@/lib/colors";
 import {
+  isBatteryFuel,
   isInterconnectorFuel,
   isPumpedStorageFuel,
   normalizeFuelType,
@@ -40,6 +41,7 @@ export type SourceGroupView = {
   id: SourceGroupId;
   label: string;
   color: string;
+  help: string;
   mw: number | null;
   gwLabel: string;
   sharePct: number | null;
@@ -68,6 +70,14 @@ const GROUP_COLORS: Record<SourceGroupId, string> = {
   storage: fuelColor("pumped_storage"),
 };
 
+export const GROUP_HELP: Record<SourceGroupId, string> = {
+  fossil: "Gas, oil and coal-fired power stations. Gas is CCGT plus OCGT. Source: Elexon FUELINST.",
+  renewables: "Wind, solar and conventional hydro. Pumped storage sits under Storage, not here. Source: Elexon FUELINST, NESO and Sheffield Solar PV Live.",
+  other: "Nuclear, biomass and other generation that does not fit the named fuels. Source: Elexon FUELINST.",
+  interconnectors: "High-voltage links to neighbouring grids. Positive is an import into Great Britain. Source: Elexon FUELINST.",
+  storage: "Pumped hydro and batteries when they are generating. Charging is not counted as demand. Source: Elexon FUELINST.",
+};
+
 const HELP: Record<string, string> = {
   gas: "Gas-fired power stations (CCGT and OCGT). Source: Elexon FUELINST.",
   coal: "Coal-fired generation. Britain’s last coal plant closed in 2024, so this is usually zero. Source: Elexon FUELINST.",
@@ -79,8 +89,11 @@ const HELP: Record<string, string> = {
   biomass: "Biomass generation. Source: Elexon FUELINST.",
   other: "Other generation that does not fit the named fuels. Source: Elexon FUELINST.",
   pumped_storage: "Pumped hydro when it is generating. Charging is not counted as demand here. Source: Elexon FUELINST.",
-  battery: "Battery discharge is not published as a national series yet.",
+  battery: "Battery discharge when Elexon publishes it. Charging isn’t published as a national series. Source: Elexon FUELINST.",
 };
+
+export const MIX_BAR_HELP =
+  "Each segment is that source’s share of demand, including estimated embedded wind and solar. Segments can add up to more than 100% when Britain is exporting.";
 
 const COUNTRY_HELP = "Metered flow on the interconnectors to this country. Positive is an import into Great Britain. Source: Elexon FUELINST.";
 
@@ -107,6 +120,7 @@ export function buildGroupedSourceTable(
   addFuel(buckets, "biomass", latest, ["biomass"]);
   addFuel(buckets, "other", latest, ["other"]);
   addFuel(buckets, "pumped_storage", latest, ["ps"]);
+  addFuel(buckets, "battery", latest, ["bess", "battery"]);
 
   const countryMw = new Map<string, number>();
   for (const [fuel, row] of latest) {
@@ -125,6 +139,7 @@ export function buildGroupedSourceTable(
       id,
       label: GROUP_LABELS[id],
       color: GROUP_COLORS[id],
+      help: GROUP_HELP[id],
       mw,
       gwLabel: formatHeadlineGw(mw),
       sharePct: mw == null ? null : sharePct(mw, demandMw),
@@ -188,16 +203,7 @@ function rowsForGroup(
     case "storage":
       return [
         sourceRow("pumped_storage", buckets.get("pumped_storage"), demandMw, sparklineRows),
-        rowView({
-          id: "battery",
-          label: "Battery",
-          mw: null,
-          color: fuelColor("battery"),
-          help: HELP.battery ?? "",
-          sparkline: [],
-          demandMw,
-          missingNote: "not published",
-        }),
+        batteryRow(buckets.get("battery"), demandMw, sparklineRows),
       ];
     default: {
       const exhaustive: never = group;
@@ -221,6 +227,24 @@ function sourceRow(
     sparkline: sparklineForFuels(sparklineRows, bucket?.fuels ?? fuelsFor(id)),
     demandMw,
     missingNote: bucket ? null : "no data",
+  });
+}
+
+function batteryRow(
+  bucket: Accumulator | undefined,
+  demandMw: number | null,
+  sparklineRows: Generation5min[]
+): SourceRowView {
+  const discharging = bucket != null && bucket.mw > 0;
+  return rowView({
+    id: "battery",
+    label: "Battery",
+    mw: discharging ? bucket.mw : null,
+    color: fuelColor("battery"),
+    help: HELP.battery ?? "",
+    sparkline: discharging ? sparklineForFuels(sparklineRows, bucket.fuels) : [],
+    demandMw,
+    missingNote: "discharge only; charging isn’t published",
   });
 }
 
@@ -275,6 +299,9 @@ function addFuel(
     if (isPumpedStorageFuel(fuel) && row.generation_mw < 0) {
       continue;
     }
+    if (isBatteryFuel(fuel) && row.generation_mw <= 0) {
+      continue;
+    }
     mw += row.generation_mw;
     present.push(fuel);
   }
@@ -296,6 +323,8 @@ function fuelsFor(id: string): string[] {
       return ["hydro", "npshyd"];
     case "pumped_storage":
       return ["ps"];
+    case "battery":
+      return ["bess", "battery"];
     default:
       return [id];
   }
@@ -377,6 +406,9 @@ function sparklineSeries(
       continue;
     }
     if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
+      continue;
+    }
+    if (isBatteryFuel(row.fuel_type) && row.generation_mw <= 0) {
       continue;
     }
     const bucket = Math.floor(parseUtcDateTime(row.timestamp).getTime() / SPARKLINE_BUCKET_MS) * SPARKLINE_BUCKET_MS;
