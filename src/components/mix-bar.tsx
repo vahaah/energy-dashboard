@@ -14,7 +14,7 @@ export function MixBar({ table }: { table: GroupedSourceTable }) {
       {table.mix.map((segment) => (
         <span
           key={segment.id}
-          className={`h-full ${segment.hatched ? "import-hatch" : ""}`}
+          className={`h-full shrink-0 ${segment.hatched ? "import-hatch" : ""}`}
           style={{
             width: `${segment.pct}%`,
             backgroundColor: segment.hatched ? undefined : segment.color,

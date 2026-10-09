@@ -40,7 +40,7 @@ export function EquationRow({
         stat={DISPLAYED_DEMAND_STAT}
         label="Demand"
         value={formatHeadlineGw(demandMw)}
-        help={`${demandDefinition}, including estimated embedded wind and solar.${transmissionNote} Source: ${demandSource}.`}
+        help={`${demandDefinition}.${transmissionNote} Source: ${demandSource}.`}
         source={demandSource}
         timeLabel={demandStartUtc ? formatPlainSettlementWindow(demandStartUtc) : null}
         datetime={demandStartUtc}

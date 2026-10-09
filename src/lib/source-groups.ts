@@ -133,20 +133,23 @@ export function buildGroupedSourceTable(
     };
   });
 
-  const mix = groups
-    .flatMap((group) => group.rows)
-    .filter((row) => row.mw != null && row.mw > 0)
-    .map((row) => {
-      const mw = row.mw ?? 0;
-      return {
-        id: row.id,
-        label: row.label,
-        mw,
-        pct: sharePct(mw, demandMw),
-        color: row.color,
-        hatched: groupOf(row.id) === "interconnectors",
-      };
-    });
+  const mix =
+    demandMw == null || demandMw <= 0
+      ? []
+      : groups
+          .flatMap((group) => group.rows)
+          .filter((row) => row.mw != null && row.mw > 0)
+          .map((row) => {
+            const mw = row.mw ?? 0;
+            return {
+              id: row.id,
+              label: row.label,
+              mw,
+              pct: sharePct(mw, demandMw),
+              color: row.color,
+              hatched: groupOf(row.id) === "interconnectors",
+            };
+          });
 
   return { groups, mix };
 }
@@ -368,7 +371,7 @@ function sparklineSeries(
   rows: Generation5min[],
   include: (row: Generation5min) => boolean
 ): number[] {
-  const buckets = new Map<number, number>();
+  const buckets = new Map<number, Map<string, { sum: number; count: number }>>();
   for (const row of rows) {
     if (!include(row)) {
       continue;
@@ -377,12 +380,20 @@ function sparklineSeries(
       continue;
     }
     const bucket = Math.floor(parseUtcDateTime(row.timestamp).getTime() / SPARKLINE_BUCKET_MS) * SPARKLINE_BUCKET_MS;
-    buckets.set(bucket, (buckets.get(bucket) ?? 0) + row.generation_mw);
+    const fuels = buckets.get(bucket) ?? new Map<string, { sum: number; count: number }>();
+    const fuel = normalizeFuelType(row.fuel_type);
+    const reading = fuels.get(fuel) ?? { sum: 0, count: 0 };
+    reading.sum += row.generation_mw;
+    reading.count += 1;
+    fuels.set(fuel, reading);
+    buckets.set(bucket, fuels);
   }
 
   return Array.from(buckets.entries())
     .sort(([left], [right]) => left - right)
-    .map(([, mw]) => mw);
+    .map(([, fuels]) =>
+      Array.from(fuels.values()).reduce((sum, reading) => sum + reading.sum / reading.count, 0)
+    );
 }
 
 function sharePct(mw: number, demandMw: number | null): number {

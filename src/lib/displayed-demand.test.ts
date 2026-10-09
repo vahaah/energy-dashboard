@@ -113,6 +113,24 @@ describe("displayed demand", () => {
     expect(power.generationStartUtc).toBe("2026-09-28T06:30:00.000Z");
     expect(power.transfersStartUtc).toBe("2026-09-28T06:30:00.000Z");
     expect(power.demandMw).toBeNull();
+    expect(power.transmissionDemandMw).toBeNull();
+  });
+
+  it("uses the aligned transmission figure in the demand tooltip", () => {
+    const power = getDisplayedPower(
+      {
+        ...facts([
+          generation("2026-09-28 06:30:00", "ccgt", 8000),
+          generation("2026-09-28 06:30:00", "embedded_wind", 500, "neso"),
+        ]),
+        demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+        generationMw: fact(8500, "2026-09-28T06:30:00.000Z", "Elexon BMRS"),
+      },
+      [snapshot("2026-09-28 06:30:00", 20000)]
+    );
+
+    expect(power.demandMw).toBe(20500);
+    expect(power.transmissionDemandMw).toBe(20000);
   });
 
   it("is the only demand figure wired into the page", () => {
@@ -125,6 +143,8 @@ describe("displayed demand", () => {
     expect(desk).toContain("power.demandMw");
     expect(equation).toContain("DISPLAYED_DEMAND_STAT");
     expect(equation).toContain("data-stat={stat}");
+    expect(equation).toContain("${demandDefinition}.${transmissionNote}");
+    expect(equation).not.toContain("${demandDefinition}, including estimated embedded wind and solar.");
     expect(dashboard).not.toContain("facts.demand.value");
     expect(desk).not.toContain("facts.demand.value");
   });

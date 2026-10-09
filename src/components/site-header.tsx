@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarDays, Check, Copy } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { formatLondonDayMonthYear } from "@/lib/london-time";
 import type { TimeRange } from "@/lib/types";
 
 const PERIODS = [
@@ -58,8 +59,9 @@ export function SiteHeader({
 
         <div className="ml-auto flex items-center gap-2">
           {showDate ? (
-            <label className="relative inline-flex h-8 min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 sm:min-h-8">
+            <label className="relative inline-flex h-8 min-h-11 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-100 px-2 sm:min-h-8">
               <CalendarDays className="size-4 text-gray-1000" aria-hidden="true" />
+              <span className="text-label-13 text-gray-1000">{formatLondonDayMonthYear(activeDate)}</span>
               <span className="sr-only">Date</span>
               <input
                 type="date"

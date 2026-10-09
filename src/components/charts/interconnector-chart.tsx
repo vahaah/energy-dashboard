@@ -1,3 +1,5 @@
+"use client";
+
 import type { Generation5min } from "@/lib/types";
 import { INTERCONNECTOR_COLORS, INTERCONNECTOR_LABELS } from "@/lib/colors";
 import { normalizeFuelType } from "@/lib/dashboard-model";

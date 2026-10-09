@@ -90,6 +90,27 @@ describe("grouped source table", () => {
     expect(renewables?.rows.every((row) => row.mw == null)).toBe(true);
   });
 
+  it("omits the mix bar when demand is unavailable", () => {
+    const table = buildGroupedSourceTable(rows, null);
+    expect(table.mix).toEqual([]);
+    expect(table.groups[0]?.shareLabel).toBe("—");
+  });
+
+  it("averages repeated 5-minute readings inside a sparkline bucket", () => {
+    const table = buildGroupedSourceTable(
+      [
+        generation("2026-09-28 07:00:00", "ccgt", 6000),
+        generation("2026-09-28 07:05:00", "ccgt", 8000),
+        generation("2026-09-28 07:10:00", "ccgt", 7000),
+        generation("2026-09-28 07:00:00", "wind", 4000),
+      ],
+      20_000
+    );
+    const gas = table.groups[0]?.rows.find((row) => row.id === "gas");
+
+    expect(gas?.sparkline).toEqual([7000]);
+  });
+
   it("keeps mix-bar percentages as share of demand when Britain is exporting", () => {
     const table = buildGroupedSourceTable(rows, 12_000);
     const gas = table.mix.find((segment) => segment.label === "Gas");

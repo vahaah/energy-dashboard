@@ -22,6 +22,8 @@ describe("theme", () => {
     expect(THEME_BOOTSTRAP_SCRIPT).toContain(THEME_STORAGE_KEY);
     expect(THEME_BOOTSTRAP_SCRIPT).toContain("prefers-color-scheme: dark");
     expect(THEME_BOOTSTRAP_SCRIPT).toContain("colorScheme");
+    expect(THEME_BOOTSTRAP_SCRIPT).toMatch(/try\{s=localStorage\.getItem\(k\);\}catch/);
+    expect(THEME_BOOTSTRAP_SCRIPT).toMatch(/catch\(e\)\{\}var t=/);
   });
 
   it("keeps the system theme when storage is denied", () => {

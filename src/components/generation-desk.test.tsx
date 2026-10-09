@@ -184,6 +184,8 @@ describe("generation desk layout", () => {
     expect(deskSource).toContain("getDisplayedPower");
     expect(deskSource).toContain("buildGroupedSourceTable");
     expect(deskSource).toContain("headlineGeneration");
+    expect(readFileSync(resolve(import.meta.dirname, "./mix-bar.tsx"), "utf8")).toContain("shrink-0");
+    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain("formatLondonDayMonthYear");
     expect(dashboardSource).toContain("stale={facts.isStale}");
     expect(dashboardSource).toContain('id="section-overview"');
     expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
