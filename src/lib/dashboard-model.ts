@@ -63,8 +63,11 @@ export const GENERATION_STACK_FUELS = [
   "wind",
   "nuclear",
   "hydro",
+  "pumped_storage",
+  "battery",
   "biomass",
   "gas",
+  "oil",
   "coal",
   "imports",
   "other",
@@ -95,7 +98,13 @@ export function isEmbeddedFuel(fuelType: string): boolean {
 }
 
 export function isPumpedStorageFuel(fuelType: string): boolean {
-  return normalizeFuelType(fuelType) === "ps";
+  const fuel = normalizeFuelType(fuelType);
+  return fuel === "ps" || fuel === "pumped" || fuel === "pumped_storage";
+}
+
+export function isBatteryFuel(fuelType: string): boolean {
+  const fuel = normalizeFuelType(fuelType);
+  return fuel === "bess" || fuel === "battery";
 }
 
 /** NESO / PV Live half-hours can lead the latest FUELINST frame by up to one SP. */
@@ -145,10 +154,14 @@ export function mapGenerationFuelToStackKey(fuelType: string): string {
     case "ocgt":
       return "gas";
     case "npshyd":
-    case "ps":
       return "hydro";
+    case "ps":
+    case "pumped":
+      return "pumped_storage";
+    case "bess":
+      return "battery";
     case "oil":
-      return "other";
+      return "oil";
     default:
       return fuel;
   }
@@ -236,6 +249,9 @@ export function domesticGenerationMw(rows: Iterable<Generation5min>): number {
     if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
       continue;
     }
+    if (isBatteryFuel(row.fuel_type) && row.generation_mw <= 0) {
+      continue;
+    }
     total += row.generation_mw;
   }
 
@@ -253,6 +269,9 @@ export function groupGenerationMw(rows: Iterable<Generation5min>): Record<string
     }
 
     if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
+      continue;
+    }
+    if (isBatteryFuel(row.fuel_type) && row.generation_mw <= 0) {
       continue;
     }
 

@@ -6,7 +6,7 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
 
 **Data sources:**
 - [Carbon Intensity API](https://api.carbonintensity.org.uk) — carbon intensity, generation mix
-- [Elexon BMRS/Insights](https://bmrs.elexon.co.uk) — imbalance (cash-out) prices, demand, generation by fuel type
+- [Elexon BMRS/Insights](https://bmrs.elexon.co.uk) — Market Index (APXMIDP) short-term wholesale price, imbalance (cash-out) prices, demand, generation by fuel type
 - [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — national GB solar (including embedded)
 - [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
@@ -192,7 +192,7 @@ All API endpoints are public. Rate limiting is an in-memory 60 req/min per IP **
 
 ### `GET /api/snapshots`
 
-Returns GB grid energy snapshots. `price_gbp_mwh` is the Elexon **imbalance / cash-out (system buy)** price, not day-ahead wholesale. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`.
+Returns GB grid energy snapshots. `price_mid_gbp_mwh` is the Elexon **short-term wholesale Market Index** (APXMIDP), not the day-ahead auction. Half-hours with zero volume or £0 are stored as `null`. `price_gbp_mwh` is the **imbalance / cash-out (system buy)** price. `gen_pumped_mw` and `gen_battery_mw` are nullable storage columns. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`. The JSON includes an `attribution` block with the exact BMRS credit and licence URL.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -242,8 +242,10 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 ### `energy_snapshots` (half-hourly, UK settlement periods)
 - Carbon intensity (actual + forecast)
 - System demand (MW)
-- Imbalance / cash-out price (£/MWh)
+- Short-term wholesale Market Index price and volume (`price_mid_gbp_mwh`, `mid_volume_mwh`)
+- Imbalance / cash-out price (`price_gbp_mwh`, £/MWh)
 - Generation mix (% and MW): gas, coal, nuclear, wind, solar, hydro, biomass, imports
+- Storage MW: pumped, battery (nullable)
 - Missing values are stored as `null` so averages skip gaps
 
 ### `generation_5min`

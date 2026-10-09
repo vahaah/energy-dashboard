@@ -9,5 +9,5 @@ export function ResponsiveChartFrame({
   className: string;
   children: ReactNode;
 }) {
-  return <div className={`${className} min-h-0 min-w-0`}>{children}</div>;
+  return <div className={`${className} w-full min-h-0 min-w-0 overflow-hidden`}>{children}</div>;
 }

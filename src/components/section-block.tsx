@@ -19,7 +19,7 @@ export function SectionBlock({
   return (
     <section
       id={id}
-      className={`surface-card scroll-mt-28 p-4 sm:p-6 ${
+      className={`surface-card min-w-0 overflow-x-clip scroll-mt-28 p-4 sm:p-6 ${
         active ? "border-gray-alpha-600" : ""
       }`}
     >

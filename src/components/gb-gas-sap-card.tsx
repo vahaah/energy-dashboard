@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { COMMODITY_CARD_LABELS, COMMODITY_COLORS } from "@/lib/colors";
 import {
   formatSapGbpPerMwh,
@@ -28,9 +29,15 @@ export function GbGasSapCard({
   return (
     <div className="surface-card p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-label-13 text-gray-900">
-          {COMMODITY_CARD_LABELS[GB_GAS_SAP_COMMODITY]}
-        </p>
+        <div className="flex min-w-0 items-center gap-1">
+          <p className="text-label-13 text-gray-900">
+            {COMMODITY_CARD_LABELS[GB_GAS_SAP_COMMODITY]}
+          </p>
+          <InfoTooltip
+            text="Great Britain System Average Price for gas. Source: National Gas."
+            label="What is GB gas (SAP)?"
+          />
+        </div>
         <span
           className="size-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: COMMODITY_COLORS[GB_GAS_SAP_COMMODITY] }}

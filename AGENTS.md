@@ -112,7 +112,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | Source | Endpoint | Auth | Data |
 |--------|----------|------|------|
 | Carbon Intensity API | `api.carbonintensity.org.uk` | None | Carbon intensity (gCO₂/kWh), generation mix % |
-| Elexon BMRS | `data.elexon.co.uk` | None | Imbalance / cash-out price (£/MWh), demand, FUELINST, AGPT |
+| Elexon BMRS | `data.elexon.co.uk` | None | Market Index (APXMIDP) short-term wholesale price, imbalance / cash-out price (£/MWh), demand, FUELINST, AGPT |
 | NESO | `api.neso.energy` | None | Embedded wind, mapped with UK settlement periods |
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |

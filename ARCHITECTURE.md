@@ -5,7 +5,7 @@
 | Source | API | Frequency | Auth | Data |
 |--------|-----|-----------|------|------|
 | Carbon Intensity API | `api.carbonintensity.org.uk` | Half-hourly | None | Carbon intensity (gCO2/kWh), generation mix % |
-| Elexon BMRS | `data.elexon.co.uk` | Half-hourly | None | Imbalance / cash-out price (£/MWh), demand (MW), generation by fuel (MW) |
+| Elexon BMRS | `data.elexon.co.uk` | Half-hourly | None | Market Index (APXMIDP) short-term wholesale price, imbalance / cash-out price (£/MWh), demand (MW), generation by fuel (MW) |
 | NESO | `api.neso.energy` | Half-hourly | None | Embedded wind (UK settlement periods) |
 | Sheffield Solar PV Live | `api.pvlive.uk` | 30-min | None | National GB solar including embedded |
 | EIA (US Gov) | `api.eia.gov/v2` | Daily | `EIA_API_KEY` (required) | Brent crude, WTI crude ($/BBL), Henry Hub gas ($/MMBTU) |
@@ -33,6 +33,8 @@ carbon_forecast     Nullable(Float32) — forecast gCO2/kWh
 carbon_index        String       — 'very low' | 'low' | 'moderate' | 'high' | 'very high'
 demand_mw           Nullable(Float32) — total system demand (MW)
 price_gbp_mwh       Nullable(Float32) — imbalance / cash-out (system buy) price (£/MWh)
+price_mid_gbp_mwh   Nullable(Float32) — short-term wholesale Market Index, APXMIDP (£/MWh)
+mid_volume_mwh      Nullable(Float32) — Market Index traded volume (MWh)
 
 # Generation mix (% from Carbon Intensity API)
 gen_gas_pct         Float32
@@ -54,6 +56,8 @@ gen_solar_mw        Float32
 gen_hydro_mw        Float32
 gen_biomass_mw      Float32
 gen_other_mw        Float32
+gen_pumped_mw       Nullable(Float32) — AGPT Hydro Pumped Storage
+gen_battery_mw      Nullable(Float32) — AGPT battery when published
 ```
 
 Sorting key: `timestamp`

@@ -19,6 +19,7 @@ import type {
   CarbonIntensityResponse,
   ElexonDemand,
   ElexonGeneration,
+  ElexonMarketIndex,
   ElexonSystemPrice,
 } from "@/lib/types";
 
@@ -78,6 +79,27 @@ export async function fetchSystemPrices(settlementDate: string): Promise<ElexonS
     `https://data.elexon.co.uk/bmrs/api/v1/balancing/settlement/system-prices/${settlementDate}`
   );
   return json.data ?? [];
+}
+
+export const MID_DATA_PROVIDER = "APXMIDP";
+
+export async function fetchMarketIndex(fromIso: string, toIso: string): Promise<ElexonMarketIndex[]> {
+  const json = await fetchJson<{ data: ElexonMarketIndex[] }>(
+    `https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=${fromIso}&to=${toIso}&dataProviders=${MID_DATA_PROVIDER}`
+  );
+  return json.data ?? [];
+}
+
+export function midReadingFromRow(
+  row: ElexonMarketIndex
+): { price: number; volume: number } | null {
+  if (row.dataProvider !== MID_DATA_PROVIDER) {
+    return null;
+  }
+  if (row.volume == null || row.volume === 0 || row.price == null || row.price === 0) {
+    return null;
+  }
+  return { price: row.price, volume: row.volume };
 }
 
 /** AGPT/ITSDO publish about an hour after the period; revisions arrive later. */
@@ -159,6 +181,8 @@ export const GB_GENERATION_MAX_MW: Record<string, number> = {
   biomass: 6_000,
   other: 10_000,
   oil: 4_000,
+  pumped: 4_000,
+  battery: 5_000,
 };
 
 export function generationPeriodKey(row: ElexonGeneration): string {
@@ -258,12 +282,34 @@ export function priceByPeriod(rows: ElexonSystemPrice[]): Map<string, number> {
   return byTime;
 }
 
+export function midByPeriod(rows: ElexonMarketIndex[]): {
+  priceByTime: Map<string, number>;
+  volumeByTime: Map<string, number>;
+} {
+  const priceByTime = new Map<string, number>();
+  const volumeByTime = new Map<string, number>();
+  for (const row of rows) {
+    const reading = midReadingFromRow(row);
+    if (!reading) {
+      continue;
+    }
+    const timestamp = row.startTime
+      ? hourKey(parseUtcDateTime(row.startTime))
+      : hourKey(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod));
+    priceByTime.set(timestamp, reading.price);
+    volumeByTime.set(timestamp, reading.volume);
+  }
+  return { priceByTime, volumeByTime };
+}
+
 export function buildSnapshotRowsForPeriods(
   periods: SettlementPeriod[],
   sources: {
     intensityByTime: Map<string, IntensityRow>;
     mixByTime: Map<string, Record<string, number>>;
     priceByTime: Map<string, number>;
+    midPriceByTime: Map<string, number>;
+    midVolumeByTime: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
     rejectedGenTimes?: Set<string>;
@@ -281,6 +327,8 @@ export function buildSnapshotRowsForPeriods(
         mix: sources.mixByTime.get(key) ?? null,
         demandMw: sources.demandByTime.get(key) ?? null,
         priceGbpMwh: sources.priceByTime.get(key) ?? null,
+        priceMidGbpMwh: sources.midPriceByTime.get(key) ?? null,
+        midVolumeMwh: sources.midVolumeByTime.get(key) ?? null,
         genMw: sources.genMwByTime.get(key) ?? null,
       }),
     ];
@@ -314,21 +362,27 @@ function snapshotMapsFromFetches(parts: {
   intensity: IntensityRow[];
   mix: MixRow[];
   prices: ElexonSystemPrice[];
+  marketIndex: ElexonMarketIndex[];
   demand: ElexonDemand[];
   generation: ElexonGeneration[];
 }): {
   intensityByTime: Map<string, IntensityRow>;
   mixByTime: Map<string, Record<string, number>>;
   priceByTime: Map<string, number>;
+  midPriceByTime: Map<string, number>;
+  midVolumeByTime: Map<string, number>;
   demandByTime: Map<string, number>;
   genMwByTime: Map<string, Record<string, number>>;
   rejectedGenTimes: Set<string>;
 } {
   const generation = groupGenerationMwByPeriod(parts.generation);
+  const mid = midByPeriod(parts.marketIndex);
   return {
     intensityByTime: indexByTimestamp(parts.intensity, (row) => row.from),
     mixByTime: mixByTimestamp(parts.mix),
     priceByTime: priceByPeriod(parts.prices),
+    midPriceByTime: mid.priceByTime,
+    midVolumeByTime: mid.volumeByTime,
     demandByTime: demandByPeriod(parts.demand),
     genMwByTime: generation.byTime,
     rejectedGenTimes: generation.rejectedTimes,
@@ -341,13 +395,22 @@ export function snapshotCollectionFromSources(
     intensityByTime: Map<string, IntensityRow>;
     mixByTime: Map<string, Record<string, number>>;
     priceByTime: Map<string, number>;
+    midPriceByTime?: Map<string, number>;
+    midVolumeByTime?: Map<string, number>;
     demandByTime: Map<string, number>;
     genMwByTime: Map<string, Record<string, number>>;
     rejectedGenTimes?: Set<string>;
   },
   statuses: SourceStatus[]
 ): CollectionResult {
-  return collectionIfSourcesOk(buildSnapshotRowsForPeriods(periods, sources), statuses);
+  return collectionIfSourcesOk(
+    buildSnapshotRowsForPeriods(periods, {
+      ...sources,
+      midPriceByTime: sources.midPriceByTime ?? new Map(),
+      midVolumeByTime: sources.midVolumeByTime ?? new Map(),
+    }),
+    statuses
+  );
 }
 
 async function collectSnapshotsForPeriods(
@@ -361,13 +424,14 @@ async function collectSnapshotsForPeriods(
   const carbonTo = to.toISOString().replace(".000", "");
   const publish = elexonPublishWindow(from, to, now);
 
-  const [intensity, mix, prices, demand, generation] = await Promise.all([
+  const [intensity, mix, prices, marketIndex, demand, generation] = await Promise.all([
     settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
     settleFetch("carbon_mix", () => fetchCarbonMix(carbonFrom, carbonTo)),
     settleFetch("prices", async () => {
       const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date)));
       return sets.flat();
     }),
+    settleFetch("market_index", () => fetchMarketIndex(carbonFrom, carbonTo)),
     settleFetch("demand", () =>
       fetchElexonWindow<ElexonDemand>("ITSDO", publish.fromIso, publish.toIso)
     ),
@@ -380,6 +444,7 @@ async function collectSnapshotsForPeriods(
     statusFromFetch(intensity, (rows) => rows.length),
     statusFromFetch(mix, (rows) => rows.length),
     statusFromFetch(prices, (rows) => rows.length),
+    statusFromFetch(marketIndex, (rows) => rows.length),
     statusFromFetch(demand, (rows) => rows.length),
     statusFromFetch(generation, (rows) => rows.length),
   ];
@@ -390,6 +455,7 @@ async function collectSnapshotsForPeriods(
       intensity: intensity.value ?? [],
       mix: mix.value ?? [],
       prices: prices.value ?? [],
+      marketIndex: marketIndex.value ?? [],
       demand: demand.value ?? [],
       generation: generation.value ?? [],
     }),

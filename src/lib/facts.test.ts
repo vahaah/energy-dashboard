@@ -6,7 +6,7 @@ import type { EnergySnapshot, Generation5min } from "@/lib/types";
 import { formatHeadlineGw, getLatestFacts, supplyShares } from "@/lib/facts";
 
 function makeSnapshot(overrides: Partial<EnergySnapshot> = {}): EnergySnapshot {
-  return {
+  const snapshot: EnergySnapshot = {
     timestamp: "2026-09-27 16:00:00",
     carbon_intensity: 48,
     carbon_forecast: 48,
@@ -32,6 +32,10 @@ function makeSnapshot(overrides: Partial<EnergySnapshot> = {}): EnergySnapshot {
     gen_other_mw: 0,
     ...overrides,
   };
+  if (!Object.hasOwn(overrides, "price_mid_gbp_mwh")) {
+    snapshot.price_mid_gbp_mwh = snapshot.price_gbp_mwh;
+  }
+  return snapshot;
 }
 
 function makeGeneration(
@@ -88,6 +92,9 @@ describe("getLatestFacts", () => {
     expect(facts.carbon.value).toBe(81);
     expect(facts.demand.value).toBe(25100);
     expect(facts.price.value).toBe(40);
+    expect(facts.price.definition).toContain("Short-term wholesale market price");
+    expect(facts.systemPrice.value).toBe(40);
+    expect(facts.systemPrice.definition).toContain("imbalance");
     expect(facts.generationMw.value).toBe(20000);
     expect(facts.netImportsMw.value).toBe(1500);
     expect(facts.stamp).toBe("Sun 20 Sep 2026, 23:30 BST");
@@ -545,12 +552,15 @@ describe("getLatestFacts", () => {
       "imports",
       "nuclear",
       "other",
+      "pumped_storage",
       "wind",
     ]);
     expect(facts.shares.find((share) => share.fuel === "embedded_wind")?.mw).toBe(917);
     expect(facts.shares.find((share) => share.fuel === "gas")?.mw).toBe(7563);
     expect(facts.shares.find((share) => share.fuel === "imports")?.mw).toBe(1282);
-    expect(facts.shares).toHaveLength(8);
+    expect(facts.shares).toHaveLength(9);
+    expect(facts.shares.find((share) => share.fuel === "hydro")?.mw).toBe(571);
+    expect(facts.shares.find((share) => share.fuel === "pumped_storage")?.mw).toBe(231);
   });
 
   it("keeps generation facts on the fuelinst timestamp when embedded is 10 minutes later", () => {

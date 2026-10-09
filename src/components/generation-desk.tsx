@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower } from "@/lib/displayed-demand";
 import { fuelinstDelayNote } from "@/lib/generation-desk-view";
-import { buildGroupedSourceTable } from "@/lib/source-groups";
+import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 
@@ -75,7 +75,13 @@ export function GenerationDesk({
         </p>
       ) : null}
 
-      {pending ? <Skeleton className="h-3 w-full rounded-full" /> : <MixBar table={table} />}
+      <div>
+        <div className="mb-2 flex items-center gap-2">
+          <p className="text-label-13 text-gray-900">Share of demand</p>
+          <InfoTooltip text={MIX_BAR_HELP} label="What is Share of demand?" />
+        </div>
+        {pending ? <Skeleton className="h-3 w-full rounded-full" /> : <MixBar table={table} />}
+      </div>
 
       {pending ? (
         <SourceTableSkeleton />

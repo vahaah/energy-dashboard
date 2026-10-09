@@ -9,6 +9,8 @@ export interface EnergySnapshot {
   carbon_index: string;
   demand_mw: NullableNumber;
   price_gbp_mwh: NullableNumber;
+  price_mid_gbp_mwh?: NullableNumber;
+  mid_volume_mwh?: NullableNumber;
   gen_gas_pct: NullableNumber;
   gen_coal_pct: NullableNumber;
   gen_nuclear_pct: NullableNumber;
@@ -26,6 +28,8 @@ export interface EnergySnapshot {
   gen_hydro_mw: NullableNumber;
   gen_biomass_mw: NullableNumber;
   gen_other_mw: NullableNumber;
+  gen_pumped_mw?: NullableNumber;
+  gen_battery_mw?: NullableNumber;
 }
 
 export interface CommodityPrice {
@@ -67,6 +71,15 @@ export interface ElexonSystemPrice {
   startTime: string;
   systemSellPrice: number;
   systemBuyPrice: number;
+}
+
+export interface ElexonMarketIndex {
+  startTime: string;
+  dataProvider: string;
+  settlementDate: string;
+  settlementPeriod: number;
+  price: number;
+  volume: number;
 }
 
 export interface ElexonDemand {

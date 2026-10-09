@@ -80,6 +80,20 @@ function successfulSourcePayloads(url: string) {
       ],
     });
   }
+  if (url.includes("market-index")) {
+    return jsonResponse({
+      data: [
+        {
+          startTime: "2026-09-27T09:30:00Z",
+          dataProvider: "APXMIDP",
+          settlementDate: "2026-09-27",
+          settlementPeriod: 21,
+          price: 68.4,
+          volume: 1840.5,
+        },
+      ],
+    });
+  }
   if (url.includes("datasets/ITSDO")) {
     return jsonResponse({
       data: [
@@ -101,6 +115,7 @@ function successfulSourcePayloads(url: string) {
         { startTime: "2026-09-27T09:30:00Z", psrType: "Wind Onshore", quantity: 4500 },
         { startTime: "2026-09-27T09:30:00Z", psrType: "Solar", quantity: 200 },
         { startTime: "2026-09-27T09:30:00Z", psrType: "Hydro Run-of-river and poundage", quantity: 400 },
+        { startTime: "2026-09-27T09:30:00Z", psrType: "Hydro Pumped Storage", quantity: 180 },
         { startTime: "2026-09-27T09:30:00Z", psrType: "Biomass", quantity: 600 },
         { startTime: "2026-09-27T09:30:00Z", psrType: "Other", quantity: 100 },
       ],
@@ -140,9 +155,40 @@ describe("snapshot ingest refuses incomplete overwrites", () => {
     expect(result.sources.every((source) => source.ok)).toBe(true);
     expect(latest).toBeDefined();
     expect(latest?.price_gbp_mwh).toBe(42.5);
+    expect(latest?.price_mid_gbp_mwh).toBe(68.4);
+    expect(latest?.mid_volume_mwh).toBe(1840.5);
+    expect(latest?.gen_pumped_mw).toBe(180);
+    expect(latest?.gen_hydro_mw).toBe(400);
     expect(latest?.demand_mw).toBe(28000);
     expect(latest?.carbon_intensity).toBe(120);
     expect(latest?.gen_wind_mw).toBe(4500);
+  });
+
+  it("treats Market Index half-hours with zero volume or £0 as missing", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("market-index")) {
+        return jsonResponse({
+          data: [
+            {
+              startTime: "2026-09-27T09:30:00Z",
+              dataProvider: "APXMIDP",
+              settlementDate: "2026-09-27",
+              settlementPeriod: 21,
+              price: 0,
+              volume: 0,
+            },
+          ],
+        });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectRecentSnapshots(new Date("2026-09-27T10:08:00.000Z"));
+    const latest = result.rows.find((row) => row.timestamp === "2026-09-27 09:30:00");
+
+    expect(latest?.price_gbp_mwh).toBe(42.5);
+    expect(latest?.price_mid_gbp_mwh).toBeNull();
+    expect(latest?.mid_volume_mwh).toBeNull();
   });
 
   it("omits a recent period when AGPT exceeds GB maxima so hourly cron cannot write null MW", async () => {
@@ -248,6 +294,26 @@ describe("AGPT generation de-duplication", () => {
     expect(byTime.get("2026-07-02 12:00:00")).toEqual({
       wind: 16_151,
       solar: 12_926,
+    });
+  });
+
+  it("keeps Hydro Pumped Storage out of hydro", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Hydro Run-of-river and poundage",
+        quantity: 400,
+      }),
+      agpt({
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Hydro Pumped Storage",
+        quantity: 180,
+      }),
+    ]);
+
+    expect(byTime.get("2026-07-02 12:00:00")).toEqual({
+      hydro: 400,
+      pumped: 180,
     });
   });
 
@@ -425,6 +491,16 @@ describe("snapshotRowReadyToIngest", () => {
     );
     expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ gen_gas_pct: null }))).toBe(false);
     expect(snapshotRowReadyToIngest(completeHistoricalSnapshot({ gen_gas_mw: null }))).toBe(false);
+    expect(
+      snapshotRowReadyToIngest(
+        completeHistoricalSnapshot({
+          price_mid_gbp_mwh: null,
+          mid_volume_mwh: null,
+          gen_pumped_mw: null,
+          gen_battery_mw: null,
+        })
+      )
+    ).toBe(true);
   });
 });
 
@@ -445,12 +521,15 @@ describe("settlement-date snapshot collection", () => {
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
     const itsdo = urls.find((url) => url.includes("datasets/ITSDO"));
     const agptUrl = urls.find((url) => url.includes("datasets/AGPT"));
+    const midUrl = urls.find((url) => url.includes("market-index"));
     const carbon = urls.find((url) => url.includes("carbonintensity.org.uk/intensity"));
 
     expect(itsdo).toContain("publishDateTimeFrom=2026-09-26T23:00:00.000Z");
     expect(itsdo).toContain("publishDateTimeTo=2026-09-28T03:30:00.000Z");
     expect(agptUrl).toContain("publishDateTimeFrom=2026-09-26T23:00:00.000Z");
     expect(agptUrl).toContain("publishDateTimeTo=2026-09-28T03:30:00.000Z");
+    expect(midUrl).toContain("dataProviders=APXMIDP");
+    expect(midUrl).toContain("from=2026-09-26T23:00:00Z");
     expect(carbon).toContain("2026-09-26T23:00:00Z");
     expect(carbon).not.toContain("2026-09-28T03:30:00");
 

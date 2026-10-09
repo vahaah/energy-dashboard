@@ -117,6 +117,7 @@ export const FUELINST_COLORS: Record<string, string> = {
   ocgt: GAS,
   oil: OIL,
   ps: PUMPED,
+  bess: BATTERY,
   other: OTHER,
   embedded_solar: EMBEDDED_SOLAR,
   embedded_wind: EMBEDDED_WIND,
@@ -133,6 +134,7 @@ export const FUELINST_LABELS: Record<string, string> = {
   ocgt: "OCGT (gas)",
   oil: "Oil",
   ps: "Pumped storage",
+  bess: "Battery",
   other: "Other",
   embedded_solar: "Solar (PV Live estimate)",
   embedded_wind: "Embedded wind",
@@ -157,6 +159,7 @@ const FUEL_CSS_VARS: Record<string, string> = {
   ocgt: "var(--chart-gas)",
   npshyd: "var(--chart-hydro)",
   ps: "var(--chart-pumped)",
+  bess: "var(--chart-battery)",
 };
 
 export function fuelColor(fuel: string): string {

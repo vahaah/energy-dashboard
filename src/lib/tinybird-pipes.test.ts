@@ -49,4 +49,14 @@ describe("tinybird pipes stay deploy-valid and deterministic", () => {
     expect(source).toContain("s.demand_mw IS NOT NULL");
     expect(source).toContain("s.price_gbp_mwh IS NOT NULL");
   });
+
+  it("exposes nullable MID and storage columns on snapshots_range aggregates", () => {
+    const source = pipeSource("snapshots_range");
+
+    expect(source).toContain("avg(price_mid_gbp_mwh) AS price_mid_gbp_mwh");
+    expect(source).toContain("avg(mid_volume_mwh) AS mid_volume_mwh");
+    expect(source).toContain("avg(gen_pumped_mw) AS gen_pumped_mw");
+    expect(source).toContain("avg(gen_battery_mw) AS gen_battery_mw");
+    expect(source).toContain("SELECT *");
+  });
 });

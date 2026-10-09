@@ -14,9 +14,13 @@ export function mapElexonFuel(psrType: string): string {
       return "wind";
     case "Solar":
       return "solar";
-    case "Hydro Pumped Storage":
     case "Hydro Run-of-river and poundage":
       return "hydro";
+    case "Hydro Pumped Storage":
+      return "pumped";
+    case "Battery":
+    case "Energy storage":
+      return "battery";
     case "Biomass":
       return "biomass";
     case "Other":
@@ -36,6 +40,8 @@ export const SNAPSHOT_FUELS = [
   "biomass",
   "other",
 ] as const;
+
+export const SNAPSHOT_STORAGE_FUELS = ["pumped", "battery"] as const;
 
 export const SNAPSHOT_MIX_FUELS = [
   ...SNAPSHOT_FUELS.filter((fuel) => fuel !== "other"),

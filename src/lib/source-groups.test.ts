@@ -48,10 +48,24 @@ describe("grouped source table", () => {
     expect(hydro?.mw).toBe(571);
     expect(pumped?.mw).toBe(231);
     expect(battery?.gwLabel).toBe("—");
-    expect(battery?.missingNote).toBe("not published");
+    expect(battery?.missingNote).toBe("discharge only; charging isn’t published");
     expect(wind?.mw).toBe(4663);
     expect(france?.mw).toBe(396);
     expect(table.mix.some((segment) => segment.hatched && segment.label === "France")).toBe(true);
+  });
+
+  it("shows published battery discharge and keeps it out of renewables", () => {
+    const table = buildGroupedSourceTable(
+      [...rows, generation("2026-09-28 07:00:00", "bess", 180)],
+      25717
+    );
+    const battery = table.groups[4]?.rows.find((row) => row.id === "battery");
+    const renewables = table.groups[1];
+
+    expect(battery?.mw).toBe(180);
+    expect(battery?.missingNote).toBe("discharge only; charging isn’t published");
+    expect(renewables?.rows.some((row) => row.id === "battery")).toBe(false);
+    expect(renewables?.rows.find((row) => row.id === "hydro")?.mw).toBe(571);
   });
 
   it("reports share of the one demand figure", () => {

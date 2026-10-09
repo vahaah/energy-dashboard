@@ -204,8 +204,9 @@ describe("dashboard model", () => {
     expect(mapGenerationFuelToStackKey("ccgt")).toBe("gas");
     expect(mapGenerationFuelToStackKey("OCGT")).toBe("gas");
     expect(mapGenerationFuelToStackKey("npshyd")).toBe("hydro");
-    expect(mapGenerationFuelToStackKey("ps")).toBe("hydro");
-    expect(mapGenerationFuelToStackKey("oil")).toBe("other");
+    expect(mapGenerationFuelToStackKey("ps")).toBe("pumped_storage");
+    expect(mapGenerationFuelToStackKey("oil")).toBe("oil");
+    expect(mapGenerationFuelToStackKey("bess")).toBe("battery");
     expect(mapGenerationFuelToStackKey("embedded_wind")).toBe("embedded_wind");
   });
 
