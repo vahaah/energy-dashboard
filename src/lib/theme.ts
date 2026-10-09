@@ -13,8 +13,12 @@ export function themeFromSystem(): Theme {
 }
 
 export function readStoredTheme(): Theme | null {
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return isTheme(stored) ? stored : null;
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isTheme(stored) ? stored : null;
+  } catch {
+    return null;
+  }
 }
 
 export function resolveTheme(stored: Theme | null, system: Theme): Theme {
@@ -29,7 +33,11 @@ export function applyTheme(theme: Theme): void {
 }
 
 export function persistTheme(theme: Theme): void {
-  window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    return;
+  }
 }
 
 export const THEME_BOOTSTRAP_SCRIPT = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var s=localStorage.getItem(k);var t=s==="light"||s==="dark"?s:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("light",t==="light");r.style.colorScheme=t;}catch(e){}})();`;

@@ -60,4 +60,26 @@ describe("grouped source table", () => {
     expect(gas?.shareLabel).toBe("30.3%");
     expect(gas?.sparkline.length).toBeGreaterThan(1);
   });
+
+  it("keeps an absent PV Live reading as missing, not zero", () => {
+    const withoutSolar = rows.filter(
+      (row) => row.fuel_type !== "embedded_solar" && row.fuel_type !== "solar"
+    );
+    const table = buildGroupedSourceTable(withoutSolar, 25000);
+    const solar = table.groups[1]?.rows.find((row) => row.id === "solar");
+
+    expect(solar?.mw).toBeNull();
+    expect(solar?.gwLabel).toBe("—");
+    expect(solar?.missingNote).toBe("no data");
+    expect(table.mix.some((segment) => segment.label === "Solar")).toBe(false);
+  });
+
+  it("keeps mix-bar percentages as share of demand when Britain is exporting", () => {
+    const table = buildGroupedSourceTable(rows, 12_000);
+    const gas = table.mix.find((segment) => segment.label === "Gas");
+    const mixShare = table.mix.reduce((sum, segment) => sum + segment.pct, 0);
+
+    expect(gas?.pct).toBeCloseTo((7563 / 12_000) * 100, 5);
+    expect(mixShare).toBeGreaterThan(100);
+  });
 });

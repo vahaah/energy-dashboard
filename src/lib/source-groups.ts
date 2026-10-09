@@ -147,13 +147,7 @@ export function buildGroupedSourceTable(
       };
     });
 
-  const mixTotal = mix.reduce((sum, row) => sum + row.mw, 0);
-  const normalized =
-    mixTotal > 0
-      ? mix.map((row) => ({ ...row, pct: (row.mw / mixTotal) * 100 }))
-      : mix;
-
-  return { groups, mix: normalized };
+  return { groups, mix };
 }
 
 function rowsForGroup(
@@ -217,12 +211,12 @@ function sourceRow(
   return rowView({
     id,
     label: labelFor(id),
-    mw: bucket ? bucket.mw : 0,
+    mw: bucket ? bucket.mw : null,
     color: fuelColor(id),
     help: HELP[id] ?? "",
     sparkline: sparklineForFuels(sparklineRows, bucket?.fuels ?? fuelsFor(id)),
     demandMw,
-    missingNote: null,
+    missingNote: bucket ? null : "no data",
   });
 }
 
@@ -280,7 +274,10 @@ function addFuel(
     mw += row.generation_mw;
     present.push(fuel);
   }
-  buckets.set(id, { mw, fuels: present.length > 0 ? present : fuels });
+  if (present.length === 0) {
+    return;
+  }
+  buckets.set(id, { mw, fuels: present });
 }
 
 function fuelsFor(id: string): string[] {

@@ -10,7 +10,17 @@ describe("buildAnswerSentence", () => {
         transfersMw: 2100,
         empty: false,
       })
-    ).toBe("Wind is supplying most of Britain’s electricity, and the country is importing 2.1 GW.");
+    ).toBe("Wind is the largest source of Britain’s electricity, and the country is importing 2.1 GW.");
+
+    expect(
+      buildAnswerSentence({
+        topFuel: "wind",
+        topMw: 18000,
+        topSharePct: 56,
+        transfersMw: 0,
+        empty: false,
+      })
+    ).toBe("Wind is supplying most of Britain’s electricity, with cross-border flows broadly balanced.");
   });
 
   it("names an export without jargon", () => {
@@ -21,7 +31,7 @@ describe("buildAnswerSentence", () => {
         transfersMw: -1800,
         empty: false,
       })
-    ).toBe("Gas is supplying most of Britain’s electricity, and the country is exporting 1.8 GW.");
+    ).toBe("Gas is the largest source of Britain’s electricity, and the country is exporting 1.8 GW.");
   });
 
   it("keeps a balanced transfer as a clause, not a stance", () => {
@@ -32,7 +42,7 @@ describe("buildAnswerSentence", () => {
         transfersMw: 10,
         empty: false,
       })
-    ).toBe("Nuclear is supplying most of Britain’s electricity, with cross-border flows broadly balanced.");
+    ).toBe("Nuclear is the largest source of Britain’s electricity, with cross-border flows broadly balanced.");
   });
 
   it("has a catching-up line when the day is empty", () => {

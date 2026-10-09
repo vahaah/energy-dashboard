@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveTheme, THEME_BOOTSTRAP_SCRIPT, THEME_STORAGE_KEY } from "@/lib/theme";
+import {
+  persistTheme,
+  readStoredTheme,
+  resolveTheme,
+  THEME_BOOTSTRAP_SCRIPT,
+  THEME_STORAGE_KEY,
+} from "@/lib/theme";
 
 describe("theme", () => {
   it("follows the system when nothing is stored", () => {
@@ -16,5 +22,23 @@ describe("theme", () => {
     expect(THEME_BOOTSTRAP_SCRIPT).toContain(THEME_STORAGE_KEY);
     expect(THEME_BOOTSTRAP_SCRIPT).toContain("prefers-color-scheme: dark");
     expect(THEME_BOOTSTRAP_SCRIPT).toContain("colorScheme");
+  });
+
+  it("keeps the system theme when storage is denied", () => {
+    const denied = {
+      getItem(): string {
+        throw new Error("denied");
+      },
+      setItem(): void {
+        throw new Error("denied");
+      },
+    };
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage: denied },
+    });
+
+    expect(readStoredTheme()).toBeNull();
+    expect(() => persistTheme("dark")).not.toThrow();
   });
 });

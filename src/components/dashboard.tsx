@@ -25,7 +25,11 @@ import {
 } from "@/lib/colors";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
-import { normalizeFuelType, splitLatestGenerationRows } from "@/lib/dashboard-model";
+import {
+  generationSharesFromRows,
+  normalizeFuelType,
+  splitLatestGenerationRows,
+} from "@/lib/dashboard-model";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
 import { SiteHeader } from "@/components/site-header";
@@ -104,15 +108,17 @@ export function Dashboard({
   }, [router, startTransition]);
 
   const topShare = useMemo(() => {
-    if (facts.shares.length === 0) {
+    const shares = generationSharesFromRows(power.generationRows);
+    if (shares.length === 0) {
       return null;
     }
-    return [...facts.shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
-  }, [facts.shares]);
+    return [...shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
+  }, [power.generationRows]);
 
   const answer = buildAnswerSentence({
     topFuel: topShare?.fuel ?? null,
     topMw: topShare?.mw ?? null,
+    topSharePct: topShare?.sharePct ?? null,
     transfersMw: power.transfersMw,
     empty: facts.empty,
   });
@@ -474,5 +480,5 @@ function formatSignedPercentage(value: number): string {
 }
 
 function commodityUnitSuffix(unit: string): string {
-  return ` ${unit.replace("BBL", "bbl").replace("MMBTU", "MMBtu")}`;
+  return ` ${unit.replace(/^[$€£]\s*/, "").replace("BBL", "bbl").replace("MMBTU", "MMBtu")}`;
 }

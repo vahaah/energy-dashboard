@@ -203,10 +203,10 @@ export function carbonIndexColor(index: string): string {
 }
 
 export const CARBON_INDEX_BANDS = [
-  { index: "very low", max: 50 },
-  { index: "low", max: 140 },
-  { index: "moderate", max: 220 },
-  { index: "high", max: 310 },
+  { index: "very low", max: 39 },
+  { index: "low", max: 119 },
+  { index: "moderate", max: 199 },
+  { index: "high", max: 290 },
   { index: "very high", max: Number.POSITIVE_INFINITY },
 ] as const;
 

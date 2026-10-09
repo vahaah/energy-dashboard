@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CARD_LABEL_COLOR,
+  CARBON_INDEX_BANDS,
   COMMODITY_CARD_LABELS,
   COMMODITY_DISPLAY_ORDER,
   COMMODITY_LABELS,
@@ -89,5 +90,17 @@ describe("non-fuel series colours", () => {
   it("gives card titles AA contrast at text-xs on both surfaces", () => {
     expect(contrastRatio(CARD_LABEL_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
     expect(contrastRatio(LIGHT_CARD_LABEL, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+  });
+});
+
+describe("carbon index bands", () => {
+  it("uses the current NESO national methodology thresholds", () => {
+    expect(CARBON_INDEX_BANDS.map((band) => [band.index, band.max])).toEqual([
+      ["very low", 39],
+      ["low", 119],
+      ["moderate", 199],
+      ["high", 290],
+      ["very high", Number.POSITIVE_INFINITY],
+    ]);
   });
 });
