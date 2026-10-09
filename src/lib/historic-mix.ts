@@ -10,7 +10,7 @@ export const MAX_SOLAR_MW = 20_000;
 export const SHARE_SUM_TOLERANCE_PCT = 5;
 export const COAL_ENDED_MW = 100;
 export const COAL_ENDED_SHARE_PCT = 0.5;
-export const COAL_CLUSTER_WINDOW_MS = 12 * 60 * 60 * 1000;
+export const COAL_CONSECUTIVE_MS = 30 * 60 * 1000;
 export const WIND_MILESTONE_START_GW = 10;
 export const NESO_HISTORIC_START_YEAR = 2009;
 
@@ -21,7 +21,7 @@ export const SOLAR_RECORD_BASIS =
   "NESO historic mix solar, including embedded solar. Not the Sheffield Solar PV Live series.";
 export const CARBON_RECORD_BASIS = "Half-hour carbon intensity from NESO historic generation mix.";
 export const COAL_RECORD_BASIS =
-  "Last sustained half-hour at or above 100 MW or 0.5% coal share in the NESO historic mix. Isolated residual readings are ignored.";
+  "Last consecutive half-hour at or above 100 MW or 0.5% coal share in the NESO historic mix. Isolated residual readings are ignored.";
 
 const SHARE_FIELDS = [
   "GAS_perc",
@@ -292,7 +292,7 @@ function isWithinCoalCluster(time: number, other: NesoHistoricRow | undefined): 
   if (other == null) {
     return false;
   }
-  return Math.abs(parseUtcDateTime(other.DATETIME).getTime() - time) <= COAL_CLUSTER_WINDOW_MS;
+  return Math.abs(parseUtcDateTime(other.DATETIME).getTime() - time) <= COAL_CONSECUTIVE_MS;
 }
 
 export function lastSustainedCoalRow(rows: NesoHistoricRow[]): NesoHistoricRow | null {

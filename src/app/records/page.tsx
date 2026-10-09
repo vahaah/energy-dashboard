@@ -110,7 +110,7 @@ export default async function RecordsPage() {
             title="Days since coal power ended"
             value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
-            extra="Last sustained half-hour at or above 100 MW or 0.5% coal share. Isolated residual readings are ignored."
+            extra="Last consecutive half-hour at or above 100 MW or 0.5% coal share. Isolated residual readings are ignored."
           />
         </section>
 
@@ -253,8 +253,8 @@ function faqItems(records: GridRecords): Array<{ question: string; answer: strin
       question: "When did Britain stop burning coal for electricity?",
       answer:
         records.lastCoal && records.daysSinceCoal != null
-          ? `The last sustained half-hour at or above 100 MW or 0.5% coal share is ${formatLondonDateTimeStamp(parseUtcDateTime(records.lastCoal.timestampUtc))}, ${records.daysSinceCoal} days ago. Isolated residual readings after coal power ended are ignored.`
-          : "The last sustained coal half-hour has not been computed yet.",
+          ? `The last consecutive half-hour at or above 100 MW or 0.5% coal share is ${formatLondonDateTimeStamp(parseUtcDateTime(records.lastCoal.timestampUtc))}, ${records.daysSinceCoal} days ago. Isolated residual readings after coal power ended are ignored.`
+          : "The last consecutive coal half-hour has not been computed yet.",
     },
   ];
 }

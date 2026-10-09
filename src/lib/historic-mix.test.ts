@@ -229,6 +229,13 @@ describe("computeRecords", () => {
       GAS_perc: 30.9,
       CARBON_INTENSITY: 180,
     });
+    const sameDaySpike = row({
+      DATETIME: "2025-06-01T06:00:00",
+      COAL: 140,
+      COAL_perc: 0.55,
+      GAS_perc: 30.95,
+      CARBON_INTENSITY: 175,
+    });
     const lastCluster = [
       row({
         DATETIME: "2024-09-30T10:30:00",
@@ -250,7 +257,7 @@ describe("computeRecords", () => {
     expect(isCoalOperating(isolatedSpike)).toBe(true);
 
     const records = computeRecords(
-      [...lastCluster, isolatedSpike, residual],
+      [...lastCluster, sameDaySpike, isolatedSpike, residual],
       new Date("2026-10-09T12:00:00.000Z")
     );
 
@@ -258,6 +265,7 @@ describe("computeRecords", () => {
     expect(records.lastCoal?.value).toBe(350);
     expect(records.lastCoal?.timestampUtc).not.toBe(residual.DATETIME);
     expect(records.lastCoal?.timestampUtc).not.toBe(isolatedSpike.DATETIME);
+    expect(records.lastCoal?.timestampUtc).not.toBe(sameDaySpike.DATETIME);
     expect(records.daysSinceCoal).toBe(
       Math.floor(
         (Date.parse("2026-10-09T12:00:00.000Z") - Date.parse("2024-09-30T11:00:00.000Z")) /

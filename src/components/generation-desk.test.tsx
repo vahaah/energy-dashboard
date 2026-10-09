@@ -157,6 +157,7 @@ describe("generation desk layout", () => {
     expect(pageSource).toContain('"generation_5min_range"');
     expect(pageSource).toContain('"prices_range"');
     expect(pageSource).not.toContain("Promise.resolve([] as CommodityPrice[])");
+    expect(pageSource).toContain(".catch(() => noPrices)");
     expect(pageSource.match(/queryPipe</g)?.length).toBe(5);
     expect(dashboardSource).toContain("Oil and gas prices are not available for this range.");
     expect(pageSource).toContain("isNesoPeriod");

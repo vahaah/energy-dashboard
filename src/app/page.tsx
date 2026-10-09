@@ -64,6 +64,7 @@ export default async function Home({
   const skipGrid = dateResolution.status === "empty" || neso;
   const noSnapshots: EnergySnapshot[] = [];
   const noGeneration: Generation5min[] = [];
+  const noPrices: CommodityPrice[] = [];
 
   try {
     const historicPeriod = period === "year" || period === "all" ? period : null;
@@ -91,7 +92,7 @@ export default async function Home({
           "prices_range",
           getPricesQueryParams(dashboardSearchParams.commodityRange, now),
           { range: dashboardSearchParams.commodityRange, now }
-        ),
+        ).catch(() => noPrices),
         skipGrid
           ? Promise.resolve(noGeneration)
           : queryPipe<Generation5min>(
