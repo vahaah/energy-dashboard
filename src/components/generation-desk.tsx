@@ -65,6 +65,8 @@ export function GenerationDesk({
           demandDefinition={power.demandDefinition}
           transmissionDemandMw={power.transmissionDemandMw}
           demandStartUtc={power.demandStartUtc}
+          generationStartUtc={power.generationStartUtc}
+          transfersStartUtc={power.transfersStartUtc}
         />
       )}
       {statusNote ? (

@@ -334,7 +334,7 @@ describe("generation answer row", () => {
 
     expect(view.answers.map((stat) => stat.timeLabel)).toEqual([
       "03:30–04:00 BST",
-      "03:30–04:00 BST",
+      "04:00–04:30 BST",
       "03:30–04:00 BST",
     ]);
     expect(view.answers[0]?.value).toBe("19.0");
@@ -427,7 +427,7 @@ describe("generation answer row", () => {
 
     expect(withoutSnapshot.answers.map((stat) => stat.timeLabel)).toEqual([
       "03:00–03:30 BST",
-      "03:00–03:30 BST",
+      "03:30–04:00 BST",
       "03:00–03:30 BST",
     ]);
     expect(withoutSnapshot.answers[0]?.value).toBe("19.0");

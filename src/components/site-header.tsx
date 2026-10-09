@@ -21,6 +21,7 @@ export function SiteHeader({
   onDateChange,
   showDate,
   stamp,
+  stale = false,
   pending,
   copied,
   onShare,
@@ -33,6 +34,7 @@ export function SiteHeader({
   onDateChange: (date: string) => void;
   showDate: boolean;
   stamp: string;
+  stale?: boolean;
   pending: boolean;
   copied: boolean;
   onShare: () => void;
@@ -88,7 +90,16 @@ export function SiteHeader({
         </div>
       </div>
 
-      <p className="sr-only">{stamp}</p>
+      <p
+        className={
+          stale
+            ? "border-t border-gray-alpha-400 px-4 py-1.5 text-center text-label-12 text-gray-900"
+            : "sr-only"
+        }
+        aria-live={stale ? "polite" : undefined}
+      >
+        {stamp}
+      </p>
     </header>
   );
 }

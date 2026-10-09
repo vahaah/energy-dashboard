@@ -191,6 +191,7 @@ export function Dashboard({
         }}
         showDate={range === "24h"}
         stamp={facts.headerStamp}
+        stale={facts.isStale}
         pending={isPending}
         copied={copied}
         onShare={async () => {
@@ -202,7 +203,7 @@ export function Dashboard({
 
       <main className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
         {facts.empty && facts.emptyState && !isPending ? (
-          <div className="surface-card p-6 text-copy-16 text-gray-1000">
+          <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
             <h1 className="text-heading-32">{answer}</h1>
             <p className="mt-3 text-copy-16 text-gray-900">{facts.emptyState.message}</p>
             <a

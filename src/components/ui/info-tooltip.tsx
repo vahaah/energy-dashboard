@@ -9,9 +9,10 @@ import {
 interface Props {
   text: string;
   label: string;
+  align?: "center" | "end";
 }
 
-export function InfoTooltip({ text, label }: Props) {
+export function InfoTooltip({ text, label, align = "center" }: Props) {
   const tooltipId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [state, dispatch] = useReducer(reduceInfoTooltip, initialInfoTooltipState);
@@ -54,7 +55,9 @@ export function InfoTooltip({ text, label }: Props) {
         <span
           id={tooltipId}
           role="tooltip"
-          className="absolute bottom-full left-1/2 z-50 mb-2 w-[min(280px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 py-2 text-left text-copy-14 text-gray-1000"
+          className={`absolute bottom-full z-50 mb-2 w-[min(280px,calc(100vw-2rem))] rounded-lg border border-gray-alpha-400 bg-background-100 px-3 py-2 text-left text-copy-14 text-gray-1000 ${
+            align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"
+          }`}
         >
           {text}
         </span>

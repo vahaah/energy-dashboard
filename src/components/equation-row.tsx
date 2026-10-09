@@ -13,6 +13,8 @@ export function EquationRow({
   demandDefinition,
   transmissionDemandMw,
   demandStartUtc,
+  generationStartUtc,
+  transfersStartUtc,
 }: {
   demandMw: number | null;
   generationMw: number | null;
@@ -23,9 +25,10 @@ export function EquationRow({
   demandDefinition: string;
   transmissionDemandMw: number | null;
   demandStartUtc: string | null;
+  generationStartUtc: string | null;
+  transfersStartUtc: string | null;
 }) {
   const transferKind = transferLabel(transfersMw);
-  const timeLabel = demandStartUtc ? formatPlainSettlementWindow(demandStartUtc) : null;
   const transmissionNote =
     transmissionDemandMw == null
       ? ""
@@ -39,7 +42,7 @@ export function EquationRow({
         value={formatHeadlineGw(demandMw)}
         help={`${demandDefinition}, including estimated embedded wind and solar.${transmissionNote} Source: ${demandSource}.`}
         source={demandSource}
-        timeLabel={timeLabel}
+        timeLabel={demandStartUtc ? formatPlainSettlementWindow(demandStartUtc) : null}
         datetime={demandStartUtc}
       />
       <span className="mb-7 text-xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
@@ -51,11 +54,11 @@ export function EquationRow({
         value={formatHeadlineGw(generationMw)}
         help={`GB generation including estimated embedded wind and solar. Source: ${generationSource}.`}
         source={generationSource}
-        timeLabel={timeLabel}
-        datetime={demandStartUtc}
+        timeLabel={generationStartUtc ? formatPlainSettlementWindow(generationStartUtc) : null}
+        datetime={generationStartUtc}
       />
       <span className="mb-7 text-xl font-light text-gray-700 sm:mb-8 sm:text-4xl" aria-hidden="true">
-        +
+        {transferKind.operator}
       </span>
       <EquationStat
         stat="net_imports"
@@ -63,8 +66,8 @@ export function EquationRow({
         value={formatHeadlineGw(transferKind.displayMw)}
         help={`Net interconnector flow. Positive is an import into Great Britain. Source: ${transfersSource}.`}
         source={transfersSource}
-        timeLabel={timeLabel}
-        datetime={demandStartUtc}
+        timeLabel={transfersStartUtc ? formatPlainSettlementWindow(transfersStartUtc) : null}
+        datetime={transfersStartUtc}
         signed={transferKind.signed}
       />
     </div>
@@ -122,15 +125,16 @@ function transferLabel(transfersMw: number | null): {
   label: string;
   displayMw: number | null;
   signed: string;
+  operator: string;
 } {
   if (transfersMw == null) {
-    return { label: "Transfers", displayMw: null, signed: "" };
+    return { label: "Transfers", displayMw: null, signed: "", operator: "+" };
   }
   if (Math.abs(transfersMw) < 25) {
-    return { label: "Transfers", displayMw: transfersMw, signed: "" };
+    return { label: "Transfers", displayMw: transfersMw, signed: "", operator: "+" };
   }
   if (transfersMw > 0) {
-    return { label: "Importing", displayMw: transfersMw, signed: "" };
+    return { label: "Importing", displayMw: transfersMw, signed: "", operator: "+" };
   }
-  return { label: "Exporting", displayMw: Math.abs(transfersMw), signed: "" };
+  return { label: "Exporting", displayMw: Math.abs(transfersMw), signed: "", operator: "−" };
 }

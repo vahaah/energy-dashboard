@@ -95,6 +95,26 @@ describe("displayed demand", () => {
     expect(power.generationMw).toBe(19298);
   });
 
+  it("keeps each equation term on its own settlement timestamp", () => {
+    const power = getDisplayedPower(
+      {
+        ...facts([
+          generation("2026-09-28 06:30:00", "ccgt", 8000),
+          generation("2026-09-28 06:30:00", "wind", 4000),
+        ]),
+        demand: fact(24000, "2026-09-28T07:00:00.000Z", "Elexon BMRS"),
+        generationMw: fact(12000, "2026-09-28T06:30:00.000Z", "Elexon BMRS"),
+        netImportsMw: fact(400, "2026-09-28T06:30:00.000Z", "Elexon BMRS"),
+      },
+      []
+    );
+
+    expect(power.demandStartUtc).toBe("2026-09-28T07:00:00.000Z");
+    expect(power.generationStartUtc).toBe("2026-09-28T06:30:00.000Z");
+    expect(power.transfersStartUtc).toBe("2026-09-28T06:30:00.000Z");
+    expect(power.demandMw).toBeNull();
+  });
+
   it("is the only demand figure wired into the page", () => {
     const dashboard = readFileSync(resolve(import.meta.dirname, "../components/dashboard.tsx"), "utf8");
     const desk = readFileSync(resolve(import.meta.dirname, "../components/generation-desk.tsx"), "utf8");

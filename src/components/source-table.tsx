@@ -4,7 +4,7 @@ import type { GroupedSourceTable } from "@/lib/source-groups";
 
 export function SourceTable({ table }: { table: GroupedSourceTable }) {
   return (
-    <div className="overflow-hidden">
+    <div>
       {table.groups.map((group) => (
         <div key={group.id} className="border-b border-gray-alpha-200 last:border-b-0">
           <div className="flex h-9 items-center gap-2 px-1">
@@ -12,7 +12,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
             <p className="min-w-0 flex-1 text-copy-14 font-medium text-gray-1000">{group.label}</p>
             <p className="w-14 text-right font-sans text-copy-14 tabular-nums text-gray-1000">
               {group.gwLabel}
-              <span className="text-gray-700"> GW</span>
+              {group.mw != null ? <span className="text-gray-700"> GW</span> : null}
             </p>
             <p className="w-12 text-right font-sans text-copy-14 tabular-nums text-gray-900">{group.shareLabel}</p>
             <span className="w-16" />
@@ -34,7 +34,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
               </p>
               <p className="w-12 text-right font-sans text-copy-14 tabular-nums text-gray-900">{row.shareLabel}</p>
               <Sparkline values={row.sparkline} color={row.color} label={`${row.label} over 24 hours`} />
-              <InfoTooltip text={row.help} label={`What is ${row.label}?`} />
+              <InfoTooltip text={row.help} label={`What is ${row.label}?`} align="end" />
             </div>
           ))}
         </div>

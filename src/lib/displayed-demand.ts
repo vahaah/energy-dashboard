@@ -14,6 +14,8 @@ export type DisplayedPower = {
   transfersSource: string;
   demandDefinition: string;
   demandStartUtc: string | null;
+  generationStartUtc: string | null;
+  transfersStartUtc: string | null;
   generationRows: Generation5min[];
   alignmentNote: string | null;
 };
@@ -33,6 +35,8 @@ export function getDisplayedPower(
     transfersSource: aligned.netImportsMw.source,
     demandDefinition: aligned.demand.definition,
     demandStartUtc: aligned.demand.periodStartUtc,
+    generationStartUtc: aligned.generationMw.periodStartUtc,
+    transfersStartUtc: aligned.netImportsMw.periodStartUtc,
     generationRows: aligned.generationRows,
     alignmentNote: aligned.alignmentNote,
   };

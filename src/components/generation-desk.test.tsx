@@ -184,6 +184,33 @@ describe("generation desk layout", () => {
     expect(deskSource).toContain("getDisplayedPower");
     expect(deskSource).toContain("buildGroupedSourceTable");
     expect(deskSource).toContain("headlineGeneration");
+    expect(dashboardSource).toContain("stale={facts.isStale}");
+    expect(dashboardSource).toContain('id="section-overview"');
+    expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
+  });
+
+  it("subtracts exports in the demand equation", () => {
+    const exporting = facts([
+      ...rows.filter((row) => row.fuel_type !== "intfr"),
+      generation("2026-09-28 07:00:00", "intfr", -1800),
+    ]);
+    exporting.netImportsMw = fact(-1800, "2026-09-28T07:00:00.000Z", "Elexon BMRS");
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={exporting}
+        snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        headlineSnapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        generation={exporting.generationRows}
+        headlineGeneration={exporting.generationRows}
+        range="24h"
+        now={new Date("2026-09-28T07:10:00.000Z")}
+      />
+    );
+
+    expect(html).toContain("Exporting");
+    expect(html).toContain("−");
+    expect(html).not.toMatch(/>\+</);
   });
 
   it("labels a historical day by settlement time instead of now", () => {

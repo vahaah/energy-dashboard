@@ -837,8 +837,8 @@ function stampAlignedPeriod(
     demand: {
       ...demandFactIncludingEmbedded(facts.demand, split.sources),
       value: demandIncludingEmbedded(demandValue, split.sources),
-      periodStartUtc: bounds.startUtc,
-      periodEndUtc: bounds.endUtc,
+      periodStartUtc: demandValue == null ? facts.demand.periodStartUtc : bounds.startUtc,
+      periodEndUtc: demandValue == null ? facts.demand.periodEndUtc : bounds.endUtc,
     },
     netImportsMw: {
       ...facts.netImportsMw,

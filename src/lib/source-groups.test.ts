@@ -74,6 +74,22 @@ describe("grouped source table", () => {
     expect(table.mix.some((segment) => segment.label === "Solar")).toBe(false);
   });
 
+  it("keeps a group total unavailable when every child reading is missing", () => {
+    const table = buildGroupedSourceTable(
+      [
+        generation("2026-09-28 07:00:00", "ccgt", 7563),
+        generation("2026-09-28 07:00:00", "nuclear", 4015),
+      ],
+      12000
+    );
+    const renewables = table.groups.find((group) => group.id === "renewables");
+
+    expect(renewables?.mw).toBeNull();
+    expect(renewables?.gwLabel).toBe("—");
+    expect(renewables?.shareLabel).toBe("—");
+    expect(renewables?.rows.every((row) => row.mw == null)).toBe(true);
+  });
+
   it("keeps mix-bar percentages as share of demand when Britain is exporting", () => {
     const table = buildGroupedSourceTable(rows, 12_000);
     const gas = table.mix.find((segment) => segment.label === "Gas");

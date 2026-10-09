@@ -138,8 +138,29 @@ export const FUELINST_LABELS: Record<string, string> = {
   embedded_wind: "Embedded wind",
 };
 
+const FUEL_CSS_VARS: Record<string, string> = {
+  gas: "var(--chart-gas)",
+  coal: "var(--chart-coal)",
+  oil: "var(--chart-oil)",
+  nuclear: "var(--chart-nuclear)",
+  biomass: "var(--chart-biomass)",
+  wind: "var(--chart-wind)",
+  embedded_wind: "var(--chart-embedded-wind)",
+  solar: "var(--chart-solar)",
+  embedded_solar: "var(--chart-embedded-solar)",
+  hydro: "var(--chart-hydro)",
+  imports: "var(--chart-imports)",
+  pumped_storage: "var(--chart-pumped)",
+  battery: "var(--chart-battery)",
+  other: "var(--chart-other)",
+  ccgt: "var(--chart-gas)",
+  ocgt: "var(--chart-gas)",
+  npshyd: "var(--chart-hydro)",
+  ps: "var(--chart-pumped)",
+};
+
 export function fuelColor(fuel: string): string {
-  return FUEL_COLORS[fuel] ?? FUELINST_COLORS[fuel] ?? OTHER;
+  return FUEL_CSS_VARS[fuel] ?? "var(--chart-other)";
 }
 
 export function fuelLabel(fuel: string): string {

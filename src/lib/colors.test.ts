@@ -16,6 +16,7 @@ import {
   FUEL_COLORS,
   FUELINST_COLORS,
   FUELINST_LABELS,
+  fuelColor,
   hexHue,
   INTERCONNECTOR_LABELS,
   relativeLuminance,
@@ -55,6 +56,12 @@ describe("user-facing fuel labels", () => {
 });
 
 describe("shared fuel palette", () => {
+  it("paints charts and markers from the theme chart tokens", () => {
+    expect(fuelColor("solar")).toBe("var(--chart-solar)");
+    expect(fuelColor("gas")).toBe("var(--chart-gas)");
+    expect(fuelColor("ccgt")).toBe("var(--chart-gas)");
+  });
+
   it("uses one hex per fuel across FUEL_COLORS and FUELINST_COLORS", () => {
     expect(FUELINST_COLORS.wind).toBe(FUEL_COLORS.wind);
     expect(FUELINST_COLORS.embedded_wind).toBe(FUEL_COLORS.embedded_wind);

@@ -40,9 +40,9 @@ export type SourceGroupView = {
   id: SourceGroupId;
   label: string;
   color: string;
-  mw: number;
+  mw: number | null;
   gwLabel: string;
-  sharePct: number;
+  sharePct: number | null;
   shareLabel: string;
   rows: SourceRowView[];
 };
@@ -119,15 +119,16 @@ export function buildGroupedSourceTable(
 
   const groups = SOURCE_GROUP_ORDER.map((id) => {
     const rows = rowsForGroup(id, buckets, countryMw, demandMw, sparklineRows);
-    const mw = rows.reduce((sum, row) => sum + (row.mw ?? 0), 0);
+    const present = rows.filter((row) => row.mw != null);
+    const mw = present.length === 0 ? null : present.reduce((sum, row) => sum + (row.mw ?? 0), 0);
     return {
       id,
       label: GROUP_LABELS[id],
       color: GROUP_COLORS[id],
       mw,
       gwLabel: formatHeadlineGw(mw),
-      sharePct: sharePct(mw, demandMw),
-      shareLabel: shareLabel(mw, demandMw),
+      sharePct: mw == null ? null : sharePct(mw, demandMw),
+      shareLabel: mw == null ? "—" : shareLabel(mw, demandMw),
       rows,
     };
   });
