@@ -157,6 +157,15 @@ describe("generation desk layout", () => {
     expect(pageSource).toContain('"generation_5min_range"');
     expect(pageSource).toContain('"prices_range"');
     expect(pageSource.match(/queryPipe</g)?.length).toBe(5);
+    expect(pageSource).toContain("isNesoPeriod");
+    expect(pageSource).toContain("getHistoricPeriodView");
+    expect(pageSource).toContain("getGridRecords");
+    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
+      'label: "All time"'
+    );
+    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).not.toContain(
+      "Coming in a later update"
+    );
     expect(dashboardSource).toContain("headlineSnapshots={headlineSnapshots}");
     expect(dashboardSource).toContain("headlineGeneration={headlineGeneration}");
     expect(dashboardSource).not.toContain("GenerationMixChart");
@@ -177,6 +186,9 @@ describe("generation desk layout", () => {
       indexAfter(dashboardSource, 'id="section-commodities"')
     );
     expect(indexAfter(dashboardSource, 'id="section-commodities"')).toBeLessThan(
+      indexAfter(dashboardSource, 'id="section-records"')
+    );
+    expect(indexAfter(dashboardSource, 'id="section-records"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-carbon"')
     );
     expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(

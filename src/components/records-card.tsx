@@ -1,0 +1,77 @@
+import Link from "next/link";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import type { GridRecords } from "@/lib/historic-mix";
+import { NESO_OPEN_DATA_ATTRIBUTION } from "@/lib/attribution";
+import { formatHeadlineGw } from "@/lib/facts";
+import { formatLondonDateTimeStamp, parseUtcDateTime } from "@/lib/london-time";
+
+export function RecordsCard({ records }: { records: GridRecords }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <RecordStat
+        label="Wind record"
+        value={formatHeadlineGw(records.maxWind?.value ?? null)}
+        unit="GW"
+        when={records.maxWind?.timestampUtc}
+        help={`${records.maxWind?.basis ?? "Wind record."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
+      />
+      <RecordStat
+        label="Solar record"
+        value={formatHeadlineGw(records.maxSolar?.value ?? null)}
+        unit="GW"
+        when={records.maxSolar?.timestampUtc}
+        help={`${records.maxSolar?.basis ?? "Solar record."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
+      />
+      <RecordStat
+        label="Lowest carbon"
+        value={records.lowestCarbon ? records.lowestCarbon.value.toFixed(0) : "—"}
+        unit={records.lowestCarbon ? "g" : ""}
+        when={records.lowestCarbon?.timestampUtc}
+        help={`${records.lowestCarbon?.basis ?? "Lowest carbon half-hour."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
+      />
+      <RecordStat
+        label="Days without coal"
+        value={records.daysSinceCoal == null ? "—" : String(records.daysSinceCoal)}
+        unit=""
+        when={records.lastCoal?.timestampUtc}
+        help={`${records.lastCoal?.basis ?? "Days since the last coal half-hour."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
+      />
+      <p className="text-label-12 text-gray-900 sm:col-span-2 xl:col-span-4">
+        <Link href="/records" className="text-blue-700 underline-offset-2 hover:underline">
+          All records and wind milestones
+        </Link>
+        <span className="text-gray-700"> · {NESO_OPEN_DATA_ATTRIBUTION}</span>
+      </p>
+    </div>
+  );
+}
+
+function RecordStat({
+  label,
+  value,
+  unit,
+  when,
+  help,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  when?: string;
+  help: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1">
+        <p className="text-label-13 text-gray-900">{label}</p>
+        <InfoTooltip text={help} label={`What is ${label}?`} />
+      </div>
+      <p className="mt-1 font-sans text-heading-24 tabular-nums text-gray-1000">
+        <span>{value}</span>
+        {unit ? <span className="text-gray-700">{unit}</span> : null}
+      </p>
+      {when ? (
+        <p className="mt-1 text-mono-12 text-gray-900">{formatLondonDateTimeStamp(parseUtcDateTime(when))}</p>
+      ) : null}
+    </div>
+  );
+}

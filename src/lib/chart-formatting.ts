@@ -39,6 +39,8 @@ export function formatChartTick(value: string | number, range: ChartRange): stri
       return `${parts.day} ${MONTHS[parts.month - 1]}`;
     case "1y":
       return MONTHS[parts.month - 1] ?? "";
+    case "all":
+      return String(parts.year);
     default: {
       const exhaustive: never = range;
       return exhaustive;
@@ -66,6 +68,8 @@ export function formatChartTooltip(value: string | number, range: ChartRange): s
     case "90d":
     case "1y":
       return `${String(parts.day).padStart(2, "0")} ${month} ${parts.year}`;
+    case "all":
+      return `${month} ${parts.year}`;
     default: {
       const exhaustive: never = range;
       return exhaustive;
