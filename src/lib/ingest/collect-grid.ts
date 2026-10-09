@@ -358,6 +358,18 @@ function statusFromFetch<T>(
   return { source: result.source, ok: true, rows: count(result.value) };
 }
 
+function requireFetchedRows(status: SourceStatus): SourceStatus {
+  if (!status.ok || (status.rows ?? 0) > 0) {
+    return status;
+  }
+  return {
+    source: status.source,
+    ok: false,
+    rows: 0,
+    error: `${status.source} returned no rows`,
+  };
+}
+
 function snapshotMapsFromFetches(parts: {
   intensity: IntensityRow[];
   mix: MixRow[];
@@ -444,7 +456,7 @@ async function collectSnapshotsForPeriods(
     statusFromFetch(intensity, (rows) => rows.length),
     statusFromFetch(mix, (rows) => rows.length),
     statusFromFetch(prices, (rows) => rows.length),
-    statusFromFetch(marketIndex, (rows) => rows.length),
+    requireFetchedRows(statusFromFetch(marketIndex, (rows) => rows.length)),
     statusFromFetch(demand, (rows) => rows.length),
     statusFromFetch(generation, (rows) => rows.length),
   ];

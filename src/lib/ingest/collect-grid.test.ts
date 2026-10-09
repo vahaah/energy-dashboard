@@ -164,6 +164,22 @@ describe("snapshot ingest refuses incomplete overwrites", () => {
     expect(latest?.gen_wind_mw).toBe(4500);
   });
 
+  it("does not replace snapshots when Market Index returns an empty window", async () => {
+    mockFetchByUrl((url) => {
+      if (url.includes("market-index")) {
+        return jsonResponse({ data: [] });
+      }
+      return successfulSourcePayloads(url);
+    });
+
+    const result = await collectRecentSnapshots(new Date("2026-09-27T10:08:00.000Z"));
+
+    expect(result.rows).toEqual([]);
+    expect(result.sources.some((source) => source.source === "market_index" && !source.ok)).toBe(
+      true
+    );
+  });
+
   it("treats Market Index half-hours with zero volume or £0 as missing", async () => {
     mockFetchByUrl((url) => {
       if (url.includes("market-index")) {

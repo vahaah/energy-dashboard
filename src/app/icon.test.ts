@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -14,5 +14,9 @@ describe("live mix favicon route", () => {
     expect(source).not.toContain("latest_snapshot");
     expect(source).not.toContain("latest_generation");
     expect(source).not.toContain("latest_prices");
+  });
+
+  it("does not ship a static favicon.ico that would shadow the mix icon", () => {
+    expect(existsSync(resolve(process.cwd(), "src/app/favicon.ico"))).toBe(false);
   });
 });

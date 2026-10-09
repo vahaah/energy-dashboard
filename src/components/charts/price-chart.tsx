@@ -36,6 +36,15 @@ export function ElectricityPriceChart({ data, range, series = "mid" }: Props) {
     price: priceValue(d, series),
   }));
   const name = series === "mid" ? "Market price" : "System price";
+  if (!chartData.some((point) => point.price != null)) {
+    return (
+      <p className="text-copy-14 text-gray-900">
+        {series === "mid"
+          ? "No short-term wholesale market prices in this window."
+          : "No system prices in this window."}
+      </p>
+    );
+  }
 
   return (
     <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
