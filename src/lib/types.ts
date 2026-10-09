@@ -128,7 +128,9 @@ export interface InterconnectorFlow {
 
 // ─── Dashboard view types ───────────────────────────────────
 
-export type TimeRange = "24h" | "7d" | "30d" | "90d" | "1y";
+export type TimeRange = "24h" | "7d" | "30d" | "90d" | "1y" | "all";
+
+export type TinybirdTimeRange = Exclude<TimeRange, "all">;
 
 export interface GenerationMixItem {
   fuel: string;
@@ -179,4 +181,5 @@ export type DashboardFocus =
   | "price"
   | "generation"
   | "transfers"
-  | "commodities";
+  | "commodities"
+  | "records";

@@ -705,6 +705,7 @@ function getGenerationBucketSizeMs(range: TimeRange): number {
       return 60 * 60 * 1000;
     case "90d":
     case "1y":
+    case "all":
       return 24 * 60 * 60 * 1000;
     default: {
       const exhaustive: never = range;
@@ -722,6 +723,7 @@ function getDemandBalanceBucketSizeMs(range: TimeRange): number {
     case "30d":
     case "90d":
     case "1y":
+    case "all":
       return 24 * 60 * 60 * 1000;
     default: {
       const exhaustive: never = range;
@@ -738,6 +740,7 @@ function embeddedCarryLimitMs(range: TimeRange, bucketMs: number): number {
     case "30d":
     case "90d":
     case "1y":
+    case "all":
       return bucketMs;
     default: {
       const exhaustive: never = range;

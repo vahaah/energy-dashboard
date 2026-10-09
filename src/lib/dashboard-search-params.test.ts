@@ -15,6 +15,7 @@ describe("dashboard search params", () => {
   it("applies defaults when params are missing", async () => {
     await expect(loadDashboardSearchParams(Promise.resolve({}))).resolves.toEqual({
       range: "24h",
+      period: null,
       commodityRange: "90d",
       focus: "overview",
       price: "mid",
@@ -35,6 +36,7 @@ describe("dashboard search params", () => {
       )
     ).resolves.toEqual({
       range: "7d",
+      period: null,
       commodityRange: "1y",
       focus: "commodities",
       price: "system",
@@ -52,11 +54,21 @@ describe("dashboard search params", () => {
       )
     ).resolves.toEqual({
       range: "24h",
+      period: null,
       commodityRange: "90d",
       focus: "overview",
       price: "mid",
       date: null,
     });
+  });
+
+  it("parses period=year for share links", async () => {
+    await expect(
+      loadDashboardSearchParams(Promise.resolve({ period: "year" }))
+    ).resolves.toMatchObject({ period: "year", range: "24h" });
+    await expect(
+      loadDashboardSearchParams(Promise.resolve({ period: "all" }))
+    ).resolves.toMatchObject({ period: "all" });
   });
 
   it("keeps share-URL focus ids and puts generation before carbon", () => {
@@ -66,6 +78,7 @@ describe("dashboard search params", () => {
       "price",
       "transfers",
       "commodities",
+      "records",
       "carbon",
     ]);
   });
@@ -74,12 +87,13 @@ describe("dashboard search params", () => {
     expect(
       serializeDashboardSearchParams({
         range: "30d",
+        period: "year",
         commodityRange: "1y",
         focus: "transfers",
         price: "system",
         date: "2026-03-10",
       })
-    ).toBe("?range=30d&commodityRange=1y&focus=transfers&price=system&date=2026-03-10");
+    ).toBe("?range=30d&period=year&commodityRange=1y&focus=transfers&price=system&date=2026-03-10");
   });
 });
 

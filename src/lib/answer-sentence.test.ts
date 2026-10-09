@@ -45,6 +45,20 @@ describe("buildAnswerSentence", () => {
     ).toBe("Nuclear is the largest source of Britain’s electricity, with cross-border flows broadly balanced.");
   });
 
+  it("frames Year and All time as averages", () => {
+    expect(
+      buildAnswerSentence({
+        topFuel: "wind",
+        topMw: 9000,
+        transfersMw: 2100,
+        empty: false,
+        horizon: "year",
+      })
+    ).toBe(
+      "Over the past year, wind has been the largest source of Britain’s electricity, and imports have averaged 2.1 GW."
+    );
+  });
+
   it("has a catching-up line when the day is empty", () => {
     expect(
       buildAnswerSentence({

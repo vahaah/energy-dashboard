@@ -181,6 +181,7 @@ export const INTERCONNECTOR_COLORS: Record<string, string> = {
   intvkl: "#ec4899",
   intifa2: "#60a5fa",
   intgrnl: "#a3e635",
+  intneso: "#64748b",
 };
 
 export const INTERCONNECTOR_LABELS: Record<string, string> = {
@@ -194,6 +195,7 @@ export const INTERCONNECTOR_LABELS: Record<string, string> = {
   intvkl: "Denmark (Viking Link)",
   intifa2: "France (IFA2)",
   intgrnl: "Ireland (Greenlink)",
+  intneso: "Imports",
 };
 
 export const INTERCONNECTOR_COUNTRIES: Record<string, string> = {
@@ -207,6 +209,7 @@ export const INTERCONNECTOR_COUNTRIES: Record<string, string> = {
   intvkl: "Denmark",
   intifa2: "France",
   intgrnl: "Ireland",
+  intneso: "Imports",
 };
 
 export function carbonIndexColor(index: string): string {
@@ -233,6 +236,15 @@ export const CARBON_INDEX_BANDS = [
   { index: "high", max: 290 },
   { index: "very high", max: Number.POSITIVE_INFINITY },
 ] as const;
+
+export function carbonIndexFromIntensity(gramsPerKwh: number): (typeof CARBON_INDEX_BANDS)[number]["index"] {
+  for (const band of CARBON_INDEX_BANDS) {
+    if (gramsPerKwh <= band.max) {
+      return band.index;
+    }
+  }
+  return "very high";
+}
 
 export function hexToRgb(hex: string): readonly [number, number, number] {
   const value = hex.replace("#", "");

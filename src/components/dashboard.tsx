@@ -8,13 +8,29 @@ import type {
   CommodityPrice,
   EnergySnapshot,
   Generation5min,
+  TimeRange,
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
-import { elexonBmrsAttribution, ELEXON_BMRS_LICENCE_URL } from "@/lib/attribution";
 import {
-  dashboardSearchParamParsers,
-  dateParamForRange,
-} from "@/lib/dashboard-search-params";
+  elexonBmrsAttribution,
+  ELEXON_BMRS_LICENCE_URL,
+  NESO_HISTORIC_MIX_URL,
+  NESO_OPEN_DATA_ATTRIBUTION,
+  NESO_OPEN_DATA_LICENCE_URL,
+} from "@/lib/attribution";
+import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
+import {
+  chartRangeForPeriod,
+  isNesoPeriod,
+  searchStateForPeriod,
+  selectedPeriod,
+  type DashboardPeriod,
+} from "@/lib/dashboard-period";
+import { PeriodAveragesRow } from "@/components/period-averages";
+import { RecordsCard } from "@/components/records-card";
+import { EnergyTransition } from "@/components/energy-transition";
+import { snapshotPeriodAverages } from "@/lib/period-averages";
+import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
 import { getDisplayedPower } from "@/lib/displayed-demand";
 import {
@@ -73,6 +89,11 @@ interface Props {
   initialPrices: CommodityPrice[];
   generationHistory: Generation5min[];
   headlineGeneration: Generation5min[];
+  records: GridRecords | null;
+  historicView: HistoricPeriodView | null;
+  transitionView: HistoricPeriodView | null;
+  period: DashboardPeriod | null;
+  chartRange: TimeRange;
 }
 
 export function Dashboard({
@@ -85,6 +106,10 @@ export function Dashboard({
   initialPrices,
   generationHistory,
   headlineGeneration,
+  records,
+  historicView,
+  transitionView,
+  period: periodProp,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -97,11 +122,15 @@ export function Dashboard({
   });
 
   const range = urlState.range ?? searchParams.range;
+  const period = selectedPeriod(urlState.period ?? searchParams.period, range) ?? periodProp;
+  const chartRange = chartRangeForPeriod(period, range);
+  const neso = isNesoPeriod(period);
   const commodityRange = urlState.commodityRange ?? searchParams.commodityRange;
   const focus = urlState.focus ?? searchParams.focus;
   const priceSeries = urlState.price ?? searchParams.price;
   const activeDate = urlState.date ?? searchParams.date ?? selectedDate ?? todayDate;
   const power = getDisplayedPower(facts, headlineSnapshots);
+  const averages = historicView?.averages ?? snapshotPeriodAverages(initialSnapshots);
 
   useEffect(() => {
     if (focus === "overview") return;
@@ -135,6 +164,7 @@ export function Dashboard({
     topSharePct: topShare?.sharePct ?? null,
     transfersMw: power.transfersMw,
     empty: facts.empty,
+    horizon: period === "year" || period === "all" ? period : "live",
   });
 
   const commodityStats = useMemo(() => {
@@ -190,12 +220,9 @@ export function Dashboard({
         Skip to content
       </a>
       <SiteHeader
-        range={range}
-        onRangeChange={(nextRange) => {
-          void setUrlState({
-            range: nextRange,
-            date: dateParamForRange(nextRange, urlState.date ?? searchParams.date),
-          });
+        period={period}
+        onPeriodChange={(nextPeriod) => {
+          void setUrlState(searchStateForPeriod(nextPeriod));
         }}
         activeDate={activeDate}
         minDate={facts.coverageStart}
@@ -203,7 +230,7 @@ export function Dashboard({
         onDateChange={(date) => {
           void setUrlState({ date: date || todayDate });
         }}
-        showDate={range === "24h"}
+        showDate={period === "day" || (period == null && range === "24h")}
         stamp={facts.headerStamp}
         stale={facts.isStale}
         pending={isPending}
@@ -245,15 +272,20 @@ export function Dashboard({
               {isPending ? (
                 <GenerationDeskSkeleton />
               ) : (
-                <GenerationDesk
-                  facts={facts}
-                  snapshots={initialSnapshots}
-                  headlineSnapshots={headlineSnapshots}
-                  generation={generationHistory}
-                  headlineGeneration={headlineGeneration}
-                  range={range}
-                  pending={isPending}
-                />
+                <>
+                  <GenerationDesk
+                    facts={facts}
+                    snapshots={initialSnapshots}
+                    headlineSnapshots={headlineSnapshots}
+                    generation={generationHistory}
+                    headlineGeneration={headlineGeneration}
+                    range={chartRange}
+                    pending={isPending}
+                  />
+                  <div className="mt-8">
+                    <PeriodAveragesRow averages={averages} neso={neso} />
+                  </div>
+                </>
               )}
             </div>
           </section>
@@ -280,8 +312,12 @@ export function Dashboard({
         >
           {isPending ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+          ) : neso ? (
+            <p className="text-copy-14 text-gray-900">
+              Market prices are not in the NESO historic mix. Use Day or Week for the Market Index.
+            </p>
           ) : hasSnapshots ? (
-            <ElectricityPriceChart data={initialSnapshots} range={range} series={priceSeries} />
+            <ElectricityPriceChart data={initialSnapshots} range={chartRange} series={priceSeries} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -301,7 +337,11 @@ export function Dashboard({
                 <div className="mb-3 flex items-center gap-2">
                   <h3 className="text-heading-16 text-gray-1000">Latest flows</h3>
                   <InfoTooltip
-                    text="The latest metered flow on each interconnector. Positive is an import into Great Britain. Source: Elexon FUELINST."
+                    text={
+                      neso
+                        ? "NESO historic mix publishes one imports total, not per-link flows. Supported by National Energy SO Open Data."
+                        : "The latest metered flow on each interconnector. Positive is an import into Great Britain. Source: Elexon FUELINST."
+                    }
                     label="What is Latest flows?"
                   />
                 </div>
@@ -311,11 +351,15 @@ export function Dashboard({
                 <div className="mb-3 flex items-center gap-2">
                   <h3 className="text-heading-16 text-gray-1000">Flows over time</h3>
                   <InfoTooltip
-                    text="How those interconnector flows moved through the selected window. Source: Elexon FUELINST."
+                    text={
+                      neso
+                        ? "Imports over the selected historic window. Source: NESO historic generation mix."
+                        : "How those interconnector flows moved through the selected window. Source: Elexon FUELINST."
+                    }
                     label="What is Flows over time?"
                   />
                 </div>
-                <InterconnectorFlowsChart data={generationHistory} range={range} />
+                <InterconnectorFlowsChart data={generationHistory} range={chartRange} />
               </div>
             </div>
           ) : (
@@ -330,7 +374,7 @@ export function Dashboard({
           {isPending ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : generationHistory.length > 0 ? (
-            <GenerationStackChart data={generationHistory} range={range} />
+            <GenerationStackChart data={generationHistory} range={chartRange} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -393,6 +437,30 @@ export function Dashboard({
         </SectionBlock>
 
         <SectionBlock
+          id="section-records"
+          title="Records and the energy transition"
+          tooltip="Peaks, firsts and the coal-to-wind shift, computed from NESO historic generation mix. Supported by National Energy SO Open Data."
+          active={focus === "records"}
+        >
+          {isPending ? (
+            <Skeleton className="h-40 w-full rounded-xl" />
+          ) : records ? (
+            <div className="space-y-8">
+              <RecordsCard records={records} />
+              <div>
+                <h3 className="mb-3 text-heading-16 text-gray-1000">Coal gives way to wind</h3>
+                <EnergyTransition
+                  yearly={transitionView?.yearly ?? historicView?.yearly ?? []}
+                  sentences={transitionView?.sentences ?? historicView?.sentences ?? null}
+                />
+              </div>
+            </div>
+          ) : (
+            <EmptyState stamp={facts.headerStamp} />
+          )}
+        </SectionBlock>
+
+        <SectionBlock
           id="section-carbon"
           title="How clean is it?"
           tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges."
@@ -401,7 +469,7 @@ export function Dashboard({
           {isPending ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : hasSnapshots ? (
-            <CarbonIntensityChart data={initialSnapshots} range={range} />
+            <CarbonIntensityChart data={initialSnapshots} range={chartRange} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -411,10 +479,17 @@ export function Dashboard({
           <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
             Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
-            wind, and Sheffield Solar PV Live. The headline price is the short-term wholesale
-            market price from Elexon’s Market Index (APXMIDP), not the day-ahead auction. System
-            price is the imbalance (cash-out) price. Oil and gas prices come from EIA, World Bank
-            Commodity Price Data (The Pink Sheet, CC BY 4.0), and National Gas.
+            wind, and Sheffield Solar PV Live. Year and All time, plus records, use NESO{" "}
+            <a
+              href={NESO_HISTORIC_MIX_URL}
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+            >
+              Historic generation mix and carbon intensity
+            </a>
+            . The headline price is the short-term wholesale market price from Elexon’s Market
+            Index (APXMIDP), not the day-ahead auction. System price is the imbalance (cash-out)
+            price. Oil and gas prices come from EIA, World Bank Commodity Price Data (The Pink
+            Sheet, CC BY 4.0), and National Gas.
           </p>
           <p className="mt-3 max-w-3xl text-copy-14 text-gray-900">
             {elexonBmrsAttribution()}{" "}
@@ -423,6 +498,13 @@ export function Dashboard({
               className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
             >
               BMRS Data Licence
+            </a>
+            . {NESO_OPEN_DATA_ATTRIBUTION}.{" "}
+            <a
+              href={NESO_OPEN_DATA_LICENCE_URL}
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+            >
+              NESO Open Data Licence
             </a>
             .
           </p>
@@ -438,8 +520,9 @@ export function Dashboard({
             </code>
           </div>
           <p className="mt-3 text-label-12 text-gray-900">
-            URL state is canonical for the selected range, commodity horizon, and section focus.
-            Rate limit remains 60 requests per minute.
+            URL state is canonical for the selected period, commodity horizon, and section focus.
+            Share links use <code>?period=year</code> or <code>?period=all</code>. Rate limit
+            remains 60 requests per minute.
           </p>
         </footer>
       </main>

@@ -1,5 +1,5 @@
 import { getLondonDate, londonMidnightUtc, addUtcDays } from "@/lib/london-time";
-import type { CommodityRange, TimeRange } from "@/lib/types";
+import type { CommodityRange, TinybirdTimeRange } from "@/lib/types";
 import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
 type QueryParams = Record<string, string>;
@@ -61,7 +61,7 @@ export function getHeadlineGenerationQueryParams(
 }
 
 export function getSnapshotsQueryParams(
-  range: TimeRange,
+  range: TinybirdTimeRange,
   now = new Date(),
   selectedDate?: string | null
 ): QueryParams {
@@ -130,7 +130,7 @@ export function getPricesQueryParams(
 }
 
 export function getGenerationQueryParams(
-  range: TimeRange,
+  range: TinybirdTimeRange,
   now = new Date(),
   selectedDate?: string | null
 ): QueryParams {

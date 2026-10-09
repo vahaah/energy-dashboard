@@ -11,6 +11,7 @@ describe("API query params", () => {
     expect(parseTimeRange("7d")).toEqual({ ok: true, value: "7d" });
     expect(parseTimeRange(null)).toEqual({ ok: true, value: "24h" });
     expect(parseTimeRange("2h").ok).toBe(false);
+    expect(parseTimeRange("all").ok).toBe(false);
     expect(parseCommodityRange("1y")).toEqual({ ok: true, value: "1y" });
     expect(parseCommodityRange("24h").ok).toBe(false);
     expect(parseInterconnectorRange("7d")).toEqual({ ok: true, value: "7d" });

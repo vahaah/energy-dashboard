@@ -3,6 +3,8 @@ import {
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
+  NESO_OPEN_DATA_ATTRIBUTION,
+  NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
 
 describe("Elexon BMRS attribution", () => {
@@ -17,5 +19,10 @@ describe("Elexon BMRS attribution", () => {
       text: "Contains BMRS data © Elexon Limited copyright and database right 2026.",
       licence: ELEXON_BMRS_LICENCE_URL,
     });
+  });
+
+  it("credits NESO historic mix under the Open Data licence", () => {
+    expect(NESO_OPEN_DATA_ATTRIBUTION).toBe("Supported by National Energy SO Open Data");
+    expect(NESO_OPEN_DATA_LICENCE_URL).toContain("neso-open-data-licence");
   });
 });

@@ -3,7 +3,7 @@ import {
   DASHBOARD_RANGES,
   isValidDashboardDate,
 } from "@/lib/dashboard-search-params";
-import type { CommodityRange, TimeRange } from "@/lib/types";
+import type { CommodityRange, TinybirdTimeRange } from "@/lib/types";
 
 export const INTERCONNECTOR_RANGES = ["24h", "7d"] as const;
 
@@ -35,8 +35,8 @@ function parseLiteral<T extends string>(
 
 export function parseTimeRange(
   value: string | null,
-  fallback: TimeRange = "24h"
-): ParseResult<TimeRange> {
+  fallback: TinybirdTimeRange = "24h"
+): ParseResult<TinybirdTimeRange> {
   return parseLiteral(value, DASHBOARD_RANGES, fallback, "range");
 }
 

@@ -3,6 +3,7 @@ import {
   parseAsStringLiteral,
   type inferParserType,
 } from "nuqs/server";
+import { DASHBOARD_PERIODS } from "@/lib/dashboard-period";
 import { getLondonDate } from "@/lib/london-time";
 
 export const DASHBOARD_RANGES = ["24h", "7d", "30d", "90d", "1y"] as const;
@@ -13,6 +14,7 @@ export const DASHBOARD_FOCUSES = [
   "price",
   "transfers",
   "commodities",
+  "records",
   "carbon",
 ] as const;
 export const PRICE_SERIES = ["mid", "system"] as const;
@@ -90,6 +92,7 @@ const parseAsDashboardDate = createParser<string>({
 
 export const dashboardSearchParamParsers = {
   range: parseAsStringLiteral(DASHBOARD_RANGES).withDefault("24h"),
+  period: parseAsStringLiteral(DASHBOARD_PERIODS),
   commodityRange: parseAsStringLiteral(COMMODITY_RANGES).withDefault("90d"),
   focus: parseAsStringLiteral(DASHBOARD_FOCUSES).withDefault("overview"),
   price: parseAsStringLiteral(PRICE_SERIES).withDefault("mid"),

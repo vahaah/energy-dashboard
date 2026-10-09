@@ -882,14 +882,14 @@ describe("demand balance chart view", () => {
     expect(points).toHaveLength(2);
   });
 
-  it("smooths 1y and 90d with a 7-day average over daily values", () => {
+  it("smooths 90d with a 7-day average over daily values", () => {
     const series: DemandBalancePoint[] = [10, 20, 30, 40, 50, 60, 70].map((gw, index) => ({
       time: `2026-01-0${index + 1} 00:00:00`,
       demandMw: gw * 1000,
       domesticGenerationMw: (gw - 2) * 1000,
       embeddedMissing: [],
     }));
-    const points = prepareDemandBalanceChartData(series, "1y");
+    const points = prepareDemandBalanceChartData(series, "90d");
     const last = points.at(-1);
 
     expect(last?.demandDailyGw).toBe(70);
@@ -900,7 +900,8 @@ describe("demand balance chart view", () => {
     expect(points[0]?.demandGw).toBeNull();
     expect(points[3]?.demandGw).toBe(25);
     expect(points[3]?.generationGw).toBe(23);
-    expect(prepareDemandBalanceChartData(series, "90d").at(-1)?.demandGw).toBe(40);
+    expect(prepareDemandBalanceChartData(series, "1y").at(-1)?.demandGw).toBe(70);
+    expect(prepareDemandBalanceChartData(series, "all").at(-1)?.demandGw).toBe(70);
     expect(prepareDemandBalanceChartData(series, "30d").at(-1)?.demandGw).toBe(70);
   });
 
@@ -932,7 +933,7 @@ describe("demand balance chart view", () => {
           embeddedMissing: [],
         },
       ],
-      "1y"
+      "90d"
     );
     const hole = missingGeneration[2];
 
@@ -982,7 +983,7 @@ describe("demand balance chart view", () => {
       { time: "2026-01-06 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
       { time: "2026-01-07 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
     ];
-    const points = prepareDemandBalanceChartData(series, "1y");
+    const points = prepareDemandBalanceChartData(series, "90d");
     const last = points.at(-1);
     const hole = points[3];
 
@@ -1009,7 +1010,7 @@ describe("demand balance chart view", () => {
       { time: "2026-01-06 00:00:00", demandMw: null, domesticGenerationMw: 18000, embeddedMissing: [] },
       { time: "2026-01-07 00:00:00", demandMw: 20000, domesticGenerationMw: 20000, embeddedMissing: [] },
     ];
-    const points = prepareDemandBalanceChartData(series, "1y");
+    const points = prepareDemandBalanceChartData(series, "90d");
     const missingGeneration = points[4];
     const missingDemand = points[5];
     const last = points.at(-1);
@@ -1054,7 +1055,7 @@ describe("demand balance chart view", () => {
       generationGw: null,
     });
 
-    const points = prepareDemandBalanceChartData(series, "1y");
+    const points = prepareDemandBalanceChartData(series, "90d");
     const hole = points[5];
     const last = points.at(-1);
 

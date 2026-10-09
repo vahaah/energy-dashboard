@@ -8,7 +8,7 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
 - [Carbon Intensity API](https://api.carbonintensity.org.uk) — carbon intensity, generation mix
 - [Elexon BMRS/Insights](https://bmrs.elexon.co.uk) — Market Index (APXMIDP) short-term wholesale price, imbalance (cash-out) prices, demand, generation by fuel type
 - [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — national GB solar (including embedded)
-- [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods)
+- [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods); [historic generation mix](https://www.neso.energy/data-portal/historic-generation-mix) for Year / All time and records (NESO Open Data Licence)
 - [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
 - [National Gas Data Portal](https://data.nationalgas.com) — GB System Average Price (`gb_gas_sap`, PUBOB603), p/kWh, no auth
 

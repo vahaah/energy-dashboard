@@ -363,11 +363,12 @@ export function buildDemandBalanceChartPoints(
 export function usesLongRangeSmoothing(range: TimeRange): boolean {
   switch (range) {
     case "90d":
-    case "1y":
       return true;
     case "24h":
     case "7d":
     case "30d":
+    case "1y":
+    case "all":
       return false;
     default: {
       const exhaustive: never = range;
@@ -550,10 +551,30 @@ export function demandBalanceXTicks(
       return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     case "1y": {
-      const monthStarts = dated
-        .filter((entry) => entry.parts.day === 1)
-        .map((entry) => entry.time);
+      const monthStarts: string[] = [];
+      let previousMonth: string | null = null;
+      for (const entry of dated) {
+        const monthKey = `${entry.parts.year}-${entry.parts.month}`;
+        if (monthKey === previousMonth) {
+          continue;
+        }
+        monthStarts.push(entry.time);
+        previousMonth = monthKey;
+      }
       const ticks = monthStarts.length > 0 ? monthStarts : pickEvenly(times, 6);
+      return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
+    }
+    case "all": {
+      const yearStarts: string[] = [];
+      let previousYear: number | null = null;
+      for (const entry of dated) {
+        if (entry.parts.year === previousYear) {
+          continue;
+        }
+        yearStarts.push(entry.time);
+        previousYear = entry.parts.year;
+      }
+      const ticks = yearStarts.length > 0 ? yearStarts : pickEvenly(times, 8);
       return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     default: {
@@ -580,6 +601,8 @@ export function formatDemandBalanceTick(timestamp: string, range: TimeRange): st
       return `${parts.day} ${month}`;
     case "1y":
       return month;
+    case "all":
+      return String(parts.year);
     default: {
       const exhaustive: never = range;
       return exhaustive;
@@ -606,6 +629,8 @@ export function formatDemandBalanceTooltipLabel(
     case "90d":
     case "1y":
       return `${parts.day} ${month} ${parts.year}`;
+    case "all":
+      return `${month} ${parts.year}`;
     default: {
       const exhaustive: never = range;
       return exhaustive;

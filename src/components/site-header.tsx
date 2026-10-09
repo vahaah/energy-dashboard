@@ -3,19 +3,19 @@
 import Link from "next/link";
 import { CalendarDays, Check, Copy } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import type { DashboardPeriod } from "@/lib/dashboard-period";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
-import type { TimeRange } from "@/lib/types";
 
 const PERIODS = [
-  { value: "24h", label: "Day", enabled: true },
-  { value: "7d", label: "Week", enabled: true },
-  { value: "1y", label: "Year", enabled: false },
-  { value: "all", label: "All time", enabled: false },
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "year", label: "Year" },
+  { value: "all", label: "All time" },
 ] as const;
 
 export function SiteHeader({
-  range,
-  onRangeChange,
+  period,
+  onPeriodChange,
   activeDate,
   minDate,
   maxDate,
@@ -27,8 +27,8 @@ export function SiteHeader({
   copied,
   onShare,
 }: {
-  range: TimeRange;
-  onRangeChange: (range: TimeRange) => void;
+  period: DashboardPeriod | null;
+  onPeriodChange: (period: DashboardPeriod) => void;
   activeDate: string;
   minDate: string;
   maxDate: string;
@@ -54,7 +54,7 @@ export function SiteHeader({
           className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
           aria-label="Time period"
         >
-          <PeriodTabs range={range} onRangeChange={onRangeChange} pending={pending} />
+          <PeriodTabs period={period} onPeriodChange={onPeriodChange} pending={pending} />
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
@@ -88,7 +88,7 @@ export function SiteHeader({
 
       <div className="border-t border-gray-alpha-400 md:hidden">
         <div className="mx-auto flex h-10 max-w-[1200px] items-center overflow-x-auto px-4">
-          <PeriodTabs range={range} onRangeChange={onRangeChange} pending={pending} />
+          <PeriodTabs period={period} onPeriodChange={onPeriodChange} pending={pending} />
         </div>
       </div>
 
@@ -107,45 +107,33 @@ export function SiteHeader({
 }
 
 function PeriodTabs({
-  range,
-  onRangeChange,
+  period,
+  onPeriodChange,
   pending,
 }: {
-  range: TimeRange;
-  onRangeChange: (next: TimeRange) => void;
+  period: DashboardPeriod | null;
+  onPeriodChange: (next: DashboardPeriod) => void;
   pending: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4" role="tablist" aria-label="Day or week">
-      {PERIODS.map((period) => {
-        const selected = period.enabled && period.value === range;
-        if (!period.enabled) {
-          return (
-            <span
-              key={period.label}
-              className="shrink-0 border-b-2 border-transparent pb-1 text-label-13 text-gray-700"
-              title="Coming in a later update"
-            >
-              {period.label}
-            </span>
-          );
-        }
-
+    <div className="flex items-center gap-4" role="tablist" aria-label="Time period">
+      {PERIODS.map((item) => {
+        const selected = item.value === period;
         return (
           <button
-            key={period.value}
+            key={item.value}
             type="button"
             role="tab"
             aria-selected={selected}
             disabled={pending}
-            onClick={() => onRangeChange(period.value)}
+            onClick={() => onPeriodChange(item.value)}
             className={`shrink-0 border-b-2 pb-1 text-label-13 ${
               selected
                 ? "border-blue-700 text-gray-1000"
                 : "border-transparent text-gray-900 hover:text-gray-1000"
             }`}
           >
-            {period.label}
+            {item.label}
           </button>
         );
       })}
