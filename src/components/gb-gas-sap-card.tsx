@@ -23,38 +23,38 @@ export function GbGasSapCard({
   percentageDelta: number;
 }) {
   const rising = absoluteDelta >= 0;
-  const deltaColor = rising ? "text-emerald-300" : "text-rose-300";
   const thermDelta = sapPencePerTherm(absoluteDelta);
 
   return (
-    <div className="rounded-3xl border border-white/8 bg-white/[0.03] p-4">
+    <div className="surface-card p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-900">
+        <p className="text-label-13 text-gray-900">
           {COMMODITY_CARD_LABELS[GB_GAS_SAP_COMMODITY]}
         </p>
         <span
-          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          className="size-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: COMMODITY_COLORS[GB_GAS_SAP_COMMODITY] }}
+          aria-hidden="true"
         />
       </div>
-      <p className="mt-3 font-mono text-2xl font-semibold tracking-tight text-gray-1000 tabular-nums">
-        {latest ? formatSapPencePerTherm(latest.price) : "—"}
+      <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">
+        {latest ? formatSapPencePerTherm(latest.price).replace(" p/therm", "") : "—"}
+        <span className="text-heading-32 text-gray-700"> p/therm</span>
       </p>
-      <p className="mt-1 font-mono text-sm text-gray-1000 tabular-nums">
+      <p className="font-sans text-copy-14 tabular-nums text-gray-900">
         {latest ? formatSapGbpPerMwh(latest.price) : "No current value"}
       </p>
-      <div className={`mt-2 flex items-center gap-1 text-sm ${deltaColor}`}>
-        {rising ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-        <span className="tabular-nums">
-          {formatSignedThermDelta(thermDelta)} · {formatSignedPercentage(percentageDelta)}
-        </span>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-gray-900">
-        The average price of gas traded on National Gas&apos;s On-the-day Commodity Market for that
-        gas day.
+      <p className={`mt-1 text-label-12 ${rising ? "text-green-700" : "text-red-700"}`}>
+        {rising ? (
+          <ArrowUpRight className="mr-0.5 inline size-3.5" aria-hidden="true" />
+        ) : (
+          <ArrowDownRight className="mr-0.5 inline size-3.5" aria-hidden="true" />
+        )}
+        {formatSignedThermDelta(thermDelta)} · {formatSignedPercentage(percentageDelta)}
       </p>
-      <p className="mt-2 text-xs text-gray-900">
-        Source:{" "}
+      <p className="mt-3 text-label-12 leading-5 text-gray-900">
+        The average price of gas traded on National Gas&apos;s On-the-day Commodity Market for that
+        gas day. Source:{" "}
         <a
           href={NATIONAL_GAS_DATA_PORTAL_URL}
           target="_blank"

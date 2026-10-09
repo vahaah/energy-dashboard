@@ -1,25 +1,24 @@
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 
-/**
- * Site-wide fuel palette. FUEL_COLORS and FUELINST_COLORS share these hexes
- * so every chart, list, and stacked bar uses one colour per fuel.
- */
-const GAS = "#e8743b";
-const COAL = "#8a8a8a";
-const NUCLEAR = "#c47bdb";
-const WIND = "#56b4e9";
-const EMBEDDED_WIND = "#9ed6f4";
-const SOLAR = "#f0e442";
-const EMBEDDED_SOLAR = "#f6ed8a";
-const HYDRO = "#4a6fe0";
-const BIOMASS = "#2fa876";
-const IMPORTS = "#c9899a";
-const OTHER = "#8b8b96";
+const GAS = "#f97316";
+const COAL = "#57534e";
+const OIL = "#a8a29e";
+const NUCLEAR = "#a855f7";
+const BIOMASS = "#16a34a";
+const WIND = "#0ea5e9";
+const EMBEDDED_WIND = "#7dd3fc";
+const SOLAR = "#eab308";
+const EMBEDDED_SOLAR = "#fde047";
+const HYDRO = "#2563eb";
+const IMPORTS = "#64748b";
+const PUMPED = "#14b8a6";
+const BATTERY = "#5eead4";
+const OTHER = "#9ca3af";
 
-/** Fuel type → chart color mapping. Consistent across all charts. */
 export const FUEL_COLORS: Record<string, string> = {
   gas: GAS,
   coal: COAL,
+  oil: OIL,
   nuclear: NUCLEAR,
   wind: WIND,
   solar: SOLAR,
@@ -29,11 +28,14 @@ export const FUEL_COLORS: Record<string, string> = {
   other: OTHER,
   embedded_wind: EMBEDDED_WIND,
   embedded_solar: EMBEDDED_SOLAR,
+  pumped_storage: PUMPED,
+  battery: BATTERY,
 };
 
 export const FUEL_LABELS: Record<string, string> = {
   gas: "Gas",
   coal: "Coal",
+  oil: "Oil",
   nuclear: "Nuclear",
   wind: "Wind",
   solar: "Solar",
@@ -41,21 +43,32 @@ export const FUEL_LABELS: Record<string, string> = {
   biomass: "Biomass",
   imports: "Imports",
   other: "Other",
-  embedded_wind: "Embedded Wind",
+  embedded_wind: "Embedded wind",
   embedded_solar: "Solar (PV Live estimate)",
+  pumped_storage: "Pumped storage",
+  battery: "Battery",
 };
 
-/** Dark card surface used for AA checks on small labels. */
-export const DARK_SURFACE = "#111111";
-/** Card titles (`text-xs font-medium`) — gray-1000 on background-200. */
-export const CARD_LABEL_COLOR = "#ededed";
+export const LIGHT_SURFACE = "#ffffff";
+export const DARK_SURFACE = "#0a0a0a";
+export const LIGHT_CARD_LABEL = "#171717";
+export const DARK_CARD_LABEL = "#ededed";
+export const CARD_LABEL_COLOR = DARK_CARD_LABEL;
 
-/** Non-fuel series. Must not collide with FUEL_COLORS / FUELINST_COLORS. */
-export const DEMAND_SERIES_COLOR = "#f4f4f5";
-/** Warm sand — not a fuel, not cyan/teal, not solar yellow. */
-export const DOMESTIC_GENERATION_SERIES_COLOR = "#d2a36a";
-export const IMPORT_GAP_COLOR = "#b4536a";
-export const EXPORT_GAP_COLOR = "#7d9a6e";
+export const DEMAND_SERIES_COLOR = "#171717";
+export const DEMAND_SERIES_COLOR_DARK = "#ededed";
+export const DOMESTIC_GENERATION_SERIES_COLOR = "#666666";
+export const DOMESTIC_GENERATION_SERIES_COLOR_DARK = "#a1a1a1";
+export const IMPORT_GAP_COLOR = "#64748b";
+export const EXPORT_GAP_COLOR = "#0a7c3e";
+
+export const GROUP_COLORS: Record<string, string> = {
+  fossil: GAS,
+  renewables: WIND,
+  other: NUCLEAR,
+  interconnectors: IMPORTS,
+  storage: PUMPED,
+};
 
 export const COMMODITY_COLORS: Record<string, string> = {
   brent_crude: "#f97316",
@@ -84,6 +97,8 @@ export const COMMODITY_CARD_LABELS: Record<string, string> = {
   gb_gas_sap: "GB gas (SAP)",
 };
 
+export const COMMODITY_CARD_KEYS = ["brent_crude", "henry_hub_gas", "gb_gas_sap"] as const;
+
 export const COMMODITY_DISPLAY_ORDER = PUBLIC_COMMODITIES;
 
 export function commodityDisplayIndex(commodity: string): number {
@@ -91,7 +106,6 @@ export function commodityDisplayIndex(commodity: string): number {
   return index === -1 ? COMMODITY_DISPLAY_ORDER.length : index;
 }
 
-/** FUELINST fuel type colors (5-min resolution) — same hexes as FUEL_COLORS. */
 export const FUELINST_COLORS: Record<string, string> = {
   ccgt: GAS,
   coal: COAL,
@@ -101,27 +115,27 @@ export const FUELINST_COLORS: Record<string, string> = {
   hydro: HYDRO,
   biomass: BIOMASS,
   ocgt: GAS,
-  oil: OTHER,
-  ps: HYDRO,
+  oil: OIL,
+  ps: PUMPED,
   other: OTHER,
   embedded_solar: EMBEDDED_SOLAR,
   embedded_wind: EMBEDDED_WIND,
 };
 
 export const FUELINST_LABELS: Record<string, string> = {
-  ccgt: "CCGT (Gas)",
+  ccgt: "CCGT (gas)",
   coal: "Coal",
   nuclear: "Nuclear",
   wind: "Wind",
   solar: "Solar",
   hydro: "Hydro",
   biomass: "Biomass",
-  ocgt: "OCGT (Gas)",
+  ocgt: "OCGT (gas)",
   oil: "Oil",
-  ps: "Pumped Storage",
+  ps: "Pumped storage",
   other: "Other",
   embedded_solar: "Solar (PV Live estimate)",
-  embedded_wind: "Embedded Wind",
+  embedded_wind: "Embedded wind",
 };
 
 export function fuelColor(fuel: string): string {
@@ -129,21 +143,20 @@ export function fuelColor(fuel: string): string {
 }
 
 export function fuelLabel(fuel: string): string {
-  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuel.toUpperCase();
+  return FUEL_LABELS[fuel] ?? FUELINST_LABELS[fuel] ?? fuel;
 }
 
-/** Interconnector colors by country */
 export const INTERCONNECTOR_COLORS: Record<string, string> = {
-  intfr: "#3b82f6",    // France (IFA)
-  intirl: "#22c55e",   // Northern Ireland (Moyle)
-  intned: "#f97316",   // Netherlands (BritNed)
-  intew: "#16a34a",    // Ireland (East-West)
-  intnem: "#f59e0b",   // Belgium (Nemo)
-  intnsl: "#06b6d4",   // Norway (North Sea Link)
-  intelec: "#eab308",  // France (ElecLink)
-  intvkl: "#ec4899",   // Denmark (Viking Link)
-  intifa2: "#60a5fa",  // France (IFA2)
-  intgrnl: "#a3e635",  // Ireland (Greenlink)
+  intfr: "#3b82f6",
+  intirl: "#22c55e",
+  intned: "#f97316",
+  intew: "#16a34a",
+  intnem: "#f59e0b",
+  intnsl: "#06b6d4",
+  intelec: "#eab308",
+  intvkl: "#ec4899",
+  intifa2: "#60a5fa",
+  intgrnl: "#a3e635",
 };
 
 export const INTERCONNECTOR_LABELS: Record<string, string> = {
@@ -159,23 +172,43 @@ export const INTERCONNECTOR_LABELS: Record<string, string> = {
   intgrnl: "Ireland (Greenlink)",
 };
 
-/** Carbon index → color */
+export const INTERCONNECTOR_COUNTRIES: Record<string, string> = {
+  intfr: "France",
+  intirl: "Northern Ireland",
+  intned: "Netherlands",
+  intew: "Ireland",
+  intnem: "Belgium",
+  intnsl: "Norway",
+  intelec: "France",
+  intvkl: "Denmark",
+  intifa2: "France",
+  intgrnl: "Ireland",
+};
+
 export function carbonIndexColor(index: string): string {
   switch (index) {
     case "very low":
-      return "#22c55e";
+      return "#0a7c3e";
     case "low":
-      return "#86efac";
+      return "#16a34a";
     case "moderate":
-      return "#facc15";
+      return "#d97706";
     case "high":
-      return "#f97316";
+      return "#e5484d";
     case "very high":
-      return "#ef4444";
+      return "#be123c";
     default:
       return OTHER;
   }
 }
+
+export const CARBON_INDEX_BANDS = [
+  { index: "very low", max: 50 },
+  { index: "low", max: 140 },
+  { index: "moderate", max: 220 },
+  { index: "high", max: 310 },
+  { index: "very high", max: Number.POSITIVE_INFINITY },
+] as const;
 
 export function hexToRgb(hex: string): readonly [number, number, number] {
   const value = hex.replace("#", "");

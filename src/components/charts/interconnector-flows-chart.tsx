@@ -2,7 +2,6 @@
 
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -11,11 +10,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Generation5min, TimeRange } from "@/lib/types";
-import { INTERCONNECTOR_COLORS, INTERCONNECTOR_LABELS } from "@/lib/colors";
-import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
-import { isInterconnectorFuel, normalizeFuelType } from "@/lib/dashboard-model";
+import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import {
+  chartAnimation,
+  chartAxisLine,
+  chartAxisTick,
+  chartGrid,
+  chartLine,
+  CHART_HEIGHT_HERO,
+  CHART_SERIES_CAP,
+} from "@/lib/chart-theme";
+import { INTERCONNECTOR_COLORS, INTERCONNECTOR_LABELS } from "@/lib/colors";
+import { isInterconnectorFuel, normalizeFuelType } from "@/lib/dashboard-model";
+import type { Generation5min, TimeRange } from "@/lib/types";
 
 interface Props {
   data: Generation5min[];
@@ -34,7 +43,10 @@ export function InterconnectorFlowsChart({ data, range }: Props) {
       byTimestamp.set(row.timestamp, { time: row.timestamp, net: 0 });
     }
 
-    const entry = byTimestamp.get(row.timestamp)!;
+    const entry = byTimestamp.get(row.timestamp);
+    if (!entry) {
+      continue;
+    }
     entry[interconnector] = Number(entry[interconnector] ?? 0) + row.generation_mw / 1000;
     entry.net = Number(entry.net ?? 0) + row.generation_mw / 1000;
     connectorAbs.set(
@@ -43,67 +55,93 @@ export function InterconnectorFlowsChart({ data, range }: Props) {
     );
   }
 
-  const connectors = Array.from(connectorAbs.entries())
+  const ranked = Array.from(connectorAbs.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([connector]) => connector);
+  const shown = ranked.slice(0, CHART_SERIES_CAP);
+  const overflow = ranked.slice(CHART_SERIES_CAP);
 
-  const chartData = Array.from(byTimestamp.values()).sort(
-    (a, b) =>
-      new Date(a.time as string).getTime() - new Date(b.time as string).getTime()
-  );
+  const chartData = Array.from(byTimestamp.values())
+    .map((point) => {
+      if (overflow.length === 0) {
+        return point;
+      }
+      const other = overflow.reduce((sum, connector) => sum + Number(point[connector] ?? 0), 0);
+      return { ...point, other };
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.time as string).getTime() - new Date(b.time as string).getTime()
+    );
+
+  const series = overflow.length > 0 ? [...shown, "other"] : shown;
 
   return (
-    <ResponsiveChartFrame className="h-80">
+    <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+        <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+          <CartesianGrid {...chartGrid} />
           <XAxis
             dataKey="time"
             tickFormatter={(value) => formatChartTick(String(value), range)}
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
+            tick={chartAxisTick}
+            {...chartAxisLine}
           />
           <YAxis
             tickFormatter={(value) => `${Number(value).toFixed(1)}`}
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
+            tick={chartAxisTick}
+            {...chartAxisLine}
+            width={44}
             label={{
               value: "GW",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "#71717a" },
+              position: "insideTopLeft",
+              offset: 8,
+              style: chartAxisTick,
             }}
           />
           <Tooltip
-            labelFormatter={(value) => formatChartTooltip(value as string, range)}
-            formatter={(value, name) => [
-              `${Number(value).toFixed(2)} GW`,
-              INTERCONNECTOR_LABELS[String(name)] ?? name,
-            ]}
-            wrapperStyle={{ zIndex: 320 }}
-            contentStyle={{
-              backgroundColor: "rgba(0,0,0,0.85)",
-              border: "none",
-              borderRadius: 8,
-              color: "#fff",
-              fontSize: 13,
+            cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
+            content={({ active, label, payload }) => {
+              if (!active || payload == null || payload.length === 0 || label == null) {
+                return null;
+              }
+              const rows = [...payload]
+                .filter((entry) => entry.value != null)
+                .sort((left, right) => Math.abs(Number(right.value)) - Math.abs(Number(left.value)));
+              return (
+                <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
+                  {rows.map((entry) => (
+                    <p key={String(entry.dataKey)} className="flex justify-between gap-6">
+                      <span>{connectorLabel(String(entry.name))}</span>
+                      <span className="tabular-nums">{Number(entry.value).toFixed(2)} GW</span>
+                    </p>
+                  ))}
+                </ChartTooltipCard>
+              );
             }}
+            wrapperStyle={{ zIndex: 320 }}
           />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-          <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />
-          {connectors.map((connector) => (
+          <ReferenceLine y={0} stroke="var(--gray-alpha-200)" />
+          {series.map((connector) => (
             <Line
               key={connector}
               type="monotone"
               dataKey={connector}
-              stroke={INTERCONNECTOR_COLORS[connector] ?? "#94a3b8"}
-              strokeWidth={2}
-              dot={false}
-              name={INTERCONNECTOR_LABELS[connector] ?? connector}
+              stroke={connector === "other" ? "var(--chart-other)" : INTERCONNECTOR_COLORS[connector] ?? "#94a3b8"}
+              name={connectorLabel(connector)}
+              {...chartLine}
+              {...chartAnimation}
             />
           ))}
         </LineChart>
       </ResponsiveContainer>
     </ResponsiveChartFrame>
   );
+}
+
+function connectorLabel(name: string): string {
+  if (name === "other") {
+    return "Other";
+  }
+  return INTERCONNECTOR_LABELS[name] ?? name;
 }

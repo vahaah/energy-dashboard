@@ -1,17 +1,26 @@
 "use client";
 
 import {
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
 } from "recharts";
-import type { EnergySnapshot, TimeRange } from "@/lib/types";
-import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import {
+  chartAnimation,
+  chartAxisLine,
+  chartAxisTick,
+  chartGrid,
+  chartHeroLine,
+  CHART_HEIGHT_HERO,
+} from "@/lib/chart-theme";
+import type { EnergySnapshot, TimeRange } from "@/lib/types";
 
 interface Props {
   data: EnergySnapshot[];
@@ -25,46 +34,53 @@ export function ElectricityPriceChart({ data, range }: Props) {
   }));
 
   return (
-    <ResponsiveChartFrame className="h-64">
+    <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+        <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+          <CartesianGrid {...chartGrid} />
           <XAxis
             dataKey="time"
             tickFormatter={(t) => formatChartTick(String(t), range)}
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
+            tick={chartAxisTick}
+            {...chartAxisLine}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: "#71717a" }}
-            stroke="#27272a"
+            tick={chartAxisTick}
+            {...chartAxisLine}
+            width={48}
+            tickFormatter={(value: number) => String(value)}
             label={{
               value: "£/MWh",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "#71717a" },
+              position: "insideTopLeft",
+              offset: 8,
+              style: chartAxisTick,
             }}
           />
           <Tooltip
-            labelFormatter={(t) => formatChartTooltip(t as string, range)}
-            formatter={(value) => [`£${Number(value).toFixed(2)}`, "Imbalance price"]}
-            wrapperStyle={{ zIndex: 320 }}
-            contentStyle={{
-              backgroundColor: "rgba(0,0,0,0.85)",
-              border: "none",
-              borderRadius: 8,
-              color: "#fff",
-              fontSize: 13,
+            cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
+            content={({ active, label, payload }) => {
+              if (!active || payload == null || payload.length === 0 || label == null) {
+                return null;
+              }
+              const value = payload[0]?.value;
+              return (
+                <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
+                  <p className="flex justify-between gap-6">
+                    <span>System price</span>
+                    <span className="tabular-nums">{value == null ? "—" : `£${Number(value).toFixed(2)}`}</span>
+                  </p>
+                </ChartTooltipCard>
+              );
             }}
+            wrapperStyle={{ zIndex: 320 }}
           />
           <Line
             type="monotone"
             dataKey="price"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            dot={false}
-            name="Imbalance price"
-            connectNulls={false}
+            stroke="var(--gray-1000)"
+            name="System price"
+            {...chartHeroLine}
+            {...chartAnimation}
           />
         </LineChart>
       </ResponsiveContainer>

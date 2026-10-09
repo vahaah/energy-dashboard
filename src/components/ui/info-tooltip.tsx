@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useReducer, useRef } from "react";
-import { Info } from "lucide-react";
 import {
   initialInfoTooltipState,
   reduceInfoTooltip,
@@ -42,15 +41,20 @@ export function InfoTooltip({ text, label }: Props) {
             dispatch({ type: "escape" });
           }
         }}
-        className="inline-grid size-11 place-items-center rounded-sm text-gray-900 hover:text-gray-1000 motion-reduce:transition-none"
+        className="inline-grid size-11 place-items-center text-gray-900 hover:text-gray-1000"
       >
-        <Info className="size-3.5" aria-hidden="true" />
+        <span
+          className="inline-flex size-3.5 items-center justify-center rounded-full border border-gray-alpha-400 text-[10px] leading-none"
+          aria-hidden="true"
+        >
+          ?
+        </span>
       </button>
       {state.open ? (
         <span
           id={tooltipId}
           role="tooltip"
-          className="absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg bg-gray-200 px-3 py-2 text-center text-xs text-gray-1000 shadow-lg"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-[min(280px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 py-2 text-left text-copy-14 text-gray-1000"
         >
           {text}
         </span>

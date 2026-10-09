@@ -19,12 +19,12 @@ describe("Stat", () => {
 
     expect(html).toContain('data-stat="carbon_intensity"');
     expect(html).toContain('data-unit="gCO₂/kWh"');
-    expect(html).toMatch(/<time datetime="2026-09-27T16:00:00.000Z">/i);
+    expect(html).toMatch(/<time class="text-mono-12" dateTime="2026-09-27T16:00:00.000Z">/i);
     expect(html).toContain("27 Sep 2026, 17:00 BST");
     expect(html).toContain('data-source="Carbon Intensity API"');
     expect(html).toContain("Carbon Intensity API");
     expect(html).toContain("gCO₂/kWh");
-    expect(html).toContain("font-mono");
+    expect(html).toContain("text-mono-12");
     expect(html).toContain("tabular-nums");
   });
 
@@ -43,7 +43,7 @@ describe("Stat", () => {
     );
 
     expect(html).toContain("font-sans");
-    expect(html).toContain("text-4xl");
+    expect(html).toContain("text-display");
     expect(html).toContain("tabular-nums");
     expect(html).toContain("Generating");
   });

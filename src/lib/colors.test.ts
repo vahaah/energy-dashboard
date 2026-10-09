@@ -7,7 +7,11 @@ import {
   contrastRatio,
   DARK_SURFACE,
   DEMAND_SERIES_COLOR,
+  DEMAND_SERIES_COLOR_DARK,
   DOMESTIC_GENERATION_SERIES_COLOR,
+  DOMESTIC_GENERATION_SERIES_COLOR_DARK,
+  LIGHT_CARD_LABEL,
+  LIGHT_SURFACE,
   FUEL_COLORS,
   FUELINST_COLORS,
   FUELINST_LABELS,
@@ -73,15 +77,17 @@ describe("non-fuel series colours", () => {
     expect(fuelHex.has(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(false);
   });
 
-  it("keeps the generation line off the cyan/teal and solar hues", () => {
-    const hue = hexHue(DOMESTIC_GENERATION_SERIES_COLOR);
-    expect(hue).toBeGreaterThan(20);
-    expect(hue).toBeLessThan(55);
-    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
-    expect(contrastRatio(DEMAND_SERIES_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+  it("keeps demand and generation as neutrals with AA contrast in both themes", () => {
+    expect(hexHue(DEMAND_SERIES_COLOR)).toBe(0);
+    expect(hexHue(DOMESTIC_GENERATION_SERIES_COLOR)).toBe(0);
+    expect(contrastRatio(DEMAND_SERIES_COLOR, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DEMAND_SERIES_COLOR_DARK, DARK_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR, LIGHT_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(DOMESTIC_GENERATION_SERIES_COLOR_DARK, DARK_SURFACE)).toBeGreaterThan(4.5);
   });
 
-  it("gives card titles AA contrast at text-xs on the dark surface", () => {
+  it("gives card titles AA contrast at text-xs on both surfaces", () => {
     expect(contrastRatio(CARD_LABEL_COLOR, DARK_SURFACE)).toBeGreaterThan(4.5);
+    expect(contrastRatio(LIGHT_CARD_LABEL, LIGHT_SURFACE)).toBeGreaterThan(4.5);
   });
 });

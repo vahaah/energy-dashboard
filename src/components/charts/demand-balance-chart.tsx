@@ -14,13 +14,18 @@ import {
   YAxis,
 } from "recharts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
-import {
-  DEMAND_SERIES_COLOR,
-  DOMESTIC_GENERATION_SERIES_COLOR,
-  EXPORT_GAP_COLOR,
-  IMPORT_GAP_COLOR,
-} from "@/lib/colors";
+import { EXPORT_GAP_COLOR, IMPORT_GAP_COLOR } from "@/lib/colors";
+import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import {
+  chartAnimation,
+  chartAxisLine,
+  chartAxisTick,
+  chartGrid,
+  chartHeroLine,
+  chartLine,
+  CHART_HEIGHT_HERO,
+} from "@/lib/chart-theme";
 import {
   buildDemandBalanceSeries,
   formatEmbeddedMissingNote,
@@ -81,11 +86,7 @@ export function DemandBalanceTooltip({
   });
 
   return (
-    <div
-      className="rounded-lg px-3 py-2 text-[13px] text-white"
-      style={{ backgroundColor: "rgba(0,0,0,0.85)" }}
-    >
-      <p className="mb-1">{formatDemandBalanceTooltipLabel(String(label), range)}</p>
+    <ChartTooltipCard time={formatDemandBalanceTooltipLabel(String(label), range)}>
       {series.map((entry) => {
         if (entry.value == null) {
           return null;
@@ -99,15 +100,18 @@ export function DemandBalanceTooltip({
           daily = point?.generationDailyGw ?? null;
         }
         return (
-          <p key={key}>
-            {SERIES_LABELS[key] ?? key}: {Number(entry.value).toFixed(1)} GW
-            {daily != null ? ` · daily ${daily.toFixed(1)} GW` : null}
+          <p key={key} className="flex justify-between gap-6">
+            <span>{SERIES_LABELS[key] ?? key}</span>
+            <span className="tabular-nums">
+              {Number(entry.value).toFixed(1)} GW
+              {daily != null ? ` · daily ${daily.toFixed(1)} GW` : null}
+            </span>
           </p>
         );
       })}
-      {gap ? <p>{gap}</p> : null}
-      {note ? <p className="mt-1 text-amber-200">{note}</p> : null}
-    </div>
+      {gap ? <p className="text-gray-900">{gap}</p> : null}
+      {note ? <p className="mt-1 text-amber-700">{note}</p> : null}
+    </ChartTooltipCard>
   );
 }
 
@@ -137,13 +141,13 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       <GapKey />
-      <ResponsiveChartFrame className="h-60 sm:h-80">
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}
             margin={{ top: 8, right: compact ? 12 : 108, bottom: 4, left: 8 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+            <CartesianGrid {...chartGrid} />
             <XAxis
               dataKey="time"
               ticks={xTicks}
@@ -152,35 +156,36 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
               tickFormatter={(value: string | number) =>
                 formatDemandBalanceTick(String(value), range)
               }
-              tick={{ fontSize: 11, fill: "#71717a" }}
-              stroke="#27272a"
+              tick={chartAxisTick}
+              {...chartAxisLine}
             />
             <YAxis
               domain={[0, yMax]}
               ticks={yTicks}
               tickFormatter={(value: number) => Number(value).toFixed(1)}
-              tick={{ fontSize: 11, fill: "#71717a" }}
-              stroke="#27272a"
+              tick={chartAxisTick}
+              {...chartAxisLine}
               width={44}
               label={{
                 value: "GW",
                 position: "insideTopLeft",
                 offset: 8,
-                style: { fontSize: 11, fill: "#71717a" },
+                style: chartAxisTick,
               }}
             />
             <Tooltip
+              cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
               content={<DemandBalanceTooltip range={range} />}
               wrapperStyle={{ zIndex: 320 }}
             />
-            <ReferenceLine y={0} stroke="#52525b" strokeDasharray="4 4" />
+            <ReferenceLine y={0} stroke="var(--gray-alpha-200)" />
             {smoothed ? (
               <Line
                 type="monotone"
                 dataKey="demandDailyGw"
                 stroke="transparent"
                 strokeWidth={0}
-                dot={{ r: 1.5, fill: DEMAND_SERIES_COLOR, fillOpacity: 0.28 }}
+                dot={{ r: 1.5, fill: "var(--gray-1000)", fillOpacity: 0.28 }}
                 legendType="none"
                 tooltipType="none"
                 connectNulls={false}
@@ -193,7 +198,7 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
                 dataKey="generationDailyGw"
                 stroke="transparent"
                 strokeWidth={0}
-                dot={{ r: 1.5, fill: DOMESTIC_GENERATION_SERIES_COLOR, fillOpacity: 0.28 }}
+                dot={{ r: 1.5, fill: "var(--gray-900)", fillOpacity: 0.28 }}
                 legendType="none"
                 tooltipType="none"
                 connectNulls={false}
@@ -236,12 +241,10 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
             <Line
               type="monotone"
               dataKey="demandGw"
-              stroke={DEMAND_SERIES_COLOR}
-              strokeWidth={2}
-              dot={false}
+              stroke="var(--gray-1000)"
               name="Demand (incl. embedded)"
-              connectNulls={false}
-              isAnimationActive={false}
+              {...chartHeroLine}
+              {...chartAnimation}
             >
               {showEndLabels ? (
                 <LabelList
@@ -255,7 +258,7 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
                       value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
                       targetIndex: demandLabelIndex,
                       text: "Demand",
-                      color: DEMAND_SERIES_COLOR,
+                      color: "var(--gray-1000)",
                       yOffset: labelsCollide ? -10 : 0,
                     });
                   }}
@@ -265,12 +268,10 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
             <Line
               type="monotone"
               dataKey="generationGw"
-              stroke={DOMESTIC_GENERATION_SERIES_COLOR}
-              strokeWidth={2}
-              dot={false}
+              stroke="var(--gray-900)"
               name="Generation (incl. embedded)"
-              connectNulls={false}
-              isAnimationActive={false}
+              {...chartLine}
+              {...chartAnimation}
             >
               {showEndLabels ? (
                 <LabelList
@@ -284,7 +285,7 @@ export function DemandBalanceChart({ snapshots, generation, range }: Props) {
                       value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
                       targetIndex: generationLabelIndex,
                       text: "Generation",
-                      color: DOMESTIC_GENERATION_SERIES_COLOR,
+                      color: "var(--gray-900)",
                       yOffset: labelsCollide ? 10 : 0,
                     });
                   }}
@@ -333,7 +334,7 @@ function SeriesKey() {
       <li className="inline-flex items-center gap-1.5">
         <span
           className="h-0.5 w-3 shrink-0 rounded-full"
-          style={{ backgroundColor: DEMAND_SERIES_COLOR }}
+          style={{ backgroundColor: "var(--gray-1000)" }}
           aria-hidden="true"
         />
         Demand
@@ -341,7 +342,7 @@ function SeriesKey() {
       <li className="inline-flex items-center gap-1.5">
         <span
           className="h-0.5 w-3 shrink-0 rounded-full"
-          style={{ backgroundColor: DOMESTIC_GENERATION_SERIES_COLOR }}
+          style={{ backgroundColor: "var(--gray-900)" }}
           aria-hidden="true"
         />
         Generation

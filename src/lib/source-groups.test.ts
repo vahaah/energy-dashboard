@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import { buildGroupedSourceTable } from "@/lib/source-groups";
+import type { Generation5min } from "@/lib/types";
+
+function generation(
+  timestamp: string,
+  fuelType: string,
+  generationMw: number,
+  source = "fuelinst"
+): Generation5min {
+  return { timestamp, fuel_type: fuelType, generation_mw: generationMw, source };
+}
+
+const rows: Generation5min[] = [
+  generation("2026-09-28 07:00:00", "ccgt", 7563),
+  generation("2026-09-28 07:00:00", "wind", 3746),
+  generation("2026-09-28 07:00:00", "nuclear", 4015),
+  generation("2026-09-28 07:00:00", "biomass", 2948),
+  generation("2026-09-28 07:00:00", "npshyd", 571),
+  generation("2026-09-28 07:00:00", "ps", 231),
+  generation("2026-09-28 07:00:00", "other", 224),
+  generation("2026-09-28 07:00:00", "intfr", 396),
+  generation("2026-09-28 07:00:00", "intned", -200),
+  generation("2026-09-28 07:00:00", "embedded_wind", 917, "neso"),
+  generation("2026-09-28 07:00:00", "embedded_solar", 800, "pvlive"),
+  generation("2026-09-28 06:30:00", "ccgt", 7000),
+  generation("2026-09-28 06:30:00", "wind", 3500),
+];
+
+describe("grouped source table", () => {
+  it("groups fossil, renewables, other, interconnectors and storage", () => {
+    const table = buildGroupedSourceTable(rows, 25717);
+
+    expect(table.groups.map((group) => group.id)).toEqual([
+      "fossil",
+      "renewables",
+      "other",
+      "interconnectors",
+      "storage",
+    ]);
+
+    const hydro = table.groups[1]?.rows.find((row) => row.id === "hydro");
+    const pumped = table.groups[4]?.rows.find((row) => row.id === "pumped_storage");
+    const battery = table.groups[4]?.rows.find((row) => row.id === "battery");
+    const wind = table.groups[1]?.rows.find((row) => row.id === "wind");
+    const france = table.groups[3]?.rows.find((row) => row.label === "France");
+
+    expect(hydro?.mw).toBe(571);
+    expect(pumped?.mw).toBe(231);
+    expect(battery?.gwLabel).toBe("—");
+    expect(battery?.missingNote).toBe("not published");
+    expect(wind?.mw).toBe(4663);
+    expect(france?.mw).toBe(396);
+    expect(table.mix.some((segment) => segment.hatched && segment.label === "France")).toBe(true);
+  });
+
+  it("reports share of the one demand figure", () => {
+    const table = buildGroupedSourceTable(rows, 25000);
+    const gas = table.groups[0]?.rows.find((row) => row.id === "gas");
+    expect(gas?.shareLabel).toBe("30.3%");
+    expect(gas?.sparkline.length).toBeGreaterThan(1);
+  });
+});
