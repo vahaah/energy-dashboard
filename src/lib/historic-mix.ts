@@ -405,6 +405,9 @@ export function yearlyAverages(rows: NesoHistoricRow[]): YearlyAverage[] {
   const byYear = new Map<number, NesoHistoricRow[]>();
   for (const row of saneHistoricRows(rows)) {
     const year = parseUtcDateTime(row.DATETIME).getUTCFullYear();
+    if (year < NESO_HISTORIC_START_YEAR) {
+      continue;
+    }
     const bucket = byYear.get(year);
     if (bucket) {
       bucket.push(row);
@@ -610,6 +613,11 @@ export function buildHistoricPeriodView(rows: NesoHistoricRow[]): HistoricPeriod
 
 export function rowsInLastYear(rows: NesoHistoricRow[], now = new Date()): NesoHistoricRow[] {
   const start = now.getTime() - 365 * 24 * 60 * 60 * 1000;
+  return rows.filter((row) => parseUtcDateTime(row.DATETIME).getTime() >= start);
+}
+
+export function rowsSinceHistoricStart(rows: NesoHistoricRow[]): NesoHistoricRow[] {
+  const start = Date.UTC(NESO_HISTORIC_START_YEAR, 0, 1);
   return rows.filter((row) => parseUtcDateTime(row.DATETIME).getTime() >= start);
 }
 

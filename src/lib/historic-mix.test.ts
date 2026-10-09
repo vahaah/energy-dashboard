@@ -182,6 +182,22 @@ describe("yearly averages and copy", () => {
   it("builds sentences from the computed yearly averages", () => {
     const years = yearlyAverages([
       row({
+        DATETIME: "2008-12-29T00:00:00",
+        COAL_perc: 45,
+        GAS_perc: 35,
+        NUCLEAR_perc: 16,
+        WIND_perc: 0,
+        WIND_EMB_perc: 0,
+        HYDRO_perc: 1,
+        IMPORTS_perc: 2,
+        BIOMASS_perc: 0,
+        OTHER_perc: 1,
+        SOLAR_perc: 0,
+        STORAGE_perc: 0,
+        CARBON_INTENSITY: 561,
+        RENEWABLE_perc: 1,
+      }),
+      row({
         DATETIME: "2009-06-01T12:00:00",
         COAL_perc: 28,
         GAS_perc: 45,
@@ -214,9 +230,11 @@ describe("yearly averages and copy", () => {
         RENEWABLE_perc: 40,
       }),
     ]);
+    expect(years[0]?.year).toBe(2009);
     expect(years[0]?.carbon).toBe(445);
     expect(years[1]?.windPct).toBe(38);
     const sentences = transitionSentences(years);
+    expect(sentences?.[0]).not.toContain("2008");
     expect(sentences?.[0]).toContain("2009");
     expect(sentences?.[0]).toContain("28%");
     expect(sentences?.[0]).toContain("445");

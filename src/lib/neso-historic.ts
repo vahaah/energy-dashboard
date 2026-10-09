@@ -7,6 +7,7 @@ import {
   NESO_HISTORIC_SQL_URL,
   parseNesoHistoricRow,
   rowsInLastYear,
+  rowsSinceHistoricStart,
   type GridRecords,
   type HistoricPeriodView,
   type NesoHistoricRow,
@@ -93,7 +94,7 @@ export const getGridRecords = cache(async (now = new Date()): Promise<GridRecord
 export const getHistoricPeriodView = cache(
   async (period: Extract<DashboardPeriod, "year" | "all">, now = new Date()): Promise<HistoricPeriodView> => {
     const weekly = await getHistoricWeeklyRows();
-    const scoped = period === "year" ? rowsInLastYear(weekly, now) : weekly;
+    const scoped = period === "year" ? rowsInLastYear(weekly, now) : rowsSinceHistoricStart(weekly);
     return buildHistoricPeriodView(scoped);
   }
 );
