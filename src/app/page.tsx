@@ -29,8 +29,9 @@ import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
 /**
  * Main page — Server Component.
  *
- * Day/Week fetch Tinybird. Year/All time use NESO historic mix only
- * (cached 24h, zero Tinybird grid requests).
+ * Day/Week fetch Tinybird grid pipes. Year/All time use NESO historic mix
+ * (cached 24h, zero Tinybird grid requests). Commodity prices still use the
+ * cached prices_range tiers (30d / 90d / 1y).
  */
 export const revalidate = 300;
 
@@ -86,13 +87,11 @@ export default async function Home({
               getHeadlineSnapshotsQueryParams(now, headlineDate),
               { range: "24h", date: headlineDate, now }
             ).catch(() => noSnapshots),
-        neso
-          ? Promise.resolve([] as CommodityPrice[])
-          : queryPipe<CommodityPrice>(
-              "prices_range",
-              getPricesQueryParams(dashboardSearchParams.commodityRange, now),
-              { range: dashboardSearchParams.commodityRange, now }
-            ),
+        queryPipe<CommodityPrice>(
+          "prices_range",
+          getPricesQueryParams(dashboardSearchParams.commodityRange, now),
+          { range: dashboardSearchParams.commodityRange, now }
+        ),
         skipGrid
           ? Promise.resolve(noGeneration)
           : queryPipe<Generation5min>(

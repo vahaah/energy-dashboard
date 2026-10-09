@@ -22,7 +22,7 @@ export const revalidate = 86_400;
 export const metadata: Metadata = {
   title: "GB electricity records — Grid",
   description:
-    "Great Britain electricity records: highest wind and solar, lowest carbon intensity, days without coal, and the first times wind passed each gigawatt. From NESO historic generation mix.",
+    "Great Britain electricity records: highest wind and solar, lowest carbon intensity, days since coal power ended, and the first times wind passed each gigawatt. From NESO historic generation mix.",
   openGraph: {
     title: "GB electricity records — Grid",
     description:
@@ -107,10 +107,10 @@ export default async function RecordsPage() {
             record={records.highestZeroCarbonShare}
           />
           <RecordBlock
-            title="Days without coal"
+            title="Days since coal power ended"
             value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
-            extra="Last half-hour with more than 1 MW of coal."
+            extra="Last sustained half-hour at or above 100 MW or 0.5% coal share. Isolated residual readings are ignored."
           />
         </section>
 
@@ -253,8 +253,8 @@ function faqItems(records: GridRecords): Array<{ question: string; answer: strin
       question: "When did Britain stop burning coal for electricity?",
       answer:
         records.lastCoal && records.daysSinceCoal != null
-          ? `The last half-hour above 1 MW of coal in this series is ${formatLondonDateTimeStamp(parseUtcDateTime(records.lastCoal.timestampUtc))}, ${records.daysSinceCoal} days ago.`
-          : "The last coal half-hour has not been computed yet.",
+          ? `The last sustained half-hour at or above 100 MW or 0.5% coal share is ${formatLondonDateTimeStamp(parseUtcDateTime(records.lastCoal.timestampUtc))}, ${records.daysSinceCoal} days ago. Isolated residual readings after coal power ended are ignored.`
+          : "The last sustained coal half-hour has not been computed yet.",
     },
   ];
 }

@@ -401,7 +401,7 @@ export function Dashboard({
         >
           {isPending ? (
             <CommoditySkeleton />
-          ) : (
+          ) : initialPrices.length > 0 ? (
             <>
               <div className="mb-5 grid gap-3 sm:grid-cols-3">
                 {commodityCards.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
@@ -423,16 +423,16 @@ export function Dashboard({
                   )
                 )}
               </div>
-              {initialPrices.length > 0 ? (
-                <CommodityChart
-                  data={initialPrices}
-                  range={commodityRange}
-                  selectedSeries={[...PUBLIC_COMMODITIES]}
-                />
-              ) : (
-                <EmptyState stamp={facts.headerStamp} />
-              )}
+              <CommodityChart
+                data={initialPrices}
+                range={commodityRange}
+                selectedSeries={[...PUBLIC_COMMODITIES]}
+              />
             </>
+          ) : (
+            <p className="text-copy-14 text-gray-900">
+              Oil and gas prices are not available for this range.
+            </p>
           )}
         </SectionBlock>
 
