@@ -158,6 +158,7 @@ describe("generation desk layout", () => {
     expect(pageSource).toContain('"prices_range"');
     expect(pageSource.match(/queryPipe</g)?.length).toBe(5);
     expect(pageSource).toContain("isNesoPeriod");
+    expect(pageSource).toContain("tinybirdRangeForPeriod");
     expect(pageSource).toContain("getHistoricPeriodView");
     expect(pageSource).toContain("getGridRecords");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(

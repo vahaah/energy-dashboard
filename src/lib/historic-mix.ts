@@ -522,8 +522,7 @@ export function historicRowToGeneration(row: NesoHistoricRow): Generation5min[] 
     ["gas", row.GAS],
     ["coal", row.COAL],
     ["nuclear", row.NUCLEAR],
-    ["wind", row.WIND],
-    ["embedded_wind", row.WIND_EMB],
+    ["wind", windMw(row)],
     ["hydro", row.HYDRO],
     ["biomass", row.BIOMASS],
     ["other", row.OTHER],
@@ -685,6 +684,8 @@ export function historicRecordsSql(): string {
     `SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND ("WIND" + "WIND_EMB") <= ${MAX_WIND_MW} ORDER BY ("WIND" + "WIND_EMB") DESC LIMIT 5`,
     `SELECT * FROM sane WHERE "SOLAR" IS NOT NULL AND "SOLAR" <= ${MAX_SOLAR_MW} ORDER BY "SOLAR" DESC LIMIT 5`,
     'SELECT * FROM sane WHERE "CARBON_INTENSITY" > 0 AND "ZERO_CARBON_perc" <= 100 ORDER BY "CARBON_INTENSITY" ASC LIMIT 10',
+    'SELECT * FROM sane WHERE "ZERO_CARBON_perc" <= 100 ORDER BY "ZERO_CARBON_perc" DESC LIMIT 5',
+    'SELECT * FROM sane WHERE "GENERATION" > 0 AND "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND "SOLAR" IS NOT NULL AND "HYDRO" IS NOT NULL AND "NUCLEAR" IS NOT NULL ORDER BY (("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR") / "GENERATION") DESC LIMIT 5',
     'SELECT * FROM sane WHERE "RENEWABLE_perc" <= 100 ORDER BY "RENEWABLE_perc" DESC LIMIT 5',
     `SELECT * FROM sane WHERE "COAL" > ${COAL_ACTIVE_MW} ORDER BY "DATETIME" DESC LIMIT 5`,
   ];

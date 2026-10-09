@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeRecords,
   historicRecordsSql,
+  historicRowToGeneration,
   historicWeeklySql,
   isSaneHistoricRow,
   NESO_HISTORIC_SQL_URL,
@@ -116,9 +117,25 @@ describe("NESO historic sanity", () => {
     expect(historicWeeklySql()).not.toMatch(/COALESCE|ABS\s*\(/);
     expect(historicRecordsSql()).not.toMatch(/COALESCE|ABS\s*\(/);
     expect(historicRecordsSql()).toContain('"ZERO_CARBON_perc" <= 100');
+    expect(historicRecordsSql()).toContain('ORDER BY "ZERO_CARBON_perc" DESC');
+    expect(historicRecordsSql()).toContain('("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR")');
     expect(historicRecordsSql()).toContain("WITH sane AS");
     const weeklyUrl = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
     expect(weeklyUrl.length).toBeLessThan(2500);
+  });
+});
+
+describe("historic generation rows", () => {
+  it("folds embedded wind into wind so demand is not counted twice", () => {
+    const rows = historicRowToGeneration(
+      row({
+        DATETIME: "2026-03-25T13:30:00",
+        WIND: 20000,
+        WIND_EMB: 3880,
+      })
+    );
+    expect(rows.find((entry) => entry.fuel_type === "embedded_wind")).toBeUndefined();
+    expect(rows.find((entry) => entry.fuel_type === "wind")?.generation_mw).toBe(23880);
   });
 });
 

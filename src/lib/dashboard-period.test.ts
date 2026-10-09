@@ -4,6 +4,7 @@ import {
   isNesoPeriod,
   searchStateForPeriod,
   selectedPeriod,
+  tinybirdRangeForPeriod,
 } from "@/lib/dashboard-period";
 
 describe("dashboard period", () => {
@@ -23,5 +24,8 @@ describe("dashboard period", () => {
     expect(chartRangeForPeriod("all", "24h")).toBe("all");
     expect(searchStateForPeriod("year")).toEqual({ period: "year", range: "1y", date: null });
     expect(searchStateForPeriod("all")).toEqual({ period: "all", range: "1y", date: null });
+    expect(tinybirdRangeForPeriod("week", "24h")).toBe("7d");
+    expect(tinybirdRangeForPeriod("day", "7d")).toBe("24h");
+    expect(tinybirdRangeForPeriod(null, "30d")).toBe("30d");
   });
 });

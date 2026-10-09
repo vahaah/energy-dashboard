@@ -62,6 +62,23 @@ export function isTinybirdTimeRange(range: TimeRange): range is TinybirdTimeRang
   return range !== "all";
 }
 
+export function tinybirdRangeForPeriod(
+  period: DashboardPeriod | null,
+  range: TimeRange
+): TinybirdTimeRange {
+  if (period === "week") {
+    return "7d";
+  }
+  if (period === "day") {
+    return "24h";
+  }
+  const chartRange = chartRangeForPeriod(period, range);
+  if (isTinybirdTimeRange(chartRange)) {
+    return chartRange;
+  }
+  return "24h";
+}
+
 export function searchStateForPeriod(period: DashboardPeriod): {
   period: DashboardPeriod;
   range: TinybirdTimeRange;

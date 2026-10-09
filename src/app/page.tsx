@@ -12,6 +12,7 @@ import {
   chartRangeForPeriod,
   isNesoPeriod,
   selectedPeriod,
+  tinybirdRangeForPeriod,
 } from "@/lib/dashboard-period";
 import {
   getHeadlineGenerationQueryParams,
@@ -50,11 +51,12 @@ export default async function Home({
   const now = new Date();
   const period = selectedPeriod(dashboardSearchParams.period, dashboardSearchParams.range);
   const chartRange = chartRangeForPeriod(period, dashboardSearchParams.range);
+  const tinybirdRange = tinybirdRangeForPeriod(period, dashboardSearchParams.range);
   const neso = isNesoPeriod(period);
   const dateResolution = resolveDashboardDate(
     dashboardSearchParams.date,
     now,
-    dashboardSearchParams.range
+    tinybirdRange
   );
   const headlineDate =
     dateResolution.status === "historical" ? dateResolution.date : null;
@@ -71,11 +73,11 @@ export default async function Home({
           : queryPipe<EnergySnapshot>(
               "snapshots_range",
               getSnapshotsQueryParams(
-                dashboardSearchParams.range,
+                tinybirdRange,
                 now,
                 headlineDate
               ),
-              { range: dashboardSearchParams.range, date: headlineDate, now }
+              { range: tinybirdRange, date: headlineDate, now }
             ),
         skipGrid
           ? Promise.resolve(noSnapshots)
@@ -96,11 +98,11 @@ export default async function Home({
           : queryPipe<Generation5min>(
               "generation_5min_range",
               getGenerationQueryParams(
-                dashboardSearchParams.range,
+                tinybirdRange,
                 now,
                 headlineDate
               ),
-              { range: dashboardSearchParams.range, date: headlineDate, now }
+              { range: tinybirdRange, date: headlineDate, now }
             ).catch(() => noGeneration),
         skipGrid
           ? Promise.resolve(noGeneration)
