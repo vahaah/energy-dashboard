@@ -8,12 +8,21 @@ export async function loadHomepagePayload(): Promise<DashboardPayload | null> {
     return payload;
   }
 
+  return (await loadPublicDashboardFallback()) ?? payload;
+}
+
+async function loadPublicDashboardFallback(): Promise<DashboardPayload | null> {
   const response = await fetch(`${SITE_ORIGIN}/api/dashboard?period=day`, {
     next: { revalidate: 3600 },
-  });
-  if (!response.ok) {
-    return payload;
+  }).catch(() => null);
+  if (!response?.ok) {
+    return null;
   }
 
-  return hydrateDashboardPayload((await response.json()) as DashboardPayload);
+  const body = await response.json().catch(() => null);
+  if (!body) {
+    return null;
+  }
+
+  return hydrateDashboardPayload(body as DashboardPayload);
 }

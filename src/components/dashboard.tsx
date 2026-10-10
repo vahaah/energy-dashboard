@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryStates } from "nuqs";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
@@ -110,8 +110,10 @@ function queryDateForPeriod(period: DashboardPeriod, date: string | null, today:
 
 export function Dashboard({
   initialPayload = null,
+  children,
 }: {
   initialPayload?: DashboardPayload | null;
+  children?: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
@@ -328,6 +330,10 @@ export function Dashboard({
           window.setTimeout(() => setCopied(false), 1400);
         }}
       />
+
+      {dayQueryDate === null && children ? (
+        <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{children}</div>
+      ) : null}
 
       <main className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (

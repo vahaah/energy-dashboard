@@ -1,4 +1,9 @@
-import { HOME_CITE_FALLBACK, HOME_H1, type HomepageCite } from "@/lib/homepage-briefing";
+import {
+  HOME_CITE_FALLBACK,
+  HOME_CITE_SOURCES,
+  HOME_H1,
+  type HomepageCite,
+} from "@/lib/homepage-briefing";
 
 export function HomepageBriefing({ cite }: { cite: HomepageCite }) {
   return (
@@ -14,7 +19,7 @@ export function HomepageBriefing({ cite }: { cite: HomepageCite }) {
             on {cite.dateLabel}, {cite.topFuel} was Britain&apos;s largest source of electricity at{" "}
             {cite.topGw} GW ({cite.topSharePct}%). Gas supplied {cite.gasSharePct}%, and carbon
             intensity was {cite.carbon} gCO₂/kWh. The market index price was £{cite.price}/MWh.
-            Sources: Elexon BMRS, NESO. Grid is free and updated hourly from public data.
+            {HOME_CITE_SOURCES} Grid is free and updated hourly from public data.
           </p>
           <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HeadlineStat label="Demand" value={`${cite.demandGw} GW`} />

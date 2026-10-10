@@ -108,7 +108,7 @@ describe("homepage briefing", () => {
     expect(text).toContain("At 12:00 BST on Sat 10 Oct 2026");
     expect(text).toContain("Wind was Britain's largest source of electricity at 16.0 GW (70%)");
     expect(text).toContain("Gas supplied 17%");
-    expect(text).toContain("Sources: Elexon BMRS, NESO");
+    expect(text).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");
     expect(text).toContain("gCO₂/kWh");
     expect(text).toContain("£45.20/MWh");
     expect(text).not.toContain("No data yet");
@@ -125,7 +125,7 @@ describe("homepage briefing", () => {
     expect((html.match(/GW/g) ?? []).length).toBeGreaterThanOrEqual(3);
     expect(html).toContain("<time");
     expect(html).toContain('dateTime="2026-10-10T12:00:00+01:00"');
-    expect(html).toContain("Sources: Elexon BMRS, NESO");
+    expect(html).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");
     expect(html).not.toContain("No data yet");
   });
 
@@ -153,5 +153,22 @@ describe("homepage briefing", () => {
   it("never uses the empty-state line when the payload is missing", () => {
     expect(homepageCitePlainText({ kind: "fallback" })).toBe(HOME_CITE_FALLBACK);
     expect(homepageCitePlainText({ kind: "fallback" })).not.toContain("No data yet");
+  });
+
+  it("timestamps the sentence from the aligned generation period, not the newest fact", () => {
+    const lagged = facts(rows);
+    lagged.referenceTimestamp = "2026-10-10 12:30:00";
+    lagged.carbon.periodStartUtc = "2026-10-10T12:30:00.000Z";
+    lagged.price.periodStartUtc = "2026-10-10T12:30:00.000Z";
+
+    const cite = buildHomepageCite({ facts: lagged, headlineSnapshots: [] });
+    expect(cite.kind).toBe("numbers");
+    if (cite.kind !== "numbers") {
+      return;
+    }
+
+    expect(cite.datetime).toBe("2026-10-10T12:00:00+01:00");
+    expect(cite.timeLabel).toBe("12:00 BST");
+    expect(cite.datetime).not.toContain("13:30");
   });
 });

@@ -4,6 +4,7 @@ import {
   dateParamForRange,
   DASHBOARD_FOCUSES,
   DASHBOARD_RANGES,
+  isLatestDashboardDate,
   resolveDashboardDate,
 } from "@/lib/dashboard-search-params";
 import {
@@ -147,6 +148,10 @@ describe("dashboard date coverage", () => {
       date: "2026-09-20",
     });
     expect(resolveDashboardDate(null, now).status).toBe("latest");
+    expect(isLatestDashboardDate(undefined, now)).toBe(true);
+    expect(isLatestDashboardDate("2026-09-27", now)).toBe(true);
+    expect(isLatestDashboardDate("2026-09-20", now)).toBe(false);
+    expect(isLatestDashboardDate(["2026-09-20"], now)).toBe(false);
   });
 
   it("ignores the date parameter outside the 24h view", () => {

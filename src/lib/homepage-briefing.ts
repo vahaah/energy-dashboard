@@ -21,8 +21,10 @@ import type { EnergySnapshot } from "@/lib/types";
 
 export { HOME_H1 };
 
-export const HOME_CITE_FALLBACK =
-  "Britain's electricity mix, carbon intensity, demand and prices, updated hourly from Elexon, NESO and Sheffield Solar. Sources: Elexon BMRS, NESO. Grid is free and updated hourly from public data.";
+export const HOME_CITE_SOURCES =
+  "Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live.";
+
+export const HOME_CITE_FALLBACK = `Britain's electricity mix, carbon intensity, demand and prices, updated hourly from Elexon, NESO and Sheffield Solar. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
 
 export type HomepageCite =
   | {
@@ -67,7 +69,7 @@ export function buildHomepageCite(input: {
   const shares = citeFuelShares(shareSource);
   const top = [...shares].sort((left, right) => right.mw - left.mw)[0];
   const gas = shares.find((share) => share.fuel === "gas");
-  const timestamp = input.facts.referenceTimestamp;
+  const timestamp = power.generationStartUtc ?? input.facts.generationMw.periodStartUtc;
   const carbon = input.facts.carbon.value;
   const price = input.facts.price.value;
 
@@ -97,7 +99,7 @@ export function homepageCitePlainText(cite: HomepageCite): string {
     case "fallback":
       return HOME_CITE_FALLBACK;
     case "numbers":
-      return `At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel} was Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}%). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. Sources: Elexon BMRS, NESO. Grid is free and updated hourly from public data.`;
+      return `At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel} was Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}%). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
     default: {
       const exhaustive: never = cite;
       return exhaustive;

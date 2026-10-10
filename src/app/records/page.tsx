@@ -26,7 +26,14 @@ import {
 import { recordsJsonLd } from "@/lib/jsonld";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import { formatLondonDateTimeStamp, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
-import { RECORDS_DESCRIPTION, RECORDS_H1, RECORDS_SUBLINE, RECORDS_TITLE } from "@/lib/site";
+import {
+  RECORDS_DESCRIPTION,
+  RECORDS_H1,
+  RECORDS_SUBLINE,
+  RECORDS_TITLE,
+  SITE_OG_IMAGE,
+  SITE_TWITTER_CARD,
+} from "@/lib/site";
 
 export const revalidate = 86_400;
 export const dynamic = "force-static";
@@ -39,6 +46,12 @@ export const metadata: Metadata = {
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
     url: "/records",
+    images: [SITE_OG_IMAGE],
+  },
+  twitter: {
+    ...SITE_TWITTER_CARD,
+    title: RECORDS_TITLE,
+    description: RECORDS_DESCRIPTION,
   },
 };
 

@@ -94,7 +94,7 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
     name: "Grid: Great Britain electricity data, hourly",
     description:
       "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources.",
-    url: `${SITE_ORIGIN}/api`,
+    url: `${SITE_ORIGIN}/`,
     license: CC_BY_4_0_LICENSE_URL,
     isAccessibleForFree: true,
     creator: { "@id": APP_ID },
@@ -124,7 +124,7 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
       "https://www.worldbank.org/en/research/commodity-markets",
       "https://www.nationalgas.com/",
     ],
-    creditText: `${elexonBmrsAttribution(2026)} Supported by National Energy SO Open Data. Carbon Intensity API (CC BY 4.0). World Bank Pink Sheet (CC BY 4.0).`,
+    creditText: `${elexonBmrsAttribution()} Supported by National Energy SO Open Data. Carbon Intensity API (CC BY 4.0). World Bank Pink Sheet (CC BY 4.0).`,
     ...(dateModified ? { dateModified } : {}),
     distribution: [
       {

@@ -21,6 +21,8 @@ describe("records page", () => {
     expect(source).toContain("HIDE_SOLAR_RECORD");
     expect(source).toContain("formatNesoOfficialLine");
     expect(source).toContain('canonical: "/records"');
+    expect(source).toContain("SITE_TWITTER_CARD");
+    expect(source).toContain("twitter:");
     expect(source).not.toContain("Days without coal");
     expect(source).not.toContain("1 MW of coal");
     expect(source).toContain("Ratcliffe-on-Soar");

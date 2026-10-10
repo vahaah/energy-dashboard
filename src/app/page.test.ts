@@ -10,6 +10,11 @@ describe("homepage", () => {
     expect(source).toContain("homepageJsonLd");
     expect(source).toContain("export const revalidate = 3600");
     expect(source).toContain('canonical: "/"');
+    expect(source).toContain("SITE_OG_IMAGE");
+    expect(source).toContain("SITE_TWITTER_CARD");
+    expect(source).toContain("isLatestDashboardDate");
+    expect(source).toContain("{briefing}</Dashboard>");
+    expect(source).toContain("searchParams");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("No data yet");
   });

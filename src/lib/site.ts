@@ -16,6 +16,18 @@ export const RECORDS_SUBLINE =
 
 export const DATASET_TEMPORAL_COVERAGE_START = "2025-03-18";
 
+export const SITE_OG_IMAGE = {
+  url: "/og.png",
+  width: 1200,
+  height: 630,
+  alt: HOME_TITLE,
+};
+
+export const SITE_TWITTER_CARD = {
+  card: "summary_large_image" as const,
+  images: ["/og.png"],
+};
+
 export const TITLE_MAX_CHARS = 60;
 export const DESCRIPTION_MAX_CHARS = 155;
 

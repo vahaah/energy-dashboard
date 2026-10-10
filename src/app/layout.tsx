@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { HOME_DESCRIPTION, HOME_TITLE, SITE_ORIGIN } from "@/lib/site";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_ORIGIN, SITE_TWITTER_CARD } from "@/lib/site";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -16,20 +16,12 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     type: "website",
     url: "/",
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: HOME_TITLE,
-      },
-    ],
+    images: [SITE_OG_IMAGE],
   },
   twitter: {
-    card: "summary_large_image",
+    ...SITE_TWITTER_CARD,
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
-    images: ["/og.png"],
   },
 };
 

@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CC_BY_4_0_LICENSE_URL } from "@/lib/attribution";
+import { CC_BY_4_0_LICENSE_URL, elexonBmrsAttribution } from "@/lib/attribution";
 import { homepageJsonLd, recordsJsonLd, APP_ID, PERSON_ID } from "@/lib/jsonld";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
+import { SITE_ORIGIN } from "@/lib/site";
 
 describe("JSON-LD", () => {
   it("emits WebSite, WebApplication, Dataset downloads and Person on the homepage", () => {
@@ -11,11 +14,15 @@ describe("JSON-LD", () => {
 
     const dataset = graph.find((node) => node["@type"] === "Dataset") as {
       license: string;
+      url: string;
+      creditText: string;
       creator: { "@id": string };
       publisher: { "@id": string };
       distribution: Array<{ name: string; contentUrl: string }>;
       variableMeasured: string[];
     };
+    expect(dataset.url).toBe(`${SITE_ORIGIN}/`);
+    expect(dataset.creditText.startsWith(elexonBmrsAttribution())).toBe(true);
     expect(dataset.license).toBe(CC_BY_4_0_LICENSE_URL);
     expect(dataset.creator).toEqual({ "@id": APP_ID });
     expect(dataset.publisher).toEqual({ "@id": PERSON_ID });
@@ -25,6 +32,10 @@ describe("JSON-LD", () => {
       "Prices and commodities",
     ]);
     expect(dataset.variableMeasured.join(" ")).not.toContain("TTF");
+    expect(dataset.url).not.toContain("/api");
+    expect(readFileSync(resolve(import.meta.dirname, "./jsonld.ts"), "utf8")).not.toContain(
+      "elexonBmrsAttribution(2026)"
+    );
   });
 
   it("fixes the records licence and creator and skips solar", () => {

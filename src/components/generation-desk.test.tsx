@@ -221,6 +221,9 @@ describe("generation desk layout", () => {
     expect(readFileSync(resolve(import.meta.dirname, "./mix-bar.tsx"), "utf8")).toContain("shrink-0");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain("formatLondonDayMonthYear");
     expect(dashboardSource).toContain("stale={facts.isStale}");
+    expect(indexAfter(dashboardSource, "<SiteHeader")).toBeLessThan(
+      indexAfter(dashboardSource, "{dayQueryDate === null && children")
+    );
     expect(dashboardSource).toContain('id="section-overview"');
     expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
     expect(dashboardSource).toContain('from "@/components/ui/card"');
