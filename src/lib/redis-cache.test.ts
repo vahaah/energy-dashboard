@@ -13,6 +13,7 @@ import {
   isFreshEnvelope,
   isStaleUsableEnvelope,
   parseRedisGet,
+  peekThroughCache,
   readThroughCache,
   readThroughCacheResult,
   redisEnvPresent,
@@ -109,6 +110,29 @@ describe("readThroughCache", () => {
       status: "redis-hit",
     });
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("peeks a usable envelope and never calls a loader", async () => {
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    const policy = liveCachePolicy();
+    const key = await redisKeyFor("tb:og", policy.tier);
+    await redis.set(
+      key,
+      { data: ["cached"], cachedAt: Date.now(), freshFor: policy.revalidateSeconds },
+      { ex: 3_900 }
+    );
+
+    await expect(peekThroughCache<string[]>("tb:og", policy)).resolves.toEqual(["cached"]);
+  });
+
+  it("returns null from peek when Redis is absent or the key is missing", async () => {
+    resetRedisClient();
+    await expect(peekThroughCache("tb:missing", liveCachePolicy())).resolves.toBeNull();
+
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    await expect(peekThroughCache("tb:missing", liveCachePolicy())).resolves.toBeNull();
   });
 
   it("serves stale data immediately and refreshes in the background", async () => {

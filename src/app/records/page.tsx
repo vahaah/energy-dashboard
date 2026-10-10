@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EnergyTransition } from "@/components/energy-transition";
 import { JsonLd } from "@/components/json-ld";
+import { SiteLegalNav } from "@/components/site-legal-nav";
 import { Card, CARD_GRID_CLASS, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
@@ -251,6 +252,7 @@ export default async function RecordsPage() {
               Back to Grid
             </Link>
           </p>
+          <SiteLegalNav className="mt-4" />
         </footer>
       </main>
     </div>

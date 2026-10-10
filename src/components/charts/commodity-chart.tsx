@@ -32,6 +32,7 @@ import {
 } from "@/lib/commodity-chart-model";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { TimeRangeSelector } from "@/components/time-range-selector";
+import { captionCommodities } from "@/lib/attribution";
 
 interface Props {
   data: CommodityPrice[];
@@ -174,7 +175,9 @@ export function CommodityChart({ data, range, selectedSeries }: Props) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-gray-900">{scaleCaption(scale)}</p>
+        <p className="text-xs text-gray-900">
+          {scaleCaption(scale)}. {captionCommodities()}
+        </p>
         <TimeRangeSelector
           value={scale}
           onChange={setScale}

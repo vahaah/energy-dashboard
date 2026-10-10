@@ -271,6 +271,24 @@ export function scheduleBackground(work: () => Promise<void>): void {
 
 const inflightLoads = new Map<string, Promise<unknown>>();
 
+export async function peekThroughCache<T>(
+  logicalKey: string,
+  policy: TinybirdCachePolicy
+): Promise<T | null> {
+  const redis = getRedis();
+  if (!redis) {
+    return null;
+  }
+
+  const key = await redisKeyFor(logicalKey, policy.tier);
+  const hit = await redis.get<CacheEnvelope<T>>(key);
+  if (hit && isStaleUsableEnvelope(hit, policy)) {
+    return hit.data;
+  }
+
+  return null;
+}
+
 export async function readThroughCache<T>(
   logicalKey: string,
   policy: TinybirdCachePolicy,

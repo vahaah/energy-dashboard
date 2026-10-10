@@ -16,6 +16,7 @@ import {
 } from "@/lib/forecast-model";
 import { fuelinstDelayNote } from "@/lib/generation-desk-view";
 import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
+import { captionGeneration } from "@/lib/attribution";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 
@@ -128,6 +129,7 @@ export function GenerationDesk({
         ) : (
           <CardEmpty stamp={facts.headerStamp} />
         )}
+        <p className="mt-2 text-label-12 text-gray-900">{captionGeneration()}</p>
       </div>
       {lookAhead && showsLookAheadCopy(facts) ? (
         <LookAheadStrip lookAhead={lookAhead} />

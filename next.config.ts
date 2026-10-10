@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
       headers: [{ key: "Vary", value: API_CDN_VARY }],
     }));
   },
+  async redirects() {
+    return [
+      {
+        source: "/attributions",
+        destination: "/data-sources",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

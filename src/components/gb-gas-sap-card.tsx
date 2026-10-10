@@ -3,6 +3,7 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { COMMODITY_CARD_LABELS, COMMODITY_COLORS } from "@/lib/colors";
+import { NATIONAL_GAS_ATTRIBUTION } from "@/lib/attribution";
 import {
   formatSapGbpPerMwh,
   formatSapPencePerTherm,
@@ -61,7 +62,7 @@ export function GbGasSapCard({
       </p>
       <p className="mt-3 text-label-12 leading-5 text-gray-900">
         The average price of gas traded on National Gas&apos;s On-the-day Commodity Market for that
-        gas day. Source:{" "}
+        gas day. {NATIONAL_GAS_ATTRIBUTION} Source:{" "}
         <a
           href={NATIONAL_GAS_DATA_PORTAL_URL}
           target="_blank"

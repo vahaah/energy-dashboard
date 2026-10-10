@@ -1,6 +1,7 @@
 import { Sparkline } from "@/components/sparkline";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { FUEL_COLORS } from "@/lib/colors";
+import { elexonBmrsAttribution, NESO_OPEN_DATA_ATTRIBUTION } from "@/lib/attribution";
 import { formatGridFetchedAt, type LookAheadView } from "@/lib/forecast-model";
 
 export function LookAheadStrip({ lookAhead }: { lookAhead: LookAheadView }) {
@@ -37,8 +38,10 @@ export function LookAheadStrip({ lookAhead }: { lookAhead: LookAheadView }) {
       ) : null}
       <p className="mt-2 text-label-12 text-gray-900">
         {formatGridFetchedAt(lookAhead.fetchedAt)}
-        {lookAhead.wind ? " · Elexon WINDFOR" : null}
-        {lookAhead.greenest ? " · NESO Carbon Intensity API" : null}
+        {lookAhead.wind ? ` · Elexon WINDFOR · ${elexonBmrsAttribution()}` : null}
+        {lookAhead.greenest
+          ? ` · NESO Carbon Intensity API (CC BY 4.0) · ${NESO_OPEN_DATA_ATTRIBUTION}`
+          : null}
       </p>
     </div>
   );

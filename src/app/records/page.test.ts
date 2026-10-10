@@ -33,6 +33,7 @@ describe("records page", () => {
     expect(source).toContain("emptyRecordsWithDocumentedCoal");
     expect(source).not.toContain("100 MW or 0.5%");
     expect(source).not.toContain("live dashboard");
+    expect(source).toContain("SiteLegalNav");
     expect(source).toContain("PAGE_STACK_CLASS");
     expect(source).toContain("CARD_GRID_CLASS");
     expect(source).toContain("<Card");

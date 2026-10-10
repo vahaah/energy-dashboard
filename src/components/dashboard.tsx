@@ -7,6 +7,12 @@ import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } f
 import {
   CARBON_INTENSITY_API_URL,
   CARBON_INTENSITY_ATTRIBUTION,
+  captionCarbon,
+  captionCommodities,
+  captionElexon,
+  captionGeneration,
+  captionNeso,
+  captionTransfers,
   elexonBmrsAttribution,
   ELEXON_BMRS_LICENCE_URL,
   NESO_EMBEDDED_FORECAST_URL,
@@ -14,6 +20,7 @@ import {
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
+import { SiteLegalNav } from "@/components/site-legal-nav";
 import {
   formatGridFetchedAt,
   lookAheadFromPublic,
@@ -375,6 +382,7 @@ export function Dashboard({
             <Card
               id="section-generation"
               className="mt-4"
+              footer={captionGeneration()}
               actions={
                 <BlockPeriodControl
                   value={generationPeriod}
@@ -410,6 +418,7 @@ export function Dashboard({
           id="section-price"
           title="What does power cost?"
           tooltip="Market is the short-term wholesale market price from Elexon’s Market Index (APXMIDP). It is not the day-ahead auction price. System is the imbalance (cash-out) price for being long or short in a half-hour."
+          footer={captionElexon()}
           active={focus === "price"}
           headerRight={
             <div className="flex flex-wrap items-center gap-3">
@@ -450,6 +459,7 @@ export function Dashboard({
           id="section-transfers"
           title="Where is power flowing?"
           tooltip="Interconnector flows into and out of Great Britain. Positive values are imports."
+          footer={captionTransfers(transfersNeso)}
           active={focus === "transfers"}
           headerRight={
             <BlockPeriodControl
@@ -502,6 +512,7 @@ export function Dashboard({
         <SectionBlock
           title="How has the mix changed?"
           tooltip="How the generation stack shifts through the selected window, including embedded solar and wind."
+          footer={captionGeneration()}
           headerRight={
             <BlockPeriodControl
               value={mixPeriod}
@@ -525,6 +536,7 @@ export function Dashboard({
           id="section-commodities"
           title="Gas & oil"
           tooltip="Oil and gas context on a slower market horizon. The chart keeps the full published set."
+          footer={captionCommodities()}
           active={focus === "commodities"}
           headerRight={
             <TimeRangeSelector
@@ -594,6 +606,7 @@ export function Dashboard({
           id="section-records"
           title="Records and the energy transition"
           tooltip="Peaks, firsts and the coal-to-wind shift, computed from NESO historic generation mix. Supported by National Energy SO Open Data."
+          footer={captionNeso()}
           active={focus === "records"}
         >
           {shared == null ? (
@@ -618,6 +631,7 @@ export function Dashboard({
           id="section-carbon"
           title="How clean is it?"
           tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges. The 48-hour forecast is a derived cleanest-window answer from the NESO Carbon Intensity API."
+          footer={captionCarbon()}
           active={focus === "carbon"}
           headerRight={
             <BlockPeriodControl
@@ -735,6 +749,7 @@ export function Dashboard({
             the affected charts. Share links use <code>?period=year</code> or <code>?period=all</code>
             . Rate limit remains 60 requests per minute.
           </p>
+          <SiteLegalNav className="mt-4" />
         </footer>
       </main>
     </div>
