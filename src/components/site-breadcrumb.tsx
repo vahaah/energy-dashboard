@@ -14,18 +14,21 @@ export function SiteBreadcrumb({ items }: { items: BreadcrumbItem[] }) {
             Grid
           </Link>
         </li>
-        {items.map((item) => (
-          <li key={item.label} className="flex items-center gap-1">
-            <span aria-hidden="true">›</span>
-            {item.href ? (
-              <Link href={item.href} className="text-blue-700 underline-offset-2 hover:underline">
-                {item.label}
-              </Link>
-            ) : (
-              <span aria-current="page">{item.label}</span>
-            )}
-          </li>
-        ))}
+        {items.map((item, index) => {
+          const isCurrent = index === items.length - 1;
+          return (
+            <li key={item.label} className="flex items-center gap-1">
+              <span aria-hidden="true">›</span>
+              {item.href && !isCurrent ? (
+                <Link href={item.href} className="text-blue-700 underline-offset-2 hover:underline">
+                  {item.label}
+                </Link>
+              ) : (
+                <span aria-current={isCurrent ? "page" : undefined}>{item.label}</span>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );

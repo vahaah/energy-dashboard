@@ -11,6 +11,8 @@ describe("price cap page", () => {
     expect(source).toContain("PUBLISHED_PRICE_CAPS");
     expect(source).toContain("OFGEM_JAN_2027_ANNOUNCEMENT_LABEL");
     expect(source).toContain("loadCachedPublicPrices");
+    expect(source).toContain('loadCachedPublicPrices("1y")');
+    expect(source).not.toContain('loadCachedPublicPrices("90d")');
     expect(source).not.toContain("we will update");
     expect(source).not.toContain("within the hour");
     expect(source).not.toContain("January–March 2027 cap is");

@@ -6,6 +6,9 @@ import type { EnergySnapshot, Generation5min } from "@/lib/types";
 import {
   buildTodayPageModel,
   energySharesFromSnapshots,
+  interconnectorFlows,
+  priceExtremes,
+  snapshotsForLondonDate,
   todayCitePlainText,
   todayFaqs,
 } from "@/lib/today-page";
@@ -191,6 +194,75 @@ describe("today page model", () => {
     const shares = energySharesFromSnapshots(daySnapshots);
     expect(shares.gasPct).toBeGreaterThan(20);
     expect(shares.gasGwh).toBeCloseTo((6000 + 8000) * 0.5 / 1000, 5);
+  });
+
+  it("includes imports and generating storage in the daily share denominator", () => {
+    const domesticOnly = energySharesFromSnapshots([snapshot()]);
+    const withSupply = energySharesFromSnapshots([
+      snapshot({
+        gen_imports_pct: 10,
+        gen_pumped_mw: 2000,
+        gen_battery_mw: 500,
+      }),
+    ]);
+    expect(domesticOnly.windPct).not.toBeNull();
+    expect(withSupply.windPct).not.toBeNull();
+    expect(withSupply.windPct ?? 0).toBeLessThan(domesticOnly.windPct ?? 0);
+    expect(withSupply.gasPct ?? 0).toBeLessThan(domesticOnly.gasPct ?? 0);
+  });
+
+  it("uses market index only for extrema and skips imbalance-only gaps", () => {
+    const extremes = priceExtremes([
+      snapshot({ price_mid_gbp_mwh: 40, price_gbp_mwh: 12 }),
+      snapshot({
+        timestamp: "2026-10-10 11:30:00",
+        price_mid_gbp_mwh: null,
+        price_gbp_mwh: 200,
+      }),
+      snapshot({
+        timestamp: "2026-10-10 12:00:00",
+        price_mid_gbp_mwh: 55,
+        price_gbp_mwh: 9,
+      }),
+    ]);
+    expect(extremes.cheapest?.value).toBe(40);
+    expect(extremes.dearest?.value).toBe(55);
+  });
+
+  it("labels export flows with the absolute magnitude", () => {
+    const flows = interconnectorFlows([generation("2026-10-10 11:30:00", "INTFR", -1200)]);
+    expect(flows[0]?.mw).toBe(-1200);
+    expect(flows[0]?.gwLabel).toBe("1.2");
+  });
+
+  it("fills the 25-hour London date from the week payload when the rolling day window dropped early periods", () => {
+    const now = new Date("2026-10-25T23:30:00.000Z");
+    const early = snapshot({
+      timestamp: "2026-10-24 23:00:00",
+      price_mid_gbp_mwh: 12,
+      gen_wind_mw: 20_000,
+      gen_gas_mw: 1000,
+    });
+    const late = snapshot({
+      timestamp: "2026-10-25 23:00:00",
+      price_mid_gbp_mwh: 88,
+      gen_wind_mw: 8000,
+      gen_gas_mw: 4000,
+    });
+    const covered = snapshotsForLondonDate([late], [early, late], "2026-10-25");
+    expect(covered.map((row) => row.timestamp)).toEqual([
+      "2026-10-24 23:00:00",
+      "2026-10-25 23:00:00",
+    ]);
+    const model = buildTodayPageModel({
+      day: payload({ snapshots: [late], generation: generationRows }),
+      week: payload({ snapshots: [early, late], generation: generationRows }),
+      now,
+    });
+    expect(model.londonDate).toBe("2026-10-25");
+    expect(model.cheapest?.value).toBe(12);
+    expect(model.dearest?.value).toBe(88);
+    expect(model.priceAverage).toBe(50);
   });
 
   it("answers the visible FAQ from the same model", () => {

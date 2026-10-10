@@ -87,10 +87,15 @@ describe("page metadata", () => {
     expect(gasPageMetadata().alternates?.canonical).toBe("/prices/gas");
     expect(methodologyPageMetadata().alternates?.canonical).toBe("/methodology");
     expect(apiDocsPageMetadata().alternates?.canonical).toBe("/api");
+    expect(JSON.stringify(apiDocsPageMetadata().openGraph?.images)).toContain("/og?page=api");
+    expect(JSON.stringify(apiDocsPageMetadata().openGraph?.images)).not.toContain(
+      "/api/opengraph-image"
+    );
   });
 
-  it("does not ship root file-based OG routes", () => {
+  it("does not ship root file-based OG routes or an /api OG image", () => {
     expect(existsSync(resolve(process.cwd(), "src/app/opengraph-image.tsx"))).toBe(false);
     expect(existsSync(resolve(process.cwd(), "src/app/twitter-image.tsx"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "src/app/api/opengraph-image.tsx"))).toBe(false);
   });
 });

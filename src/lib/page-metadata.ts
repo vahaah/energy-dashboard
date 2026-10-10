@@ -250,7 +250,7 @@ export function apiDocsPageMetadata(): Metadata {
     title: API_DOCS_TITLE,
     description: API_DOCS_DESCRIPTION,
     path: "/api",
-    imagePath: "/api/opengraph-image",
+    imagePath: "/og?page=api",
     imageAlt: API_DOCS_TITLE,
   });
 }

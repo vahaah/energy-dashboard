@@ -31,5 +31,9 @@ describe("London cite stamps", () => {
     expect(utcIsoFromTimestamp("2026-10-10T12:00:00+01:00")).toBe("2026-10-10T11:00:00.000Z");
     expect(utcIsoFromTimestamp("not-a-date")).toBeUndefined();
     expect(utcIsoFromTimestamp(null)).toBeUndefined();
+    expect(Number.isNaN(new Date("2026-10-10T12:00:00+01:00Z").getTime())).toBe(true);
+    expect(parseUtcDateTime(formatLondonIsoOffset(new Date("2026-10-10T11:00:00.000Z"))).toISOString()).toBe(
+      "2026-10-10T11:00:00.000Z"
+    );
   });
 });

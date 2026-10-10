@@ -106,17 +106,50 @@ export function citeFuelKey(fuel: string): string {
   }
 }
 
-export function energySharesFromSnapshots(snapshots: EnergySnapshot[]): TodayFuelShares {
+export function utcHourKey(timestamp: string): string {
+  const at = parseUtcDateTime(timestamp);
+  const month = String(at.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(at.getUTCDate()).padStart(2, "0");
+  const hour = String(at.getUTCHours()).padStart(2, "0");
+  return `${at.getUTCFullYear()}-${month}-${day}T${hour}`;
+}
+
+export function snapshotsForLondonDate(
+  daySnapshots: EnergySnapshot[],
+  weekSnapshots: EnergySnapshot[],
+  londonDate: string
+): EnergySnapshot[] {
+  const native = rowsOnLondonDate(daySnapshots, londonDate);
+  const weekly = rowsOnLondonDate(weekSnapshots, londonDate);
+  if (native.length === 0) {
+    return weekly;
+  }
+  const coveredHours = new Set(native.map((row) => utcHourKey(row.timestamp)));
+  const fills = weekly.filter((row) => !coveredHours.has(utcHourKey(row.timestamp)));
+  if (fills.length === 0) {
+    return native;
+  }
+  return [...native, ...fills].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
+
+export function energySharesFromSnapshots(
+  snapshots: EnergySnapshot[],
+  nativeTimestamps?: ReadonlySet<string>
+): TodayFuelShares {
   const energy = new Map<string, number>();
   for (const snapshot of snapshots) {
-    addEnergy(energy, "wind", snapshot.gen_wind_mw);
-    addEnergy(energy, "gas", snapshot.gen_gas_mw);
-    addEnergy(energy, "nuclear", snapshot.gen_nuclear_mw);
-    addEnergy(energy, "solar", snapshot.gen_solar_mw);
-    addEnergy(energy, "hydro", snapshot.gen_hydro_mw);
-    addEnergy(energy, "biomass", snapshot.gen_biomass_mw);
-    addEnergy(energy, "coal", snapshot.gen_coal_mw);
-    addEnergy(energy, "other", snapshot.gen_other_mw);
+    const hours = snapshotIntervalHours(snapshot.timestamp, nativeTimestamps);
+    addEnergy(energy, "wind", snapshot.gen_wind_mw, hours);
+    addEnergy(energy, "gas", snapshot.gen_gas_mw, hours);
+    addEnergy(energy, "nuclear", snapshot.gen_nuclear_mw, hours);
+    addEnergy(energy, "solar", snapshot.gen_solar_mw, hours);
+    addEnergy(energy, "hydro", snapshot.gen_hydro_mw, hours);
+    addEnergy(energy, "biomass", snapshot.gen_biomass_mw, hours);
+    addEnergy(energy, "coal", snapshot.gen_coal_mw, hours);
+    addEnergy(energy, "other", snapshot.gen_other_mw, hours);
+    addEnergy(energy, "pumped", generatingMw(snapshot.gen_pumped_mw), hours);
+    addEnergy(energy, "battery", generatingMw(snapshot.gen_battery_mw), hours);
+    addEnergy(energy, "imports", importSupplyMw(snapshot), hours);
   }
 
   const total = [...energy.values()].reduce((sum, mwh) => sum + mwh, 0);
@@ -131,13 +164,16 @@ export function energySharesFromSnapshots(snapshots: EnergySnapshot[]): TodayFue
   };
 }
 
-export function dayAveragesFromSnapshots(snapshots: EnergySnapshot[]): DayAverages {
+export function dayAveragesFromSnapshots(
+  snapshots: EnergySnapshot[],
+  nativeTimestamps?: ReadonlySet<string>
+): DayAverages {
   const summary = snapshotPeriodAverages(snapshots);
-  const shares = energySharesFromSnapshots(snapshots);
+  const shares = energySharesFromSnapshots(snapshots, nativeTimestamps);
   return {
     carbon: summary.carbon,
     demandGw: summary.demandMw == null ? null : summary.demandMw / 1000,
-    price: summary.priceGbpMwh,
+    price: mean(snapshots.map((row) => row.price_mid_gbp_mwh)),
     gasSharePct: shares.gasPct,
   };
 }
@@ -149,12 +185,12 @@ export function priceExtremes(snapshots: EnergySnapshot[]): {
   let cheapest: EnergySnapshot | null = null;
   let dearest: EnergySnapshot | null = null;
   for (const snapshot of snapshots) {
-    const price = snapshot.price_mid_gbp_mwh ?? snapshot.price_gbp_mwh;
+    const price = marketIndexPrice(snapshot);
     if (price == null) {
       continue;
     }
-    const cheap = cheapestPrice(cheapest);
-    const dear = dearestPrice(dearest);
+    const cheap = marketIndexPrice(cheapest);
+    const dear = marketIndexPrice(dearest);
     if (cheap == null || price < cheap) {
       cheapest = snapshot;
     }
@@ -184,7 +220,7 @@ export function interconnectorFlows(rows: Generation5min[]): InterconnectorCount
     .map(([country, mw]) => ({
       country,
       mw,
-      gwLabel: formatHeadlineGw(mw),
+      gwLabel: formatHeadlineGw(Math.abs(mw)),
     }));
 }
 
@@ -198,9 +234,15 @@ export function buildTodayPageModel(input: {
   const yesterday = addUtcDays(londonDate, -1);
   const day = input.day ? hydrateDashboardPayload(input.day) : null;
   const week = input.week ? hydrateDashboardPayload(input.week) : null;
-  const todaySnapshots = rowsOnLondonDate(day?.snapshots ?? [], londonDate);
+  const daySnapshots = rowsOnLondonDate(day?.snapshots ?? [], londonDate);
+  const todaySnapshots = snapshotsForLondonDate(
+    day?.snapshots ?? [],
+    week?.snapshots ?? [],
+    londonDate
+  );
+  const nativeTimestamps = new Set(daySnapshots.map((row) => row.timestamp));
   const weekSnapshots = week?.snapshots ?? [];
-  const shares = energySharesFromSnapshots(todaySnapshots);
+  const shares = energySharesFromSnapshots(todaySnapshots, nativeTimestamps);
   const extremes = priceExtremes(todaySnapshots);
   const latestStamp = latestRowTimestamp(todaySnapshots, day?.facts.referenceTimestamp ?? null);
   const latestAt = latestStamp ? parseUtcDateTime(latestStamp) : null;
@@ -229,9 +271,7 @@ export function buildTodayPageModel(input: {
     dateModified: latestAt && !Number.isNaN(latestAt.getTime()) ? latestAt.toISOString() : null,
     shares,
     carbonAverage: mean(todaySnapshots.map((row) => row.carbon_intensity)),
-    priceAverage: mean(
-      todaySnapshots.map((row) => row.price_mid_gbp_mwh ?? row.price_gbp_mwh)
-    ),
+    priceAverage: mean(todaySnapshots.map((row) => row.price_mid_gbp_mwh)),
     latest: {
       demandGw: formatHeadlineGw(day?.facts.demand.value ?? null),
       generationGw: formatHeadlineGw(day?.facts.generationMw.value ?? null),
@@ -243,7 +283,7 @@ export function buildTodayPageModel(input: {
       windGw: latestWind ? formatHeadlineGw(latestWind.mw) : null,
     },
     comparison: {
-      today: dayAveragesFromSnapshots(todaySnapshots),
+      today: dayAveragesFromSnapshots(todaySnapshots, nativeTimestamps),
       yesterday: dayAveragesFromSnapshots(rowsOnLondonDate(weekSnapshots, yesterday)),
       week: dayAveragesFromSnapshots(weekSnapshots),
     },
@@ -313,11 +353,41 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
   ];
 }
 
-function addEnergy(energy: Map<string, number>, fuel: string, mw: number | null): void {
+function snapshotIntervalHours(
+  timestamp: string,
+  nativeTimestamps?: ReadonlySet<string>
+): number {
+  if (!nativeTimestamps || nativeTimestamps.has(timestamp)) {
+    return HALF_HOUR_HOURS;
+  }
+  return 1;
+}
+
+function generatingMw(mw: number | null | undefined): number | null {
+  if (mw == null || mw <= 0) {
+    return null;
+  }
+  return mw;
+}
+
+function importSupplyMw(snapshot: EnergySnapshot): number | null {
+  if (snapshot.demand_mw == null || snapshot.gen_imports_pct == null) {
+    return null;
+  }
+  const mw = snapshot.demand_mw * (snapshot.gen_imports_pct / 100);
+  return mw > 0 ? mw : null;
+}
+
+function addEnergy(
+  energy: Map<string, number>,
+  fuel: string,
+  mw: number | null,
+  hours: number
+): void {
   if (mw == null) {
     return;
   }
-  energy.set(fuel, (energy.get(fuel) ?? 0) + mw * HALF_HOUR_HOURS);
+  energy.set(fuel, (energy.get(fuel) ?? 0) + mw * hours);
 }
 
 function sharePct(part: number | undefined, total: number): number | null {
@@ -340,19 +410,15 @@ function mean(values: Array<number | null | undefined>): number | null {
   return count === 0 ? null : total / count;
 }
 
-function cheapestPrice(snapshot: EnergySnapshot | null): number | null {
-  return snapshot?.price_mid_gbp_mwh ?? snapshot?.price_gbp_mwh ?? null;
-}
-
-function dearestPrice(snapshot: EnergySnapshot | null): number | null {
-  return cheapestPrice(snapshot);
+function marketIndexPrice(snapshot: EnergySnapshot | null): number | null {
+  return snapshot?.price_mid_gbp_mwh ?? null;
 }
 
 function extremeFromSnapshot(snapshot: EnergySnapshot | null): PriceExtreme | null {
   if (!snapshot) {
     return null;
   }
-  const value = snapshot.price_mid_gbp_mwh ?? snapshot.price_gbp_mwh;
+  const value = marketIndexPrice(snapshot);
   if (value == null) {
     return null;
   }
@@ -391,8 +457,9 @@ function latestCiteFuelShare(
   rows: Generation5min[],
   fuel: string
 ): { mw: number; sharePct: number } | null {
+  const split = splitLatestGenerationRows(rows);
   const grouped = new Map<string, number>();
-  for (const share of generationSharesFromRows(splitLatestGenerationRows(rows).sources)) {
+  for (const share of generationSharesFromRows([...split.sources, ...split.interconnectors])) {
     const key = citeFuelKey(share.fuel);
     grouped.set(key, (grouped.get(key) ?? 0) + share.mw);
   }

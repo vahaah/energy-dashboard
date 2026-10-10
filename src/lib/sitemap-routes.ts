@@ -1,6 +1,7 @@
 export const SITEMAP_PATHS = [
   { path: "", changeFrequency: "hourly" as const, priority: 1 },
   { path: "/today", changeFrequency: "hourly" as const, priority: 0.9 },
+  { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },
   { path: "/records", changeFrequency: "daily" as const, priority: 0.8 },
   { path: "/explained/price-cap", changeFrequency: "weekly" as const, priority: 0.8 },
   { path: "/prices/gas", changeFrequency: "daily" as const, priority: 0.8 },

@@ -56,5 +56,13 @@ describe("SEO titles and descriptions", () => {
     }
     expect(SITE_OG_IMAGE.url).toBe("/og");
     expect(SITE_TWITTER_CARD.images).toEqual(["/og"]);
+    expect(GAS_TITLE).not.toMatch(/NBP|JKM/);
+    expect(GAS_DESCRIPTION).not.toMatch(/NBP|JKM/);
+    expect(GAS_TITLE).toContain("SAP");
+    expect(GAS_TITLE).toContain("Henry Hub");
+    expect(GAS_DESCRIPTION).toContain("National Gas");
+    expect(GAS_DESCRIPTION).toContain("Henry Hub");
+    expect(GAS_DESCRIPTION).toContain("World Bank Europe gas");
+    expect(GAS_DESCRIPTION).toContain("Japan LNG");
   });
 });

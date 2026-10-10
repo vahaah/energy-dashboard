@@ -20,9 +20,9 @@ export const PRICE_CAP_DESCRIPTION =
   "Ofgem announces the January–March 2027 price cap by 25 November 2026. What drives it, what wholesale gas has done, and what Grid's data shows.";
 export const PRICE_CAP_H1 = "Will energy bills go up in January 2027?";
 
-export const GAS_TITLE = "UK gas price today: SAP, NBP, Henry Hub, JKM";
+export const GAS_TITLE = "UK gas price today: SAP, Henry Hub, Europe, Japan LNG";
 export const GAS_DESCRIPTION =
-  "GB System Average Price of gas and NBP in p/therm, with US and Asian benchmarks, from National Gas, World Bank and EIA. Updated as sources publish.";
+  "GB System Average Price from National Gas, plus Henry Hub, World Bank Europe gas and Japan LNG. Updated as sources publish.";
 export const GAS_H1 = "UK gas price today";
 
 export const METHODOLOGY_TITLE = "How Grid's numbers are made: sources and method";

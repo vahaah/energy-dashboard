@@ -26,7 +26,7 @@ export const dynamic = "force-static";
 export const metadata: Metadata = priceCapPageMetadata();
 
 export default async function PriceCapPage() {
-  const prices = await loadCachedPublicPrices("90d").catch(() => []);
+  const prices = await loadCachedPublicPrices("1y").catch(() => []);
   const sapWindow = meanCommodityInWindow(
     prices,
     GB_GAS_SAP_COMMODITY,
