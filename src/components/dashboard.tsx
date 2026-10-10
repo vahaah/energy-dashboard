@@ -291,7 +291,6 @@ export function Dashboard({
                     headlineGeneration={headlineGeneration}
                     range={chartRange}
                     pending={isPending}
-                    now={lookAhead ? new Date(lookAhead.fetchedAt) : undefined}
                     lookAhead={lookAhead}
                   />
                   <div className="mt-8">
@@ -501,7 +500,7 @@ export function Dashboard({
                   }
                   now={
                     lookAhead && showsCarbonForecast(chartRange, facts.isHistorical)
-                      ? new Date(lookAhead.fetchedAt)
+                      ? new Date()
                       : null
                   }
                 />

@@ -1,10 +1,8 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import {
-  carbonForecastPoints,
-  demandForecastPoints,
-  greenestWindow,
-  windLookAhead,
+  lookAheadFromRows,
+  type CachedForecastRows,
   type CarbonForecastRow,
   type DemandForecastRow,
   type LookAheadView,
@@ -28,6 +26,7 @@ export {
   formatGridFetchedAt,
   formatLookAheadWindow,
   greenestWindow,
+  lookAheadFromRows,
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,
@@ -60,8 +59,7 @@ export function forecastCacheControl(): string {
   return `public, s-maxage=${FORECAST_REVALIDATE_SECONDS}, stale-while-revalidate=3600`;
 }
 
-export async function loadLookAhead(now: Date): Promise<LookAheadView> {
-  const fetchedAt = now.toISOString();
+export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> {
   const [carbonRows, windRows, demandRows] = await Promise.all([
     fetchCarbonForecast48h(now).catch(() => null),
     fetchWindForecast().catch(() => null),
@@ -69,22 +67,26 @@ export async function loadLookAhead(now: Date): Promise<LookAheadView> {
   ]);
 
   return {
-    fetchedAt,
-    greenest: carbonRows ? greenestWindow(carbonRows, now) : null,
-    carbonSeries: carbonRows ? carbonForecastPoints(carbonRows, now) : [],
-    wind: windRows ? windLookAhead(windRows, now) : null,
-    demandSeries: demandRows ? demandForecastPoints(demandRows, now) : [],
+    fetchedAt: now.toISOString(),
+    carbonRows,
+    windRows,
+    demandRows,
   };
 }
 
-const cachedLookAhead = unstable_cache(
-  async () => loadLookAhead(new Date()),
+export async function loadLookAhead(now: Date): Promise<LookAheadView> {
+  return lookAheadFromRows(await fetchForecastRows(now), now);
+}
+
+const cachedForecastRows = unstable_cache(
+  async () => fetchForecastRows(new Date()),
   [FORECAST_CACHE_KEY],
   { revalidate: FORECAST_REVALIDATE_SECONDS, tags: [FORECAST_CACHE_TAG] }
 );
 
 export const getLookAhead = cache(async (): Promise<LookAheadView> => {
-  return cachedLookAhead();
+  const rows = await cachedForecastRows();
+  return lookAheadFromRows(rows, new Date());
 });
 
 export async function fetchCarbonForecast48h(now: Date): Promise<CarbonForecastRow[]> {

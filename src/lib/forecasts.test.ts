@@ -17,6 +17,7 @@ import {
   formatLookAheadWindow,
   greenestWindow,
   loadLookAhead,
+  lookAheadFromRows,
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,
@@ -57,8 +58,36 @@ describe("forecast cache policy", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./forecasts.ts"), "utf8");
     expect(source).toContain(`"${FORECAST_CACHE_KEY}"`);
     expect(source).toContain("unstable_cache");
+    expect(source).toContain("cachedForecastRows");
+    expect(source).toContain("lookAheadFromRows(rows, new Date())");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("tinybird");
+  });
+
+  it("recomputes the greenest window from cached rows at request time", () => {
+    const rows = {
+      fetchedAt: "2026-10-10T12:10:00.000Z",
+      carbonRows: [
+        carbonRow("2026-10-10T12:30Z", "2026-10-10T13:00Z", 10),
+        carbonRow("2026-10-10T13:00Z", "2026-10-10T13:30Z", 10),
+        carbonRow("2026-10-10T13:30Z", "2026-10-10T14:00Z", 10),
+        carbonRow("2026-10-10T14:00Z", "2026-10-10T14:30Z", 10),
+        carbonRow("2026-10-10T14:30Z", "2026-10-10T15:00Z", 40),
+        carbonRow("2026-10-10T15:00Z", "2026-10-10T15:30Z", 40),
+        carbonRow("2026-10-10T15:30Z", "2026-10-10T16:00Z", 40),
+        carbonRow("2026-10-10T16:00Z", "2026-10-10T16:30Z", 40),
+      ],
+      windRows: null,
+      demandRows: null,
+    };
+
+    const atFetch = lookAheadFromRows(rows, new Date("2026-10-10T12:10:00.000Z"));
+    expect(atFetch.greenest?.startUtc).toBe("2026-10-10T12:30Z");
+    expect(atFetch.fetchedAt).toBe(rows.fetchedAt);
+
+    const later = lookAheadFromRows(rows, new Date("2026-10-10T12:35:00.000Z"));
+    expect(later.greenest?.startUtc).toBe("2026-10-10T13:00Z");
+    expect(later.fetchedAt).toBe(rows.fetchedAt);
   });
 
   it("uses the dedicated fw48h, WINDFOR and NDF endpoints", () => {
@@ -256,6 +285,13 @@ describe("look-ahead copy and public payload", () => {
         new Date("2026-03-29T00:00:00.000Z")
       )
     ).toBe("00:30 GMT–02:30 BST");
+    expect(
+      formatLookAheadWindow(
+        new Date("2026-10-10T22:00:00.000Z"),
+        new Date("2026-10-11T00:00:00.000Z"),
+        NOW
+      )
+    ).toBe("23:00–01:00 BST tomorrow");
   });
 
   it("strips raw forecast series from the public payload", () => {

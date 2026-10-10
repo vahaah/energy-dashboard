@@ -79,6 +79,23 @@ export type DemandForecastRow = {
 
 export type CarbonForecastRow = CarbonIntensityResponse["data"][number];
 
+export type CachedForecastRows = {
+  fetchedAt: string;
+  carbonRows: CarbonForecastRow[] | null;
+  windRows: WindForecastRow[] | null;
+  demandRows: DemandForecastRow[] | null;
+};
+
+export function lookAheadFromRows(rows: CachedForecastRows, now: Date): LookAheadView {
+  return {
+    fetchedAt: rows.fetchedAt,
+    greenest: rows.carbonRows ? greenestWindow(rows.carbonRows, now) : null,
+    carbonSeries: rows.carbonRows ? carbonForecastPoints(rows.carbonRows, now) : [],
+    wind: rows.windRows ? windLookAhead(rows.windRows, now) : null,
+    demandSeries: rows.demandRows ? demandForecastPoints(rows.demandRows, now) : [],
+  };
+}
+
 export function emptyLookAhead(now = new Date()): LookAheadView {
   return {
     fetchedAt: now.toISOString(),
@@ -284,21 +301,42 @@ export function windLookAhead(rows: WindForecastRow[], now: Date): WindLookAhead
 }
 
 export function formatLookAheadWindow(start: Date, end: Date, now: Date): string {
+  const startDay = getLondonDate(start);
+  const endDay = getLondonDate(end);
+  const today = getLondonDate(now);
+  const times = formatWindowClocks(start, end);
+  if (startDay === endDay) {
+    return `${dayPrefix(startDay, today, start)}${times}`;
+  }
+  return `${dayPrefix(startDay, today, start)}${times} ${dayWord(endDay, today, end)}`;
+}
+
+function formatWindowClocks(start: Date, end: Date): string {
   const startZone = getLondonOffsetLabel(start);
   const endZone = getLondonOffsetLabel(end);
-  const times =
-    startZone === endZone
-      ? `${clock(start)}–${clock(end)} ${startZone}`
-      : `${clock(start)} ${startZone}–${clock(end)} ${endZone}`;
-  const startDay = getLondonDate(start);
-  const today = getLondonDate(now);
-  if (startDay === today) {
-    return times;
+  return startZone === endZone
+    ? `${clock(start)}–${clock(end)} ${startZone}`
+    : `${clock(start)} ${startZone}–${clock(end)} ${endZone}`;
+}
+
+function dayPrefix(day: string, today: string, date: Date): string {
+  if (day === today) {
+    return "";
   }
-  if (startDay === addUtcDays(today, 1)) {
-    return `tomorrow ${times}`;
+  if (day === addUtcDays(today, 1)) {
+    return "tomorrow ";
   }
-  return `${formatLondonDateLabel(start)}, ${times}`;
+  return `${formatLondonDateLabel(date)}, `;
+}
+
+function dayWord(day: string, today: string, date: Date): string {
+  if (day === today) {
+    return "today";
+  }
+  if (day === addUtcDays(today, 1)) {
+    return "tomorrow";
+  }
+  return formatLondonDateLabel(date);
 }
 
 function windSentence(tonightGw: number | null, tomorrowEveningGw: number | null): string | null {
