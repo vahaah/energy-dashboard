@@ -9,7 +9,17 @@ import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { FOCUS_PAGE_COPY, isDashboardFocus } from "@/lib/page-metadata";
 import type { OgCacheSnapshot } from "@/lib/og/peek";
 
-export const OG_PAGE_IDS = ["records", "privacy", "terms", "data-sources"] as const;
+export const OG_PAGE_IDS = [
+  "records",
+  "privacy",
+  "terms",
+  "data-sources",
+  "today",
+  "price-cap",
+  "methodology",
+  "api",
+  "gas",
+] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
 
@@ -43,6 +53,61 @@ export type OgCard = {
 };
 
 const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> = {
+  today: {
+    eyebrow: "Grid",
+    title: "Britain's electricity today",
+    kicker: "Mix, carbon intensity and market price, updated hourly.",
+    metrics: [
+      { label: "Sources", value: "Elexon, NESO" },
+      { label: "Cadence", value: "Hourly" },
+    ],
+    mix: [],
+    stamp: "Today",
+  },
+  "price-cap": {
+    eyebrow: "Grid",
+    title: "Will energy bills go up in January 2027?",
+    kicker: "Ofgem announces the next cap on 25 November 2026.",
+    metrics: [
+      { label: "Current cap", value: "£1,723" },
+      { label: "Next announcement", value: "25 Nov 2026" },
+    ],
+    mix: [],
+    stamp: "Ofgem",
+  },
+  methodology: {
+    eyebrow: "Grid",
+    title: "How Grid's numbers are made",
+    kicker: "Sources, licences, definitions and data checks.",
+    metrics: [
+      { label: "Grid", value: "Elexon, NESO, Carbon Intensity" },
+      { label: "Context", value: "EIA, World Bank, National Gas" },
+    ],
+    mix: [],
+    stamp: "Methodology",
+  },
+  api: {
+    eyebrow: "Grid",
+    title: "Free GB electricity data API",
+    kicker: "JSON, no key, 60 requests a minute.",
+    metrics: [
+      { label: "Licence", value: "CC BY 4.0" },
+      { label: "Rate limit", value: "60 / min" },
+    ],
+    mix: [],
+    stamp: "API",
+  },
+  gas: {
+    eyebrow: "Grid",
+    title: "UK gas price today",
+    kicker: "GB System Average Price, Henry Hub and World Bank gas.",
+    metrics: [
+      { label: "SAP", value: "National Gas" },
+      { label: "Benchmarks", value: "EIA, World Bank" },
+    ],
+    mix: [],
+    stamp: "Gas",
+  },
   privacy: {
     eyebrow: "Grid",
     title: "Privacy",
@@ -125,6 +190,11 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "privacy":
     case "terms":
     case "data-sources":
+    case "today":
+    case "price-cap":
+    case "methodology":
+    case "api":
+    case "gas":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;

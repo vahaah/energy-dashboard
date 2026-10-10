@@ -16,6 +16,10 @@ describe("legal nav", () => {
     const config = readFileSync(resolve(process.cwd(), "next.config.ts"), "utf8");
 
     expect(dashboard).toContain("SiteLegalNav");
+    expect(dashboard).toContain("SitePublicNav");
+    expect(dashboard).toContain('href="/methodology"');
+    expect(dashboard).not.toContain("history.replaceState");
+    expect(dashboard).not.toContain("URL state is canonical");
     expect(dashboard).toContain("captionGeneration(neso)");
     expect(dashboard).toContain("captionGeneration(isNesoPeriod(mixPeriod))");
     expect(dashboard).toContain("shareFocusPath(focus)");

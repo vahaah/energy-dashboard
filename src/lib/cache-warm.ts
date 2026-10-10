@@ -40,7 +40,10 @@ export async function invalidateAndWarm(
   try {
     revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 });
     revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath("/prices/gas");
     revalidatePath("/api/dashboard");
+    revalidatePath("/llms.txt");
     await bumpCacheEpoch();
     if (options?.historical) {
       revalidatePath("/records");

@@ -215,7 +215,7 @@ describe("generation desk layout", () => {
       "carbonLookAhead?.greenest && showsLookAheadCopy(carbonFacts)"
     );
     expect(dashboardSource).not.toContain("new Date(lookAhead.fetchedAt)");
-    expect(dashboardSource).toContain("GET /api/look-ahead");
+    expect(dashboardSource).toContain('href="/api"');
     expect(deskSource).toContain("LookAheadStrip");
     expect(deskSource).toContain("showsLookAheadCopy(facts)");
     expect(deskSource).toContain("getDisplayedPower");

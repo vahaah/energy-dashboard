@@ -4,15 +4,25 @@ import {
   type DashboardSearchParams,
 } from "@/lib/dashboard-search-params";
 import {
+  API_DOCS_DESCRIPTION,
+  API_DOCS_TITLE,
+  GAS_DESCRIPTION,
+  GAS_TITLE,
   HOME_DESCRIPTION,
   HOME_TITLE,
+  METHODOLOGY_DESCRIPTION,
+  METHODOLOGY_TITLE,
   OG_IMAGE_HEIGHT,
   OG_IMAGE_WIDTH,
+  PRICE_CAP_DESCRIPTION,
+  PRICE_CAP_TITLE,
   RECORDS_DESCRIPTION,
   RECORDS_TITLE,
   SITE_NAME,
   SITE_OG_IMAGE,
   SITE_OG_TYPE,
+  TODAY_DESCRIPTION,
+  TODAY_TITLE,
 } from "@/lib/site";
 
 export type PageMetadataInput = {
@@ -192,5 +202,55 @@ export function dataSourcesPageMetadata(): Metadata {
     path: "/data-sources",
     imagePath: "/data-sources/opengraph-image",
     imageAlt: "Data sources — Grid",
+  });
+}
+
+export function todayPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: TODAY_TITLE,
+    description: TODAY_DESCRIPTION,
+    path: "/today",
+    imagePath: "/today/opengraph-image",
+    imageAlt: TODAY_TITLE,
+  });
+}
+
+export function priceCapPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: PRICE_CAP_TITLE,
+    description: PRICE_CAP_DESCRIPTION,
+    path: "/explained/price-cap",
+    imagePath: "/explained/price-cap/opengraph-image",
+    imageAlt: PRICE_CAP_TITLE,
+  });
+}
+
+export function gasPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: GAS_TITLE,
+    description: GAS_DESCRIPTION,
+    path: "/prices/gas",
+    imagePath: "/prices/gas/opengraph-image",
+    imageAlt: GAS_TITLE,
+  });
+}
+
+export function methodologyPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: METHODOLOGY_TITLE,
+    description: METHODOLOGY_DESCRIPTION,
+    path: "/methodology",
+    imagePath: "/methodology/opengraph-image",
+    imageAlt: METHODOLOGY_TITLE,
+  });
+}
+
+export function apiDocsPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: API_DOCS_TITLE,
+    description: API_DOCS_DESCRIPTION,
+    path: "/api",
+    imagePath: "/api/opengraph-image",
+    imageAlt: API_DOCS_TITLE,
   });
 }

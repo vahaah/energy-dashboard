@@ -41,15 +41,8 @@ export function recordsJsonLd(input: {
     "@graph": [
       recordsDatasetNode(),
       recordsItemListNode(input.records),
-      breadcrumbNode("Records", `${SITE_ORIGIN}/records`),
-      {
-        "@type": "FAQPage",
-        mainEntity: input.faqs.map((faq) => ({
-          "@type": "Question",
-          name: faq.question,
-          acceptedAnswer: { "@type": "Answer", text: faq.answer },
-        })),
-      },
+      breadcrumbNode({ name: "Records", item: `${SITE_ORIGIN}/records` }),
+      faqPageNode(input.faqs),
     ],
   };
 }
@@ -90,7 +83,7 @@ function personNode(): JsonLdNode {
   };
 }
 
-function datasetNode(facts: LatestFacts | null): JsonLdNode {
+export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`): JsonLdNode {
   const dateModified = facts?.referenceTimestamp
     ? parseUtcDateTime(facts.referenceTimestamp).toISOString()
     : undefined;
@@ -101,7 +94,7 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
     name: "Grid: Great Britain electricity data, hourly",
     description:
       "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources.",
-    url: `${SITE_ORIGIN}/`,
+    url,
     license: homepageDatasetLicenses(),
     isAccessibleForFree: true,
     creator: { "@id": APP_ID },
@@ -193,14 +186,103 @@ function recordsDatasetNode(): JsonLdNode {
   };
 }
 
-function breadcrumbNode(name: string, item: string): JsonLdNode {
+export function breadcrumbNode(...crumbs: Array<{ name: string; item: string }>): JsonLdNode {
   return {
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_ORIGIN}/` },
-      { "@type": "ListItem", position: 2, name, item },
+      ...crumbs.map((crumb, index) => ({
+        "@type": "ListItem",
+        position: index + 2,
+        name: crumb.name,
+        item: crumb.item,
+      })),
     ],
   };
+}
+
+export function faqPageNode(faqs: Array<{ question: string; answer: string }>): JsonLdNode {
+  return {
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
+}
+
+export function pageJsonLd(input: {
+  breadcrumbs: Array<{ name: string; item: string }>;
+  faqs?: Array<{ question: string; answer: string }>;
+  extra?: JsonLdNode[];
+  dateModified?: string;
+}): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
+  const graph: JsonLdNode[] = [breadcrumbNode(...input.breadcrumbs)];
+  if (input.faqs && input.faqs.length > 0) {
+    graph.push(faqPageNode(input.faqs));
+  }
+  if (input.extra) {
+    graph.push(...input.extra);
+  }
+  if (input.dateModified) {
+    graph.push({
+      "@type": "WebPage",
+      url: input.breadcrumbs[input.breadcrumbs.length - 1]?.item,
+      dateModified: input.dateModified,
+    });
+  }
+  return { "@context": "https://schema.org", "@graph": graph };
+}
+
+export function todayJsonLd(input: {
+  faqs: Array<{ question: string; answer: string }>;
+  dateModified?: string;
+}): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
+  return pageJsonLd({
+    breadcrumbs: [{ name: "Today", item: `${SITE_ORIGIN}/today` }],
+    faqs: input.faqs,
+    dateModified: input.dateModified,
+  });
+}
+
+export function priceCapJsonLd(input: {
+  faqs: Array<{ question: string; answer: string }>;
+}): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
+  return pageJsonLd({
+    breadcrumbs: [{ name: "Price cap", item: `${SITE_ORIGIN}/explained/price-cap` }],
+    faqs: input.faqs,
+  });
+}
+
+export function gasJsonLd(input: {
+  faqs: Array<{ question: string; answer: string }>;
+  dateModified?: string;
+}): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
+  return pageJsonLd({
+    breadcrumbs: [{ name: "Gas price", item: `${SITE_ORIGIN}/prices/gas` }],
+    faqs: input.faqs,
+    dateModified: input.dateModified,
+  });
+}
+
+export function methodologyJsonLd(input: {
+  faqs: Array<{ question: string; answer: string }>;
+}): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
+  return pageJsonLd({
+    breadcrumbs: [{ name: "Methodology", item: `${SITE_ORIGIN}/methodology` }],
+    faqs: input.faqs,
+  });
+}
+
+export function apiDocsJsonLd(facts: LatestFacts | null): {
+  "@context": "https://schema.org";
+  "@graph": JsonLdNode[];
+} {
+  return pageJsonLd({
+    breadcrumbs: [{ name: "API", item: `${SITE_ORIGIN}/api` }],
+    extra: [datasetNode(facts, `${SITE_ORIGIN}/api`)],
+  });
 }
 
 function recordsItemListNode(records: GridRecords): JsonLdNode {
