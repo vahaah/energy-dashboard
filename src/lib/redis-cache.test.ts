@@ -173,7 +173,26 @@ describe("readThroughCache", () => {
     expect(result.reason).toContain("redis-get-failed");
     expect(result.reason).toContain("[url]");
     expect(result.reason).not.toContain("secret.upstash.io");
-    expect(getRedisFailureReason()).toBeNull();
+  });
+
+  it("skips Redis for the rest of the isolate after a get failure", async () => {
+    const get = vi.fn(async () => {
+      throw new TypeError("n.map is not a function");
+    });
+    setRedisForTests({
+      get,
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    await readThroughCacheResult("tb:outer", liveCachePolicy(), async () => {
+      const nested = await readThroughCacheResult("tb:nested", liveCachePolicy(), async () => ["nested"]);
+      expect(nested.status).toBe("fallback");
+      expect(nested.reason).toContain("n.map");
+      return ["outer"];
+    });
+    expect(get).toHaveBeenCalledOnce();
   });
 
   it("returns the fallback reason on the cache read, not a module-global", async () => {

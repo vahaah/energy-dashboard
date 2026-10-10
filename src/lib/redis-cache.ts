@@ -60,6 +60,8 @@ export type RedisRestConfig = {
 let testRedis: RedisCommands | null = null;
 let cachedRedis: RedisCommands | null = null;
 let lastRedisFailure: string | null = null;
+let redisUnusableUntil = 0;
+const REDIS_COOLDOWN_MS = 15_000;
 
 export function getRedisFailureReason(): string | null {
   return lastRedisFailure;
@@ -124,6 +126,10 @@ export function resolveRedisRestConfig(): RedisRestConfig | null {
 }
 
 export function getRedis(): RedisCommands | null {
+  if (Date.now() < redisUnusableUntil) {
+    return null;
+  }
+
   if (testRedis) {
     return testRedis;
   }
@@ -167,12 +173,14 @@ export function setRedisForTests(client: RedisCommands | null): void {
   testRedis = client;
   cachedRedis = null;
   lastRedisFailure = null;
+  redisUnusableUntil = 0;
 }
 
 export function resetRedisClient(): void {
   testRedis = null;
   cachedRedis = null;
   lastRedisFailure = null;
+  redisUnusableUntil = 0;
   inflightLoads.clear();
 }
 
@@ -297,10 +305,11 @@ export async function readThroughCacheResult<T>(
       return { data: hit.data, status: "redis-stale" };
     }
   } catch (error) {
+    const reason = markRedisUnusable("get", error);
     return {
       data: await load(),
       status: "fallback",
-      reason: formatRedisError("get", error, redisHostHint()),
+      reason,
     };
   }
 
@@ -343,7 +352,7 @@ async function refreshAndStore<T>(
       try {
         await redis.set(key, envelope, { ex: redisTtlSeconds(policy) });
       } catch (error) {
-        setRedisFailure(formatRedisError("set", error, redisHostHint()));
+        markRedisUnusable("set", error);
         return data;
       }
       return data;
@@ -415,6 +424,14 @@ function formatKeyList(keys: string[]): string {
 
 function setRedisFailure(reason: string): void {
   lastRedisFailure = reason;
+}
+
+function markRedisUnusable(op: string, error: unknown): string {
+  const reason = formatRedisError(op, error, redisHostHint());
+  setRedisFailure(reason);
+  cachedRedis = null;
+  redisUnusableUntil = Date.now() + REDIS_COOLDOWN_MS;
+  return reason;
 }
 
 function redisHostHint(): string {
