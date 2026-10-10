@@ -13,11 +13,14 @@ export function PeriodAveragesRow({
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <AverageStat
         label="Price"
-        value={averages.priceGbpMwh == null ? "—" : averages.priceGbpMwh.toFixed(1)}
+        value={
+          averages.priceGbpMwh == null ? (neso ? "n/a" : "—") : averages.priceGbpMwh.toFixed(1)
+        }
         unit={averages.priceGbpMwh == null ? "" : "£/MWh"}
+        caption={neso && averages.priceGbpMwh == null ? "Not in NESO mix" : null}
         help={
           neso
-            ? "Market prices are not in the NESO historic mix, so Year and All time leave this blank. Source: Elexon Market Index on Day and Week."
+            ? "Market prices are not in the NESO historic mix, so Year and All time show n/a. Source: Elexon Market Index on Day and Week."
             : "Average short-term wholesale market price (Market Index) over the selected window. Source: Elexon BMRS."
         }
       />
@@ -70,11 +73,13 @@ function AverageStat({
   value,
   unit,
   help,
+  caption = null,
 }: {
   label: string;
   value: string;
   unit: string;
   help: string;
+  caption?: string | null;
 }) {
   return (
     <div className="min-w-0">
@@ -86,6 +91,7 @@ function AverageStat({
         <span>{value}</span>
         {unit ? <span className="text-gray-700">{unit}</span> : null}
       </p>
+      {caption ? <p className="text-label-12 text-gray-900">{caption}</p> : null}
     </div>
   );
 }

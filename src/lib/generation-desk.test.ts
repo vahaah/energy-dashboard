@@ -236,7 +236,7 @@ describe("domestic generation series", () => {
     );
 
     const byDay = new Map(series.map((point) => [point.time.slice(0, 10), point]));
-    const june28 = 10000 + 200 + 4000 + 3500 + 1500 + 300 + 1800 + 4200;
+    const june28 = 10000 + 200 + 4000 + 3500 + 1500 + 300 - 250 + 1800 + 4200;
     const june29 = 9800 + 150 + 4200 + 3500 + 1400 + 280 + 120 + 1800 + 4100;
     const june30 = 11000 + 3000 + 3400 + 1600 + 1700 + 3900;
 
@@ -279,13 +279,13 @@ describe("domestic generation series", () => {
     expect(june30?.domesticGenerationMw).not.toBe(summedTrap);
   });
 
-  it("excludes interconnectors and negative pumped storage from domestic generation", () => {
+  it("excludes interconnectors and keeps net pumped storage in domestic generation", () => {
     const series = buildDemandBalanceSeries(inflatedSnapshots, june28Fuels, "1y");
     const june28 = series.find((point) => point.time.startsWith("2026-06-28"));
 
-    expect(june28?.domesticGenerationMw).toBe(25500);
-    expect(june28?.domesticGenerationMw).not.toBe(25500 + 2000 - 600);
-    expect(june28?.domesticGenerationMw).not.toBe(25500 - 250);
+    expect(june28?.domesticGenerationMw).toBe(25250);
+    expect(june28?.domesticGenerationMw).not.toBe(25250 + 2000 - 600);
+    expect(june28?.domesticGenerationMw).not.toBe(25500);
   });
 });
 

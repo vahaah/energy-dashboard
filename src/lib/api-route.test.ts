@@ -38,5 +38,7 @@ describe("API error and cache helpers", () => {
       "public, s-maxage=86400, stale-while-revalidate=604800"
     );
     expect(response.headers.get("Cache-Tag")).toBe("dashboard");
+    expect(response.headers.get("Vary")).toBe("Accept-Encoding");
+    expect(response.headers.get("Set-Cookie")).toBeNull();
   });
 });

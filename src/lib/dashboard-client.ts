@@ -4,15 +4,14 @@ import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-
 
 export async function fetchDashboardPayload(
   period: DashboardPeriod,
-  date: string | null,
-  commodityRange: CommodityRange = "90d"
+  date: string | null
 ): Promise<DashboardPayload> {
-  const params = new URLSearchParams({ period, commodityRange });
+  const params = new URLSearchParams({ period });
   if (date) {
     params.set("date", date);
   }
   const response = await fetch(`/api/dashboard?${params.toString()}`, {
-    credentials: "same-origin",
+    credentials: "omit",
   });
   if (!response.ok) {
     throw new Error(`Dashboard query failed (${response.status})`);
@@ -22,7 +21,7 @@ export async function fetchDashboardPayload(
 
 export async function fetchPublicPrices(range: CommodityRange): Promise<CommodityPrice[]> {
   const response = await fetch(`/api/prices?range=${range}`, {
-    credentials: "same-origin",
+    credentials: "omit",
   });
   if (!response.ok) {
     throw new Error(`Prices query failed (${response.status})`);

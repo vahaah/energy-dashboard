@@ -164,10 +164,8 @@ describe("generation desk layout", () => {
     expect(payloadSource).toContain("headlineGeneration");
     expect(payloadSource).toContain('"snapshots_range"');
     expect(payloadSource).toContain('"generation_5min_range"');
-    expect(payloadSource).toContain('"prices_range"');
-    expect(payloadSource).not.toContain("Promise.resolve([] as CommodityPrice[])");
-    expect(payloadSource).toContain(".catch(() => noPrices)");
-    expect(payloadSource.match(/queryPipe</g)?.length).toBe(5);
+    expect(payloadSource).not.toContain('"prices_range"');
+    expect(payloadSource.match(/queryPipe</g)?.length).toBe(2);
     expect(dashboardSource).toContain("Oil and gas prices are not available for this range.");
     expect(payloadSource).toContain("isNesoPeriod");
     expect(payloadSource).toContain("tinybirdRangeForPeriod");
@@ -177,7 +175,7 @@ describe("generation desk layout", () => {
     expect(payloadSource).toContain("publicLookAhead");
     expect(payloadSource).not.toContain("queryPipe<LookAhead");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
-      'label: "All time"'
+      "PERIOD_OPTIONS"
     );
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).not.toContain(
       "Coming in a later update"

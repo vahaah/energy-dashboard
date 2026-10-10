@@ -46,8 +46,22 @@ export function getDisplayedPower(
   };
 }
 
+export const HEADLINE_BALANCE_TOLERANCE_MW = 250;
+
 export function demandLabelsFrom(power: DisplayedPower): number[] {
   return [power.demandMw].filter((value): value is number => value != null);
+}
+
+export function headlineBalanceResidualMw(power: DisplayedPower): number | null {
+  if (power.demandMw == null || power.generationMw == null || power.transfersMw == null) {
+    return null;
+  }
+  return power.demandMw - (power.generationMw + power.transfersMw);
+}
+
+export function headlineBalanceHolds(power: DisplayedPower): boolean {
+  const residual = headlineBalanceResidualMw(power);
+  return residual != null && Math.abs(residual) <= HEADLINE_BALANCE_TOLERANCE_MW;
 }
 
 function transmissionDemandFromAligned(

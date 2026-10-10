@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DISPLAYED_DEMAND_STAT, getDisplayedPower } from "@/lib/displayed-demand";
+import {
+  DISPLAYED_DEMAND_STAT,
+  getDisplayedPower,
+  headlineBalanceHolds,
+  headlineBalanceResidualMw,
+} from "@/lib/displayed-demand";
+import { getLatestFacts } from "@/lib/facts";
+import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -132,6 +139,37 @@ describe("displayed demand", () => {
 
     expect(power.demandMw).toBe(20500);
     expect(power.transmissionDemandMw).toBe(20000);
+  });
+
+  it("balances demand = generation + transfers with Elexon import-positive interconnectors", () => {
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const timestamp = "2026-10-10 11:00:00";
+    const rows: Generation5min[] = [
+      generation(timestamp, "ccgt", 15_000),
+      generation(timestamp, "wind", 8_000),
+      generation(timestamp, "nuclear", 5_000),
+      generation(timestamp, "ps", -2_000),
+      generation(timestamp, "embedded_wind", 2_000, "neso"),
+      generation(timestamp, "embedded_solar", 1_000, "pvlive"),
+      generation(timestamp, "intfr", 1_500),
+      generation(timestamp, "intned", 500),
+      generation(timestamp, "intirl", -800),
+    ];
+    const itsdo = 15_000 + 8_000 + 5_000 - 2_000 + 1_500 + 500 - 800;
+    const facts = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, itsdo)],
+      generation: rows,
+      now,
+    });
+    const power = getDisplayedPower(facts, [snapshot(timestamp, itsdo)]);
+
+    expect(power.demandMw).toBe(itsdo + 3_000);
+    expect(power.generationMw).toBe(29_000);
+    expect(power.transfersMw).toBe(1_200);
+    expect(power.demandMw).toBe((power.generationMw ?? 0) + (power.transfersMw ?? 0));
+    expect(headlineBalanceResidualMw(power)).toBe(0);
+    expect(headlineBalanceHolds(power)).toBe(true);
   });
 
   it("is the only demand figure wired into the page", () => {

@@ -47,23 +47,6 @@ export function effectiveBlockPeriod(
   return override ?? globalPeriod;
 }
 
-export function adjacentPeriods(period: DashboardPeriod): DashboardPeriod[] {
-  switch (period) {
-    case "day":
-      return ["week"];
-    case "week":
-      return ["day", "year"];
-    case "year":
-      return ["week", "all"];
-    case "all":
-      return ["year"];
-    default: {
-      const exhaustive: never = period;
-      return exhaustive;
-    }
-  }
-}
-
 export function dashboardQueryKey(period: DashboardPeriod, date: string | null): string {
   return `dashboard:${period}:${date ?? ""}`;
 }

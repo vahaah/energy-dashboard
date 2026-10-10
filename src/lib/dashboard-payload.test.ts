@@ -19,11 +19,16 @@ vi.mock("@/lib/forecasts", () => ({
 }));
 
 import {
+  compactDashboardPayload,
   compactHistoricPayload,
   dashboardPayloadCacheDate,
+  dashboardPayloadCacheKey,
   dashboardPayloadPolicy,
+  downsampleGeneration,
+  headlineWindow,
   hydrateDashboardPayload,
   loadDashboardPayloadUncached,
+  payloadJsonBytes,
 } from "@/lib/dashboard-payload";
 import { buildHistoricPeriodView, emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 
@@ -44,19 +49,20 @@ describe("dashboard payload", () => {
   it("uses Tinybird for Day and skips grid pipes for Year", async () => {
     await loadDashboardPayloadUncached({
       period: "day",
-      commodityRange: "90d",
       now,
     });
     expect(queryPipe).toHaveBeenCalled();
     expect(queryPipe.mock.calls.some((call) => call[0] === "snapshots_range")).toBe(true);
+    expect(queryPipe.mock.calls.some((call) => call[0] === "generation_5min_range")).toBe(true);
+    expect(queryPipe.mock.calls.some((call) => call[0] === "prices_range")).toBe(false);
+    expect(queryPipe.mock.calls).toHaveLength(2);
 
     queryPipe.mockClear();
     await loadDashboardPayloadUncached({
       period: "year",
-      commodityRange: "90d",
       now,
     });
-    expect(queryPipe.mock.calls.every((call) => call[0] === "prices_range")).toBe(true);
+    expect(queryPipe).not.toHaveBeenCalled();
     expect(getHistoricPeriodView).toHaveBeenCalledWith("year", now);
   });
 
@@ -102,7 +108,6 @@ describe("dashboard payload", () => {
     await expect(
       loadDashboardPayloadUncached({
         period: "day",
-        commodityRange: "90d",
         now,
       })
     ).rejects.toThrow("tinybird down");
@@ -119,7 +124,6 @@ describe("dashboard payload", () => {
     await expect(
       loadDashboardPayloadUncached({
         period: "year",
-        commodityRange: "90d",
         now,
       })
     ).rejects.toThrow("neso down");
@@ -131,7 +135,6 @@ describe("dashboard payload", () => {
     await expect(
       loadDashboardPayloadUncached({
         period: "day",
-        commodityRange: "90d",
         now,
       })
     ).resolves.toMatchObject({ period: "day", historicView: null });
@@ -145,7 +148,6 @@ describe("dashboard payload", () => {
 
     const payload = await loadDashboardPayloadUncached({
       period: "all",
-      commodityRange: "90d",
       now,
     });
     expect(payload.historicView).toBeTruthy();
@@ -181,7 +183,6 @@ describe("dashboard payload", () => {
 
     const payload = await loadDashboardPayloadUncached({
       period: "day",
-      commodityRange: "90d",
       now,
     });
     expect(payload.lookAhead?.greenestWindow?.grams).toBe(43);
@@ -189,4 +190,93 @@ describe("dashboard payload", () => {
     expect(payload.lookAhead).not.toHaveProperty("demandSeries");
     expect(JSON.stringify(payload.lookAhead)).not.toContain("13:00:00");
   });
+
+  it("keeps the cache key off commodityRange and downsamples Week generation", () => {
+    expect(dashboardPayloadCacheKey("week", null)).toBe("dashboard:week:");
+    const rows = [
+      { timestamp: "2026-10-10 00:05:00", fuel_type: "wind", generation_mw: 1000, source: "fuelinst" },
+      { timestamp: "2026-10-10 00:10:00", fuel_type: "wind", generation_mw: 2000, source: "fuelinst" },
+      { timestamp: "2026-10-10 01:05:00", fuel_type: "wind", generation_mw: 3000, source: "fuelinst" },
+    ];
+    expect(downsampleGeneration(rows, "day")).toHaveLength(3);
+    expect(downsampleGeneration(rows, "week")).toEqual([
+      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 1500, source: "fuelinst" },
+      { timestamp: "2026-10-10 01:00:00", fuel_type: "wind", generation_mw: 3000, source: "fuelinst" },
+    ]);
+    expect(headlineWindow(rows)).toEqual(rows);
+  });
+
+  it("cuts a fat Week payload well below the live 3.58 MB dump", () => {
+    const generationHistory = Array.from({ length: 20_160 }, (_, index) => ({
+      timestamp: `2026-10-03 ${String(Math.floor(index / 12) % 24).padStart(2, "0")}:${String((index * 5) % 60).padStart(2, "0")}:00`,
+      fuel_type: `fuel${index % 20}`,
+      generation_mw: 100 + (index % 50),
+      source: "fuelinst",
+    }));
+    const snapshots = Array.from({ length: 336 }, (_, index) => ({
+      timestamp: `2026-10-03 ${String(Math.floor(index / 2) % 24).padStart(2, "0")}:${String((index % 2) * 30).padStart(2, "0")}:00`,
+      carbon_intensity: 80,
+      carbon_forecast: 80,
+      carbon_index: "low",
+      demand_mw: 30_000,
+      price_gbp_mwh: 50,
+      gen_gas_pct: 30,
+      gen_coal_pct: 0,
+      gen_nuclear_pct: 15,
+      gen_wind_pct: 35,
+      gen_solar_pct: 5,
+      gen_hydro_pct: 5,
+      gen_biomass_pct: 5,
+      gen_imports_pct: 5,
+      gen_other_pct: 0,
+      gen_gas_mw: 6000,
+      gen_coal_mw: 0,
+      gen_nuclear_mw: 3000,
+      gen_wind_mw: 7000,
+      gen_solar_mw: 1000,
+      gen_hydro_mw: 1000,
+      gen_biomass_mw: 1000,
+      gen_other_mw: 0,
+    }));
+    const historic = buildHistoricPeriodView([]);
+    historic.snapshots = snapshots;
+    historic.generation = generationHistory;
+
+    const fat = {
+      period: "week" as const,
+      chartRange: "7d" as const,
+      dateResolution: {
+        status: "latest" as const,
+        date: "2026-10-10",
+        today: "2026-10-10",
+        coverageStart: "2025-10-10",
+      },
+      facts: {} as never,
+      snapshots,
+      headlineSnapshots: snapshots.slice(-48),
+      generationHistory,
+      headlineGeneration: generationHistory.slice(-2880),
+      prices: Array.from({ length: 400 }, (_, index) => ({
+        date: "2026-09-01",
+        commodity: "brent_crude",
+        price: 70 + index,
+        currency: "USD",
+        unit: "$/BBL",
+      })),
+      records: null,
+      historicView: null,
+      transitionView: historic,
+      lookAhead: null,
+    };
+    const compact = compactDashboardPayload(fat);
+    const before = payloadJsonBytes(fat);
+    const after = payloadJsonBytes(compact);
+    expect(before).toBeGreaterThan(3_000_000);
+    expect(after).toBeLessThan(1_000_000);
+    expect(compact.prices).toEqual([]);
+    expect(compact.headlineGeneration).toEqual([]);
+    expect(compact.transitionView?.generation).toEqual([]);
+    expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 4);
+  });
 });
+

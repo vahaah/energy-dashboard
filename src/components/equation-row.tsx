@@ -52,7 +52,7 @@ export function EquationRow({
         stat="generating"
         label="Generation"
         value={formatHeadlineGw(generationMw)}
-        help={`GB generation including estimated embedded wind and solar. Source: ${generationSource}.`}
+        help={`GB generation including estimated embedded wind and solar, net of pumped storage and batteries. Source: ${generationSource}.`}
         source={generationSource}
         timeLabel={generationStartUtc ? formatPlainSettlementWindow(generationStartUtc) : null}
         datetime={generationStartUtc}
@@ -64,7 +64,7 @@ export function EquationRow({
         stat="net_imports"
         label={transferKind.label}
         value={formatHeadlineGw(transferKind.displayMw)}
-        help={`Net interconnector flow. Positive is an import into Great Britain. Source: ${transfersSource}.`}
+        help={`Net interconnector flow. Elexon positive is an import into Great Britain. Source: ${transfersSource}.`}
         source={transfersSource}
         timeLabel={transfersStartUtc ? formatPlainSettlementWindow(transfersStartUtc) : null}
         datetime={transfersStartUtc}

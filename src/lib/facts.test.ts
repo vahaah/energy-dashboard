@@ -504,7 +504,7 @@ describe("getLatestFacts", () => {
 
     expect(withPs.pumpedStorageMw.value).toBe(-400);
     expect(withPs.pumpedStorageMw.periodStartUtc).toBe("2026-09-20T22:00:00.000Z");
-    expect(withPs.generationMw.value).toBe(10000);
+    expect(withPs.generationMw.value).toBe(9600);
     expect(withPs.shares.find((share) => share.fuel === "ps")).toBeUndefined();
     expect(withPs.shares.find((share) => share.fuel === "hydro")).toBeUndefined();
     expect(withoutPs.pumpedStorageMw.value).toBeNull();

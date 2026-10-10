@@ -32,7 +32,6 @@ import {
   type DashboardPeriod,
 } from "@/lib/dashboard-period";
 import {
-  adjacentPeriods,
   blockPeriodParam,
   dashboardQueryKey,
   effectiveBlockPeriod,
@@ -191,47 +190,6 @@ export function Dashboard() {
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
-
-  useEffect(() => {
-    const periods = new Set<DashboardPeriod>([
-      period,
-      generationPeriod,
-      pricePeriod,
-      transfersPeriod,
-      mixPeriod,
-      carbonPeriod,
-    ]);
-    const toPrefetch = new Set<DashboardPeriod>();
-    for (const current of periods) {
-      for (const next of adjacentPeriods(current)) {
-        toPrefetch.add(next);
-      }
-    }
-
-    const run = () => {
-      for (const next of toPrefetch) {
-        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
-      }
-      prefetchQuery(pricesQueryKey(commodityRange), () => fetchPublicPrices(commodityRange));
-    };
-
-    if (typeof requestIdleCallback === "function") {
-      const id = requestIdleCallback(run);
-      return () => cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(run, 200);
-    return () => window.clearTimeout(id);
-  }, [
-    period,
-    generationPeriod,
-    pricePeriod,
-    transfersPeriod,
-    mixPeriod,
-    carbonPeriod,
-    commodityRange,
-    urlState.date,
-    todayDate,
-  ]);
 
   const generationRows = power.generationRows;
   const topShare = (() => {
