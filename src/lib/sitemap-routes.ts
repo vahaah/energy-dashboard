@@ -1,0 +1,12 @@
+export const SITEMAP_PATHS = [
+  { path: "", changeFrequency: "hourly" as const, priority: 1 },
+  { path: "/today", changeFrequency: "hourly" as const, priority: 0.9 },
+  { path: "/records", changeFrequency: "daily" as const, priority: 0.8 },
+  { path: "/explained/price-cap", changeFrequency: "weekly" as const, priority: 0.8 },
+  { path: "/prices/gas", changeFrequency: "daily" as const, priority: 0.8 },
+  { path: "/methodology", changeFrequency: "monthly" as const, priority: 0.5 },
+  { path: "/api", changeFrequency: "monthly" as const, priority: 0.5 },
+  { path: "/privacy", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/terms", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/data-sources", changeFrequency: "monthly" as const, priority: 0.4 },
+];

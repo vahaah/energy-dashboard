@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import sitemap, { SITEMAP_PATHS } from "@/app/sitemap";
+import sitemap from "@/app/sitemap";
+import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 
 describe("sitemap", () => {
   it("includes the new SEO routes and lastmod when cache has a stamp", async () => {

@@ -8,7 +8,7 @@ describe("llms.txt route", () => {
     expect(source).toContain("loadHomepagePayload");
     expect(source).toContain("buildLlmsTxt");
     expect(source).toContain("text/plain");
-    expect(source).toContain("export const revalidate = LLMS_TXT_REVALIDATE_SECONDS");
+    expect(source).toContain("export const revalidate = 3600");
     expect(source).not.toContain("queryPipe");
   });
 });
