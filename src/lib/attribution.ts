@@ -12,6 +12,14 @@ export const NESO_OPEN_DATA_ATTRIBUTION = "Supported by National Energy SO Open 
 export const NESO_HISTORIC_MIX_URL =
   "https://www.neso.energy/data-portal/historic-generation-mix";
 
+export const CARBON_INTENSITY_API_URL = "https://carbonintensity.org.uk/";
+
+export const CARBON_INTENSITY_ATTRIBUTION =
+  "National carbon intensity from the NESO Carbon Intensity API (CC BY 4.0).";
+
+export const CARBON_INTENSITY_FORECAST_NOTE =
+  "Grid shows a derived cleanest-window answer from the 48-hour forecast. The raw forecast series is not republished.";
+
 export function elexonBmrsAttribution(year = new Date().getUTCFullYear()): string {
   return `${ELEXON_BMRS_ATTRIBUTION_PREFIX} ${year}.`;
 }

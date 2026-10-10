@@ -12,12 +12,19 @@ import type {
 } from "@/lib/types";
 import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
 import {
+  CARBON_INTENSITY_API_URL,
+  CARBON_INTENSITY_ATTRIBUTION,
   elexonBmrsAttribution,
   ELEXON_BMRS_LICENCE_URL,
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
+import {
+  formatGridFetchedAt,
+  showsCarbonForecast,
+  type LookAheadView,
+} from "@/lib/forecast-model";
 import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
 import {
   chartRangeForPeriod,
@@ -94,6 +101,7 @@ interface Props {
   transitionView: HistoricPeriodView | null;
   period: DashboardPeriod | null;
   chartRange: TimeRange;
+  lookAhead: LookAheadView | null;
 }
 
 export function Dashboard({
@@ -110,6 +118,7 @@ export function Dashboard({
   historicView,
   transitionView,
   period: periodProp,
+  lookAhead,
 }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -281,6 +290,8 @@ export function Dashboard({
                     headlineGeneration={headlineGeneration}
                     range={chartRange}
                     pending={isPending}
+                    now={lookAhead ? new Date(lookAhead.fetchedAt) : undefined}
+                    lookAhead={lookAhead}
                   />
                   <div className="mt-8">
                     <PeriodAveragesRow averages={averages} neso={neso} />
@@ -463,15 +474,40 @@ export function Dashboard({
         <SectionBlock
           id="section-carbon"
           title="How clean is it?"
-          tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges."
+          tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges. The 48-hour forecast is a derived cleanest-window answer from the NESO Carbon Intensity API."
           active={focus === "carbon"}
         >
           {isPending ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
-          ) : hasSnapshots ? (
-            <CarbonIntensityChart data={initialSnapshots} range={chartRange} />
           ) : (
-            <EmptyState stamp={facts.headerStamp} />
+            <>
+              {lookAhead?.greenest ? (
+                <div className="mb-4">
+                  <p className="text-copy-16 text-gray-1000">{lookAhead.greenest.sentence}</p>
+                  <p className="mt-1 text-label-12 text-gray-900">
+                    {formatGridFetchedAt(lookAhead.fetchedAt)} · NESO Carbon Intensity API
+                  </p>
+                </div>
+              ) : null}
+              {hasSnapshots ? (
+                <CarbonIntensityChart
+                  data={initialSnapshots}
+                  range={chartRange}
+                  forecast={
+                    lookAhead && showsCarbonForecast(chartRange, facts.isHistorical)
+                      ? lookAhead.carbonSeries
+                      : []
+                  }
+                  now={
+                    lookAhead && showsCarbonForecast(chartRange, facts.isHistorical)
+                      ? new Date(lookAhead.fetchedAt)
+                      : null
+                  }
+                />
+              ) : (
+                <EmptyState stamp={facts.headerStamp} />
+              )}
+            </>
           )}
         </SectionBlock>
 
@@ -479,7 +515,9 @@ export function Dashboard({
           <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
             Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
-            wind, and Sheffield Solar PV Live. Year and All time, plus records, use NESO{" "}
+            wind, and Sheffield Solar PV Live. Look-ahead uses the NESO Carbon Intensity 48-hour
+            forecast, Elexon WINDFOR, and Elexon NDF, fetched by Grid and cached for 30 minutes.
+            Year and All time, plus records, use NESO{" "}
             <a
               href={NESO_HISTORIC_MIX_URL}
               className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
@@ -506,7 +544,14 @@ export function Dashboard({
             >
               NESO Open Data Licence
             </a>
-            .
+            . {CARBON_INTENSITY_ATTRIBUTION}{" "}
+            <a
+              href={CARBON_INTENSITY_API_URL}
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+            >
+              carbonintensity.org.uk
+            </a>
+            . Forecast times are when Grid fetched the source, not the publisher’s own stamp.
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-mono-12 text-gray-900">
             <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
@@ -517,6 +562,9 @@ export function Dashboard({
             </code>
             <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
               GET /api/prices?range={commodityRange}
+            </code>
+            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
+              GET /api/look-ahead
             </code>
           </div>
           <p className="mt-3 text-label-12 text-gray-900">

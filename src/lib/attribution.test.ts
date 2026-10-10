@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  CARBON_INTENSITY_API_URL,
+  CARBON_INTENSITY_ATTRIBUTION,
+  CARBON_INTENSITY_FORECAST_NOTE,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
@@ -24,5 +27,11 @@ describe("Elexon BMRS attribution", () => {
   it("credits NESO historic mix under the Open Data licence", () => {
     expect(NESO_OPEN_DATA_ATTRIBUTION).toBe("Supported by National Energy SO Open Data");
     expect(NESO_OPEN_DATA_LICENCE_URL).toContain("neso-open-data-licence");
+  });
+
+  it("credits the Carbon Intensity API as CC BY 4.0 and forbids raw forecast republishing", () => {
+    expect(CARBON_INTENSITY_API_URL).toBe("https://carbonintensity.org.uk/");
+    expect(CARBON_INTENSITY_ATTRIBUTION).toContain("CC BY 4.0");
+    expect(CARBON_INTENSITY_FORECAST_NOTE).toContain("raw forecast series is not republished");
   });
 });

@@ -226,6 +226,10 @@ Returns commodity prices. Public series are EIA Brent, WTI and Henry Hub; World 
 | `range` | `30d\|90d\|1y` | `30d` | Time range |
 | `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|eu_natural_gas\|lng_asia\|gb_gas_sap` | all | Filter |
 
+### `GET /api/look-ahead`
+
+Derived next-48-hours answers only. Returns Grid’s cleanest 2-hour window from the NESO Carbon Intensity 48-hour forecast, plus a tonight/tomorrow wind sentence from Elexon WINDFOR. Cached 30 minutes. **Does not** pass through the raw carbon forecast series (Carbon Intensity API terms). Forecast times are when Grid fetched the source.
+
 ### `GET /api/health`
 
 Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds follow ingest cadence (`/api/cron` hourly → 2.5h; `/api/cron-prices` every 6h → 4d). Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.

@@ -4,9 +4,11 @@ import { EquationRow } from "@/components/equation-row";
 import { MixBar } from "@/components/mix-bar";
 import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
+import { LookAheadStrip } from "@/components/look-ahead-strip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower } from "@/lib/displayed-demand";
+import { showsDemandForecast, type LookAheadView } from "@/lib/forecast-model";
 import { fuelinstDelayNote } from "@/lib/generation-desk-view";
 import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
 import type { LatestFacts } from "@/lib/facts";
@@ -21,6 +23,7 @@ interface Props {
   range: TimeRange;
   pending?: boolean;
   now?: Date;
+  lookAhead?: LookAheadView | null;
 }
 
 export function GenerationDesk({
@@ -32,6 +35,7 @@ export function GenerationDesk({
   range,
   pending = false,
   now = new Date(),
+  lookAhead = null,
 }: Props) {
   const power = getDisplayedPower(facts, headlineSnapshots);
   const table = buildGroupedSourceTable(
@@ -104,6 +108,12 @@ export function GenerationDesk({
             snapshots={snapshots}
             generation={generation}
             range={range}
+            demandForecast={
+              lookAhead && showsDemandForecast(range, facts.isHistorical)
+                ? lookAhead.demandSeries
+                : []
+            }
+            now={lookAhead && showsDemandForecast(range, facts.isHistorical) ? now : null}
           />
         ) : (
           <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-gray-alpha-400 text-copy-14 text-gray-900 sm:h-[280px]">
@@ -111,6 +121,7 @@ export function GenerationDesk({
           </div>
         )}
       </div>
+      {lookAhead ? <LookAheadStrip lookAhead={lookAhead} /> : null}
     </div>
   );
 }

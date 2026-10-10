@@ -164,6 +164,8 @@ describe("generation desk layout", () => {
     expect(pageSource).toContain("tinybirdRangeForPeriod");
     expect(pageSource).toContain("getHistoricPeriodView");
     expect(pageSource).toContain("getGridRecords");
+    expect(pageSource).toContain("getLookAhead");
+    expect(pageSource).not.toContain("queryPipe<LookAhead");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
       'label: "All time"'
     );
@@ -198,6 +200,9 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
       indexAfter(dashboardSource, "How clean is it?")
     );
+    expect(dashboardSource).toContain("lookAhead?.greenest");
+    expect(dashboardSource).toContain("GET /api/look-ahead");
+    expect(deskSource).toContain("LookAheadStrip");
     expect(deskSource).toContain("getDisplayedPower");
     expect(deskSource).toContain("buildGroupedSourceTable");
     expect(deskSource).toContain("headlineGeneration");

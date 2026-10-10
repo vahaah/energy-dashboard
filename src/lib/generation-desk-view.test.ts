@@ -10,6 +10,7 @@ import {
   dropLeadingIncompleteChartPoints,
   demandBalanceGapLabel,
   demandBalanceXTicks,
+  appendDemandForecastPoints,
   prepareDemandBalanceChartData,
   fillDailyCalendarSlots,
   ROLLING_AVERAGE_MIN_DAYS,
@@ -697,6 +698,7 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 07:00:00",
       demandGw: 24,
       generationGw: 20,
+      demandForecastGw: null,
       demandDailyGw: null,
       generationDailyGw: null,
       gapBaseGw: 20,
@@ -708,6 +710,7 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 07:30:00",
       demandGw: 18,
       generationGw: 22,
+      demandForecastGw: null,
       demandDailyGw: null,
       generationDailyGw: null,
       gapBaseGw: 18,
@@ -719,6 +722,7 @@ describe("demand balance chart view", () => {
       time: "2026-09-28 08:00:00",
       demandGw: null,
       generationGw: 21,
+      demandForecastGw: null,
       demandDailyGw: null,
       generationDailyGw: null,
       gapBaseGw: null,
@@ -1084,6 +1088,33 @@ describe("demand balance chart view", () => {
       "2026-01-08 00:00:00",
     ]);
   });
+
+  it("appends a dashed NDF series after the last actual demand point", () => {
+    const points = appendDemandForecastPoints(
+      buildDemandBalanceChartPoints([
+        {
+          time: "2026-10-10 11:00:00",
+          demandMw: 30_000,
+          domesticGenerationMw: 28_000,
+          embeddedMissing: [],
+        },
+      ]),
+      [
+        { time: "2026-10-10 11:00:00", value: 18_000 },
+        { time: "2026-10-10 12:00:00", value: 19_500 },
+      ]
+    );
+
+    expect(points).toHaveLength(2);
+    expect(points[0]?.demandForecastGw).toBe(18);
+    expect(points[0]?.demandGw).toBe(30);
+    expect(points[1]).toMatchObject({
+      time: "2026-10-10 12:00:00",
+      demandGw: null,
+      generationGw: null,
+      demandForecastGw: 19.5,
+    });
+  });
 });
 
 function emptyPoint() {
@@ -1091,6 +1122,7 @@ function emptyPoint() {
     time: "2026-09-28 07:00:00",
     demandGw: null,
     generationGw: null,
+    demandForecastGw: null,
     demandDailyGw: null,
     generationDailyGw: null,
     gapBaseGw: null,
