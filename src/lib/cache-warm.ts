@@ -1,3 +1,6 @@
+import { revalidatePath, revalidateTag } from "next/cache";
+import { dangerouslyDeleteByTag } from "@vercel/functions";
+import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import { DASHBOARD_PERIODS } from "@/lib/dashboard-period";
 import { COMMODITY_RANGES } from "@/lib/dashboard-search-params";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
@@ -34,9 +37,17 @@ export async function invalidateAndWarm(
   options?: { historical?: boolean }
 ): Promise<void> {
   try {
+    revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 });
+    revalidatePath("/");
+    revalidatePath("/api/dashboard");
     await bumpCacheEpoch();
     if (options?.historical) {
       await bumpHistoricalCacheEpoch();
+    }
+    try {
+      await dangerouslyDeleteByTag(DASHBOARD_CACHE_TAG);
+    } catch {
+      // Local and CI have no Vercel purge credentials.
     }
     await warmHotDashboardKeys(now);
   } catch {

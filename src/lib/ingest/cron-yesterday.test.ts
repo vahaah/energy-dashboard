@@ -25,5 +25,20 @@ describe("yesterday settlement heal", () => {
     expect(route).toContain("yesterdayLondonDate");
     expect(route).toContain("sourceStatusesHaveFailure");
     expect(route).toContain("status: failed ? 503 : 200");
+    expect(route).toContain("invalidateAndWarm(now, { historical: true })");
+    expect(route).not.toContain('revalidateTag(DASHBOARD_CACHE_TAG, "max")');
+
+    const warmer = readFileSync(resolve(process.cwd(), "src/lib/cache-warm.ts"), "utf8");
+    expect(warmer).toContain("revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 })");
+    expect(warmer).toContain('revalidatePath("/api/dashboard")');
+    expect(warmer).toContain("dangerouslyDeleteByTag(DASHBOARD_CACHE_TAG)");
+    expect(warmer.indexOf("revalidateTag")).toBeLessThan(warmer.indexOf("bumpHistoricalCacheEpoch"));
+    expect(warmer.indexOf("bumpHistoricalCacheEpoch")).toBeLessThan(
+      warmer.indexOf("warmHotDashboardKeys")
+    );
+
+    const tinybird = readFileSync(resolve(process.cwd(), "src/lib/tinybird.ts"), "utf8");
+    expect(tinybird).toContain("if (redisEnvPresent())");
+    expect(tinybird).toContain("return loadPipeRows<T>(pipeName, params, logicalKey)");
   });
 });

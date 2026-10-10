@@ -37,5 +37,6 @@ describe("API error and cache helpers", () => {
     expect(response.headers.get("Vercel-CDN-Cache-Control")).toBe(
       "public, s-maxage=86400, stale-while-revalidate=604800"
     );
+    expect(response.headers.get("Cache-Tag")).toBe("dashboard");
   });
 });

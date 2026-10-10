@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import {
   TinybirdLimitError,
   tinybirdCacheControl,
@@ -18,6 +19,7 @@ export function cdnCacheHeaders(cacheControl: string): Record<string, string> {
     "Cache-Control": cacheControl,
     "CDN-Cache-Control": cacheControl,
     "Vercel-CDN-Cache-Control": cacheControl,
+    "Cache-Tag": DASHBOARD_CACHE_TAG,
   };
 }
 
