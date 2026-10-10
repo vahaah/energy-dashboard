@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LookAheadStrip } from "@/components/look-ahead-strip";
+import { CARBON_INTENSITY_ATTRIBUTION } from "@/lib/attribution";
 import { emptyLookAhead } from "@/lib/forecast-model";
 
 describe("LookAheadStrip", () => {
@@ -33,6 +34,10 @@ describe("LookAheadStrip", () => {
     expect(html).toContain("Wind is forecast to fall to 8.4 GW by tomorrow evening.");
     expect(html).toContain("Grid fetched 13:00 BST");
     expect(html).toContain("Elexon WINDFOR");
+    expect(html).toContain(CARBON_INTENSITY_ATTRIBUTION);
+    expect(html).toContain("University of Oxford");
+    expect(html).toContain("Environmental Defense Fund Europe");
+    expect(html).toContain("WWF");
   });
 
   it("renders nothing when forecast APIs returned no look-ahead", () => {

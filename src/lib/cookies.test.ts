@@ -18,5 +18,9 @@ describe("cookies", () => {
     expect(privacy).toContain("does not show a cookie banner");
     expect(privacy).toContain("does not set first-party cookies");
     expect(proxy).toContain("store.delete");
+    expect(proxy).toContain("PRUNE_INTERVAL_MS");
+    expect(proxy).toContain("lastPruneAt");
+    expect(proxy).toContain("now - lastPruneAt < PRUNE_INTERVAL_MS");
+    expect(proxy).toContain("now > entry.resetAt");
   });
 });

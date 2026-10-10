@@ -16,7 +16,10 @@ describe("legal nav", () => {
     const config = readFileSync(resolve(process.cwd(), "next.config.ts"), "utf8");
 
     expect(dashboard).toContain("SiteLegalNav");
-    expect(dashboard).toContain("captionGeneration()");
+    expect(dashboard).toContain("captionGeneration(neso)");
+    expect(dashboard).toContain("captionGeneration(isNesoPeriod(mixPeriod))");
+    expect(dashboard).toContain("shareFocusPath(focus)");
+    expect(dashboard).not.toContain("window.location.href");
     expect(dashboard).toContain("captionElexon()");
     expect(dashboard).toContain("captionTransfers(");
     expect(dashboard).toContain("captionCommodities()");

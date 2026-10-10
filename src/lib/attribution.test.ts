@@ -6,6 +6,7 @@ import {
   CC_BY_4_0_LICENSE_URL,
   DATA_SOURCE_IDS,
   captionCarbon,
+  captionGeneration,
   dataSources,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
@@ -52,6 +53,9 @@ describe("Elexon BMRS attribution", () => {
     expect(CC_BY_4_0_LICENSE_URL).toBe("https://creativecommons.org/licenses/by/4.0/");
     expect(captionCarbon(false)).toBe(CARBON_INTENSITY_ATTRIBUTION);
     expect(captionCarbon(true)).toBe(`${NESO_OPEN_DATA_ATTRIBUTION}.`);
+    expect(captionGeneration(true)).toBe(`${NESO_OPEN_DATA_ATTRIBUTION}.`);
+    expect(captionGeneration(false, 2026)).toContain("Elexon Limited");
+    expect(captionGeneration(false, 2026)).toContain(PV_LIVE_ATTRIBUTION);
   });
 
   it("lists every ingest source with its required attribution text", () => {

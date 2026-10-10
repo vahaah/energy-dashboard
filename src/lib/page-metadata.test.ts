@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildPageMetadata,
   dataSourcesPageMetadata,
+  FOCUS_PAGE_COPY,
   homePageMetadata,
   ogFocusImagePath,
   privacyPageMetadata,
   recordsPageMetadata,
+  shareFocusPath,
+  sharePageMetadata,
   termsPageMetadata,
 } from "@/lib/page-metadata";
 import { HOME_TITLE, RECORDS_TITLE, SITE_OG_IMAGE } from "@/lib/site";
@@ -45,10 +48,27 @@ describe("page metadata", () => {
     expect(JSON.stringify(overview.twitter)).toContain("summary_large_image");
   });
 
-  it("keeps per-section cards on /og?focus= and off page metadata", () => {
+  it("keeps per-section cards on /og?focus= and off homepage metadata", () => {
     expect(ogFocusImagePath("carbon")).toBe("/og?focus=carbon");
     expect(ogFocusImagePath("overview")).toBe("/og?focus=overview");
+    expect(shareFocusPath("carbon")).toBe("/share/carbon");
     expect(JSON.stringify(homePageMetadata())).not.toContain("focus=");
+  });
+
+  it("points share landings at /og?focus= with a homepage canonical", () => {
+    const carbon = sharePageMetadata("carbon");
+    expect(carbon.alternates?.canonical).toBe("/");
+    expect(carbon.openGraph?.url).toBe("/");
+    expect(carbon.openGraph?.images).toEqual([
+      {
+        url: "/og?focus=carbon",
+        width: 1200,
+        height: 630,
+        alt: FOCUS_PAGE_COPY.carbon.title,
+      },
+    ]);
+    expect(FOCUS_PAGE_COPY.generation.description.startsWith("Latest ")).toBe(true);
+    expect(FOCUS_PAGE_COPY.generation.description).not.toMatch(/\bLive GB\b/);
   });
 
   it("covers records and the legal pages", () => {

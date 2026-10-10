@@ -31,7 +31,7 @@ export const FOCUS_PAGE_COPY = {
   generation: {
     title: "What’s powering Britain — Grid",
     description:
-      "Live GB generation mix, demand, and embedded wind and solar from Elexon, NESO, and Sheffield Solar PV Live.",
+      "Latest GB generation mix, demand, and embedded wind and solar from Elexon, NESO, and Sheffield Solar PV Live.",
   },
   price: {
     title: "What does power cost? — Grid",
@@ -121,6 +121,25 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 
 export function ogFocusImagePath(focus: DashboardSearchParams["focus"]): string {
   return `/og?focus=${focus}`;
+}
+
+export function shareFocusPath(focus: DashboardSearchParams["focus"]): string {
+  return `/share/${focus}`;
+}
+
+export function shareFocusRedirectPath(focus: DashboardSearchParams["focus"]): string {
+  return `/?focus=${focus}`;
+}
+
+export function sharePageMetadata(focus: DashboardSearchParams["focus"]): Metadata {
+  const copy = FOCUS_PAGE_COPY[focus];
+  return buildPageMetadata({
+    title: copy.title,
+    description: copy.description,
+    path: "/",
+    imagePath: ogFocusImagePath(focus),
+    imageAlt: copy.title,
+  });
 }
 
 export function homePageMetadata(): Metadata {

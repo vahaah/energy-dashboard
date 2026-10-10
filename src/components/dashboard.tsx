@@ -73,6 +73,7 @@ import {
 } from "@/lib/dashboard-model";
 import { getLatestFacts } from "@/lib/facts";
 import { historicalHomepageH1 } from "@/lib/homepage-briefing";
+import { shareFocusPath } from "@/lib/page-metadata";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
@@ -333,7 +334,9 @@ export function Dashboard({
         pending={isPending}
         copied={copied}
         onShare={async () => {
-          await navigator.clipboard.writeText(window.location.href);
+          await navigator.clipboard.writeText(
+            `${window.location.origin}${shareFocusPath(focus)}`
+          );
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1400);
         }}
@@ -382,7 +385,7 @@ export function Dashboard({
             <Card
               id="section-generation"
               className="mt-4"
-              footer={captionGeneration()}
+              footer={captionGeneration(neso)}
               actions={
                 <BlockPeriodControl
                   value={generationPeriod}
@@ -404,6 +407,7 @@ export function Dashboard({
                     range={chartRange}
                     pending={generation.isValidating}
                     lookAhead={lookAhead}
+                    neso={neso}
                   />
                   <div className="mt-6 border-t border-gray-alpha-400 pt-5">
                     <PeriodAveragesRow averages={averages} neso={neso} />
@@ -512,7 +516,7 @@ export function Dashboard({
         <SectionBlock
           title="How has the mix changed?"
           tooltip="How the generation stack shifts through the selected window, including embedded solar and wind."
-          footer={captionGeneration()}
+          footer={captionGeneration(isNesoPeriod(mixPeriod))}
           headerRight={
             <BlockPeriodControl
               value={mixPeriod}

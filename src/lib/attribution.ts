@@ -177,8 +177,10 @@ export function captionCarbon(neso = false): string {
   return neso ? `${NESO_OPEN_DATA_ATTRIBUTION}.` : CARBON_INTENSITY_ATTRIBUTION;
 }
 
-export function captionGeneration(year = new Date().getUTCFullYear()): string {
-  return `${elexonBmrsAttribution(year)} ${NESO_OPEN_DATA_ATTRIBUTION}. ${PV_LIVE_ATTRIBUTION}`;
+export function captionGeneration(neso = false, year = new Date().getUTCFullYear()): string {
+  return neso
+    ? `${NESO_OPEN_DATA_ATTRIBUTION}.`
+    : `${elexonBmrsAttribution(year)} ${NESO_OPEN_DATA_ATTRIBUTION}. ${PV_LIVE_ATTRIBUTION}`;
 }
 
 export function captionTransfers(neso: boolean, year = new Date().getUTCFullYear()): string {

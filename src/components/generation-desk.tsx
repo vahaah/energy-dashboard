@@ -30,6 +30,7 @@ interface Props {
   pending?: boolean;
   now?: Date;
   lookAhead?: LookAheadView | null;
+  neso?: boolean;
 }
 
 export function GenerationDesk({
@@ -42,6 +43,7 @@ export function GenerationDesk({
   pending = false,
   now = new Date(),
   lookAhead = null,
+  neso = false,
 }: Props) {
   const power = getDisplayedPower(facts, headlineSnapshots);
   const table = buildGroupedSourceTable(
@@ -129,7 +131,7 @@ export function GenerationDesk({
         ) : (
           <CardEmpty stamp={facts.headerStamp} />
         )}
-        <p className="mt-2 text-label-12 text-gray-900">{captionGeneration()}</p>
+        <p className="mt-2 text-label-12 text-gray-900">{captionGeneration(neso)}</p>
       </div>
       {lookAhead && showsLookAheadCopy(facts) ? (
         <LookAheadStrip lookAhead={lookAhead} />
