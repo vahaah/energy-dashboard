@@ -15,6 +15,7 @@ import {
   integrityTimestampKey,
   mergeStoredIntegrity,
   missingAffectedTimestamps,
+  partitionRepairedSnapshotRows,
   readSnapshotIntegrity,
   recordSnapshotIntegrity,
   shouldRecordSnapshotIntegrity,
@@ -22,6 +23,7 @@ import {
   snapshotHeadlineDemandMw,
   snapshotIntegrityIssues,
   snapshotRowFailsIntegrity,
+  snapshotRowHasIntegrityIssues,
   type InflatedSnapshotRow,
 } from "@/lib/snapshot-integrity";
 
@@ -102,6 +104,23 @@ function snapshot(overrides: Record<string, unknown> = {}): Record<string, unkno
   };
 }
 
+/** 2× generation that stays under per-fuel maxima — soft balance only. */
+function doubledUnderMaxima(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return snapshot({
+    demand_mw: 37_736,
+    gen_imports_pct: 3,
+    gen_gas_mw: 20_000,
+    gen_nuclear_mw: 8_000,
+    gen_wind_mw: 24_000,
+    gen_solar_mw: 7_070,
+    gen_hydro_mw: 800,
+    gen_biomass_mw: 4_000,
+    gen_other_mw: 1_400,
+    gen_pumped_mw: 400,
+    ...overrides,
+  });
+}
+
 describe("snapshot integrity", () => {
   afterEach(() => {
     setRedisForTests(null);
@@ -117,23 +136,11 @@ describe("snapshot integrity", () => {
   });
 
   it("keeps a 2× total that stays under per-fuel maxima and only fails the soft balance check", () => {
-    const doubledUnderMaxima = snapshot({
-      demand_mw: 37_736,
-      gen_imports_pct: 3,
-      gen_gas_mw: 20_000,
-      gen_nuclear_mw: 8_000,
-      gen_wind_mw: 24_000,
-      gen_solar_mw: 7_070,
-      gen_hydro_mw: 800,
-      gen_biomass_mw: 4_000,
-      gen_other_mw: 1_400,
-      gen_pumped_mw: 400,
-    });
-    expect(snapshotRowFailsIntegrity(doubledUnderMaxima)).toBe(false);
-    expect(snapshotIntegrityIssues(doubledUnderMaxima).some((issue) => issue.code === "balance")).toBe(
-      true
-    );
-    expect(integritySourceStatus(inspectSnapshotRows([doubledUnderMaxima])).ok).toBe(true);
+    const row = doubledUnderMaxima();
+    expect(snapshotRowFailsIntegrity(row)).toBe(false);
+    expect(snapshotRowHasIntegrityIssues(row)).toBe(true);
+    expect(snapshotIntegrityIssues(row).some((issue) => issue.code === "balance")).toBe(true);
+    expect(integritySourceStatus(inspectSnapshotRows([row])).ok).toBe(true);
   });
 
   it("passes sunny export middays once solar is treated as embedded on ITSDO", () => {
@@ -277,6 +284,34 @@ describe("snapshot integrity", () => {
     ]);
     expect(repaired.failing).toEqual([]);
     expect(mergeStoredIntegrity(stored, repaired).failingTimestamps).toEqual(["2025-12-16 12:30:00"]);
+  });
+
+  it("does not mark a re-collected row repaired when it still fails the balance check", () => {
+    const stillInflated = doubledUnderMaxima();
+    expect(snapshotRowFailsIntegrity(stillInflated)).toBe(false);
+    expect(snapshotRowHasIntegrityIssues(stillInflated)).toBe(true);
+
+    const { repaired, stillFailing } = partitionRepairedSnapshotRows([stillInflated]);
+    expect(repaired).toEqual([]);
+    expect(stillFailing).toEqual([stillInflated]);
+
+    const stored = mergeStoredIntegrity(null, inspectSnapshotRows([stillInflated]));
+    expect(stored.failingTimestamps).toEqual(["2025-11-18 12:30:00"]);
+
+    const onlyRepaired = integrityReportForRepairedRows(repaired);
+    expect(onlyRepaired.checkedTimestamps).toEqual([]);
+    expect(onlyRepaired.failing).toEqual([]);
+    expect(mergeStoredIntegrity(stored, onlyRepaired).failingTimestamps).toEqual([
+      "2025-11-18 12:30:00",
+    ]);
+
+    const accidentalRewrite = integrityReportForRepairedRows(stillFailing);
+    expect(accidentalRewrite.failing.map((finding) => finding.timestamp)).toEqual([
+      "2025-11-18 12:30:00",
+    ]);
+    expect(mergeStoredIntegrity(stored, accidentalRewrite).failingTimestamps).toEqual([
+      "2025-11-18 12:30:00",
+    ]);
   });
 
   it("builds one Tinybird SQL statement that joins FUELINST and uses FINAL", () => {

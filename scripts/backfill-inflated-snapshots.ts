@@ -18,7 +18,9 @@ import {
   integrityReportForRepairedRows,
   integrityTimestampKey,
   missingAffectedTimestamps,
+  partitionRepairedSnapshotRows,
   recordSnapshotIntegrity,
+  writtenIntegrityTimestamps,
 } from "../src/lib/snapshot-integrity";
 import { queryInflatedSnapshots } from "../src/lib/tinybird-sql";
 
@@ -83,6 +85,7 @@ async function main() {
 
   let wouldWrite = 0;
   const written: Record<string, unknown>[] = [];
+  const stillFailingWritten: Record<string, unknown>[] = [];
   for (const settlementDate of dates) {
     process.stdout.write(`   ${settlementDate} `);
     const result = await collectSnapshotsForSettlementDate(settlementDate);
@@ -90,20 +93,31 @@ async function main() {
       const timestamp = typeof row.timestamp === "string" ? integrityTimestampKey(row.timestamp) : "";
       return affected.has(timestamp);
     });
-    if (rows.length > 0) {
-      await ingestRows("energy_snapshots", rows);
-      wouldWrite += rows.length;
-      written.push(...rows);
+    const { repaired, stillFailing } = partitionRepairedSnapshotRows(rows);
+    stillFailingWritten.push(...stillFailing);
+    if (repaired.length > 0) {
+      await ingestRows("energy_snapshots", repaired);
+      wouldWrite += repaired.length;
+      written.push(...repaired);
       if (execute) {
-        await recordSnapshotIntegrity(integrityReportForRepairedRows(rows));
+        await recordSnapshotIntegrity(integrityReportForRepairedRows(repaired));
       }
     }
-    process.stdout.write(`${rows.length} affected / ${describeCollection(result)}\n`);
+    process.stdout.write(
+      `${repaired.length} repaired, ${stillFailing.length} still failing / ${describeCollection(result)}\n`
+    );
     await sleep(300);
   }
 
   const missing = missingAffectedTimestamps(affected, written);
+  const stillFailingTimestamps = writtenIntegrityTimestamps(stillFailingWritten);
   console.log(`\n   ${dryRun ? "Would write" : "Wrote"} ${wouldWrite} of ${affected.size} affected rows\n`);
+  if (stillFailingTimestamps.length > 0) {
+    console.error(`   Still failing integrity after re-collect: ${stillFailingTimestamps.length}`);
+    for (const timestamp of stillFailingTimestamps.slice(0, 12)) {
+      console.error(`   ${timestamp}`);
+    }
+  }
   if (missing.length > 0) {
     console.error(`   Uncorrected affected timestamps: ${missing.length}`);
     for (const timestamp of missing.slice(0, 12)) {

@@ -327,6 +327,13 @@ export function snapshotRowFailsIntegrity(
   );
 }
 
+export function snapshotRowHasIntegrityIssues(
+  row: SnapshotLike,
+  rejectedGenTimes?: Set<string>
+): boolean {
+  return snapshotIntegrityIssues(row, rejectedGenTimes).length > 0;
+}
+
 export function snapshotRowSoftIntegrityIssues(
   row: SnapshotLike,
   rejectedGenTimes?: Set<string>
@@ -334,6 +341,22 @@ export function snapshotRowSoftIntegrityIssues(
   return snapshotIntegrityIssues(row, rejectedGenTimes).filter(
     (issue) => issueSeverity(issue.code) === "soft"
   );
+}
+
+export function partitionRepairedSnapshotRows(
+  rows: SnapshotLike[],
+  rejectedGenTimes?: Set<string>
+): { repaired: SnapshotLike[]; stillFailing: SnapshotLike[] } {
+  const repaired: SnapshotLike[] = [];
+  const stillFailing: SnapshotLike[] = [];
+  for (const row of rows) {
+    if (snapshotRowHasIntegrityIssues(row, rejectedGenTimes)) {
+      stillFailing.push(row);
+    } else {
+      repaired.push(row);
+    }
+  }
+  return { repaired, stillFailing };
 }
 
 export function emptyIntegrityReport(
@@ -493,15 +516,12 @@ export function integrityReportForWrittenRows(
   };
 }
 
+/** Re-check written rows for hard and soft issues. Still-failing timestamps stay excluded. */
 export function integrityReportForRepairedRows(
   writtenRows: SnapshotLike[],
   now = new Date()
 ): SnapshotIntegrityReport {
-  return {
-    checkedAt: formatTinybirdDateTime(now),
-    checkedTimestamps: writtenIntegrityTimestamps(writtenRows),
-    failing: [],
-  };
+  return inspectSnapshotRows(writtenRows, { now });
 }
 
 export function missingAffectedTimestamps(
