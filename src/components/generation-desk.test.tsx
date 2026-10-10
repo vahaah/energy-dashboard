@@ -165,7 +165,7 @@ describe("generation desk layout", () => {
     expect(payloadSource).toContain('"snapshots_range"');
     expect(payloadSource).toContain('"generation_5min_range"');
     expect(payloadSource).not.toContain('"prices_range"');
-    expect(payloadSource.match(/queryPipe</g)?.length).toBe(2);
+    expect(payloadSource.match(/queryPipe</g)?.length).toBe(3);
     expect(dashboardSource).toContain("Oil and gas prices are not available for this range.");
     expect(payloadSource).toContain("isNesoPeriod");
     expect(payloadSource).toContain("tinybirdRangeForPeriod");
