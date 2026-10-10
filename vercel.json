@@ -13,15 +13,5 @@
       "path": "/api/cron-yesterday",
       "schedule": "30 9 * * *"
     }
-  ],
-  "routes": [
-    {
-      "src": "^/api/(dashboard|prices|look-ahead|snapshots|generation|interconnectors)$",
-      "headers": {
-        "Vary": "Accept-Encoding"
-      },
-      "continue": true,
-      "override": true
-    }
   ]
 }

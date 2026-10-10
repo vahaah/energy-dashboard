@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
 import {
@@ -15,19 +14,6 @@ describe("edge-cacheable API Vary", () => {
     expect(rules.map((rule) => rule.source)).toEqual([...EDGE_CACHEABLE_API_PATHS]);
     for (const rule of rules) {
       expect(rule.headers).toEqual([{ key: "Vary", value: API_CDN_VARY }]);
-    }
-  });
-
-  it("overrides Vary on Vercel after Next.js appends flight headers", () => {
-    const vercel = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8")) as {
-      routes: Array<{ src: string; headers: { Vary: string }; override: boolean; continue: boolean }>;
-    };
-    const route = vercel.routes[0];
-    expect(route.override).toBe(true);
-    expect(route.continue).toBe(true);
-    expect(route.headers.Vary).toBe(API_CDN_VARY);
-    for (const path of EDGE_CACHEABLE_API_PATHS) {
-      expect(route.src).toContain(path.replace("/api/", ""));
     }
   });
 
