@@ -44,11 +44,11 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain('await ingestRows("energy_snapshots", repaired)');
     expect(source).not.toContain('await ingestRows("energy_snapshots", rows)');
     expect(source).toContain("process.exit(1)");
-    expect(source.indexOf("loadSnapshotIntegrity")).toBeLessThan(
-      source.indexOf("queryPresentSnapshotTimestamps")
+    expect(source.lastIndexOf("loadSnapshotIntegrity")).toBeLessThan(
+      source.lastIndexOf("queryPresentSnapshotTimestamps")
     );
-    expect(source.indexOf("queryPresentSnapshotTimestamps")).toBeLessThan(
-      source.indexOf("seedIntegrityRepair")
+    expect(source.lastIndexOf("queryPresentSnapshotTimestamps")).toBeLessThan(
+      source.lastIndexOf("seedIntegrityRepair")
     );
     expect(source.indexOf("partitionRepairedSnapshotRows")).toBeLessThan(
       source.indexOf('await ingestRows("energy_snapshots"')
