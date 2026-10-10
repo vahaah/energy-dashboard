@@ -75,6 +75,7 @@ describe("forecast cache policy", () => {
     expect(source).not.toContain("from \"@/lib/tinybird\"");
     expect(source).toContain("readThroughCache");
     expect(source).toContain("@/lib/redis-cache");
+    expect(source).toContain('externalCacheKey("neso", ["embedded-forecast"');
   });
 
   it("recomputes the greenest window from cached rows at request time", () => {

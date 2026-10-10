@@ -170,13 +170,20 @@ export function nesoEmbeddedForecastSql(fromDate: string): string {
 }
 
 export async function fetchEmbeddedForecast(now: Date): Promise<EmbeddedForecastRow[]> {
-  const sql = nesoEmbeddedForecastSql(getLondonDate(now));
-  const json = await fetchJson<{
-    success?: boolean;
-    result?: { records?: Array<Record<string, unknown>> };
-  }>(`${NESO_EMBEDDED_FORECAST_SQL_URL}?sql=${encodeURIComponent(sql)}`, forecastRequestInit());
-  if (json.success === false) {
-    throw new Error("NESO embedded forecast query failed");
-  }
-  return parseEmbeddedForecastRows(json.result?.records ?? []);
+  const fromDate = getLondonDate(now);
+  return readThroughCache(
+    externalCacheKey("neso", ["embedded-forecast", fromDate]),
+    longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+    async () => {
+      const sql = nesoEmbeddedForecastSql(fromDate);
+      const json = await fetchJson<{
+        success?: boolean;
+        result?: { records?: Array<Record<string, unknown>> };
+      }>(`${NESO_EMBEDDED_FORECAST_SQL_URL}?sql=${encodeURIComponent(sql)}`, forecastRequestInit());
+      if (json.success === false) {
+        throw new Error("NESO embedded forecast query failed");
+      }
+      return parseEmbeddedForecastRows(json.result?.records ?? []);
+    }
+  );
 }
