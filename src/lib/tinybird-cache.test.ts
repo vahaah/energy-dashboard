@@ -8,6 +8,7 @@ import {
   getTinybirdLastGood,
   isTinybirdLimitError,
   policyForExternalWindow,
+  policyForSettlementPrices,
   resolveTinybirdPipeFailure,
   serializePipeParams,
   setTinybirdLastGood,
@@ -151,6 +152,18 @@ describe("getTinybirdCachePolicy", () => {
   it("treats completed external windows as historical", () => {
     expect(policyForExternalWindow("2026-05-19T22:59:59.000Z", now).tier).toBe("historical");
     expect(policyForExternalWindow("2026-10-02T12:00:00.000Z", now).tier).toBe("live");
+  });
+
+  it("keeps yesterday's settlement prices live through the following London day", () => {
+    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T00:00:00.000Z")).tier).toBe(
+      "live"
+    );
+    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T09:30:00.000Z")).tier).toBe(
+      "live"
+    );
+    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-17T00:00:00.000Z")).tier).toBe(
+      "historical"
+    );
   });
 
   it("does not treat a leftover historical date as immutable when the window is 30d", () => {

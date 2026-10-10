@@ -19,12 +19,10 @@ import {
 } from "@/lib/dashboard-data";
 import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
-import type { LookAheadView } from "@/lib/forecast-model";
 import { getLookAhead } from "@/lib/forecasts";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import {
   emptyRecordsWithDocumentedCoal,
-  type GridRecords,
   type HistoricPeriodView,
 } from "@/lib/historic-mix";
 import {
@@ -93,76 +91,58 @@ export async function loadDashboardPayloadUncached(
   const noGeneration: Generation5min[] = [];
   const noPrices: CommodityPrice[] = [];
 
-  let snapshots: EnergySnapshot[] = [];
-  let headlineSnapshots: EnergySnapshot[] = [];
-  let prices: CommodityPrice[] = [];
-  let generationHistory: Generation5min[] = [];
-  let headlineGeneration: Generation5min[] = [];
-  let historicView: HistoricPeriodView | null = null;
-  let transitionView: HistoricPeriodView | null = null;
-  let records: GridRecords | null = null;
-  let lookAhead: LookAheadView | null = null;
+  const historicPeriod = period === "year" || period === "all" ? period : null;
+  const [tinybird, allHistoric, periodHistoric, gridRecords, forecastView] = await Promise.all([
+    Promise.all([
+      skipGrid
+        ? Promise.resolve(noSnapshots)
+        : queryPipe<EnergySnapshot>(
+            "snapshots_range",
+            getSnapshotsQueryParams(tinybirdRange, now, headlineDate),
+            { range: tinybirdRange, date: headlineDate, now }
+          ),
+      skipGrid
+        ? Promise.resolve(noSnapshots)
+        : queryPipe<EnergySnapshot>(
+            "snapshots_range",
+            getHeadlineSnapshotsQueryParams(now, headlineDate),
+            { range: "24h", date: headlineDate, now }
+          ).catch(() => noSnapshots),
+      queryPipe<CommodityPrice>(
+        "prices_range",
+        getPricesQueryParams(commodityRange, now),
+        { range: commodityRange, now }
+      ).catch(() => noPrices),
+      skipGrid
+        ? Promise.resolve(noGeneration)
+        : queryPipe<Generation5min>(
+            "generation_5min_range",
+            getGenerationQueryParams(tinybirdRange, now, headlineDate),
+            { range: tinybirdRange, date: headlineDate, now }
+          ).catch(() => noGeneration),
+      skipGrid
+        ? Promise.resolve(noGeneration)
+        : queryPipe<Generation5min>(
+            "generation_5min_range",
+            getHeadlineGenerationQueryParams(now, headlineDate),
+            { range: "24h", date: headlineDate, now }
+          ).catch(() => noGeneration),
+    ]),
+    getHistoricPeriodView("all", now).catch(() => null),
+    historicPeriod === "year"
+      ? getHistoricPeriodView("year", now).catch(() => null)
+      : Promise.resolve(null),
+    getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
+    getLookAhead().catch(() => null),
+  ]);
 
-  try {
-    const historicPeriod = period === "year" || period === "all" ? period : null;
-    const [tinybird, allHistoric, periodHistoric, gridRecords, forecastView] = await Promise.all([
-      Promise.all([
-        skipGrid
-          ? Promise.resolve(noSnapshots)
-          : queryPipe<EnergySnapshot>(
-              "snapshots_range",
-              getSnapshotsQueryParams(tinybirdRange, now, headlineDate),
-              { range: tinybirdRange, date: headlineDate, now }
-            ),
-        skipGrid
-          ? Promise.resolve(noSnapshots)
-          : queryPipe<EnergySnapshot>(
-              "snapshots_range",
-              getHeadlineSnapshotsQueryParams(now, headlineDate),
-              { range: "24h", date: headlineDate, now }
-            ).catch(() => noSnapshots),
-        queryPipe<CommodityPrice>(
-          "prices_range",
-          getPricesQueryParams(commodityRange, now),
-          { range: commodityRange, now }
-        ).catch(() => noPrices),
-        skipGrid
-          ? Promise.resolve(noGeneration)
-          : queryPipe<Generation5min>(
-              "generation_5min_range",
-              getGenerationQueryParams(tinybirdRange, now, headlineDate),
-              { range: tinybirdRange, date: headlineDate, now }
-            ).catch(() => noGeneration),
-        skipGrid
-          ? Promise.resolve(noGeneration)
-          : queryPipe<Generation5min>(
-              "generation_5min_range",
-              getHeadlineGenerationQueryParams(now, headlineDate),
-              { range: "24h", date: headlineDate, now }
-            ).catch(() => noGeneration),
-      ]),
-      getHistoricPeriodView("all", now).catch(() => null),
-      historicPeriod === "year"
-        ? getHistoricPeriodView("year", now).catch(() => null)
-        : Promise.resolve(null),
-      getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
-      getLookAhead().catch(() => null),
-    ]);
-
-    [snapshots, headlineSnapshots, prices, generationHistory, headlineGeneration] = tinybird;
-    transitionView = allHistoric;
-    historicView =
-      historicPeriod === "year" ? periodHistoric : historicPeriod === "all" ? allHistoric : null;
-    records = gridRecords;
-    lookAhead = forecastView;
-  } catch {
-    snapshots = noSnapshots;
-    headlineSnapshots = noSnapshots;
-    prices = noPrices;
-    generationHistory = noGeneration;
-    headlineGeneration = noGeneration;
-    records = emptyRecordsWithDocumentedCoal(now);
-  }
+  let [snapshots, headlineSnapshots, , generationHistory, headlineGeneration] = tinybird;
+  const prices = tinybird[2];
+  const transitionView = allHistoric;
+  const historicView: HistoricPeriodView | null =
+    historicPeriod === "year" ? periodHistoric : historicPeriod === "all" ? allHistoric : null;
+  const records = gridRecords;
+  const lookAhead = forecastView;
 
   if (historicView) {
     snapshots = historicView.snapshots;

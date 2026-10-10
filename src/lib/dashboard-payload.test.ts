@@ -91,6 +91,23 @@ describe("dashboard payload", () => {
     ).toBeNull();
   });
 
+  it("rethrows a mandatory snapshots_range failure instead of returning empty data", async () => {
+    queryPipe.mockImplementation((pipe: string) => {
+      if (pipe === "snapshots_range") {
+        return Promise.reject(new Error("tinybird down"));
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(
+      loadDashboardPayloadUncached({
+        period: "day",
+        commodityRange: "90d",
+        now,
+      })
+    ).rejects.toThrow("tinybird down");
+  });
+
   it("serializes the all-time historic series once", async () => {
     const historic = buildHistoricPeriodView([]);
     historic.snapshots = [{ timestamp: "2026-01-01 00:00:00" } as never];

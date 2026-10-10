@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectRecentSnapshots,
@@ -678,5 +680,13 @@ describe("withSettlementDateCoverage", () => {
     );
 
     expect(result.sources.map((source) => source.source)).toEqual(["demand"]);
+  });
+});
+
+describe("settlement price cache policy", () => {
+  it("does not treat a just-ended settlement date as historical", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/lib/ingest/collect-grid.ts"), "utf8");
+    expect(source).toContain("policyForSettlementPrices(settlementDate, now)");
+    expect(source).not.toContain("policyForExternalWindow(`${settlementDate}T23:59:59.000Z`)");
   });
 });

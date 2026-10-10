@@ -5,6 +5,7 @@ import {
   getQueryEntry,
   prefetchQuery,
   revalidateAllQueries,
+  subscribeQuery,
 } from "@/lib/client-query";
 
 describe("client query cache", () => {
@@ -50,13 +51,19 @@ describe("client query cache", () => {
     vi.useRealTimers();
   });
 
-  it("revalidates registered keys", async () => {
-    const fetcher = vi.fn(async () => 1);
-    await prefetchQuery("all", fetcher);
-    fetcher.mockResolvedValue(2);
+  it("revalidates only keys that still have subscribers", async () => {
+    const active = vi.fn(async () => 1);
+    const idle = vi.fn(async () => 1);
+    await prefetchQuery("active", active);
+    await prefetchQuery("idle", idle);
+    const unsubscribe = subscribeQuery("active", () => undefined);
+    active.mockResolvedValue(2);
+    idle.mockResolvedValue(2);
     revalidateAllQueries();
     await Promise.resolve();
     await Promise.resolve();
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(active).toHaveBeenCalledTimes(2);
+    expect(idle).toHaveBeenCalledOnce();
+    unsubscribe();
   });
 });

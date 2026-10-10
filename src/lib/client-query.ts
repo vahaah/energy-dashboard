@@ -89,6 +89,9 @@ export async function prefetchQuery<T>(
 
 export function revalidateAllQueries(): void {
   for (const [key, fetcher] of fetchers) {
+    if ((listeners.get(key)?.size ?? 0) === 0) {
+      continue;
+    }
     void prefetchQuery(key, fetcher, { force: true });
   }
 }

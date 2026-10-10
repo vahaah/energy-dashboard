@@ -6,7 +6,7 @@ import {
   type SourceStatus,
 } from "@/lib/http";
 import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
-import { policyForExternalWindow } from "@/lib/tinybird-cache";
+import { policyForExternalWindow, policyForSettlementPrices } from "@/lib/tinybird-cache";
 import { mapElexonFuel, SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
@@ -88,10 +88,13 @@ export async function fetchCarbonMix(fromIso: string, toIso: string): Promise<Mi
   );
 }
 
-export async function fetchSystemPrices(settlementDate: string): Promise<ElexonSystemPrice[]> {
+export async function fetchSystemPrices(
+  settlementDate: string,
+  now: Date = new Date()
+): Promise<ElexonSystemPrice[]> {
   return readThroughCache(
     externalCacheKey("elexon-system-prices", [settlementDate]),
-    policyForExternalWindow(`${settlementDate}T23:59:59.000Z`),
+    policyForSettlementPrices(settlementDate, now),
     async () => {
       const json = await fetchJson<{ data: ElexonSystemPrice[] }>(
         `https://data.elexon.co.uk/bmrs/api/v1/balancing/settlement/system-prices/${settlementDate}`
@@ -472,7 +475,7 @@ async function collectSnapshotsForPeriods(
     settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
     settleFetch("carbon_mix", () => fetchCarbonMix(carbonFrom, carbonTo)),
     settleFetch("prices", async () => {
-      const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date)));
+      const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date, now)));
       return sets.flat();
     }),
     settleFetch("market_index", () => fetchMarketIndex(carbonFrom, carbonTo)),
