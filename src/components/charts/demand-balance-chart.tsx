@@ -149,6 +149,7 @@ export function DemandBalanceChart({
   const forecastLabelIndex = lastDefinedIndex(chartData, "demandForecastGw");
   const nowX = nowDemandMarker(chartData, now);
   const lastForecast = chartData.at(-1)?.demandForecastGw != null ? chartData.at(-1)?.time : null;
+  const datedDayTicks = range === "24h" && demandForecast.length > 0;
   const yMax = yTicks.at(-1) ?? 40;
   const demandEndY = chartData[demandLabelIndex]?.demandGw;
   const generationEndY = chartData[generationLabelIndex]?.generationGw;
@@ -177,7 +178,9 @@ export function DemandBalanceChart({
               interval={0}
               minTickGap={compact ? 48 : 24}
               tickFormatter={(value: string | number) =>
-                formatDemandBalanceTick(String(value), range)
+                formatDemandBalanceTick(String(value), range, {
+                  includeDate: datedDayTicks,
+                })
               }
               tick={chartAxisTick}
               {...chartAxisLine}

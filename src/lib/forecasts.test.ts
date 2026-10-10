@@ -111,6 +111,26 @@ describe("greenest window", () => {
     expect(window?.grams).toBe(23);
   });
 
+  it("only scores four contiguous half-hours and does not jump a gap", () => {
+    const window = greenestWindow(
+      [
+        carbonRow("2026-10-10T12:00Z", "2026-10-10T12:30Z", 10),
+        carbonRow("2026-10-10T12:30Z", "2026-10-10T13:00Z", 10),
+        carbonRow("2026-10-10T13:00Z", "2026-10-10T13:30Z", 10),
+        carbonRow("2026-10-10T15:00Z", "2026-10-10T15:30Z", 12),
+        carbonRow("2026-10-10T15:30Z", "2026-10-10T16:00Z", 12),
+        carbonRow("2026-10-10T16:00Z", "2026-10-10T16:30Z", 12),
+        carbonRow("2026-10-10T16:30Z", "2026-10-10T17:00Z", 12),
+      ],
+      NOW
+    );
+    expect(window).toMatchObject({
+      startUtc: "2026-10-10T15:00Z",
+      endUtc: "2026-10-10T17:00Z",
+      grams: 12,
+    });
+  });
+
   it("returns null when there is no future forecast", () => {
     expect(
       greenestWindow(
@@ -277,8 +297,9 @@ describe("look-ahead copy and public payload", () => {
     expect(showsDemandForecast("24h", true)).toBe(false);
     expect(showsCarbonForecast("1y", false)).toBe(false);
     expect(showsDemandForecast("all", false)).toBe(false);
-    expect(showsLookAheadCopy(false)).toBe(true);
-    expect(showsLookAheadCopy(true)).toBe(false);
+    expect(showsLookAheadCopy({ isHistorical: false, empty: false })).toBe(true);
+    expect(showsLookAheadCopy({ isHistorical: true, empty: false })).toBe(false);
+    expect(showsLookAheadCopy({ isHistorical: false, empty: true })).toBe(false);
   });
 });
 

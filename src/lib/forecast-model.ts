@@ -138,8 +138,11 @@ export function showsCarbonForecast(range: TimeRange, historical: boolean): bool
   return showsDemandForecast(range, historical);
 }
 
-export function showsLookAheadCopy(historical: boolean): boolean {
-  return !historical;
+export function showsLookAheadCopy(facts: {
+  isHistorical: boolean;
+  empty: boolean;
+}): boolean {
+  return !facts.isHistorical && !facts.empty;
 }
 
 export function greenestWindow(rows: CarbonForecastRow[], now: Date): GreenestWindow | null {
@@ -149,43 +152,64 @@ export function greenestWindow(rows: CarbonForecastRow[], now: Date): GreenestWi
     }
     return parseUtcDateTime(row.from).getTime() >= now.getTime();
   });
-  if (future.length === 0) {
+  if (future.length < GREENEST_WINDOW_PERIODS) {
     return null;
   }
 
-  const size = Math.min(GREENEST_WINDOW_PERIODS, future.length);
-  let bestStart = 0;
-  let bestAverage = Number.POSITIVE_INFINITY;
-  for (let index = 0; index <= future.length - size; index += 1) {
-    let sum = 0;
-    for (let offset = 0; offset < size; offset += 1) {
-      sum += future[index + offset]?.intensity.forecast ?? 0;
+  let best: { first: CarbonForecastRow; last: CarbonForecastRow; average: number } | null = null;
+  for (const run of contiguousForecastRuns(future)) {
+    if (run.length < GREENEST_WINDOW_PERIODS) {
+      continue;
     }
-    const average = sum / size;
-    if (average < bestAverage) {
-      bestAverage = average;
-      bestStart = index;
+    for (let index = 0; index <= run.length - GREENEST_WINDOW_PERIODS; index += 1) {
+      let sum = 0;
+      for (let offset = 0; offset < GREENEST_WINDOW_PERIODS; offset += 1) {
+        sum += run[index + offset]?.intensity.forecast ?? 0;
+      }
+      const average = sum / GREENEST_WINDOW_PERIODS;
+      if (best == null || average < best.average) {
+        const first = run[index];
+        const last = run[index + GREENEST_WINDOW_PERIODS - 1];
+        if (first && last) {
+          best = { first, last, average };
+        }
+      }
     }
   }
 
-  const first = future[bestStart];
-  const last = future[bestStart + size - 1];
-  if (!first || !last) {
+  if (!best) {
     return null;
   }
 
-  const grams = Math.round(bestAverage);
+  const grams = Math.round(best.average);
   const windowLabel = formatLookAheadWindow(
-    parseUtcDateTime(first.from),
-    parseUtcDateTime(last.to),
+    parseUtcDateTime(best.first.from),
+    parseUtcDateTime(best.last.to),
     now
   );
   return {
-    startUtc: first.from,
-    endUtc: last.to,
+    startUtc: best.first.from,
+    endUtc: best.last.to,
     grams,
     sentence: `Cleanest time to use power in the next 48 hours: ${windowLabel} (≈${grams} g).`,
   };
+}
+
+function contiguousForecastRuns(rows: CarbonForecastRow[]): CarbonForecastRow[][] {
+  const runs: CarbonForecastRow[][] = [];
+  let current: CarbonForecastRow[] = [];
+  for (const row of rows) {
+    const previous = current.at(-1);
+    if (previous && parseUtcDateTime(previous.to).getTime() !== parseUtcDateTime(row.from).getTime()) {
+      runs.push(current);
+      current = [];
+    }
+    current.push(row);
+  }
+  if (current.length > 0) {
+    runs.push(current);
+  }
+  return runs;
 }
 
 export function carbonForecastPoints(rows: CarbonForecastRow[], now: Date): ForecastPoint[] {

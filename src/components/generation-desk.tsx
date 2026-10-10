@@ -125,7 +125,7 @@ export function GenerationDesk({
           </div>
         )}
       </div>
-      {lookAhead && showsLookAheadCopy(facts.isHistorical) ? (
+      {lookAhead && showsLookAheadCopy(facts) ? (
         <LookAheadStrip lookAhead={lookAhead} />
       ) : null}
     </div>

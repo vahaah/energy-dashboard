@@ -632,7 +632,11 @@ export function demandBalanceXTicks(
   }
 }
 
-export function formatDemandBalanceTick(timestamp: string, range: TimeRange): string {
+export function formatDemandBalanceTick(
+  timestamp: string,
+  range: TimeRange,
+  options: { includeDate?: boolean } = {}
+): string {
   const date = parseUtcDateTime(timestamp);
   const parts = getLondonDateTimeParts(date);
   const month = LONDON_MONTHS[parts.month - 1];
@@ -641,6 +645,9 @@ export function formatDemandBalanceTick(timestamp: string, range: TimeRange): st
 
   switch (range) {
     case "24h":
+      if (options.includeDate) {
+        return `${parts.day} ${month} ${hour}:${minute}`;
+      }
       return `${hour}:${minute}`;
     case "7d":
       return LONDON_WEEKDAYS[new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];

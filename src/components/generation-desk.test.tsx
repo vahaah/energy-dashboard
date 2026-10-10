@@ -201,10 +201,10 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
       indexAfter(dashboardSource, "How clean is it?")
     );
-    expect(dashboardSource).toContain("lookAhead?.greenest && showsLookAheadCopy(facts.isHistorical)");
+    expect(dashboardSource).toContain("lookAhead?.greenest && showsLookAheadCopy(facts)");
     expect(dashboardSource).toContain("GET /api/look-ahead");
     expect(deskSource).toContain("LookAheadStrip");
-    expect(deskSource).toContain("showsLookAheadCopy(facts.isHistorical)");
+    expect(deskSource).toContain("showsLookAheadCopy(facts)");
     expect(deskSource).toContain("getDisplayedPower");
     expect(deskSource).toContain("buildGroupedSourceTable");
     expect(deskSource).toContain("headlineGeneration");
@@ -287,6 +287,47 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
     expect(html).not.toContain("SP ");
+    expect(html).not.toContain("Look-ahead");
+    expect(html).not.toContain("Cleanest time to use power");
+    expect(html).not.toContain("Wind is forecast");
+  });
+
+  it("hides look-ahead copy on empty dated views", () => {
+    const empty = facts([]);
+    empty.empty = true;
+    empty.emptyState = {
+      message: "No data for 1 Jan 2015. Coverage starts 27 Sep 2025.",
+      action: "Go to latest",
+      href: "/",
+    };
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={empty}
+        snapshots={[]}
+        headlineSnapshots={[]}
+        generation={[]}
+        headlineGeneration={[]}
+        range="24h"
+        lookAhead={{
+          ...emptyLookAhead(new Date("2026-10-10T12:00:00.000Z")),
+          greenest: {
+            startUtc: "2026-10-10T13:00Z",
+            endUtc: "2026-10-10T15:00Z",
+            grams: 43,
+            sentence: "Cleanest time to use power in the next 48 hours: 14:00–16:00 BST (≈43 g).",
+          },
+          wind: {
+            tonightGw: 11,
+            tomorrowEveningGw: 8.4,
+            sparkline: [11, 8.4],
+            sentence: "Wind is forecast to fall to 8.4 GW by tomorrow evening.",
+            basis: "Transmission-connected wind only. Embedded wind is not in this forecast.",
+          },
+        }}
+      />
+    );
+
     expect(html).not.toContain("Look-ahead");
     expect(html).not.toContain("Cleanest time to use power");
     expect(html).not.toContain("Wind is forecast");

@@ -750,6 +750,9 @@ describe("demand balance chart view", () => {
       "2026-01-15 12:00:00",
     ]);
     expect(formatDemandBalanceTick("2026-09-28 06:00:00", "24h")).toBe("07:00");
+    expect(
+      formatDemandBalanceTick("2026-09-28 06:00:00", "24h", { includeDate: true })
+    ).toBe("28 Sep 07:00");
     expect(formatDemandBalanceTick("2026-01-15 00:00:00", "1y")).toBe("Jan");
   });
 
