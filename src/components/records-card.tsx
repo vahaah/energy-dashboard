@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import type { GridRecords } from "@/lib/historic-mix";
+import { COAL_POWER_ENDED, type GridRecords } from "@/lib/historic-mix";
 import { NESO_OPEN_DATA_ATTRIBUTION } from "@/lib/attribution";
 import { formatHeadlineGw } from "@/lib/facts";
-import { formatLondonDateTimeStamp, parseUtcDateTime } from "@/lib/london-time";
+import { formatLondonDateTimeStamp, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
 
 export function RecordsCard({ records }: { records: GridRecords }) {
   return (
@@ -33,7 +33,7 @@ export function RecordsCard({ records }: { records: GridRecords }) {
         label="Days since coal power ended"
         value={records.daysSinceCoal == null ? "—" : String(records.daysSinceCoal)}
         unit=""
-        when={records.lastCoal?.timestampUtc}
+        whenLabel={records.lastCoal ? formatLondonDayMonthYear(COAL_POWER_ENDED) : undefined}
         help={`${records.lastCoal?.basis ?? "Days since coal power ended."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
       />
       <p className="text-label-12 text-gray-900 sm:col-span-2 xl:col-span-4">
@@ -51,14 +51,18 @@ function RecordStat({
   value,
   unit,
   when,
+  whenLabel,
   help,
 }: {
   label: string;
   value: string;
   unit: string;
   when?: string;
+  whenLabel?: string;
   help: string;
 }) {
+  const stamp = whenLabel ?? (when ? formatLondonDateTimeStamp(parseUtcDateTime(when)) : null);
+
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1">
@@ -69,9 +73,7 @@ function RecordStat({
         <span>{value}</span>
         {unit ? <span className="text-gray-700">{unit}</span> : null}
       </p>
-      {when ? (
-        <p className="mt-1 text-mono-12 text-gray-900">{formatLondonDateTimeStamp(parseUtcDateTime(when))}</p>
-      ) : null}
+      {stamp ? <p className="mt-1 text-mono-12 text-gray-900">{stamp}</p> : null}
     </div>
   );
 }

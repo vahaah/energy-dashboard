@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   COAL_ENDED_MW,
   COAL_ENDED_SHARE_PCT,
+  COAL_POWER_ENDED,
   computeRecords,
+  daysSinceCoalPowerEnded,
   historicRecordsSql,
   historicRowToGeneration,
   historicWeeklySql,
@@ -11,6 +13,7 @@ import {
   NESO_HISTORIC_SQL_URL,
   parseNesoHistoricRow,
   periodAverages,
+  residualCoalAfterPowerEnded,
   transitionSentences,
   yearlyAverages,
   type NesoHistoricRow,
@@ -123,9 +126,9 @@ describe("NESO historic sanity", () => {
     expect(historicRecordsSql()).toContain('ORDER BY "ZERO_CARBON_perc" DESC');
     expect(historicRecordsSql()).toContain('("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR")');
     expect(historicRecordsSql()).toContain("WITH sane AS");
-    expect(historicRecordsSql()).toContain(`"COAL" >= ${COAL_ENDED_MW}`);
-    expect(historicRecordsSql()).toContain(`"COAL_perc" >= ${COAL_ENDED_SHARE_PCT}`);
-    expect(historicRecordsSql()).not.toContain('"COAL" > 1');
+    expect(historicRecordsSql()).not.toContain("LIMIT 24");
+    expect(historicRecordsSql()).not.toContain(`"COAL" >= ${COAL_ENDED_MW}`);
+    expect(historicRecordsSql()).not.toContain(`"COAL_perc" >= ${COAL_ENDED_SHARE_PCT}`);
     const weeklyUrl = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
     expect(weeklyUrl.length).toBeLessThan(2500);
   });
@@ -171,27 +174,6 @@ describe("computeRecords", () => {
           CARBON_INTENSITY: 90,
         }),
         badJulyRow,
-        row({
-          DATETIME: "2024-09-30T10:30:00",
-          COAL: 420,
-          COAL_perc: 1.5,
-          GAS_perc: 30,
-          CARBON_INTENSITY: 200,
-        }),
-        row({
-          DATETIME: "2024-09-30T11:00:00",
-          COAL: 350,
-          COAL_perc: 1.2,
-          GAS_perc: 30.3,
-          CARBON_INTENSITY: 200,
-        }),
-        row({
-          DATETIME: "2024-09-30T11:30:00",
-          COAL: 280,
-          COAL_perc: 1,
-          GAS_perc: 30.5,
-          CARBON_INTENSITY: 200,
-        }),
       ],
       new Date("2026-10-09T12:00:00.000Z")
     );
@@ -200,13 +182,8 @@ describe("computeRecords", () => {
     expect(records.lowestCarbon?.timestampUtc).toBe("2024-04-15T12:00:00");
     expect(records.maxWind?.value).toBe(23880);
     expect(records.maxSolar?.value).toBe(16290);
-    expect(records.lastCoal?.timestampUtc).toBe("2024-09-30T11:30:00");
-    expect(records.daysSinceCoal).toBe(
-      Math.floor(
-        (Date.parse("2026-10-09T12:00:00.000Z") - Date.parse("2024-09-30T11:30:00.000Z")) /
-          86_400_000
-      )
-    );
+    expect(records.lastCoal?.timestampUtc).toBe(`${COAL_POWER_ENDED}T00:00:00`);
+    expect(records.daysSinceCoal).toBe(daysSinceCoalPowerEnded(new Date("2026-10-09T12:00:00.000Z")));
     expect(records.windMilestones.some((milestone) => milestone.gw === 10)).toBe(true);
     expect(records.windMilestones.find((milestone) => milestone.gw === 23)?.timestampUtc).toBe(
       "2026-03-25T13:30:00"
@@ -214,64 +191,87 @@ describe("computeRecords", () => {
     expect(records.lowestCarbon?.timestampUtc).not.toBe("2026-07-07T10:00:00");
   });
 
-  it("ignores NESO residual coal and isolated spikes after Ratcliffe closed", () => {
-    const residual = row({
-      DATETIME: "2026-09-23T16:00:00",
-      COAL: 9,
-      COAL_perc: 0.03,
-      GAS_perc: 31.47,
-      CARBON_INTENSITY: 160,
-    });
-    const isolatedSpike = row({
-      DATETIME: "2025-06-01T12:00:00",
-      COAL: 150,
-      COAL_perc: 0.6,
-      GAS_perc: 30.9,
-      CARBON_INTENSITY: 180,
-    });
-    const sameDaySpike = row({
-      DATETIME: "2025-06-01T06:00:00",
-      COAL: 140,
-      COAL_perc: 0.55,
-      GAS_perc: 30.95,
-      CARBON_INTENSITY: 175,
-    });
-    const lastCluster = [
+  it("keeps the coal-end record on 30 Sep 2024 despite NESO residual coal after Ratcliffe", () => {
+    const ratcliffe = [
       row({
-        DATETIME: "2024-09-30T10:30:00",
-        COAL: 420,
-        COAL_perc: 1.5,
-        GAS_perc: 30,
-        CARBON_INTENSITY: 200,
+        DATETIME: "2024-09-30T03:00:00",
+        COAL: 229,
+        COAL_perc: 0.6,
+        GAS_perc: 30.9,
+        CARBON_INTENSITY: 210,
       }),
       row({
-        DATETIME: "2024-09-30T11:00:00",
-        COAL: 350,
-        COAL_perc: 1.2,
-        GAS_perc: 30.3,
-        CARBON_INTENSITY: 200,
+        DATETIME: "2024-09-30T14:00:00",
+        COAL: 468,
+        COAL_perc: 1.3,
+        GAS_perc: 30.2,
+        CARBON_INTENSITY: 220,
+      }),
+    ];
+    const residuals = [
+      row({
+        DATETIME: "2024-11-20T12:00:00",
+        COAL: 198,
+        COAL_perc: 0.5,
+        GAS_perc: 31,
+        CARBON_INTENSITY: 180,
+      }),
+      row({
+        DATETIME: "2025-01-29T12:00:00",
+        COAL: 110,
+        COAL_perc: 0.35,
+        GAS_perc: 31.15,
+        CARBON_INTENSITY: 170,
+      }),
+      row({
+        DATETIME: "2025-05-28T12:00:00",
+        COAL: 104,
+        COAL_perc: 0.32,
+        GAS_perc: 31.18,
+        CARBON_INTENSITY: 165,
+      }),
+      row({
+        DATETIME: "2026-09-23T09:00:00",
+        COAL: 133,
+        COAL_perc: 0.4,
+        GAS_perc: 31.1,
+        CARBON_INTENSITY: 160,
+      }),
+      row({
+        DATETIME: "2026-09-23T09:30:00",
+        COAL: 124,
+        COAL_perc: 0.37,
+        GAS_perc: 31.13,
+        CARBON_INTENSITY: 160,
+      }),
+      row({
+        DATETIME: "2026-09-23T10:00:00",
+        COAL: 115,
+        COAL_perc: 0.34,
+        GAS_perc: 31.16,
+        CARBON_INTENSITY: 160,
+      }),
+      row({
+        DATETIME: "2026-09-23T10:30:00",
+        COAL: 106,
+        COAL_perc: 0.3,
+        GAS_perc: 31.2,
+        CARBON_INTENSITY: 160,
       }),
     ];
 
-    expect(isCoalOperating(residual)).toBe(false);
-    expect(isCoalOperating(isolatedSpike)).toBe(true);
-
-    const records = computeRecords(
-      [...lastCluster, sameDaySpike, isolatedSpike, residual],
-      new Date("2026-10-09T12:00:00.000Z")
+    expect(residuals.every((entry) => isCoalOperating(entry))).toBe(true);
+    expect(residualCoalAfterPowerEnded([...ratcliffe, ...residuals]).map((entry) => entry.DATETIME)).toEqual(
+      residuals.map((entry) => entry.DATETIME)
     );
 
-    expect(records.lastCoal?.timestampUtc).toBe("2024-09-30T11:00:00");
-    expect(records.lastCoal?.value).toBe(350);
-    expect(records.lastCoal?.timestampUtc).not.toBe(residual.DATETIME);
-    expect(records.lastCoal?.timestampUtc).not.toBe(isolatedSpike.DATETIME);
-    expect(records.lastCoal?.timestampUtc).not.toBe(sameDaySpike.DATETIME);
-    expect(records.daysSinceCoal).toBe(
-      Math.floor(
-        (Date.parse("2026-10-09T12:00:00.000Z") - Date.parse("2024-09-30T11:00:00.000Z")) /
-          86_400_000
-      )
-    );
+    const records = computeRecords([...ratcliffe, ...residuals], new Date("2026-10-09T12:00:00.000Z"));
+
+    expect(records.lastCoal?.timestampUtc).toBe(`${COAL_POWER_ENDED}T00:00:00`);
+    expect(records.lastCoal?.timestampUtc.slice(0, 10)).toBe("2024-09-30");
+    expect(records.lastCoal?.basis).toContain("Ratcliffe-on-Soar");
+    expect(records.daysSinceCoal).toBe(daysSinceCoalPowerEnded(new Date("2026-10-09T12:00:00.000Z")));
+    expect(records.lastCoal?.timestampUtc).not.toBe("2026-09-23T10:30:00");
   });
 });
 

@@ -22,5 +22,7 @@ describe("NESO historic request", () => {
     expect(source.indexOf("await getHistoricWeeklyRows()")).toBeLessThan(
       source.indexOf("await cachedRecordRows()")
     );
+    expect(source).toContain("residualCoalAfterPowerEnded");
+    expect(source).toContain("console.info");
   });
 });

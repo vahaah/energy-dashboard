@@ -2,16 +2,18 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import {
   buildHistoricPeriodView,
+  COAL_POWER_ENDED,
+  computeRecords,
   historicRecordsSql,
   historicWeeklySql,
   NESO_HISTORIC_SQL_URL,
   parseNesoHistoricRow,
+  residualCoalAfterPowerEnded,
   rowsInLastYear,
   rowsSinceHistoricStart,
   type GridRecords,
   type HistoricPeriodView,
   type NesoHistoricRow,
-  computeRecords,
 } from "@/lib/historic-mix";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
 
@@ -88,6 +90,12 @@ export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> 
 export const getGridRecords = cache(async (now = new Date()): Promise<GridRecords> => {
   await getHistoricWeeklyRows();
   const rows = await cachedRecordRows();
+  const residuals = residualCoalAfterPowerEnded(rows);
+  if (residuals.length > 0) {
+    console.info(
+      `NESO historic mix has ${residuals.length} residual coal half-hours after ${COAL_POWER_ENDED}; coal-end record stays on Ratcliffe closure.`
+    );
+  }
   return computeRecords(rows, now);
 });
 
