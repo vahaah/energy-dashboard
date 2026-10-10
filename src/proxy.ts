@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  API_CDN_VARY,
+  isEdgeCacheableApi,
+  withoutFlightHeaders,
+} from "@/lib/edge-cacheable-api";
+
+export { isEdgeCacheableApi } from "@/lib/edge-cacheable-api";
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
@@ -10,15 +17,6 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-prices",
   "/api/cron-yesterday",
   "/api/health",
-]);
-
-const EDGE_CACHEABLE = new Set([
-  "/api/dashboard",
-  "/api/prices",
-  "/api/look-ahead",
-  "/api/snapshots",
-  "/api/generation",
-  "/api/interconnectors",
 ]);
 
 function checkLimit(ip: string): { allowed: boolean; remaining: number } {
@@ -43,10 +41,6 @@ function corsHeaders(): Headers {
   headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type");
   return headers;
-}
-
-export function isEdgeCacheableApi(pathname: string, method: string): boolean {
-  return method === "GET" && EDGE_CACHEABLE.has(pathname);
 }
 
 export function proxy(request: NextRequest) {
@@ -88,7 +82,14 @@ export function proxy(request: NextRequest) {
     headers.set("X-RateLimit-Remaining", String(remaining));
   }
 
-  const response = NextResponse.next();
+  const response = cacheableGet
+    ? NextResponse.next({
+        request: { headers: withoutFlightHeaders(request.headers) },
+      })
+    : NextResponse.next();
+  if (cacheableGet) {
+    response.headers.set("Vary", API_CDN_VARY);
+  }
   headers.forEach((value, key) => response.headers.set(key, value));
   return response;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { API_CDN_VARY } from "@/lib/edge-cacheable-api";
 import {
   TinybirdLimitError,
   tinybirdCacheControl,
@@ -31,7 +32,7 @@ export function cachedJson(
   const response = NextResponse.json(data, {
     headers: {
       ...cdnCacheHeaders(tinybirdCacheControl(policy)),
-      Vary: "Accept-Encoding",
+      Vary: API_CDN_VARY,
       ...extraHeaders,
     },
   });
