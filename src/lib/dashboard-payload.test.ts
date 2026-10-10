@@ -25,10 +25,12 @@ import {
   dashboardPayloadCacheKey,
   dashboardPayloadPolicy,
   downsampleGeneration,
+  downsampleSnapshots,
   headlineWindow,
   hydrateDashboardPayload,
   loadDashboardPayloadUncached,
   payloadJsonBytes,
+  slimFactsForClient,
 } from "@/lib/dashboard-payload";
 import { buildHistoricPeriodView, emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 
@@ -297,8 +299,19 @@ describe("dashboard payload", () => {
     ];
     expect(downsampleGeneration(rows, "day")).toHaveLength(3);
     expect(downsampleGeneration(rows, "week")).toEqual([
-      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 1500, source: "fuelinst" },
-      { timestamp: "2026-10-10 01:00:00", fuel_type: "wind", generation_mw: 3000, source: "fuelinst" },
+      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 2000, source: "fuelinst" },
+    ]);
+    expect(
+      downsampleGeneration(
+        [
+          ...rows,
+          { timestamp: "2026-10-10 04:05:00", fuel_type: "wind", generation_mw: 4000, source: "fuelinst" },
+        ],
+        "week"
+      )
+    ).toEqual([
+      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 2000, source: "fuelinst" },
+      { timestamp: "2026-10-10 03:00:00", fuel_type: "wind", generation_mw: 4000, source: "fuelinst" },
     ]);
     expect(headlineWindow(rows)).toEqual(rows);
   });
@@ -374,6 +387,180 @@ describe("dashboard payload", () => {
     expect(compact.headlineGeneration).toEqual([]);
     expect(compact.transitionView?.generation).toEqual([]);
     expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 4);
+  });
+
+  it("cuts a realistic Week payload with facts under 300 KB", () => {
+    const fuels = [
+      "ccgt",
+      "wind",
+      "nuclear",
+      "biomass",
+      "npshyd",
+      "ps",
+      "solar",
+      "oil",
+      "ocgt",
+      "other",
+      "intfr",
+      "intirl",
+      "intew",
+      "intned",
+      "intnem",
+      "intnsl",
+      "intelec",
+      "intvkl",
+      "embedded-wind",
+      "embedded-solar",
+      "battery",
+      "intgrnl",
+    ];
+    const hourStamp = (hoursAgo: number, minute = 0) => {
+      const at = new Date(Date.UTC(2026, 9, 10, 12 - hoursAgo, minute, 0));
+      const month = String(at.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(at.getUTCDate()).padStart(2, "0");
+      const hour = String(at.getUTCHours()).padStart(2, "0");
+      const min = String(at.getUTCMinutes()).padStart(2, "0");
+      return `2026-${month}-${day} ${hour}:${min}:00`;
+    };
+    const generationHistory = Array.from({ length: 168 * fuels.length }, (_, index) => ({
+      timestamp: hourStamp(Math.floor(index / fuels.length)),
+      fuel_type: fuels[index % fuels.length] ?? "wind",
+      generation_mw: 100 + (index % 50),
+      source: "fuelinst",
+    }));
+    const snapshots = Array.from({ length: 336 }, (_, index) => ({
+      timestamp: hourStamp(Math.floor(index / 2), (index % 2) * 30),
+      carbon_intensity: 80,
+      carbon_forecast: 80,
+      carbon_index: "low",
+      demand_mw: 30_000,
+      price_gbp_mwh: 50,
+      price_mid_gbp_mwh: 48,
+      gen_gas_pct: 30,
+      gen_coal_pct: 0,
+      gen_nuclear_pct: 15,
+      gen_wind_pct: 35,
+      gen_solar_pct: 5,
+      gen_hydro_pct: 5,
+      gen_biomass_pct: 5,
+      gen_imports_pct: 5,
+      gen_other_pct: 0,
+      gen_gas_mw: 6000,
+      gen_coal_mw: 0,
+      gen_nuclear_mw: 3000,
+      gen_wind_mw: 7000,
+      gen_solar_mw: 1000,
+      gen_hydro_mw: 1000,
+      gen_biomass_mw: 1000,
+      gen_other_mw: 0,
+    }));
+    const headlineGeneration = Array.from({ length: 288 * fuels.length }, (_, index) => ({
+      timestamp: `2026-10-10 ${String(Math.floor(index / fuels.length / 12) % 24).padStart(2, "0")}:${String((Math.floor(index / fuels.length) * 5) % 60).padStart(2, "0")}:00`,
+      fuel_type: fuels[index % fuels.length] ?? "wind",
+      generation_mw: 200 + (index % 40),
+      source: index % fuels.length >= 19 ? "embedded" : "fuelinst",
+    }));
+    const facts = {
+      empty: false,
+      emptyState: null,
+      coverageStart: "2025-10-10",
+      requestedDate: "2026-10-10",
+      isHistorical: false,
+      isStale: false,
+      stamp: "Sat 10 Oct 2026, 13:00 BST",
+      headerStamp: "Data as of Sat 10 Oct 2026, 13:00 BST",
+      carbon: {
+        value: 80,
+        index: "low",
+        unit: "gCO₂/kWh",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Carbon Intensity API",
+        definition: "National carbon intensity",
+      },
+      demand: {
+        value: 30_000,
+        unit: "MW",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "ITSDO",
+      },
+      price: {
+        value: 50,
+        unit: "£/MWh",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "Market Index",
+      },
+      systemPrice: {
+        value: 50,
+        unit: "£/MWh",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "System price",
+      },
+      generationMw: {
+        value: 28_000,
+        unit: "MW",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "GB generation",
+      },
+      netImportsMw: {
+        value: 2_000,
+        unit: "MW",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "Transfers",
+      },
+      pumpedStorageMw: {
+        value: -400,
+        unit: "MW",
+        periodStartUtc: "2026-10-10T11:30:00.000Z",
+        periodEndUtc: "2026-10-10T12:00:00.000Z",
+        source: "Elexon BMRS",
+        definition: "Pumped storage",
+      },
+      shares: [],
+      generationRows: headlineGeneration,
+      mixSnapshot: snapshots.at(-1) ?? null,
+      referenceTimestamp: "2026-10-10 11:30:00",
+    };
+
+    const compact = compactDashboardPayload({
+      period: "week",
+      chartRange: "7d",
+      dateResolution: {
+        status: "latest",
+        date: "2026-10-10",
+        today: "2026-10-10",
+        coverageStart: "2025-10-10",
+      },
+      facts,
+      snapshots,
+      headlineSnapshots: snapshots.slice(-48),
+      generationHistory,
+      headlineGeneration,
+      prices: [],
+      records: null,
+      historicView: null,
+      transitionView: null,
+      lookAhead: null,
+    });
+
+    expect(payloadJsonBytes(compact)).toBeLessThan(300_000);
+    expect(compact.facts.generationRows.length).toBeLessThan(fuels.length * 6);
+    expect(compact.facts.generationRows.some((row) => row.source === "fuelinst")).toBe(true);
+    expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 2);
+    expect(compact.snapshots.length).toBeLessThan(snapshots.length);
+    expect(compact.headlineSnapshots.length).toBeLessThanOrEqual(49);
+    expect(downsampleSnapshots(snapshots, "week").length).toBeLessThan(snapshots.length);
+    expect(slimFactsForClient(facts).generationRows.length).toBeLessThan(headlineGeneration.length / 10);
   });
 
   it("averages All-time monthly snapshots by each field's non-missing count", () => {

@@ -39,9 +39,11 @@ export {
   dashboardPayloadCacheKey,
   dashboardPayloadPolicy,
   downsampleGeneration,
+  downsampleSnapshots,
   headlineWindow,
   hydrateDashboardPayload,
   payloadJsonBytes,
+  slimFactsForClient,
 } from "@/lib/dashboard-payload-model";
 
 export type LoadDashboardPayloadInput = {

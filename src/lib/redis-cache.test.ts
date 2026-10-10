@@ -7,12 +7,16 @@ import {
   bumpCacheEpoch,
   bumpHistoricalCacheEpoch,
   externalCacheKey,
+  getRedis,
+  getRedisFailureReason,
   isFreshEnvelope,
   isStaleUsableEnvelope,
   readThroughCache,
   readThroughCacheResult,
+  redisEnvPresent,
   redisKeyFor,
   resetRedisClient,
+  resolveRedisRestConfig,
   setRedisForTests,
   type CacheEnvelope,
   type RedisCommands,
@@ -143,7 +147,7 @@ describe("readThroughCache", () => {
   it("falls back to the loader when Redis get throws", async () => {
     setRedisForTests({
       get: async () => {
-        throw new Error("redis down");
+        throw new Error("WRONGPASS invalid token https://secret.upstash.io/path");
       },
       set: async () => "OK",
       del: async () => 0,
@@ -154,6 +158,55 @@ describe("readThroughCache", () => {
       data: ["fallback"],
       status: "fallback",
     });
+    const reason = getRedisFailureReason();
+    expect(reason).toContain("redis-get-failed");
+    expect(reason).toContain("WRONGPASS");
+    expect(reason).toContain("[url]");
+    expect(reason).not.toContain("secret.upstash.io");
+  });
+
+  it("accepts Marketplace KV_REST_API_* aliases and rejects redis-protocol URLs", () => {
+    const original = {
+      UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+      KV_REST_API_URL: process.env.KV_REST_API_URL,
+      KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,
+    };
+
+    const restore = () => {
+      for (const [key, value] of Object.entries(original)) {
+        if (value == null) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      resetRedisClient();
+    };
+
+    try {
+      delete process.env.UPSTASH_REDIS_REST_URL;
+      delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      process.env.KV_REST_API_URL = "https://example.upstash.io";
+      process.env.KV_REST_API_TOKEN = "kv-token";
+      resetRedisClient();
+
+      expect(redisEnvPresent()).toBe(true);
+      expect(resolveRedisRestConfig()).toMatchObject({
+        urlEnv: "KV_REST_API_URL",
+        tokenEnv: "KV_REST_API_TOKEN",
+        host: "example.upstash.io",
+      });
+
+      process.env.KV_REST_API_URL = "rediss://default:token@example.upstash.io:6379";
+      resetRedisClient();
+      expect(resolveRedisRestConfig()).toBeNull();
+      expect(getRedis()).toBeNull();
+      expect(getRedisFailureReason()).toContain("url-not-https");
+      expect(getRedisFailureReason()).toContain("rediss");
+    } finally {
+      restore();
+    }
   });
 
   it("bumps the live epoch so later keys miss", async () => {
