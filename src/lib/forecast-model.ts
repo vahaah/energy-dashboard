@@ -16,74 +16,32 @@ import {
   londonMidnightUtc,
   parseUtcDateTime,
 } from "@/lib/london-time";
-import type { CarbonIntensityResponse, TimeRange } from "@/lib/types";
+import {
+  WIND_FORECAST_BASIS,
+  type CachedForecastRows,
+  type CarbonForecastRow,
+  type DemandForecastRow,
+  type ForecastPoint,
+  type GreenestWindow,
+  type LookAheadView,
+  type PublicLookAhead,
+  type TimeRange,
+  type WindForecastRow,
+  type WindLookAhead,
+} from "@/lib/types";
 
 export const GREENEST_WINDOW_PERIODS = 4;
-export const WIND_FORECAST_BASIS =
-  "Transmission-connected wind only. Embedded wind is not in this forecast.";
-
-export type ForecastPoint = {
-  time: string;
-  value: number;
-};
-
-export type GreenestWindow = {
-  startUtc: string;
-  endUtc: string;
-  grams: number;
-  sentence: string;
-};
-
-export type WindLookAhead = {
-  tonightGw: number | null;
-  tomorrowEveningGw: number | null;
-  sparkline: number[];
-  sentence: string;
-  basis: typeof WIND_FORECAST_BASIS;
-};
-
-export type LookAheadView = {
-  fetchedAt: string;
-  greenest: GreenestWindow | null;
-  carbonSeries: ForecastPoint[];
-  wind: WindLookAhead | null;
-  demandSeries: ForecastPoint[];
-};
-
-export type PublicLookAhead = {
-  fetchedAt: string;
-  greenestWindow: GreenestWindow | null;
-  wind: {
-    tonightGw: number | null;
-    tomorrowEveningGw: number | null;
-    sentence: string;
-    basis: typeof WIND_FORECAST_BASIS;
-  } | null;
-  attribution: {
-    carbon: string;
-    carbonNote: string;
-    elexon: ReturnType<typeof elexonBmrsAttributionBlock>;
-  };
-};
-
-export type WindForecastRow = {
-  startTime: string;
-  generation: number | null;
-};
-
-export type DemandForecastRow = {
-  startTime: string;
-  nationalDemand: number | null;
-  boundary: string | null;
-};
-
-export type CarbonForecastRow = CarbonIntensityResponse["data"][number];
-
-export type CachedForecastRows = {
-  fetchedAt: string;
-  carbonRows: CarbonForecastRow[] | null;
-  windRows: WindForecastRow[] | null;
-  demandRows: DemandForecastRow[] | null;
+export { WIND_FORECAST_BASIS };
+export type {
+  CachedForecastRows,
+  CarbonForecastRow,
+  DemandForecastRow,
+  ForecastPoint,
+  GreenestWindow,
+  LookAheadView,
+  PublicLookAhead,
+  WindForecastRow,
+  WindLookAhead,
 };
 
 export function lookAheadFromRows(rows: CachedForecastRows, now: Date): LookAheadView {

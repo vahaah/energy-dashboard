@@ -56,7 +56,7 @@ export function carbonForecastUrl(now: Date): string {
 }
 
 export function forecastCacheControl(): string {
-  return `public, s-maxage=${FORECAST_REVALIDATE_SECONDS}, stale-while-revalidate=3600`;
+  return "private, no-store";
 }
 
 export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> {

@@ -52,8 +52,9 @@ describe("forecast cache policy", () => {
       revalidate: 1_800,
       tags: ["forecasts"],
     });
-    expect(forecastCacheControl()).toBe(
-      "public, s-maxage=1800, stale-while-revalidate=3600"
+    expect(forecastCacheControl()).toBe("private, no-store");
+    expect(readFileSync(resolve(import.meta.dirname, "./types.ts"), "utf8")).toContain(
+      "export type LookAheadView"
     );
     const source = readFileSync(resolve(import.meta.dirname, "./forecasts.ts"), "utf8");
     expect(source).toContain(`"${FORECAST_CACHE_KEY}"`);
