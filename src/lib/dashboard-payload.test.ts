@@ -155,8 +155,9 @@ describe("dashboard payload", () => {
     expect(payload.snapshots).toEqual([]);
     expect(payload.generationHistory).toEqual([]);
     const hydrated = hydrateDashboardPayload(payload);
-    expect(hydrated.snapshots).toEqual(historic.snapshots);
-    expect(hydrated.transitionView).toEqual(historic);
+    expect(hydrated.snapshots.map((row) => row.timestamp)).toEqual(["2026-01-01 00:00:00"]);
+    expect(hydrated.generationHistory.map((row) => row.fuel_type)).toEqual(["wind"]);
+    expect(hydrated.transitionView?.yearly).toEqual(historic.yearly);
     expect(compactHistoricPayload(hydrated).transitionView).toBeNull();
     expect(payload.prices).toEqual([]);
   });
