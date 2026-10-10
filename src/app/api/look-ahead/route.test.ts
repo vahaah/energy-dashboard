@@ -48,6 +48,9 @@ describe("/api/look-ahead", () => {
     expect(response.headers.get("Cache-Control")).toBe(
       "public, s-maxage=1800, stale-while-revalidate=86400"
     );
+    expect(response.headers.get("CDN-Cache-Control")).toBe(
+      "public, s-maxage=1800, stale-while-revalidate=86400"
+    );
     expect(body.greenestWindow.grams).toBe(43);
     expect(body.wind.sentence).toContain("fall to 8.4 GW");
     expect(body).not.toHaveProperty("carbonSeries");

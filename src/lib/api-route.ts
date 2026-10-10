@@ -13,9 +13,17 @@ export function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+export function cdnCacheHeaders(cacheControl: string): Record<string, string> {
+  return {
+    "Cache-Control": cacheControl,
+    "CDN-Cache-Control": cacheControl,
+    "Vercel-CDN-Cache-Control": cacheControl,
+  };
+}
+
 export function cachedJson(data: unknown, policy: TinybirdCachePolicy) {
   return NextResponse.json(data, {
-    headers: { "Cache-Control": tinybirdCacheControl(policy) },
+    headers: cdnCacheHeaders(tinybirdCacheControl(policy)),
   });
 }
 

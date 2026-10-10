@@ -10,6 +10,7 @@ describe("records page", () => {
     expect(source).toContain("FAQPage");
     expect(source).toContain("NESO_OPEN_DATA_ATTRIBUTION");
     expect(source).toContain("export const revalidate = 86_400");
+    expect(source).toContain('export const dynamic = "force-static"');
     expect(source).toContain("First time above N GW");
     expect(source).toContain("Days since coal power ended");
     expect(source).not.toContain("Days without coal");

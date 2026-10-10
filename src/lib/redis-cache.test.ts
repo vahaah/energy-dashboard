@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { liveCachePolicy } from "@/lib/tinybird-cache";
 import {
@@ -130,6 +132,13 @@ describe("readThroughCache", () => {
     expect(await redis.get<number>(CACHE_EPOCH_KEY)).toBe(1);
     expect(await redisKeyFor("tb:live", "live")).toBe("grid:1:tb:live");
     expect(await redisKeyFor("tb:old-day", "historical")).toBe("grid:hist:tb:old-day");
+  });
+});
+
+describe("redis-cache module boundaries", () => {
+  it("does not import next/server so static pages stay prerendered", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "./redis-cache.ts"), "utf8");
+    expect(source).not.toMatch(/from ["']next\/server["']/);
   });
 });
 

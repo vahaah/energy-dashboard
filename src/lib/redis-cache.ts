@@ -1,5 +1,4 @@
 import { Redis } from "@upstash/redis";
-import { after } from "next/server";
 import {
   type TinybirdCachePolicy,
   type TinybirdCacheTier,
@@ -130,15 +129,8 @@ export async function redisKeyFor(logicalKey: string, tier: TinybirdCacheTier): 
 }
 
 export function scheduleBackground(work: () => Promise<void>): void {
-  const run = () => {
-    void work();
-  };
-
-  try {
-    after(run);
-  } catch {
-    run();
-  }
+  // Keep this module free of Next request APIs so ISR pages stay static.
+  void work();
 }
 
 export async function readThroughCache<T>(

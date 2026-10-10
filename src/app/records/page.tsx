@@ -20,6 +20,7 @@ import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import { formatLondonDateTimeStamp, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
 
 export const revalidate = 86_400;
+export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "GB electricity records — Grid",
