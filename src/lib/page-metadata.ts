@@ -12,6 +12,7 @@ import {
   RECORDS_TITLE,
   SITE_NAME,
   SITE_OG_IMAGE,
+  SITE_OG_TYPE,
 } from "@/lib/site";
 
 export type PageMetadataInput = {
@@ -104,7 +105,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     openGraph: {
       title: input.title,
       description: input.description,
-      type: "website",
+      type: SITE_OG_TYPE,
       url,
       siteName: SITE_NAME,
       images: [image],

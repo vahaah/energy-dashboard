@@ -40,6 +40,12 @@ import {
 export const revalidate = 86_400;
 export const dynamic = "force-static";
 
+const RECORDS_OG_IMAGE = {
+  ...SITE_OG_IMAGE,
+  url: "/records/opengraph-image",
+  alt: RECORDS_TITLE,
+};
+
 export const metadata: Metadata = {
   title: RECORDS_TITLE,
   description: RECORDS_DESCRIPTION,
@@ -49,12 +55,13 @@ export const metadata: Metadata = {
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
     url: "/records",
-    images: [SITE_OG_IMAGE],
+    images: [RECORDS_OG_IMAGE],
   },
   twitter: {
     ...SITE_TWITTER_CARD,
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
+    images: [RECORDS_OG_IMAGE.url],
   },
 };
 
