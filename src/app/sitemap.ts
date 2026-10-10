@@ -27,5 +27,6 @@ async function sitemapLastModified(): Promise<Date | undefined> {
   if (!payload?.facts.referenceTimestamp) {
     return undefined;
   }
-  return parseUtcDateTime(payload.facts.referenceTimestamp);
+  const date = parseUtcDateTime(payload.facts.referenceTimestamp);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }

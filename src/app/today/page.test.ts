@@ -12,6 +12,8 @@ describe("today page", () => {
     expect(source).toContain('period: "day"');
     expect(source).toContain('period: "week"');
     expect(source).toContain("todayJsonLd");
+    expect(source).toContain("model.dateModified");
+    expect(source).not.toContain("parseUtcDateTime");
     expect(source).toContain("data-cite");
     expect(source).toContain("SiteFaq");
     expect(source).not.toContain("queryPipe");

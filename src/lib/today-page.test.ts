@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseUtcDateTime } from "@/lib/london-time";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
@@ -177,6 +178,9 @@ describe("today page model", () => {
     expect(text).toContain("gCO₂/kWh");
     expect(text).toContain("Elexon BMRS, NESO");
     expect(text).not.toMatch(/\blive\b/i);
+    expect(model.dateModified).toBe("2026-10-10T11:30:00.000Z");
+    expect(model.untilDatetime).toBe("2026-10-10T12:30:00+01:00");
+    expect(parseUtcDateTime(model.untilDatetime ?? "").toISOString()).toBe(model.dateModified);
     expect(model.cheapest?.value).toBe(45.2);
     expect(model.dearest?.value).toBe(80);
     expect(model.comparison.yesterday.carbon).toBe(200);

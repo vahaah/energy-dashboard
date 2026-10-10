@@ -6,7 +6,7 @@ import {
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
 import { COMMODITY_LABELS } from "@/lib/colors";
-import { parseUtcDateTime } from "@/lib/london-time";
+import { utcIsoFromTimestamp } from "@/lib/london-time";
 import {
   DATASET_TEMPORAL_COVERAGE_START,
   SITE_NAME,
@@ -84,9 +84,7 @@ function personNode(): JsonLdNode {
 }
 
 export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`): JsonLdNode {
-  const dateModified = facts?.referenceTimestamp
-    ? parseUtcDateTime(facts.referenceTimestamp).toISOString()
-    : undefined;
+  const dateModified = utcIsoFromTimestamp(facts?.referenceTimestamp);
 
   return {
     "@type": "Dataset",
@@ -335,7 +333,7 @@ function pushObservation(
   items.push({
     "@type": "Observation",
     name,
-    observationDate: parseUtcDateTime(record.timestampUtc).toISOString(),
+    observationDate: utcIsoFromTimestamp(record.timestampUtc),
     value: {
       "@type": "QuantitativeValue",
       value: Number((record.value / divisor).toFixed(1)),

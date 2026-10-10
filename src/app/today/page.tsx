@@ -7,7 +7,7 @@ import { Card, CARD_GRID_CLASS } from "@/components/ui/card";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { formatHeadlineGw } from "@/lib/facts";
 import { todayJsonLd } from "@/lib/jsonld";
-import { addUtcDays, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
+import { addUtcDays, formatLondonDayMonthYear } from "@/lib/london-time";
 import { todayPageMetadata } from "@/lib/page-metadata";
 import { TODAY_H1 } from "@/lib/site";
 import {
@@ -31,9 +31,7 @@ export default async function TodayPage() {
   const model = buildTodayPageModel({ day, week, now });
   const faqs = todayFaqs(model);
   const cite = todayCitePlainText(model);
-  const dateModified = model.untilDatetime
-    ? parseUtcDateTime(model.untilDatetime).toISOString()
-    : undefined;
+  const dateModified = model.dateModified ?? undefined;
 
   return (
     <>

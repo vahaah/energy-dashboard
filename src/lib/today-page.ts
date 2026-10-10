@@ -59,6 +59,7 @@ export type TodayPageModel = {
   dateLabel: string;
   untilClock: string | null;
   untilDatetime: string | null;
+  dateModified: string | null;
   shares: TodayFuelShares;
   carbonAverage: number | null;
   priceAverage: number | null;
@@ -223,8 +224,9 @@ export function buildTodayPageModel(input: {
     kind: hasNumbers ? "numbers" : "fallback",
     londonDate,
     dateLabel: formatLondonDateLabel(now),
-    untilClock: latestAt ? formatLondonClock(latestAt) : null,
-    untilDatetime: latestAt ? formatLondonIsoOffset(latestAt) : null,
+    untilClock: latestAt && !Number.isNaN(latestAt.getTime()) ? formatLondonClock(latestAt) : null,
+    untilDatetime: latestAt && !Number.isNaN(latestAt.getTime()) ? formatLondonIsoOffset(latestAt) : null,
+    dateModified: latestAt && !Number.isNaN(latestAt.getTime()) ? latestAt.toISOString() : null,
     shares,
     carbonAverage: mean(todaySnapshots.map((row) => row.carbon_intensity)),
     priceAverage: mean(

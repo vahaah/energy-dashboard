@@ -200,11 +200,21 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
+const HAS_EXPLICIT_OFFSET = /(?:[zZ]|[+-]\d{2}:\d{2})$/;
+
 export function parseUtcDateTime(value: string): Date {
-  if (value.endsWith("Z") || value.includes("+") || value.includes("T")) {
-    const normalized = value.includes("T") ? value : value.replace(" ", "T");
-    return new Date(normalized.endsWith("Z") ? normalized : `${normalized}Z`);
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  if (HAS_EXPLICIT_OFFSET.test(normalized)) {
+    return new Date(normalized);
   }
 
-  return new Date(`${value.replace(" ", "T")}Z`);
+  return new Date(`${normalized}Z`);
+}
+
+export function utcIsoFromTimestamp(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const date = parseUtcDateTime(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
