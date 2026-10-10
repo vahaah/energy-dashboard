@@ -7,6 +7,7 @@ import {
   inflatedSnapshotFromWideRow,
   inflatedSnapshotSql,
   inspectSnapshotRows,
+  integrityReportForRepairedRows,
   integrityReportForWrittenRows,
   integrityTimestampKey,
   mergeStoredIntegrity,
@@ -180,6 +181,34 @@ describe("snapshot integrity", () => {
     expect(missingAffectedTimestamps(["2025-11-18 12:30:00", "2025-11-18 13:00:00"], [ok])).toEqual([
       "2025-11-18 12:30:00",
     ]);
+  });
+
+  it("clears repaired timestamps from the stored integrity report", () => {
+    const stored = mergeStoredIntegrity(null, inspectSnapshotRows([
+      snapshot({
+        timestamp: "2025-11-18 12:30:00",
+        gen_wind_mw: 24_000,
+        gen_solar_mw: 16_000,
+        gen_gas_mw: 20_000,
+        gen_nuclear_mw: 8_000,
+        gen_biomass_mw: 4_000,
+      }),
+      snapshot({
+        timestamp: "2025-12-16 12:30:00",
+        gen_wind_mw: 24_000,
+        gen_solar_mw: 16_000,
+        gen_gas_mw: 20_000,
+        gen_nuclear_mw: 8_000,
+        gen_biomass_mw: 4_000,
+      }),
+    ]));
+    expect(stored.failingTimestamps).toEqual(["2025-11-18 12:30:00", "2025-12-16 12:30:00"]);
+
+    const repaired = integrityReportForRepairedRows([
+      snapshot({ timestamp: "2025-11-18 12:30:00" }),
+    ]);
+    expect(repaired.failing).toEqual([]);
+    expect(mergeStoredIntegrity(stored, repaired).failingTimestamps).toEqual(["2025-12-16 12:30:00"]);
   });
 
   it("builds one Tinybird SQL statement that joins FUELINST and uses FINAL", () => {

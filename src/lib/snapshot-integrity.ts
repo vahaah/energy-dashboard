@@ -355,6 +355,17 @@ export function integrityReportForWrittenRows(
   };
 }
 
+export function integrityReportForRepairedRows(
+  writtenRows: SnapshotLike[],
+  now = new Date()
+): SnapshotIntegrityReport {
+  return {
+    checkedAt: formatTinybirdDateTime(now),
+    checkedTimestamps: writtenIntegrityTimestamps(writtenRows),
+    failing: [],
+  };
+}
+
 export function missingAffectedTimestamps(
   affected: Iterable<string>,
   writtenRows: SnapshotLike[]

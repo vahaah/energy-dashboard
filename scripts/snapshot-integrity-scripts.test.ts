@@ -10,7 +10,10 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain('pipeName: string');
     expect(source).toContain('"snapshots_range"');
     expect(source).toContain("queryInflatedSnapshots");
+    expect(source).toContain("tinybirdSqlRequestInit");
+    expect(source).toContain("application/x-www-form-urlencoded");
     expect(source).not.toContain("/v0/events");
+    expect(source).not.toContain("text/plain");
   });
 
   it("diagnoses with one Tinybird SQL query and never writes", () => {
@@ -28,7 +31,10 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain("affected.has(timestamp)");
     expect(source).toContain("collectSnapshotsForSettlementDate");
     expect(source).toContain("missingAffectedTimestamps");
+    expect(source).toContain("integrityReportForRepairedRows");
+    expect(source).toContain("recordSnapshotIntegrity");
     expect(source).toContain("if (execute)");
     expect(source).toContain("process.exit(1)");
+    expect(source.indexOf("process.exit(1)")).toBeLessThan(source.lastIndexOf("recordSnapshotIntegrity"));
   });
 });

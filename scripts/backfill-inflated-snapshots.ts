@@ -14,8 +14,10 @@ import { describeCollection } from "../src/lib/ingest/backfill-report";
 import { getLondonDate, parseUtcDateTime } from "../src/lib/london-time";
 import {
   inflatedFuelsForRow,
+  integrityReportForRepairedRows,
   integrityTimestampKey,
   missingAffectedTimestamps,
+  recordSnapshotIntegrity,
 } from "../src/lib/snapshot-integrity";
 import { queryInflatedSnapshots } from "../src/lib/tinybird-sql";
 
@@ -106,6 +108,9 @@ async function main() {
     if (execute) {
       process.exit(1);
     }
+  }
+  if (execute && missing.length === 0 && written.length > 0) {
+    await recordSnapshotIntegrity(integrityReportForRepairedRows(written));
   }
   if (dryRun) {
     console.log("Re-run with --execute after review. Do not run from CI or agents.\n");

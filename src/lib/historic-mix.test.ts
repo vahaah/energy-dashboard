@@ -138,8 +138,10 @@ describe("NESO historic sanity", () => {
   it("applies integrity exclusions in the NESO sane CTE before each LIMIT", () => {
     const sql = historicRecordsSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
     const exclude = nesoIntegrityExcludeSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
+    expect(exclude).toContain('replace("DATETIME"::text, \'T\', \' \')');
     expect(exclude).toContain("'2025-11-18 12:30:00'");
     expect(exclude).toContain("'2025-11-18 13:00:00'");
+    expect(exclude).not.toContain('replace("DATETIME",');
     expect(sql).toContain(exclude);
     expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("ORDER BY"));
     expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("LIMIT 5"));

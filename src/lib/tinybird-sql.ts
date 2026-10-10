@@ -39,15 +39,22 @@ export function tinybirdReadToken(
   return token;
 }
 
-export async function queryTinybirdSql<T>(sql: string): Promise<T[]> {
-  const response = await fetch(`${tinybirdApiUrl()}/v0/sql`, {
+export function tinybirdSqlRequestInit(
+  sql: string,
+  env: Record<string, string | undefined> = process.env
+): RequestInit {
+  return {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${tinybirdSqlToken()}`,
-      "Content-Type": "text/plain",
+      Authorization: `Bearer ${tinybirdSqlToken(env)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: sql,
-  });
+    body: new URLSearchParams({ q: `${sql} FORMAT JSON` }),
+  };
+}
+
+export async function queryTinybirdSql<T>(sql: string): Promise<T[]> {
+  const response = await fetch(`${tinybirdApiUrl()}/v0/sql`, tinybirdSqlRequestInit(sql));
 
   if (!response.ok) {
     const body = await response.text();

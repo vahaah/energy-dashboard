@@ -667,7 +667,7 @@ export function nesoIntegrityExcludeSql(excludeTimestamps: Iterable<string> = []
   if (keys.length === 0) {
     return "";
   }
-  return ` AND replace("DATETIME", 'T', ' ') NOT IN (${keys.map((key) => `'${key}'`).join(",")})`;
+  return ` AND replace("DATETIME"::text, 'T', ' ') NOT IN (${keys.map((key) => `'${key}'`).join(",")})`;
 }
 
 const NESO_RECORD_COLUMNS = [
