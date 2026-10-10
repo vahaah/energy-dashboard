@@ -1,7 +1,8 @@
 #!/usr/bin/env npx tsx
 /**
  * Rewrite energy_snapshots half-hours that fail the like-for-like balance
- * check (generation vs ITSDO + embedded, with export headroom).
+ * check (generation vs ITSDO + embedded, with export headroom), and revisit
+ * timestamps the old 1.25x ITSDO gate recorded or dropped.
  * Dry-run by default. The parent runs --execute.
  *
  * Usage:
@@ -12,17 +13,19 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 import { collectSnapshotsForSettlementDate } from "../src/lib/ingest/collect-grid";
 import { describeCollection } from "../src/lib/ingest/backfill-report";
-import { getLondonDate, parseUtcDateTime } from "../src/lib/london-time";
 import {
   inflatedFuelsForRow,
   integrityReportForRepairedRows,
   integrityTimestampKey,
+  loadSnapshotIntegrity,
   missingAffectedTimestamps,
   partitionRepairedSnapshotRows,
   recordSnapshotIntegrity,
+  seedIntegrityRepair,
+  settlementDatesForIntegrityRepair,
   writtenIntegrityTimestamps,
 } from "../src/lib/snapshot-integrity";
-import { queryInflatedSnapshots } from "../src/lib/tinybird-sql";
+import { queryInflatedSnapshots, queryPresentSnapshotTimestamps } from "../src/lib/tinybird-sql";
 
 config({ path: resolve(import.meta.dirname, "..", ".env.local") });
 config({ path: resolve(process.cwd(), ".env.local") });
@@ -65,14 +68,34 @@ async function main() {
     process.exit(1);
   }
 
+  const loaded = await loadSnapshotIntegrity();
+  if (loaded.status === "error") {
+    console.error("Could not read stored snapshot integrity from Redis.");
+    process.exit(1);
+  }
+  const stored = loaded.value;
+
   const { rows: inflated, source } = await queryInflatedSnapshots();
-  const affected = new Set(inflated.map((row) => integrityTimestampKey(row.timestamp)));
-  const dates = [
-    ...new Set(inflated.map((row) => getLondonDate(parseUtcDateTime(row.timestamp)))),
-  ].sort();
+  const present = await queryPresentSnapshotTimestamps(
+    settlementDatesForIntegrityRepair(
+      stored,
+      inflated.map((row) => row.timestamp)
+    ),
+    { sleep }
+  );
+  const seed = seedIntegrityRepair({
+    inflatedTimestamps: inflated.map((row) => row.timestamp),
+    stored,
+    presentTimestamps: present.timestamps,
+  });
+  const affected = new Set(seed.affected);
+  const dates = seed.collectDates;
 
   console.log(`\nInflated snapshot backfill`);
   console.log(`   Query: ${source}`);
+  console.log(`   Presence: ${present.source} (${present.queries} range quer${present.queries === 1 ? "y" : "ies"})`);
+  console.log(`   Stored failing timestamps: ${seed.storedFailing.length}`);
+  console.log(`   Missing half-hours on checked dates: ${seed.missing.length}`);
   console.log(`   Affected half-hours: ${affected.size}`);
   console.log(`   Settlement dates: ${dates[0] ?? "—"} → ${dates.at(-1) ?? "—"} (${dates.length} days)`);
   console.log(dryRun ? "   DRY RUN — no data will be ingested\n" : "   EXECUTE — writing corrected rows\n");

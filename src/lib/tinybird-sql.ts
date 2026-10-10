@@ -1,7 +1,11 @@
 import {
+  batchSettlementDateRanges,
   inflatedSnapshotFromWideRow,
   inflatedSnapshotSql,
+  integrityTimestampKey,
+  snapshotTimestampsInRangeSql,
   type InflatedSnapshotRow,
+  type IntegrityRepairDateRange,
 } from "./snapshot-integrity";
 
 type TinybirdSqlResponse<T> = {
@@ -127,4 +131,83 @@ export async function queryInflatedSnapshots(): Promise<InflatedSnapshotQueryRes
     }
     return { rows, source: "snapshots_range" };
   }
+}
+
+export const TINYBIRD_QUERY_GAP_MS = 300;
+
+export type SnapshotTimestampQueryResult = {
+  timestamps: string[];
+  source: "sql" | "snapshots_range";
+};
+
+export async function querySnapshotTimestampsInRange(
+  start: string,
+  endExclusive: string
+): Promise<SnapshotTimestampQueryResult> {
+  try {
+    const rows = await queryTinybirdSql<{ timestamp: string }>(
+      snapshotTimestampsInRangeSql(start, endExclusive)
+    );
+    return {
+      timestamps: rows.map((row) => integrityTimestampKey(row.timestamp)),
+      source: "sql",
+    };
+  } catch (error) {
+    if (!(error instanceof TinybirdSqlPermissionError)) {
+      throw error;
+    }
+    const wide = await queryTinybirdPipe<Record<string, unknown>>("snapshots_range", {
+      start,
+      end: endExclusive,
+    });
+    const timestamps: string[] = [];
+    for (const row of wide) {
+      if (typeof row.timestamp === "string") {
+        timestamps.push(integrityTimestampKey(row.timestamp));
+      }
+    }
+    return { timestamps, source: "snapshots_range" };
+  }
+}
+
+export type PresentSnapshotTimestampQueryResult = {
+  timestamps: string[];
+  source: "sql" | "snapshots_range";
+  queries: number;
+  ranges: IntegrityRepairDateRange[];
+};
+
+/** Batched settlement-date ranges. Never one Tinybird request per timestamp. */
+export async function queryPresentSnapshotTimestamps(
+  dates: string[],
+  options?: { gapMs?: number; sleep?: (ms: number) => Promise<void> }
+): Promise<PresentSnapshotTimestampQueryResult> {
+  const ranges = batchSettlementDateRanges(dates);
+  if (ranges.length === 0) {
+    return { timestamps: [], source: "sql", queries: 0, ranges };
+  }
+
+  const gapMs = options?.gapMs ?? TINYBIRD_QUERY_GAP_MS;
+  const sleep =
+    options?.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const timestamps = new Set<string>();
+  let source: "sql" | "snapshots_range" = "sql";
+
+  for (const [index, range] of ranges.entries()) {
+    if (index > 0 && gapMs > 0) {
+      await sleep(gapMs);
+    }
+    const result = await querySnapshotTimestampsInRange(range.start, range.end);
+    source = result.source;
+    for (const timestamp of result.timestamps) {
+      timestamps.add(timestamp);
+    }
+  }
+
+  return {
+    timestamps: [...timestamps].sort(),
+    source,
+    queries: ranges.length,
+    ranges,
+  };
 }

@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { setRedisForTests } from "@/lib/redis-cache";
+import { listSettlementPeriods, settlementTimestamp } from "@/lib/settlement-period";
 import {
   GENERATION_OVER_DEMAND_LIMIT,
+  INTEGRITY_REPAIR_DATE_BATCH_DAYS,
   LOW_IMPORT_SHARE_PCT,
   SNAPSHOT_BALANCE_TOLERANCE,
   SNAPSHOT_EXPORT_HEADROOM,
+  batchSettlementDateRanges,
   inflatedFuelsForRow,
   inflatedSnapshotFromWideRow,
   inflatedSnapshotSql,
@@ -18,13 +21,16 @@ import {
   partitionRepairedSnapshotRows,
   readSnapshotIntegrity,
   recordSnapshotIntegrity,
+  seedIntegrityRepair,
   shouldRecordSnapshotIntegrity,
   snapshotDomesticGenerationMw,
   snapshotHeadlineDemandMw,
   snapshotIntegrityIssues,
   snapshotRowFailsIntegrity,
   snapshotRowHasIntegrityIssues,
+  snapshotTimestampsInRangeSql,
   type InflatedSnapshotRow,
+  type StoredSnapshotIntegrity,
 } from "@/lib/snapshot-integrity";
 
 /** Confirmed AGPT double-publish: 75.1 GW vs 37.7 GW ITSDO, solar 7.07 GW. */
@@ -332,6 +338,115 @@ describe("snapshot integrity", () => {
     expect(inflatedFuelsForRow({ wind_inflated: 1, gas_inflated: 0 } as InflatedSnapshotRow)).toEqual([
       "wind",
     ]);
+  });
+
+  it("revisits a half-hour dropped by the old gate with no energy_snapshots row", () => {
+    const timestamp = "2025-04-05 12:00:00";
+    const stored: StoredSnapshotIntegrity = {
+      checkedAt: "2025-04-06 10:00:00",
+      settlementDates: ["2025-04-05"],
+      failingTimestamps: [],
+    };
+    const present = listSettlementPeriods("2025-04-05")
+      .map((period) => settlementTimestamp(period))
+      .filter((value) => value !== timestamp);
+
+    const inflatedOnly = seedIntegrityRepair({
+      inflatedTimestamps: [],
+      stored: null,
+      presentTimestamps: present,
+    });
+    expect(inflatedOnly.affected).toEqual([]);
+
+    const seed = seedIntegrityRepair({
+      inflatedTimestamps: [],
+      stored,
+      presentTimestamps: present,
+    });
+    expect(seed.missing).toContain(timestamp);
+    expect(seed.affected).toContain(timestamp);
+    expect(seed.collectDates).toEqual(["2025-04-05"]);
+
+    const collected = sunnyMidday(timestamp, 18_200, 11_800, 29_700);
+    expect(inflatedSnapshotFromWideRow(collected)).toBeNull();
+    const { repaired, stillFailing } = partitionRepairedSnapshotRows([collected]);
+    expect(stillFailing).toEqual([]);
+    expect(repaired).toEqual([collected]);
+
+    const storedWithFailure: StoredSnapshotIntegrity = {
+      ...stored,
+      failingTimestamps: [timestamp],
+    };
+    expect(
+      mergeStoredIntegrity(storedWithFailure, integrityReportForRepairedRows(repaired))
+        .failingTimestamps
+    ).toEqual([]);
+  });
+
+  it("revisits a stale failingTimestamps entry that now passes the headline-demand check", () => {
+    const timestamp = "2025-04-05 13:00:00";
+    const existing = sunnyMidday(timestamp, 18_200, 11_800, 29_700);
+    expect(inflatedSnapshotFromWideRow(existing)).toBeNull();
+
+    const stored: StoredSnapshotIntegrity = {
+      checkedAt: "2025-04-06 10:00:00",
+      settlementDates: ["2025-04-05"],
+      failingTimestamps: [timestamp],
+    };
+    const present = listSettlementPeriods("2025-04-05").map((period) =>
+      settlementTimestamp(period)
+    );
+
+    const inflatedOnly = seedIntegrityRepair({
+      inflatedTimestamps: [],
+      stored: null,
+      presentTimestamps: present,
+    });
+    expect(inflatedOnly.affected).toEqual([]);
+
+    const seed = seedIntegrityRepair({
+      inflatedTimestamps: [],
+      stored,
+      presentTimestamps: present,
+    });
+    expect(seed.missing).not.toContain(timestamp);
+    expect(seed.storedFailing).toEqual([timestamp]);
+    expect(seed.affected).toContain(timestamp);
+
+    const { repaired, stillFailing } = partitionRepairedSnapshotRows([existing]);
+    expect(stillFailing).toEqual([]);
+    expect(
+      mergeStoredIntegrity(stored, integrityReportForRepairedRows(repaired)).failingTimestamps
+    ).toEqual([]);
+  });
+
+  it("batches presence queries by settlement-date range instead of per timestamp", () => {
+    const ranges = batchSettlementDateRanges(
+      ["2025-04-05", "2025-04-06", "2025-05-10", "2025-05-11", "2025-05-12"],
+      14
+    );
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0]).toMatchObject({ startDate: "2025-04-05", endDate: "2025-04-06" });
+    expect(ranges[1]).toMatchObject({ startDate: "2025-05-10", endDate: "2025-05-12" });
+    expect(INTEGRITY_REPAIR_DATE_BATCH_DAYS).toBe(14);
+
+    const long = batchSettlementDateRanges(
+      ["2025-04-01", "2025-04-02", "2025-04-03", "2025-04-15", "2025-04-16"],
+      14
+    );
+    expect(long).toHaveLength(2);
+    expect(long[0]?.endDate).toBe("2025-04-03");
+    expect(long[1]?.startDate).toBe("2025-04-15");
+
+    const sql = snapshotTimestampsInRangeSql("2025-04-04 23:00:00", "2025-04-06 23:00:00");
+    expect(sql).toContain("energy_snapshots FINAL");
+    expect(sql).toContain("SELECT timestamp");
+    expect(sql).toContain("timestamp >= '2025-04-04 23:00:00'");
+    expect(sql).toContain("timestamp < '2025-04-06 23:00:00'");
+    expect(sql).not.toContain("IN (");
+    expect(() => snapshotTimestampsInRangeSql("2025-04-05", "2025-04-06")).toThrow(
+      "invalid Tinybird datetime"
+    );
   });
 
   it("converts a wide snapshots_range row when SQL cannot join FUELINST", () => {

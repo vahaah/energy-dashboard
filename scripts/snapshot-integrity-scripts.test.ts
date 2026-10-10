@@ -26,6 +26,10 @@ describe("snapshot integrity scripts", () => {
   it("backfills only affected snapshot rows and stays dry-run without --execute", () => {
     const source = readFileSync(resolve(process.cwd(), "scripts/backfill-inflated-snapshots.ts"), "utf8");
     expect(source).toContain("queryInflatedSnapshots");
+    expect(source).toContain("queryPresentSnapshotTimestamps");
+    expect(source).toContain("loadSnapshotIntegrity");
+    expect(source).toContain("seedIntegrityRepair");
+    expect(source).toContain("settlementDatesForIntegrityRepair");
     expect(source).toContain("const execute = args.includes(\"--execute\")");
     expect(source).toContain("const dryRun = !execute");
     expect(source).toContain("affected.has(timestamp)");
@@ -40,6 +44,12 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain('await ingestRows("energy_snapshots", repaired)');
     expect(source).not.toContain('await ingestRows("energy_snapshots", rows)');
     expect(source).toContain("process.exit(1)");
+    expect(source.indexOf("loadSnapshotIntegrity")).toBeLessThan(
+      source.indexOf("queryPresentSnapshotTimestamps")
+    );
+    expect(source.indexOf("queryPresentSnapshotTimestamps")).toBeLessThan(
+      source.indexOf("seedIntegrityRepair")
+    );
     expect(source.indexOf("partitionRepairedSnapshotRows")).toBeLessThan(
       source.indexOf('await ingestRows("energy_snapshots"')
     );

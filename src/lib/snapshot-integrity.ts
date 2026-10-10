@@ -1,6 +1,13 @@
 import { getRedis } from "@/lib/redis-cache";
 import type { EnergySnapshot } from "@/lib/types";
-import { formatTinybirdDateTime } from "@/lib/london-time";
+import {
+  addUtcDays,
+  formatTinybirdDateTime,
+  getLondonDate,
+  londonMidnightUtc,
+  parseUtcDateTime,
+} from "@/lib/london-time";
+import { listSettlementPeriods, settlementTimestamp } from "@/lib/settlement-period";
 
 /** Per-fuel snapshot vs FUELINST inflation flag in the diagnostic SQL. */
 export const GENERATION_OVER_DEMAND_LIMIT = 1.25;
@@ -533,6 +540,171 @@ export function missingAffectedTimestamps(
     remaining.delete(timestamp);
   }
   return [...remaining].sort();
+}
+
+const TINYBIRD_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+/** Max London settlement dates per Tinybird presence query. */
+export const INTEGRITY_REPAIR_DATE_BATCH_DAYS = 14;
+
+export function assertTinybirdDateTime(value: string): string {
+  if (!TINYBIRD_DATETIME_RE.test(value)) {
+    throw new Error(`invalid Tinybird datetime: ${value}`);
+  }
+  return value;
+}
+
+export function settlementDatesForTimestamps(timestamps: Iterable<string>): string[] {
+  const dates = new Set<string>();
+  for (const timestamp of timestamps) {
+    const key = integrityTimestampKey(timestamp);
+    if (key.length < 16) {
+      continue;
+    }
+    dates.add(getLondonDate(parseUtcDateTime(key)));
+  }
+  return [...dates].sort();
+}
+
+/** Stored checked dates plus dates implied by failing / inflated timestamps. */
+export function settlementDatesForIntegrityRepair(
+  stored: StoredSnapshotIntegrity | null,
+  extraTimestamps: Iterable<string> = []
+): string[] {
+  const dates = new Set(stored?.settlementDates ?? []);
+  for (const date of settlementDatesForTimestamps(stored?.failingTimestamps ?? [])) {
+    dates.add(date);
+  }
+  for (const date of settlementDatesForTimestamps(extraTimestamps)) {
+    dates.add(date);
+  }
+  return [...dates].sort();
+}
+
+export function expectedSettlementTimestamps(dates: Iterable<string>): string[] {
+  const timestamps: string[] = [];
+  for (const date of dates) {
+    for (const period of listSettlementPeriods(date)) {
+      timestamps.push(settlementTimestamp(period));
+    }
+  }
+  return timestamps;
+}
+
+export function missingSettlementTimestamps(
+  dates: Iterable<string>,
+  present: Iterable<string>
+): string[] {
+  const have = normalizeTimestampSet(present);
+  return expectedSettlementTimestamps(dates).filter(
+    (timestamp) => !have.has(integrityTimestampKey(timestamp))
+  );
+}
+
+function calendarDaysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  return Math.round((end - start) / 86_400_000);
+}
+
+export function settlementDateQueryBounds(
+  startDate: string,
+  endDateInclusive: string
+): { start: string; end: string } {
+  return {
+    start: formatTinybirdDateTime(londonMidnightUtc(startDate)),
+    end: formatTinybirdDateTime(londonMidnightUtc(addUtcDays(endDateInclusive, 1))),
+  };
+}
+
+export type IntegrityRepairDateRange = {
+  startDate: string;
+  endDate: string;
+  start: string;
+  end: string;
+};
+
+function rangeForSettlementDates(startDate: string, endDate: string): IntegrityRepairDateRange {
+  const bounds = settlementDateQueryBounds(startDate, endDate);
+  return {
+    startDate,
+    endDate,
+    start: bounds.start,
+    end: bounds.end,
+  };
+}
+
+/** Contiguous London dates, split so each Tinybird query covers at most `maxDays`. */
+export function batchSettlementDateRanges(
+  dates: Iterable<string>,
+  maxDays = INTEGRITY_REPAIR_DATE_BATCH_DAYS
+): IntegrityRepairDateRange[] {
+  const sorted = [...new Set(dates)].sort();
+  if (sorted.length === 0) {
+    return [];
+  }
+
+  const ranges: IntegrityRepairDateRange[] = [];
+  let startDate = sorted[0];
+  let endDate = sorted[0];
+
+  for (const date of sorted.slice(1)) {
+    const contiguous = calendarDaysBetween(endDate, date) === 1;
+    const span = calendarDaysBetween(startDate, date) + 1;
+    if (contiguous && span <= maxDays) {
+      endDate = date;
+      continue;
+    }
+    ranges.push(rangeForSettlementDates(startDate, endDate));
+    startDate = date;
+    endDate = date;
+  }
+  ranges.push(rangeForSettlementDates(startDate, endDate));
+  return ranges;
+}
+
+/** Timestamps only — one request per settlement-date range, never per half-hour. */
+export function snapshotTimestampsInRangeSql(start: string, endExclusive: string): string {
+  return `
+SELECT timestamp
+FROM energy_snapshots FINAL
+WHERE timestamp >= '${assertTinybirdDateTime(start)}'
+  AND timestamp < '${assertTinybirdDateTime(endExclusive)}'
+ORDER BY timestamp
+`.trim();
+}
+
+export type IntegrityRepairSeed = {
+  inflated: string[];
+  storedFailing: string[];
+  missing: string[];
+  affected: string[];
+  scanDates: string[];
+  collectDates: string[];
+};
+
+/**
+ * Seed repair from the current inflated query, Redis failingTimestamps, and
+ * missing half-hours on previously checked settlement dates.
+ */
+export function seedIntegrityRepair(options: {
+  inflatedTimestamps: Iterable<string>;
+  stored: StoredSnapshotIntegrity | null;
+  presentTimestamps: Iterable<string>;
+}): IntegrityRepairSeed {
+  const inflated = [...normalizeTimestampSet(options.inflatedTimestamps)].sort();
+  const storedFailing = [...normalizeTimestampSet(options.stored?.failingTimestamps ?? [])].sort();
+  const scanDates = settlementDatesForIntegrityRepair(options.stored, inflated);
+  const missing = missingSettlementTimestamps(scanDates, options.presentTimestamps);
+  const affected = [...normalizeTimestampSet([...inflated, ...storedFailing, ...missing])].sort();
+  return {
+    inflated,
+    storedFailing,
+    missing,
+    affected,
+    scanDates,
+    collectDates: settlementDatesForTimestamps(affected),
+  };
 }
 
 /**
