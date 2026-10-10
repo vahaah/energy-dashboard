@@ -325,6 +325,14 @@ export function documentedCoalEnd(): HistoricRecordPoint {
   return recordPoint(0, `${COAL_POWER_ENDED}T00:00:00`, COAL_RECORD_BASIS);
 }
 
+export function emptyRecordsWithDocumentedCoal(now = new Date()): GridRecords {
+  return {
+    ...EMPTY_RECORDS,
+    lastCoal: documentedCoalEnd(),
+    daysSinceCoal: daysSinceCoalPowerEnded(now),
+  };
+}
+
 export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridRecords {
   const sane = saneHistoricRows(rows);
   let maxWind: HistoricRecordPoint | null = null;

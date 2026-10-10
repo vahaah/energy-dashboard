@@ -16,6 +16,7 @@ describe("records page", () => {
     expect(source).not.toContain("1 MW of coal");
     expect(source).toContain("Ratcliffe-on-Soar");
     expect(source).toContain("COAL_POWER_ENDED_SOURCE");
+    expect(source).toContain("emptyRecordsWithDocumentedCoal");
     expect(source).not.toContain("100 MW or 0.5%");
     expect(
       readFileSync(resolve(import.meta.dirname, "../../components/records-card.tsx"), "utf8")

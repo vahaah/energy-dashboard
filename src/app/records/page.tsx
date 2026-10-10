@@ -12,7 +12,7 @@ import {
   buildHistoricPeriodView,
   COAL_POWER_ENDED,
   COAL_POWER_ENDED_SOURCE,
-  EMPTY_RECORDS,
+  emptyRecordsWithDocumentedCoal,
   type GridRecords,
   type HistoricRecordPoint,
 } from "@/lib/historic-mix";
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 export default async function RecordsPage() {
   const now = new Date();
   const [records, historic] = await Promise.all([
-    getGridRecords(now).catch(() => EMPTY_RECORDS),
+    getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
     getHistoricPeriodView("all", now).catch(() => buildHistoricPeriodView([])),
   ]);
 
@@ -113,7 +113,6 @@ export default async function RecordsPage() {
             value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
             whenLabel={records.lastCoal ? formatLondonDayMonthYear(COAL_POWER_ENDED) : undefined}
-            extra="Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. NESO historic mix still shows residual coal after that date; this record does not follow those readings."
           />
         </section>
 

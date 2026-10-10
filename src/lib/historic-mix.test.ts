@@ -5,6 +5,7 @@ import {
   COAL_POWER_ENDED,
   computeRecords,
   daysSinceCoalPowerEnded,
+  emptyRecordsWithDocumentedCoal,
   historicRecordsSql,
   historicRowToGeneration,
   historicWeeklySql,
@@ -272,6 +273,18 @@ describe("computeRecords", () => {
     expect(records.lastCoal?.basis).toContain("Ratcliffe-on-Soar");
     expect(records.daysSinceCoal).toBe(daysSinceCoalPowerEnded(new Date("2026-10-09T12:00:00.000Z")));
     expect(records.lastCoal?.timestampUtc).not.toBe("2026-09-23T10:30:00");
+  });
+
+  it("keeps the documented coal-end date when there are no NESO rows", () => {
+    const now = new Date("2026-10-09T12:00:00.000Z");
+    const fromEmpty = computeRecords([], now);
+    const fallback = emptyRecordsWithDocumentedCoal(now);
+
+    expect(fromEmpty.lastCoal?.timestampUtc).toBe(`${COAL_POWER_ENDED}T00:00:00`);
+    expect(fromEmpty.daysSinceCoal).toBe(daysSinceCoalPowerEnded(now));
+    expect(fallback.lastCoal?.timestampUtc).toBe(`${COAL_POWER_ENDED}T00:00:00`);
+    expect(fallback.daysSinceCoal).toBe(daysSinceCoalPowerEnded(now));
+    expect(fallback.maxWind).toBeNull();
   });
 });
 
