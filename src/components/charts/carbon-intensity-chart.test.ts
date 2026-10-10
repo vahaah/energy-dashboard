@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mergeCarbonSeries } from "@/components/charts/carbon-intensity-chart";
 import type { EnergySnapshot } from "@/lib/types";
@@ -45,5 +47,15 @@ describe("mergeCarbonSeries", () => {
       { time: "2026-10-10 11:30:00", actual: 76, forecast: 74 },
       { time: "2026-10-10 12:00:00", actual: null, forecast: 45 },
     ]);
+  });
+
+  it("keeps the g unit above the top y-axis tick", () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, "./carbon-intensity-chart.tsx"),
+      "utf8"
+    );
+    expect(source).toContain("chartYAxisUnitLabel");
+    expect(source).toContain("top: 24");
+    expect(source).not.toContain("offset: 8");
   });
 });

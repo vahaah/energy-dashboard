@@ -334,6 +334,32 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Wind is forecast");
   });
 
+  it("shows the carbon window and grams on the look-ahead strip", () => {
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={facts(rows)}
+        snapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        headlineSnapshots={[snapshot("2026-09-28 07:00:00", 24000)]}
+        generation={rows}
+        headlineGeneration={rows}
+        range="24h"
+        now={new Date("2026-09-28T07:10:00.000Z")}
+        lookAhead={{
+          ...emptyLookAhead(new Date("2026-10-10T12:00:00.000Z")),
+          greenest: {
+            startUtc: "2026-10-10T13:00Z",
+            endUtc: "2026-10-10T15:00Z",
+            grams: 43,
+            sentence: "Cleanest time to use power in the next 48 hours: 14:00–16:00 BST (≈43 g).",
+          },
+        }}
+      />
+    );
+
+    expect(html).toContain('href="#section-carbon"');
+    expect(html).toContain("14:00–16:00 BST (≈43 g).");
+  });
+
   it("shows missing sources as an em dash with a no-data note", () => {
     const staleEmbedded = [
       ...rows.filter((row) => row.fuel_type !== "embedded_wind"),

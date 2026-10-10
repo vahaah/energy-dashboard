@@ -27,7 +27,9 @@ describe("LookAheadStrip", () => {
     );
 
     expect(html).toContain('href="#section-carbon"');
-    expect(html).toContain("Cleanest time to use power in the next 48 hours");
+    expect(html).toContain(
+      "Cleanest time to use power in the next 48 hours: 14:00–16:00 BST (≈43 g)."
+    );
     expect(html).toContain("Wind is forecast to fall to 8.4 GW by tomorrow evening.");
     expect(html).toContain("Grid fetched 13:00 BST");
     expect(html).toContain("Elexon WINDFOR");
