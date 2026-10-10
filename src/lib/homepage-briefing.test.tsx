@@ -129,6 +129,27 @@ describe("homepage briefing", () => {
     expect(html).not.toContain("No data yet");
   });
 
+  it("uses latest facts.shares instead of summing the slimmed history", () => {
+    const manyRows = [
+      ...rows,
+      generation("2026-10-10 10:00:00", "wind", 16_000),
+      generation("2026-10-10 10:30:00", "wind", 16_000),
+    ];
+    const latest = facts(manyRows);
+    latest.shares = [
+      { fuel: "wind", mw: 16_000, sharePct: 70 },
+      { fuel: "gas", mw: 4000, sharePct: 17 },
+      { fuel: "nuclear", mw: 3000, sharePct: 13 },
+    ];
+    const cite = buildHomepageCite({ facts: latest, headlineSnapshots: [snapshot()] });
+    expect(cite.kind).toBe("numbers");
+    if (cite.kind !== "numbers") {
+      return;
+    }
+    expect(cite.topGw).toBe("16.0");
+    expect(cite.topSharePct).toBe("70");
+  });
+
   it("never uses the empty-state line when the payload is missing", () => {
     expect(homepageCitePlainText({ kind: "fallback" })).toBe(HOME_CITE_FALLBACK);
     expect(homepageCitePlainText({ kind: "fallback" })).not.toContain("No data yet");

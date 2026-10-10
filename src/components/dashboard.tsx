@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
@@ -110,10 +110,8 @@ function queryDateForPeriod(period: DashboardPeriod, date: string | null, today:
 
 export function Dashboard({
   initialPayload = null,
-  children,
 }: {
   initialPayload?: DashboardPayload | null;
-  children?: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
@@ -293,7 +291,7 @@ export function Dashboard({
   };
 
   return (
-    <div className="min-h-screen bg-background-100 text-gray-1000">
+    <div className="bg-background-100 text-gray-1000">
       <a
         href="#section-overview"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
@@ -348,8 +346,7 @@ export function Dashboard({
         ) : null}
         {facts.empty && facts.emptyState && generationData ? (
           <section id="section-overview" className="scroll-mt-28">
-            {children}
-            <Card className="mt-4">
+            <Card>
               <p className="text-copy-16 text-gray-900">{facts.emptyState.message}</p>
               <a
                 href={facts.emptyState.href}
@@ -361,9 +358,8 @@ export function Dashboard({
           </section>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            {children}
             {generationPeriod !== "day" ? (
-              <p className="mt-3 text-heading-24 text-gray-1000">{answer}</p>
+              <p className="text-heading-24 text-gray-1000">{answer}</p>
             ) : null}
             <Card
               id="section-generation"

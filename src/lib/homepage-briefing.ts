@@ -60,7 +60,11 @@ export function buildHomepageCite(input: {
   headlineSnapshots?: EnergySnapshot[];
 }): HomepageCite {
   const power = getDisplayedPower(input.facts, input.headlineSnapshots ?? []);
-  const shares = citeFuelShares(generationSharesFromRows(power.generationRows));
+  const shareSource =
+    input.facts.shares.length > 0
+      ? input.facts.shares
+      : generationSharesFromRows(power.generationRows);
+  const shares = citeFuelShares(shareSource);
   const top = [...shares].sort((left, right) => right.mw - left.mw)[0];
   const gas = shares.find((share) => share.fuel === "gas");
   const timestamp = input.facts.referenceTimestamp;
