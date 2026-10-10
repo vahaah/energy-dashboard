@@ -30,11 +30,11 @@ export function RecordsCard({ records }: { records: GridRecords }) {
         help={`${records.lowestCarbon?.basis ?? "Lowest carbon half-hour."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
       />
       <RecordStat
-        label="Days without coal"
+        label="Days since coal power ended"
         value={records.daysSinceCoal == null ? "—" : String(records.daysSinceCoal)}
         unit=""
         when={records.lastCoal?.timestampUtc}
-        help={`${records.lastCoal?.basis ?? "Days since the last coal half-hour."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
+        help={`${records.lastCoal?.basis ?? "Days since coal power ended."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
       />
       <p className="text-label-12 text-gray-900 sm:col-span-2 xl:col-span-4">
         <Link href="/records" className="text-blue-700 underline-offset-2 hover:underline">

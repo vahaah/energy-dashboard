@@ -8,7 +8,9 @@ export const NESO_HISTORIC_SQL_URL = "https://api.neso.energy/api/3/action/datas
 export const MAX_WIND_MW = 30_000;
 export const MAX_SOLAR_MW = 20_000;
 export const SHARE_SUM_TOLERANCE_PCT = 5;
-export const COAL_ACTIVE_MW = 1;
+export const COAL_ENDED_MW = 100;
+export const COAL_ENDED_SHARE_PCT = 0.5;
+export const COAL_CONSECUTIVE_MS = 30 * 60 * 1000;
 export const WIND_MILESTONE_START_GW = 10;
 export const NESO_HISTORIC_START_YEAR = 2009;
 
@@ -19,7 +21,7 @@ export const SOLAR_RECORD_BASIS =
   "NESO historic mix solar, including embedded solar. Not the Sheffield Solar PV Live series.";
 export const CARBON_RECORD_BASIS = "Half-hour carbon intensity from NESO historic generation mix.";
 export const COAL_RECORD_BASIS =
-  "Last half-hour with more than 1 MW of coal in the NESO historic mix after sanity filters.";
+  "Last consecutive half-hour at or above 100 MW or 0.5% coal share in the NESO historic mix. Isolated residual readings are ignored.";
 
 const SHARE_FIELDS = [
   "GAS_perc",
@@ -282,6 +284,37 @@ export function saneHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[] {
   return rows.filter((row) => isSaneHistoricRow(row));
 }
 
+export function isCoalOperating(row: NesoHistoricRow): boolean {
+  return (row.COAL ?? 0) >= COAL_ENDED_MW || (row.COAL_perc ?? 0) >= COAL_ENDED_SHARE_PCT;
+}
+
+function isWithinCoalCluster(time: number, other: NesoHistoricRow | undefined): boolean {
+  if (other == null) {
+    return false;
+  }
+  return Math.abs(parseUtcDateTime(other.DATETIME).getTime() - time) <= COAL_CONSECUTIVE_MS;
+}
+
+export function lastSustainedCoalRow(rows: NesoHistoricRow[]): NesoHistoricRow | null {
+  const operating = rows.filter(isCoalOperating).sort((left, right) =>
+    left.DATETIME.localeCompare(right.DATETIME)
+  );
+
+  for (let index = operating.length - 1; index >= 0; index -= 1) {
+    const current = operating.at(index);
+    if (current == null) {
+      return null;
+    }
+    const time = parseUtcDateTime(current.DATETIME).getTime();
+    const previous = index > 0 ? operating.at(index - 1) : undefined;
+    if (isWithinCoalCluster(time, previous) || isWithinCoalCluster(time, operating.at(index + 1))) {
+      return current;
+    }
+  }
+
+  return null;
+}
+
 function recordPoint(
   value: number,
   timestampUtc: string,
@@ -297,7 +330,6 @@ export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridR
   let lowestCarbon: HistoricRecordPoint | null = null;
   let highestRenewableShare: HistoricRecordPoint | null = null;
   let highestZeroCarbonShare: HistoricRecordPoint | null = null;
-  let lastCoal: HistoricRecordPoint | null = null;
   const firstAboveGw = new Map<number, string>();
 
   for (const row of sane) {
@@ -338,12 +370,6 @@ export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridR
       );
     }
 
-    if ((row.COAL ?? 0) > COAL_ACTIVE_MW) {
-      if (lastCoal == null || row.DATETIME > lastCoal.timestampUtc) {
-        lastCoal = recordPoint(row.COAL ?? 0, row.DATETIME, COAL_RECORD_BASIS);
-      }
-    }
-
     const windGw = Math.floor(wind / 1000);
     for (let gw = WIND_MILESTONE_START_GW; gw <= windGw; gw += 1) {
       const existing = firstAboveGw.get(gw);
@@ -356,6 +382,12 @@ export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridR
   const windMilestones = [...firstAboveGw.entries()]
     .sort((left, right) => left[0] - right[0])
     .map(([gw, timestampUtc]) => ({ gw, timestampUtc }));
+
+  const lastCoalRow = lastSustainedCoalRow(sane);
+  const lastCoal =
+    lastCoalRow == null
+      ? null
+      : recordPoint(lastCoalRow.COAL ?? 0, lastCoalRow.DATETIME, COAL_RECORD_BASIS);
 
   const daysSinceCoal =
     lastCoal == null
@@ -687,7 +719,7 @@ export function historicRecordsSql(): string {
     'SELECT * FROM sane WHERE "ZERO_CARBON_perc" <= 100 ORDER BY "ZERO_CARBON_perc" DESC LIMIT 5',
     'SELECT * FROM sane WHERE "GENERATION" > 0 AND "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND "SOLAR" IS NOT NULL AND "HYDRO" IS NOT NULL AND "NUCLEAR" IS NOT NULL ORDER BY (("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR") / "GENERATION") DESC LIMIT 5',
     'SELECT * FROM sane WHERE "RENEWABLE_perc" <= 100 ORDER BY "RENEWABLE_perc" DESC LIMIT 5',
-    `SELECT * FROM sane WHERE "COAL" > ${COAL_ACTIVE_MW} ORDER BY "DATETIME" DESC LIMIT 5`,
+    `SELECT * FROM sane WHERE "COAL" >= ${COAL_ENDED_MW} OR "COAL_perc" >= ${COAL_ENDED_SHARE_PCT} ORDER BY "DATETIME" DESC LIMIT 24`,
   ];
 
   for (let gw = WIND_MILESTONE_START_GW; gw <= 30; gw += 1) {

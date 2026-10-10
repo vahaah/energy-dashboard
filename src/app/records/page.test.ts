@@ -11,5 +11,12 @@ describe("records page", () => {
     expect(source).toContain("NESO_OPEN_DATA_ATTRIBUTION");
     expect(source).toContain("export const revalidate = 86_400");
     expect(source).toContain("First time above N GW");
+    expect(source).toContain("Days since coal power ended");
+    expect(source).not.toContain("Days without coal");
+    expect(source).not.toContain("1 MW of coal");
+    expect(source).toContain("100 MW or 0.5%");
+    expect(
+      readFileSync(resolve(import.meta.dirname, "../../components/records-card.tsx"), "utf8")
+    ).toContain("Days since coal power ended");
   });
 });
