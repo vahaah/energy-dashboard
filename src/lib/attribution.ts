@@ -29,8 +29,6 @@ export const CARBON_INTENSITY_ATTRIBUTION =
 export const CARBON_INTENSITY_FORECAST_NOTE =
   "Grid shows a derived cleanest-window answer from the 48-hour forecast. The raw forecast series is not republished.";
 
-export const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
-
 export const PV_LIVE_URL = "https://www.solar.sheffield.ac.uk/pvlive/";
 
 export const PV_LIVE_ATTRIBUTION =
