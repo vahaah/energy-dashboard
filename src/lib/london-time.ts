@@ -180,6 +180,26 @@ export function formatLondonDateTimeStamp(date: Date): string {
   return `${weekday} ${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}, ${hh}:${mm} ${getLondonOffsetLabel(date)}`;
 }
 
+export function formatLondonCiteDate(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  const weekday = partValue(londonWeekdayFormatter.formatToParts(date), "weekday");
+  return `${weekday} ${parts.day} ${LONDON_MONTHS[parts.month - 1]} ${parts.year}`;
+}
+
+export function formatLondonIsoOffset(date: Date): string {
+  const parts = getLondonDateTimeParts(date);
+  const offsetMs = getTimeZoneOffsetMs(date, LONDON_TIME_ZONE);
+  const sign = offsetMs >= 0 ? "+" : "-";
+  const absolute = Math.abs(offsetMs);
+  const offsetHours = String(Math.floor(absolute / 3_600_000)).padStart(2, "0");
+  const offsetMinutes = String(Math.floor((absolute % 3_600_000) / 60_000)).padStart(2, "0");
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}:${pad2(parts.second)}${sign}${offsetHours}:${offsetMinutes}`;
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 export function parseUtcDateTime(value: string): Date {
   if (value.endsWith("Z") || value.includes("+") || value.includes("T")) {
     const normalized = value.includes("T") ? value : value.replace(" ", "T");

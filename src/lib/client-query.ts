@@ -96,6 +96,19 @@ export function revalidateAllQueries(): void {
   }
 }
 
+export function seedQuery<T>(key: string, data: T): void {
+  const existing = getQueryEntry<T>(key);
+  if (existing?.data !== undefined) {
+    return;
+  }
+  cache.set(key, {
+    data,
+    error: undefined,
+    promise: undefined,
+    updatedAt: Date.now(),
+  });
+}
+
 export function revalidateQuery(key: string): void {
   const fetcher = fetchers.get(key);
   if (!fetcher) {
