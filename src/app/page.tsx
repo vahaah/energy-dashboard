@@ -5,18 +5,18 @@ import { Dashboard } from "@/components/dashboard";
 import { HomepageBriefing } from "@/components/homepage-briefing";
 import { JsonLd } from "@/components/json-ld";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
-import { isLatestDashboardDate } from "@/lib/dashboard-search-params";
 import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_TWITTER_CARD } from "@/lib/site";
 
 /**
- * Homepage shell. Default-period ("day") headline copy is a Server Component so
- * the H1 and cite sentence are real HTML for crawlers. Chart range switching
- * stays client-side after hydrate from the same cached dashboard payload.
+ * Homepage shell. Static/ISR so the CDN can HIT `/`. Headline copy is a Server
+ * Component so the H1 and cite sentence are real HTML for crawlers. `?date=`
+ * is hidden on the client only — the canonical strips it.
  */
-export const revalidate = 3600;
+export const revalidate = 300;
+export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: HOME_TITLE,
@@ -35,25 +35,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ date?: string | string[] }>;
-}) {
-  const params = await searchParams;
-  const showLiveBriefing = isLatestDashboardDate(params.date);
+export default async function Home() {
   const payload = await loadHomepagePayload();
-  const cite = homepageCiteFromPayload(showLiveBriefing ? payload : null);
-  const briefing = showLiveBriefing ? <HomepageBriefing cite={cite} /> : null;
+  const cite = homepageCiteFromPayload(payload);
+  const briefing = <HomepageBriefing cite={cite} />;
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
-      <JsonLd data={homepageJsonLd(showLiveBriefing ? (payload?.facts ?? null) : null)} />
+      <JsonLd data={homepageJsonLd(payload?.facts ?? null)} />
       <Suspense
         fallback={
           <div className="min-h-0 bg-background-100">
             <HomepageFallbackHeader />
-            {briefing ? <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{briefing}</div> : null}
+            <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{briefing}</div>
           </div>
         }
       >

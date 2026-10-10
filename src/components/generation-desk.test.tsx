@@ -155,7 +155,8 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("Imbalance price");
     expect(dashboardSource).not.toContain("Carbon pulse");
     expect(dashboardSource).not.toContain("KpiCard");
-    expect(pageSource).toContain("export const revalidate = 3600");
+    expect(pageSource).toContain("export const revalidate = 300");
+    expect(pageSource).toContain('export const dynamic = "force-static"');
     expect(pageSource).toContain("HomepageBriefing");
     expect(pageSource).toContain("<Suspense");
     expect(pageSource).not.toContain("/api/dashboard?period=day");
