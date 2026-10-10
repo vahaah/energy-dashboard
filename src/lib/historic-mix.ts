@@ -658,6 +658,18 @@ export function rowsSinceHistoricStart(rows: NesoHistoricRow[]): NesoHistoricRow
 
 export const NESO_SANITY_SQL = '"GENERATION" > 0';
 
+const NESO_EXCLUDE_TIMESTAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+export function nesoIntegrityExcludeSql(excludeTimestamps: Iterable<string> = []): string {
+  const keys = [...normalizeTimestampSet(excludeTimestamps)].filter((key) =>
+    NESO_EXCLUDE_TIMESTAMP.test(key)
+  );
+  if (keys.length === 0) {
+    return "";
+  }
+  return ` AND replace("DATETIME", 'T', ' ') NOT IN (${keys.map((key) => `'${key}'`).join(",")})`;
+}
+
 const NESO_RECORD_COLUMNS = [
   '"DATETIME"',
   '"GAS"',
@@ -715,7 +727,7 @@ export function historicWeeklySql(): string {
   ].join(" ");
 }
 
-export function historicRecordsSql(): string {
+export function historicRecordsSql(excludeTimestamps: Iterable<string> = []): string {
   const parts = [
     `SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND ("WIND" + "WIND_EMB") <= ${MAX_WIND_MW} ORDER BY ("WIND" + "WIND_EMB") DESC LIMIT 5`,
     `SELECT * FROM sane WHERE "SOLAR" IS NOT NULL AND "SOLAR" <= ${MAX_SOLAR_MW} ORDER BY "SOLAR" DESC LIMIT 5`,
@@ -732,7 +744,7 @@ export function historicRecordsSql(): string {
   }
 
   return [
-    `WITH sane AS (SELECT ${NESO_RECORD_COLUMNS} FROM "${NESO_HISTORIC_RESOURCE_ID}" WHERE ${NESO_SANITY_SQL})`,
+    `WITH sane AS (SELECT ${NESO_RECORD_COLUMNS} FROM "${NESO_HISTORIC_RESOURCE_ID}" WHERE ${NESO_SANITY_SQL}${nesoIntegrityExcludeSql(excludeTimestamps)})`,
     parts.map((part) => `(${part})`).join(" UNION ALL "),
   ].join(" ");
 }

@@ -25,8 +25,20 @@ describe("yesterday settlement heal", () => {
     expect(route).toContain("yesterdayLondonDate");
     expect(route).toContain("sourceStatusesHaveFailure");
     expect(route).toContain("recordSnapshotIntegrity");
+    expect(route).toContain("integrityReportForWrittenRows");
     expect(route).toContain("integritySourceStatus");
+    expect(route.indexOf('await ingestRows("energy_snapshots"')).toBeLessThan(
+      route.lastIndexOf("recordSnapshotIntegrity")
+    );
+    expect(route.indexOf('await ingestRows("generation_5min"')).toBeLessThan(
+      route.lastIndexOf("recordSnapshotIntegrity")
+    );
     expect(route).toContain("status: failed ? 503 : 200");
+
+    const hourly = readFileSync(resolve(process.cwd(), "src/app/api/cron/route.ts"), "utf8");
+    expect(hourly).toContain("integritySourceStatus");
+    expect(hourly).toContain("emptyIntegrityReport");
+    expect(hourly).toContain("status: failed ? 503 : 200");
     expect(route).toContain("invalidateAndWarm(now, { historical: true })");
     expect(route).not.toContain('revalidateTag(DASHBOARD_CACHE_TAG, "max")');
 

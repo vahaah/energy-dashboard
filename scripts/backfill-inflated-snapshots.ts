@@ -12,7 +12,11 @@ import { resolve } from "node:path";
 import { collectSnapshotsForSettlementDate } from "../src/lib/ingest/collect-grid";
 import { describeCollection } from "../src/lib/ingest/backfill-report";
 import { getLondonDate, parseUtcDateTime } from "../src/lib/london-time";
-import { inflatedFuelsForRow, integrityTimestampKey } from "../src/lib/snapshot-integrity";
+import {
+  inflatedFuelsForRow,
+  integrityTimestampKey,
+  missingAffectedTimestamps,
+} from "../src/lib/snapshot-integrity";
 import { queryInflatedSnapshots } from "../src/lib/tinybird-sql";
 
 config({ path: resolve(import.meta.dirname, "..", ".env.local") });
@@ -75,6 +79,7 @@ async function main() {
   }
 
   let wouldWrite = 0;
+  const written: Record<string, unknown>[] = [];
   for (const settlementDate of dates) {
     process.stdout.write(`   ${settlementDate} `);
     const result = await collectSnapshotsForSettlementDate(settlementDate);
@@ -85,12 +90,23 @@ async function main() {
     if (rows.length > 0) {
       await ingestRows("energy_snapshots", rows);
       wouldWrite += rows.length;
+      written.push(...rows);
     }
     process.stdout.write(`${rows.length} affected / ${describeCollection(result)}\n`);
     await sleep(300);
   }
 
+  const missing = missingAffectedTimestamps(affected, written);
   console.log(`\n   ${dryRun ? "Would write" : "Wrote"} ${wouldWrite} of ${affected.size} affected rows\n`);
+  if (missing.length > 0) {
+    console.error(`   Uncorrected affected timestamps: ${missing.length}`);
+    for (const timestamp of missing.slice(0, 12)) {
+      console.error(`   ${timestamp}`);
+    }
+    if (execute) {
+      process.exit(1);
+    }
+  }
   if (dryRun) {
     console.log("Re-run with --execute after review. Do not run from CI or agents.\n");
   }

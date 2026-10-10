@@ -79,11 +79,13 @@ const cachedWeeklyRows = unstable_cache(
   { revalidate: NESO_HISTORIC_REVALIDATE_SECONDS, tags: [NESO_HISTORIC_CACHE_TAG] }
 );
 
-const cachedRecordRows = unstable_cache(
-  async () => fetchNesoSql(historicRecordsSql()),
-  ["neso-historic-records"],
-  { revalidate: NESO_HISTORIC_REVALIDATE_SECONDS, tags: [NESO_HISTORIC_CACHE_TAG] }
-);
+function cachedRecordRows(excludeTimestamps: string[]) {
+  return unstable_cache(
+    async () => fetchNesoSql(historicRecordsSql(excludeTimestamps)),
+    ["neso-historic-records", ...excludeTimestamps],
+    { revalidate: NESO_HISTORIC_REVALIDATE_SECONDS, tags: [NESO_HISTORIC_CACHE_TAG] }
+  )();
+}
 
 export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> => {
   return readThroughCache(
@@ -96,13 +98,14 @@ export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> 
 export const getGridRecords = cache(async (now = new Date()): Promise<GridRecords> => {
   try {
     await getHistoricWeeklyRows();
-    const rows = await readThroughCache(
-      externalCacheKey("neso-historic", ["records"]),
-      historicalCachePolicy(),
-      () => cachedRecordRows()
-    );
     const stored = await readSnapshotIntegrity();
-    return computeRecords(rows, now, stored?.failingTimestamps ?? []);
+    const excludeTimestamps = stored?.failingTimestamps ?? [];
+    const rows = await readThroughCache(
+      externalCacheKey("neso-historic", ["records", ...excludeTimestamps]),
+      historicalCachePolicy(),
+      () => cachedRecordRows(excludeTimestamps)
+    );
+    return computeRecords(rows, now, excludeTimestamps);
   } catch {
     return emptyRecordsWithDocumentedCoal(now);
   }

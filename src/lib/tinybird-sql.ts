@@ -19,10 +19,22 @@ function tinybirdApiUrl(): string {
   return process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
 }
 
-function tinybirdToken(): string {
-  const token = process.env.TINYBIRD_READ_TOKEN ?? process.env.TINYBIRD_TOKEN ?? "";
+export function tinybirdSqlToken(
+  env: Record<string, string | undefined> = process.env
+): string {
+  const token = env.TINYBIRD_TOKEN ?? env.TINYBIRD_READ_TOKEN ?? "";
   if (!token) {
     throw new Error("TINYBIRD_TOKEN or TINYBIRD_READ_TOKEN is not set");
+  }
+  return token;
+}
+
+export function tinybirdReadToken(
+  env: Record<string, string | undefined> = process.env
+): string {
+  const token = env.TINYBIRD_READ_TOKEN ?? "";
+  if (!token) {
+    throw new Error("TINYBIRD_READ_TOKEN is not set");
   }
   return token;
 }
@@ -31,7 +43,7 @@ export async function queryTinybirdSql<T>(sql: string): Promise<T[]> {
   const response = await fetch(`${tinybirdApiUrl()}/v0/sql`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${tinybirdToken()}`,
+      Authorization: `Bearer ${tinybirdSqlToken()}`,
       "Content-Type": "text/plain",
     },
     body: sql,
@@ -62,7 +74,7 @@ export async function queryTinybirdPipe<T>(
   }
 
   const response = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${tinybirdToken()}` },
+    headers: { Authorization: `Bearer ${tinybirdReadToken()}` },
   });
 
   if (!response.ok) {

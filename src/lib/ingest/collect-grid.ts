@@ -249,26 +249,66 @@ export function generationMwWithinPlausibleMaxima(fuels: Record<string, number>)
   return true;
 }
 
+export function splitsCoverAggregate(
+  aggregateQuantity: number,
+  splitQuantities: number[],
+  expectedSplitCount: number
+): boolean {
+  if (splitQuantities.length === 0) {
+    return false;
+  }
+  if (expectedSplitCount > 0 && splitQuantities.length >= expectedSplitCount) {
+    return true;
+  }
+  return splitQuantities.reduce((sum, quantity) => sum + quantity, 0) >= aggregateQuantity;
+}
+
 export function dropAggregatePsrDuplicates(
   latestByPeriodAndPsr: Map<string, ElexonGeneration>
 ): Map<string, ElexonGeneration> {
-  const psrTypesByPeriod = new Map<string, Set<string>>();
-  for (const row of latestByPeriodAndPsr.values()) {
+  const rowsByPeriod = new Map<string, Array<{ key: string; row: ElexonGeneration }>>();
+  for (const [key, row] of latestByPeriodAndPsr) {
     const timestamp = generationPeriodKey(row);
-    const types = psrTypesByPeriod.get(timestamp) ?? new Set<string>();
-    types.add(row.psrType);
-    psrTypesByPeriod.set(timestamp, types);
+    const list = rowsByPeriod.get(timestamp) ?? [];
+    list.push({ key, row });
+    rowsByPeriod.set(timestamp, list);
+  }
+
+  const dropKeys = new Set<string>();
+  for (const entries of rowsByPeriod.values()) {
+    for (const { key, row } of entries) {
+      const splits = AGGREGATE_PSR_WHEN_SPLITS[row.psrType];
+      if (!splits) {
+        continue;
+      }
+      const splitEntries = entries.filter((entry) => splits.includes(entry.row.psrType));
+      if (
+        splitsCoverAggregate(
+          row.quantity,
+          splitEntries.map((entry) => entry.row.quantity),
+          splits.length
+        )
+      ) {
+        dropKeys.add(key);
+        continue;
+      }
+      if (splitEntries.length === 0) {
+        continue;
+      }
+      const aggregateFuel = mapElexonFuel(row.psrType);
+      for (const split of splitEntries) {
+        if (mapElexonFuel(split.row.psrType) === aggregateFuel) {
+          dropKeys.add(split.key);
+        }
+      }
+    }
   }
 
   const kept = new Map<string, ElexonGeneration>();
   for (const [key, row] of latestByPeriodAndPsr) {
-    const timestamp = generationPeriodKey(row);
-    const types = psrTypesByPeriod.get(timestamp);
-    const splits = AGGREGATE_PSR_WHEN_SPLITS[row.psrType];
-    if (types && splits?.some((psrType) => types.has(psrType))) {
-      continue;
+    if (!dropKeys.has(key)) {
+      kept.set(key, row);
     }
-    kept.set(key, row);
   }
   return kept;
 }

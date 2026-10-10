@@ -313,9 +313,13 @@ export async function readSnapshotIntegrity(): Promise<StoredSnapshotIntegrity |
   if (!redis) {
     return null;
   }
-  return parseStoredIntegrity(
-    await redis.get<StoredSnapshotIntegrity | string>(SNAPSHOT_INTEGRITY_REDIS_KEY)
-  );
+  try {
+    return parseStoredIntegrity(
+      await redis.get<StoredSnapshotIntegrity | string>(SNAPSHOT_INTEGRITY_REDIS_KEY)
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function recordSnapshotIntegrity(report: SnapshotIntegrityReport): Promise<StoredSnapshotIntegrity> {
@@ -324,8 +328,42 @@ export async function recordSnapshotIntegrity(report: SnapshotIntegrityReport): 
   if (!redis) {
     return merged;
   }
-  await redis.set(SNAPSHOT_INTEGRITY_REDIS_KEY, JSON.stringify(merged));
+  try {
+    await redis.set(SNAPSHOT_INTEGRITY_REDIS_KEY, JSON.stringify(merged));
+  } catch {
+    return merged;
+  }
   return merged;
+}
+
+export function writtenIntegrityTimestamps(rows: SnapshotLike[]): string[] {
+  return [...normalizeTimestampSet(
+    rows.flatMap((row) => (typeof row.timestamp === "string" ? [row.timestamp] : []))
+  )].sort();
+}
+
+/** Persist only timestamps that reached Tinybird; keep unwritten failures. */
+export function integrityReportForWrittenRows(
+  report: SnapshotIntegrityReport,
+  writtenRows: SnapshotLike[]
+): SnapshotIntegrityReport {
+  const written = normalizeTimestampSet(writtenIntegrityTimestamps(writtenRows));
+  return {
+    ...report,
+    checkedTimestamps: [...written].sort(),
+    failing: report.failing.filter((finding) => !written.has(integrityTimestampKey(finding.timestamp))),
+  };
+}
+
+export function missingAffectedTimestamps(
+  affected: Iterable<string>,
+  writtenRows: SnapshotLike[]
+): string[] {
+  const remaining = normalizeTimestampSet(affected);
+  for (const timestamp of writtenIntegrityTimestamps(writtenRows)) {
+    remaining.delete(timestamp);
+  }
+  return [...remaining].sort();
 }
 
 /**
@@ -355,21 +393,37 @@ WITH snaps AS (
   WHERE demand_mw > 0
     AND (${generationExpr}) > ${GENERATION_OVER_DEMAND_DIAGNOSTIC} * demand_mw
 ),
-fuelinst AS (
+fuelinst_5min AS (
   SELECT
     toStartOfInterval(timestamp, INTERVAL 30 minute) AS period,
-    avgIf(generation_mw, fuel_type IN ('ccgt', 'ocgt')) AS fuelinst_gas_mw,
-    avgIf(generation_mw, fuel_type = 'coal') AS fuelinst_coal_mw,
-    avgIf(generation_mw, fuel_type = 'nuclear') AS fuelinst_nuclear_mw,
-    avgIf(generation_mw, fuel_type = 'wind') AS fuelinst_wind_mw,
-    avgIf(generation_mw, fuel_type = 'solar') AS fuelinst_solar_mw,
-    avgIf(generation_mw, fuel_type = 'npshyd') AS fuelinst_hydro_mw,
-    avgIf(generation_mw, fuel_type = 'biomass') AS fuelinst_biomass_mw,
-    avgIf(generation_mw, fuel_type IN ('other', 'oil')) AS fuelinst_other_mw,
-    avgIf(generation_mw, fuel_type = 'ps') AS fuelinst_pumped_mw
+    timestamp,
+    sumIf(generation_mw, fuel_type IN ('ccgt', 'ocgt')) AS gas_mw,
+    sumIf(generation_mw, fuel_type = 'coal') AS coal_mw,
+    sumIf(generation_mw, fuel_type = 'nuclear') AS nuclear_mw,
+    sumIf(generation_mw, fuel_type = 'wind') AS wind_mw,
+    sumIf(generation_mw, fuel_type = 'solar') AS solar_mw,
+    sumIf(generation_mw, fuel_type = 'npshyd') AS hydro_mw,
+    sumIf(generation_mw, fuel_type = 'biomass') AS biomass_mw,
+    sumIf(generation_mw, fuel_type IN ('other', 'oil')) AS other_mw,
+    sumIf(generation_mw, fuel_type = 'ps') AS pumped_mw
   FROM generation_5min FINAL
   WHERE source = 'fuelinst'
     AND toStartOfInterval(timestamp, INTERVAL 30 minute) IN (SELECT timestamp FROM snaps)
+  GROUP BY period, timestamp
+),
+fuelinst AS (
+  SELECT
+    period,
+    avg(gas_mw) AS fuelinst_gas_mw,
+    avg(coal_mw) AS fuelinst_coal_mw,
+    avg(nuclear_mw) AS fuelinst_nuclear_mw,
+    avg(wind_mw) AS fuelinst_wind_mw,
+    avg(solar_mw) AS fuelinst_solar_mw,
+    avg(hydro_mw) AS fuelinst_hydro_mw,
+    avg(biomass_mw) AS fuelinst_biomass_mw,
+    avg(other_mw) AS fuelinst_other_mw,
+    avg(pumped_mw) AS fuelinst_pumped_mw
+  FROM fuelinst_5min
   GROUP BY period
 )
 SELECT

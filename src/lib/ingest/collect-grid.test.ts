@@ -11,6 +11,7 @@ import {
   groupGenerationMwByPeriod,
   snapshotCollectionFromSources,
   snapshotRowReadyToIngest,
+  splitsCoverAggregate,
   withSettlementDateCoverage,
 } from "@/lib/ingest/collect-grid";
 import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
@@ -315,6 +316,13 @@ describe("AGPT generation de-duplication", () => {
     });
   });
 
+  it("treats split fuels as covering an aggregate only when they are complete", () => {
+    expect(splitsCoverAggregate(16_151, [7_778], 2)).toBe(false);
+    expect(splitsCoverAggregate(16_151, [7_778, 8_373], 2)).toBe(true);
+    expect(splitsCoverAggregate(400, [200, 180], 3)).toBe(false);
+    expect(splitsCoverAggregate(400, [400], 3)).toBe(true);
+  });
+
   it("drops a combined Wind row when onshore and offshore are already present", () => {
     const byTime = generationMwByPeriod([
       agpt({
@@ -335,6 +343,48 @@ describe("AGPT generation de-duplication", () => {
     ]);
 
     expect(byTime.get("2025-11-18 12:30:00")?.wind).toBe(16_151);
+  });
+
+  it("keeps combined Wind when only onshore is present", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        startTime: "2025-11-18T12:30:00Z",
+        psrType: "Wind",
+        quantity: 16_151,
+      }),
+      agpt({
+        startTime: "2025-11-18T12:30:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7_778,
+      }),
+    ]);
+
+    expect(byTime.get("2025-11-18 12:30:00")?.wind).toBe(16_151);
+  });
+
+  it("keeps combined Hydro when run-of-river alone does not cover it", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Hydro",
+        quantity: 400,
+      }),
+      agpt({
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Hydro Run-of-river and poundage",
+        quantity: 200,
+      }),
+      agpt({
+        startTime: "2026-07-02T12:00:00Z",
+        psrType: "Hydro Pumped Storage",
+        quantity: 180,
+      }),
+    ]);
+
+    expect(byTime.get("2026-07-02 12:00:00")).toEqual({
+      hydro: 400,
+      pumped: 180,
+    });
   });
 
   it("keeps Hydro Pumped Storage out of hydro", () => {

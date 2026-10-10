@@ -19,12 +19,15 @@ describe("NESO historic request", () => {
   it("loads weekly rows before records so the two NESO calls stay serial", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./neso-historic.ts"), "utf8");
     expect(source).toContain("await getHistoricWeeklyRows()");
-    expect(source).toContain("() => cachedRecordRows()");
+    expect(source).toContain("() => cachedRecordRows(excludeTimestamps)");
+    expect(source).toContain("historicRecordsSql(excludeTimestamps)");
+    expect(source.indexOf("readSnapshotIntegrity")).toBeLessThan(
+      source.indexOf("historicRecordsSql(excludeTimestamps)")
+    );
     expect(source.indexOf("await getHistoricWeeklyRows()")).toBeLessThan(
-      source.indexOf("() => cachedRecordRows()")
+      source.indexOf("() => cachedRecordRows(excludeTimestamps)")
     );
     expect(source).toContain("emptyRecordsWithDocumentedCoal");
-    expect(source).toContain("readSnapshotIntegrity");
     expect(source).toContain("stored?.failingTimestamps");
     expect(source).not.toContain("residualCoalAfterPowerEnded");
     expect(source).not.toContain("console.info");

@@ -27,5 +27,8 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain("const dryRun = !execute");
     expect(source).toContain("affected.has(timestamp)");
     expect(source).toContain("collectSnapshotsForSettlementDate");
+    expect(source).toContain("missingAffectedTimestamps");
+    expect(source).toContain("if (execute)");
+    expect(source).toContain("process.exit(1)");
   });
 });

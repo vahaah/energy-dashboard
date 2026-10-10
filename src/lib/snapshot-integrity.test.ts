@@ -7,8 +7,11 @@ import {
   inflatedSnapshotFromWideRow,
   inflatedSnapshotSql,
   inspectSnapshotRows,
+  integrityReportForWrittenRows,
   integrityTimestampKey,
   mergeStoredIntegrity,
+  missingAffectedTimestamps,
+  readSnapshotIntegrity,
   recordSnapshotIntegrity,
   snapshotDomesticGenerationMw,
   snapshotIntegrityIssues,
@@ -126,6 +129,59 @@ describe("snapshot integrity", () => {
     expect(integrityTimestampKey("2025-11-18T12:30:00.000Z")).toBe("2025-11-18 12:30:00");
   });
 
+  it("treats Redis get/set failures as non-fatal so ingest can continue", async () => {
+    setRedisForTests({
+      get: async () => {
+        throw new Error("timeout");
+      },
+      set: async () => {
+        throw new Error("timeout");
+      },
+      del: async () => 1,
+      incr: async () => 1,
+    });
+
+    const report = inspectSnapshotRows([
+      snapshot({
+        timestamp: "2025-11-18 12:30:00",
+        gen_wind_mw: 24_000,
+        gen_solar_mw: 16_000,
+        gen_gas_mw: 20_000,
+        gen_nuclear_mw: 8_000,
+        gen_biomass_mw: 4_000,
+      }),
+    ]);
+    await expect(readSnapshotIntegrity()).resolves.toBeNull();
+    await expect(recordSnapshotIntegrity(report)).resolves.toMatchObject({
+      failingTimestamps: ["2025-11-18 12:30:00"],
+    });
+  });
+
+  it("persists only written timestamps and keeps unwritten failures", () => {
+    const failing = snapshot({
+      timestamp: "2025-11-18 12:30:00",
+      gen_wind_mw: 24_000,
+      gen_solar_mw: 16_000,
+      gen_gas_mw: 20_000,
+      gen_nuclear_mw: 8_000,
+      gen_biomass_mw: 4_000,
+    });
+    const ok = snapshot({ timestamp: "2025-11-18 13:00:00" });
+    const report = inspectSnapshotRows([failing, ok]);
+    const persisted = integrityReportForWrittenRows(report, [ok]);
+
+    expect(persisted.checkedTimestamps).toEqual(["2025-11-18 13:00:00"]);
+    expect(persisted.failing.map((finding) => finding.timestamp)).toEqual(["2025-11-18 12:30:00"]);
+
+    const previous = mergeStoredIntegrity(null, inspectSnapshotRows([failing, ok]));
+    expect(mergeStoredIntegrity(previous, persisted).failingTimestamps).toEqual([
+      "2025-11-18 12:30:00",
+    ]);
+    expect(missingAffectedTimestamps(["2025-11-18 12:30:00", "2025-11-18 13:00:00"], [ok])).toEqual([
+      "2025-11-18 12:30:00",
+    ]);
+  });
+
   it("builds one Tinybird SQL statement that joins FUELINST and uses FINAL", () => {
     const sql = inflatedSnapshotSql();
     expect(sql).toContain("energy_snapshots FINAL");
@@ -133,6 +189,10 @@ describe("snapshot integrity", () => {
     expect(sql).toContain(String(GENERATION_OVER_DEMAND_DIAGNOSTIC));
     expect(sql).toContain(String(GENERATION_OVER_DEMAND_LIMIT));
     expect(sql).toContain("source = 'fuelinst'");
+    expect(sql).toContain("sumIf(generation_mw, fuel_type IN ('ccgt', 'ocgt'))");
+    expect(sql).toContain("sumIf(generation_mw, fuel_type IN ('other', 'oil'))");
+    expect(sql).toContain("avg(gas_mw) AS fuelinst_gas_mw");
+    expect(sql.indexOf("fuelinst_5min")).toBeLessThan(sql.indexOf("avg(gas_mw)"));
     expect(sql.match(/FROM energy_snapshots FINAL/g)).toHaveLength(1);
     expect(inflatedFuelsForRow({ wind_inflated: 1, gas_inflated: 0 } as InflatedSnapshotRow)).toEqual([
       "wind",

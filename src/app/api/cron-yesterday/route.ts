@@ -6,7 +6,12 @@ import { sourceStatusesHaveFailure, type SourceStatus } from "@/lib/http";
 import { collectGenerationForSettlementDate } from "@/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "@/lib/ingest/collect-grid";
 import { formatTinybirdDateTime, yesterdayLondonDate } from "@/lib/london-time";
-import { integritySourceStatus, recordSnapshotIntegrity } from "@/lib/snapshot-integrity";
+import {
+  integrityReportForWrittenRows,
+  integritySourceStatus,
+  recordSnapshotIntegrity,
+  type StoredSnapshotIntegrity,
+} from "@/lib/snapshot-integrity";
 import { ingestRows } from "@/lib/tinybird";
 
 /**
@@ -43,13 +48,13 @@ export async function GET(request: Request) {
       checkedTimestamps: [],
       failing: [],
     };
-  const storedIntegrity = await recordSnapshotIntegrity(integrity);
-  sources.push(integritySourceStatus(integrity));
 
+  let snapshotIngestFailed = false;
   if (snapshots.rows.length > 0) {
     try {
       await ingestRows("energy_snapshots", snapshots.rows);
     } catch (error) {
+      snapshotIngestFailed = true;
       const message = error instanceof Error ? error.message : String(error);
       console.error("[cron-yesterday] snapshot ingest failed", message);
       sources.push({ source: "snapshots", ok: false, error: message });
@@ -65,6 +70,14 @@ export async function GET(request: Request) {
       sources.push({ source: "generation", ok: false, error: message });
     }
   }
+
+  let storedIntegrity: StoredSnapshotIntegrity | null = null;
+  if (snapshots.rows.length > 0 && !snapshotIngestFailed) {
+    storedIntegrity = await recordSnapshotIntegrity(
+      integrityReportForWrittenRows(integrity, snapshots.rows)
+    );
+  }
+  sources.push(integritySourceStatus(integrity));
 
   const ingested = sources.some((source) => source.ok && (source.rows ?? 0) > 0);
   if (ingested) {

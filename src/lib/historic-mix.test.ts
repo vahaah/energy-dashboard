@@ -8,6 +8,7 @@ import {
   emptyRecordsWithDocumentedCoal,
   historicRecordsSql,
   historicRowToGeneration,
+  nesoIntegrityExcludeSql,
   historicWeeklySql,
   isCoalOperating,
   isSaneHistoricRow,
@@ -132,6 +133,17 @@ describe("NESO historic sanity", () => {
     expect(historicRecordsSql()).not.toContain(`"COAL_perc" >= ${COAL_ENDED_SHARE_PCT}`);
     const weeklyUrl = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
     expect(weeklyUrl.length).toBeLessThan(2500);
+  });
+
+  it("applies integrity exclusions in the NESO sane CTE before each LIMIT", () => {
+    const sql = historicRecordsSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
+    const exclude = nesoIntegrityExcludeSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
+    expect(exclude).toContain("'2025-11-18 12:30:00'");
+    expect(exclude).toContain("'2025-11-18 13:00:00'");
+    expect(sql).toContain(exclude);
+    expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("ORDER BY"));
+    expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("LIMIT 5"));
+    expect(nesoIntegrityExcludeSql(["drop table"])).toBe("");
   });
 });
 
