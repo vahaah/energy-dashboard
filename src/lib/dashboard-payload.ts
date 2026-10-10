@@ -132,7 +132,9 @@ export async function loadDashboardPayloadUncached(
     getLookAhead().catch(() => null),
   ]);
 
-  let [snapshots, generationHistory, unaggregatedHeadlineGeneration] = tinybird;
+  const [gridSnapshots, gridGeneration, unaggregatedHeadlineGeneration] = tinybird;
+  let snapshots = gridSnapshots;
+  let generationHistory = gridGeneration;
   let headlineSnapshots = headlineWindow(snapshots);
   let headlineGeneration =
     unaggregatedHeadlineGeneration.length > 0
