@@ -31,6 +31,7 @@ export {
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,
+  showsLookAheadCopy,
   windLookAhead,
   WIND_FORECAST_BASIS,
 } from "@/lib/forecast-model";

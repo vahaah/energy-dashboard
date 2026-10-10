@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { GenerationNowCard } from "@/components/charts/generation-now-card";
 import { GenerationDesk } from "@/components/generation-desk";
 import { DISPLAYED_DEMAND_STAT } from "@/lib/displayed-demand";
+import { emptyLookAhead } from "@/lib/forecast-model";
 import { buildNowBySourceView } from "@/lib/generation-desk-view";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
@@ -200,9 +201,10 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
       indexAfter(dashboardSource, "How clean is it?")
     );
-    expect(dashboardSource).toContain("lookAhead?.greenest");
+    expect(dashboardSource).toContain("lookAhead?.greenest && showsLookAheadCopy(facts.isHistorical)");
     expect(dashboardSource).toContain("GET /api/look-ahead");
     expect(deskSource).toContain("LookAheadStrip");
+    expect(deskSource).toContain("showsLookAheadCopy(facts.isHistorical)");
     expect(deskSource).toContain("getDisplayedPower");
     expect(deskSource).toContain("buildGroupedSourceTable");
     expect(deskSource).toContain("headlineGeneration");
@@ -262,6 +264,22 @@ describe("generation desk layout", () => {
         headlineGeneration={[]}
         range="1y"
         now={new Date("2026-09-28T12:00:00.000Z")}
+        lookAhead={{
+          ...emptyLookAhead(new Date("2026-10-10T12:00:00.000Z")),
+          greenest: {
+            startUtc: "2026-10-10T13:00Z",
+            endUtc: "2026-10-10T15:00Z",
+            grams: 43,
+            sentence: "Cleanest time to use power in the next 48 hours: 14:00–16:00 BST (≈43 g).",
+          },
+          wind: {
+            tonightGw: 11,
+            tomorrowEveningGw: 8.4,
+            sparkline: [11, 8.4],
+            sentence: "Wind is forecast to fall to 8.4 GW by tomorrow evening.",
+            basis: "Transmission-connected wind only. Embedded wind is not in this forecast.",
+          },
+        }}
       />
     );
 
@@ -269,6 +287,9 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
     expect(html).not.toContain("SP ");
+    expect(html).not.toContain("Look-ahead");
+    expect(html).not.toContain("Cleanest time to use power");
+    expect(html).not.toContain("Wind is forecast");
   });
 
   it("shows missing sources as an em dash with a no-data note", () => {

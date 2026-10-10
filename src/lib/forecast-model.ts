@@ -138,12 +138,16 @@ export function showsCarbonForecast(range: TimeRange, historical: boolean): bool
   return showsDemandForecast(range, historical);
 }
 
+export function showsLookAheadCopy(historical: boolean): boolean {
+  return !historical;
+}
+
 export function greenestWindow(rows: CarbonForecastRow[], now: Date): GreenestWindow | null {
   const future = rows.filter((row) => {
     if (row.intensity.forecast == null) {
       return false;
     }
-    return parseUtcDateTime(row.to).getTime() > now.getTime();
+    return parseUtcDateTime(row.from).getTime() >= now.getTime();
   });
   if (future.length === 0) {
     return null;
@@ -256,10 +260,12 @@ export function windLookAhead(rows: WindForecastRow[], now: Date): WindLookAhead
 }
 
 export function formatLookAheadWindow(start: Date, end: Date, now: Date): string {
-  const startClock = clock(start);
-  const endClock = clock(end);
-  const zone = getLondonOffsetLabel(start);
-  const times = `${startClock}–${endClock} ${zone}`;
+  const startZone = getLondonOffsetLabel(start);
+  const endZone = getLondonOffsetLabel(end);
+  const times =
+    startZone === endZone
+      ? `${clock(start)}–${clock(end)} ${startZone}`
+      : `${clock(start)} ${startZone}–${clock(end)} ${endZone}`;
   const startDay = getLondonDate(start);
   const today = getLondonDate(now);
   if (startDay === today) {

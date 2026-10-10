@@ -8,7 +8,11 @@ import { LookAheadStrip } from "@/components/look-ahead-strip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower } from "@/lib/displayed-demand";
-import { showsDemandForecast, type LookAheadView } from "@/lib/forecast-model";
+import {
+  showsDemandForecast,
+  showsLookAheadCopy,
+  type LookAheadView,
+} from "@/lib/forecast-model";
 import { fuelinstDelayNote } from "@/lib/generation-desk-view";
 import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
 import type { LatestFacts } from "@/lib/facts";
@@ -121,7 +125,9 @@ export function GenerationDesk({
           </div>
         )}
       </div>
-      {lookAhead ? <LookAheadStrip lookAhead={lookAhead} /> : null}
+      {lookAhead && showsLookAheadCopy(facts.isHistorical) ? (
+        <LookAheadStrip lookAhead={lookAhead} />
+      ) : null}
     </div>
   );
 }

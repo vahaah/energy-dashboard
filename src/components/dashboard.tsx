@@ -23,6 +23,7 @@ import {
 import {
   formatGridFetchedAt,
   showsCarbonForecast,
+  showsLookAheadCopy,
   type LookAheadView,
 } from "@/lib/forecast-model";
 import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
@@ -481,7 +482,7 @@ export function Dashboard({
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : (
             <>
-              {lookAhead?.greenest ? (
+              {lookAhead?.greenest && showsLookAheadCopy(facts.isHistorical) ? (
                 <div className="mb-4">
                   <p className="text-copy-16 text-gray-1000">{lookAhead.greenest.sentence}</p>
                   <p className="mt-1 text-label-12 text-gray-900">

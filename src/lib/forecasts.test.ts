@@ -20,6 +20,7 @@ import {
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,
+  showsLookAheadCopy,
   windLookAhead,
 } from "@/lib/forecasts";
 import type { CarbonIntensityResponse } from "@/lib/types";
@@ -118,6 +119,28 @@ describe("greenest window", () => {
       )
     ).toBeNull();
   });
+
+  it("skips a half-hour that has already started so the recommended window is still ahead", () => {
+    const midPeriod = new Date("2026-10-10T12:10:00.000Z");
+    const window = greenestWindow(
+      [
+        carbonRow("2026-10-10T12:00Z", "2026-10-10T12:30Z", 10),
+        carbonRow("2026-10-10T12:30Z", "2026-10-10T13:00Z", 10),
+        carbonRow("2026-10-10T13:00Z", "2026-10-10T13:30Z", 10),
+        carbonRow("2026-10-10T13:30Z", "2026-10-10T14:00Z", 10),
+        carbonRow("2026-10-10T14:00Z", "2026-10-10T14:30Z", 40),
+        carbonRow("2026-10-10T14:30Z", "2026-10-10T15:00Z", 40),
+        carbonRow("2026-10-10T15:00Z", "2026-10-10T15:30Z", 40),
+        carbonRow("2026-10-10T15:30Z", "2026-10-10T16:00Z", 40),
+      ],
+      midPeriod
+    );
+    expect(window).toMatchObject({
+      startUtc: "2026-10-10T12:30Z",
+      endUtc: "2026-10-10T14:30Z",
+      grams: 18,
+    });
+  });
 });
 
 describe("wind tonight / tomorrow", () => {
@@ -198,6 +221,23 @@ describe("look-ahead copy and public payload", () => {
     ).toBe("12 Oct 2026, 13:00–15:00 BST");
   });
 
+  it("labels each endpoint with its own offset when a window crosses the clock change", () => {
+    expect(
+      formatLookAheadWindow(
+        new Date("2026-10-24T23:30:00.000Z"),
+        new Date("2026-10-25T01:30:00.000Z"),
+        new Date("2026-10-24T12:00:00.000Z")
+      )
+    ).toBe("tomorrow 00:30 BST–01:30 GMT");
+    expect(
+      formatLookAheadWindow(
+        new Date("2026-03-29T00:30:00.000Z"),
+        new Date("2026-03-29T01:30:00.000Z"),
+        new Date("2026-03-29T00:00:00.000Z")
+      )
+    ).toBe("00:30 GMT–02:30 BST");
+  });
+
   it("strips raw forecast series from the public payload", () => {
     const view = {
       ...emptyLookAhead(NOW),
@@ -237,6 +277,8 @@ describe("look-ahead copy and public payload", () => {
     expect(showsDemandForecast("24h", true)).toBe(false);
     expect(showsCarbonForecast("1y", false)).toBe(false);
     expect(showsDemandForecast("all", false)).toBe(false);
+    expect(showsLookAheadCopy(false)).toBe(true);
+    expect(showsLookAheadCopy(true)).toBe(false);
   });
 });
 
