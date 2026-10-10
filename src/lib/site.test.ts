@@ -7,16 +7,24 @@ import {
   pageTitleLength,
   RECORDS_DESCRIPTION,
   RECORDS_TITLE,
+  SITE_OG_IMAGE,
+  SITE_ORIGIN,
+  SITE_TWITTER_CARD,
+  SITE_URL,
   TITLE_MAX_CHARS,
 } from "@/lib/site";
 
 describe("SEO titles and descriptions", () => {
   it("keeps homepage and records copy within the plan limits", () => {
+    expect(SITE_ORIGIN).toBe("https://grid.vahaah.com");
+    expect(SITE_URL).toBe(SITE_ORIGIN);
     expect(HOME_TITLE).toBe("Grid: what's powering Britain's electricity today");
     expect(RECORDS_TITLE).toBe("GB electricity records: wind, solar and carbon");
     expect(pageTitleLength(HOME_TITLE)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     expect(pageTitleLength(RECORDS_TITLE)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     expect(pageDescriptionLength(HOME_DESCRIPTION)).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS);
     expect(pageDescriptionLength(RECORDS_DESCRIPTION)).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS);
+    expect(SITE_OG_IMAGE.url).toBe("/og");
+    expect(SITE_TWITTER_CARD.images).toEqual(["/og"]);
   });
 });

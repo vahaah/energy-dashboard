@@ -1,4 +1,5 @@
 export const SITE_ORIGIN = "https://grid.vahaah.com";
+export const SITE_URL = SITE_ORIGIN;
 export const SITE_NAME = "Grid";
 
 export const HOME_TITLE = "Grid: what's powering Britain's electricity today";
@@ -16,16 +17,24 @@ export const RECORDS_SUBLINE =
 
 export const DATASET_TEMPORAL_COVERAGE_START = "2025-03-18";
 
+export const SITE_TITLE = HOME_TITLE;
+export const SITE_DESCRIPTION = HOME_DESCRIPTION;
+
+export const OG_IMAGE_WIDTH = 1200;
+export const OG_IMAGE_HEIGHT = 630;
+export const OG_CACHE_CONTROL = "public, s-maxage=86400, stale-while-revalidate=604800";
+export const OG_REVALIDATE_SECONDS = 86_400;
+
 export const SITE_OG_IMAGE = {
-  url: "/og.png",
-  width: 1200,
-  height: 630,
+  url: "/og",
+  width: OG_IMAGE_WIDTH,
+  height: OG_IMAGE_HEIGHT,
   alt: HOME_TITLE,
 };
 
 export const SITE_TWITTER_CARD = {
   card: "summary_large_image" as const,
-  images: ["/og.png"],
+  images: ["/og"],
 };
 
 export const SITE_OG_TYPE = "website" as const;
@@ -40,3 +49,10 @@ export function pageTitleLength(title: string): number {
 export function pageDescriptionLength(description: string): number {
   return [...description].length;
 }
+
+export const LEGAL_CONTROLLER = "Comonad Ltd";
+export const LEGAL_CONTACT_EMAIL = "alex@comonad.co.uk";
+export const LEGAL_CONTACT_MAILTO = `mailto:${LEGAL_CONTACT_EMAIL}`;
+export const LEGAL_JURISDICTION = "England and Wales";
+export const CODE_LICENCE = "MIT";
+export const CODE_LICENCE_URL = "https://opensource.org/licenses/MIT";

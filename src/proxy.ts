@@ -10,7 +10,9 @@ export { isEdgeCacheableApi } from "@/lib/edge-cacheable-api";
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
+const PRUNE_INTERVAL_MS = 30_000;
 const store = new Map<string, { count: number; resetAt: number }>();
+let lastPruneAt = 0;
 
 const CRON_OR_HEALTH = new Set([
   "/api/cron",
@@ -19,8 +21,21 @@ const CRON_OR_HEALTH = new Set([
   "/api/health",
 ]);
 
+function pruneExpired(now: number): void {
+  if (now - lastPruneAt < PRUNE_INTERVAL_MS) {
+    return;
+  }
+  lastPruneAt = now;
+  for (const [key, entry] of store) {
+    if (now > entry.resetAt) {
+      store.delete(key);
+    }
+  }
+}
+
 function checkLimit(ip: string): { allowed: boolean; remaining: number } {
   const now = Date.now();
+  pruneExpired(now);
   const entry = store.get(ip);
 
   if (!entry || now > entry.resetAt) {

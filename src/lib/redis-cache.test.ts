@@ -13,6 +13,7 @@ import {
   isFreshEnvelope,
   isStaleUsableEnvelope,
   parseRedisGet,
+  peekThroughCache,
   readThroughCache,
   readThroughCacheResult,
   redisEnvPresent,
@@ -109,6 +110,44 @@ describe("readThroughCache", () => {
       status: "redis-hit",
     });
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it("peeks a usable envelope and never calls a loader", async () => {
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    const policy = liveCachePolicy();
+    const key = await redisKeyFor("tb:og", policy.tier);
+    await redis.set(
+      key,
+      { data: ["cached"], cachedAt: Date.now(), freshFor: policy.revalidateSeconds },
+      { ex: 3_900 }
+    );
+
+    await expect(peekThroughCache<string[]>("tb:og", policy)).resolves.toEqual(["cached"]);
+  });
+
+  it("returns null from peek when Redis is absent or the key is missing", async () => {
+    resetRedisClient();
+    await expect(peekThroughCache("tb:missing", liveCachePolicy())).resolves.toBeNull();
+
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    await expect(peekThroughCache("tb:missing", liveCachePolicy())).resolves.toBeNull();
+  });
+
+  it("treats a Redis read error as a peek miss instead of throwing", async () => {
+    setRedisForTests({
+      get: async () => {
+        throw new Error("WRONGPASS invalid token https://secret.upstash.io/path");
+      },
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    await expect(peekThroughCache("tb:og-err", liveCachePolicy())).resolves.toBeNull();
+    expect(getRedisFailureReason()).toContain("redis-get-failed");
+    expect(getRedisFailureReason()).not.toContain("secret.upstash.io");
   });
 
   it("serves stale data immediately and refreshes in the background", async () => {

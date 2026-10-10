@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EnergyTransition } from "@/components/energy-transition";
 import { JsonLd } from "@/components/json-ld";
+import { SiteLegalNav } from "@/components/site-legal-nav";
 import { Card, CARD_GRID_CLASS, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
@@ -39,6 +40,12 @@ import {
 export const revalidate = 86_400;
 export const dynamic = "force-static";
 
+const RECORDS_OG_IMAGE = {
+  ...SITE_OG_IMAGE,
+  url: "/records/opengraph-image",
+  alt: RECORDS_TITLE,
+};
+
 export const metadata: Metadata = {
   title: RECORDS_TITLE,
   description: RECORDS_DESCRIPTION,
@@ -48,12 +55,13 @@ export const metadata: Metadata = {
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
     url: "/records",
-    images: [SITE_OG_IMAGE],
+    images: [RECORDS_OG_IMAGE],
   },
   twitter: {
     ...SITE_TWITTER_CARD,
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
+    images: [RECORDS_OG_IMAGE.url],
   },
 };
 
@@ -251,6 +259,7 @@ export default async function RecordsPage() {
               Back to Grid
             </Link>
           </p>
+          <SiteLegalNav className="mt-4" />
         </footer>
       </main>
     </div>

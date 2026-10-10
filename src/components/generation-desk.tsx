@@ -16,6 +16,7 @@ import {
 } from "@/lib/forecast-model";
 import { fuelinstDelayNote } from "@/lib/generation-desk-view";
 import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
+import { captionGeneration } from "@/lib/attribution";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 
@@ -29,6 +30,7 @@ interface Props {
   pending?: boolean;
   now?: Date;
   lookAhead?: LookAheadView | null;
+  neso?: boolean;
 }
 
 export function GenerationDesk({
@@ -41,6 +43,7 @@ export function GenerationDesk({
   pending = false,
   now = new Date(),
   lookAhead = null,
+  neso = false,
 }: Props) {
   const power = getDisplayedPower(facts, headlineSnapshots);
   const table = buildGroupedSourceTable(
@@ -128,6 +131,7 @@ export function GenerationDesk({
         ) : (
           <CardEmpty stamp={facts.headerStamp} />
         )}
+        <p className="mt-2 text-label-12 text-gray-900">{captionGeneration(neso)}</p>
       </div>
       {lookAhead && showsLookAheadCopy(facts) ? (
         <LookAheadStrip lookAhead={lookAhead} />
