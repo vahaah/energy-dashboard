@@ -7,7 +7,9 @@ import {
   pageTitleLength,
   RECORDS_DESCRIPTION,
   RECORDS_TITLE,
+  SITE_OG_IMAGE,
   SITE_ORIGIN,
+  SITE_TWITTER_CARD,
   SITE_URL,
   TITLE_MAX_CHARS,
 } from "@/lib/site";
@@ -22,5 +24,7 @@ describe("SEO titles and descriptions", () => {
     expect(pageTitleLength(RECORDS_TITLE)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     expect(pageDescriptionLength(HOME_DESCRIPTION)).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS);
     expect(pageDescriptionLength(RECORDS_DESCRIPTION)).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS);
+    expect(SITE_OG_IMAGE.url).toBe("/og");
+    expect(SITE_TWITTER_CARD.images).toEqual(["/og"]);
   });
 });

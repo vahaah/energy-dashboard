@@ -158,6 +158,8 @@ describe("generation desk layout", () => {
     expect(pageSource).toContain("export const revalidate = 300");
     expect(pageSource).toContain('export const dynamic = "force-static"');
     expect(pageSource).toContain("HomepageBriefing");
+    expect(pageSource).not.toContain("generateMetadata");
+    expect(pageSource).not.toMatch(/\bsearchParams\b/);
     expect(pageSource).toContain("<Suspense");
     expect(pageSource).not.toContain("/api/dashboard?period=day");
     expect(pageSource).not.toContain("queryPipe");

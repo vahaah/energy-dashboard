@@ -13,7 +13,9 @@ import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_OG_TYPE, SITE_TWITTER
 /**
  * Homepage shell. Static/ISR so the CDN can HIT `/`. Headline copy is a Server
  * Component so the H1 and cite sentence are real HTML for crawlers. `?date=`
- * is hidden on the client only — the canonical strips it.
+ * is hidden on the client only — the canonical strips it. Page metadata uses
+ * one static `/og` image. Per-section cards stay on the `/og` route for the
+ * share menu only.
  */
 export const revalidate = 300;
 export const dynamic = "force-static";

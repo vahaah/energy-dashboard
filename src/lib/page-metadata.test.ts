@@ -5,11 +5,12 @@ import {
   buildPageMetadata,
   dataSourcesPageMetadata,
   homePageMetadata,
+  ogFocusImagePath,
   privacyPageMetadata,
   recordsPageMetadata,
   termsPageMetadata,
 } from "@/lib/page-metadata";
-import { HOME_TITLE, RECORDS_TITLE } from "@/lib/site";
+import { HOME_TITLE, RECORDS_TITLE, SITE_OG_IMAGE } from "@/lib/site";
 
 describe("page metadata", () => {
   it("sets openGraph, twitter summary_large_image, and a canonical path", () => {
@@ -34,32 +35,20 @@ describe("page metadata", () => {
     ]);
   });
 
-  it("keeps every homepage URL canonical to / and varies only the OG image", () => {
-    const overview = homePageMetadata("overview");
+  it("uses one static /og image for homepage metadata", () => {
+    const overview = homePageMetadata();
     expect(overview.title).toBe(HOME_TITLE);
     expect(overview.alternates?.canonical).toBe("/");
     expect(overview.openGraph?.url).toBe("/");
-    expect(overview.openGraph?.images).toEqual([
-      {
-        url: "/og?focus=overview",
-        width: 1200,
-        height: 630,
-        alt: overview.title,
-      },
-    ]);
+    expect(overview.openGraph?.images).toEqual([SITE_OG_IMAGE]);
+    expect(SITE_OG_IMAGE.url).toBe("/og");
+    expect(JSON.stringify(overview.twitter)).toContain("summary_large_image");
+  });
 
-    const carbon = homePageMetadata("carbon");
-    expect(carbon.alternates?.canonical).toBe("/");
-    expect(carbon.openGraph?.url).toBe("/");
-    expect(carbon.openGraph?.images).toEqual([
-      {
-        url: "/og?focus=carbon",
-        width: 1200,
-        height: 630,
-        alt: carbon.title,
-      },
-    ]);
-    expect(JSON.stringify(carbon.twitter)).toContain("summary_large_image");
+  it("keeps per-section cards on /og?focus= and off page metadata", () => {
+    expect(ogFocusImagePath("carbon")).toBe("/og?focus=carbon");
+    expect(ogFocusImagePath("overview")).toBe("/og?focus=overview");
+    expect(JSON.stringify(homePageMetadata())).not.toContain("focus=");
   });
 
   it("covers records and the legal pages", () => {
@@ -70,7 +59,7 @@ describe("page metadata", () => {
     expect(dataSourcesPageMetadata().alternates?.canonical).toBe("/data-sources");
   });
 
-  it("does not ship root file-based OG routes that would override generateMetadata", () => {
+  it("does not ship root file-based OG routes", () => {
     expect(existsSync(resolve(process.cwd(), "src/app/opengraph-image.tsx"))).toBe(false);
     expect(existsSync(resolve(process.cwd(), "src/app/twitter-image.tsx"))).toBe(false);
   });

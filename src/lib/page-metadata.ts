@@ -11,6 +11,7 @@ import {
   RECORDS_DESCRIPTION,
   RECORDS_TITLE,
   SITE_NAME,
+  SITE_OG_IMAGE,
 } from "@/lib/site";
 
 export type PageMetadataInput = {
@@ -117,16 +118,17 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
   };
 }
 
-export function homePageMetadata(
-  focus: DashboardSearchParams["focus"] = "overview"
-): Metadata {
-  const copy = FOCUS_PAGE_COPY[focus];
+export function ogFocusImagePath(focus: DashboardSearchParams["focus"]): string {
+  return `/og?focus=${focus}`;
+}
+
+export function homePageMetadata(): Metadata {
   return buildPageMetadata({
-    title: copy.title,
-    description: copy.description,
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
     path: "/",
-    imagePath: `/og?focus=${focus}`,
-    imageAlt: copy.title,
+    imagePath: SITE_OG_IMAGE.url,
+    imageAlt: SITE_OG_IMAGE.alt,
   });
 }
 
