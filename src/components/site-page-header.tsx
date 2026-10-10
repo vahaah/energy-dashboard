@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_NAV_LINKS } from "@/components/site-public-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function SitePageHeader({ section }: { section: string }) {
@@ -12,6 +13,20 @@ export function SitePageHeader({ section }: { section: string }) {
           <span className="text-heading-16">Grid</span>
         </Link>
         <p className="text-label-13 text-gray-900">{section}</p>
+        <nav
+          aria-label="Site"
+          className="ml-4 hidden min-w-0 flex-1 items-center gap-4 overflow-x-auto md:flex"
+        >
+          {SITE_NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="shrink-0 text-label-13 text-gray-900 underline-offset-2 hover:text-gray-1000 hover:underline"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
         <div className="ml-auto">
           <ThemeToggle />
         </div>

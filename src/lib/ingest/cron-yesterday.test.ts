@@ -49,6 +49,9 @@ describe("yesterday settlement heal", () => {
     expect(warmer).toContain("revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 })");
     expect(warmer).toContain('revalidatePath("/api/dashboard")');
     expect(warmer).toContain('revalidatePath("/records")');
+    expect(warmer).toContain('revalidatePath("/today")');
+    expect(warmer).toContain('revalidatePath("/prices/gas")');
+    expect(warmer).toContain('revalidatePath("/llms.txt")');
     expect(warmer).toContain("NESO_HISTORIC_CACHE_TAG");
     expect(warmer).toContain("dangerouslyDeleteByTag(DASHBOARD_CACHE_TAG)");
     expect(warmer).toContain("scheduleBackground");

@@ -10,6 +10,31 @@ export const RECORDS_TITLE = "GB electricity records: wind, solar and carbon";
 export const RECORDS_DESCRIPTION =
   "Highest wind and renewable share and lowest carbon since Grid's records began, shown next to NESO's official records. Sourced from NESO data.";
 
+export const TODAY_TITLE = "GB electricity today: mix, carbon and price";
+export const TODAY_DESCRIPTION =
+  "How Britain's electricity was made today: wind, gas, nuclear, solar and imports in GW and %, carbon intensity and market price. Updated hourly.";
+export const TODAY_H1 = "Britain's electricity today";
+
+export const PRICE_CAP_TITLE = "Will energy bills go up in January 2027?";
+export const PRICE_CAP_DESCRIPTION =
+  "Ofgem announces the January–March 2027 price cap by 25 November 2026. What drives it, what wholesale gas has done, and what Grid's data shows.";
+export const PRICE_CAP_H1 = "Will energy bills go up in January 2027?";
+
+export const GAS_TITLE = "UK gas price today: SAP, Henry Hub, Europe, Japan LNG";
+export const GAS_DESCRIPTION =
+  "GB System Average Price from National Gas, plus Henry Hub, World Bank Europe gas and Japan LNG. Updated as sources publish.";
+export const GAS_H1 = "UK gas price today";
+
+export const METHODOLOGY_TITLE = "How Grid's numbers are made: sources and method";
+export const METHODOLOGY_DESCRIPTION =
+  "Every source, unit, refresh time and calculation behind Grid, including licences: Elexon BMRS, NESO, Carbon Intensity API and Sheffield Solar.";
+export const METHODOLOGY_H1 = "How Grid's numbers are made";
+
+export const API_DOCS_TITLE = "Free GB electricity data API: Grid";
+export const API_DOCS_DESCRIPTION =
+  "JSON endpoints for GB carbon intensity, generation mix, demand, prices and commodities. No key, 60 requests a minute, CC BY 4.0 derived data.";
+export const API_DOCS_H1 = "Free GB electricity data API";
+
 export const HOME_H1 = "What's powering Britain's electricity today";
 export const RECORDS_H1 = "GB electricity records";
 export const RECORDS_SUBLINE =

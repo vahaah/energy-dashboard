@@ -51,6 +51,11 @@ describe("og model", () => {
       "page-privacy.png",
       "page-terms.png",
       "page-data-sources.png",
+      "page-today.png",
+      "page-price-cap.png",
+      "page-methodology.png",
+      "page-api.png",
+      "page-gas.png",
     ]);
 
     const price = buildOgCard({ kind: "focus", focus: "price" }, snapshot);

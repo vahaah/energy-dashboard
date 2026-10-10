@@ -8,7 +8,15 @@ import {
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
 import { COMMODITY_LABELS } from "@/lib/colors";
-import { homepageJsonLd, recordsJsonLd, APP_ID, PERSON_ID } from "@/lib/jsonld";
+import {
+  apiDocsJsonLd,
+  homepageJsonLd,
+  priceCapJsonLd,
+  recordsJsonLd,
+  todayJsonLd,
+  APP_ID,
+  PERSON_ID,
+} from "@/lib/jsonld";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 import { SITE_ORIGIN } from "@/lib/site";
 
@@ -80,5 +88,21 @@ describe("JSON-LD", () => {
     expect(list.itemListElement.map((item) => item.item.name).join(" ")).not.toContain("solar");
     expect(graph.some((node) => node["@type"] === "BreadcrumbList")).toBe(true);
     expect(graph.some((node) => node["@type"] === "FAQPage")).toBe(true);
+  });
+
+  it("adds breadcrumbs and FAQ on today and price-cap, and Dataset on /api", () => {
+    const today = todayJsonLd({
+      faqs: [{ question: "Q", answer: "A" }],
+      dateModified: "2026-10-10T11:00:00.000Z",
+    })["@graph"];
+    expect(today.some((node) => node["@type"] === "BreadcrumbList")).toBe(true);
+    expect(today.some((node) => node["@type"] === "FAQPage")).toBe(true);
+
+    const cap = priceCapJsonLd({ faqs: [{ question: "Q", answer: "A" }] })["@graph"];
+    expect(JSON.stringify(cap)).toContain("/explained/price-cap");
+
+    const api = apiDocsJsonLd(null)["@graph"];
+    const dataset = api.find((node) => node["@type"] === "Dataset") as { url: string };
+    expect(dataset.url).toBe(`${SITE_ORIGIN}/api`);
   });
 });

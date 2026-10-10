@@ -15,12 +15,12 @@ import {
   captionTransfers,
   elexonBmrsAttribution,
   ELEXON_BMRS_LICENCE_URL,
-  NESO_EMBEDDED_FORECAST_URL,
-  NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
+import Link from "next/link";
 import { SiteLegalNav } from "@/components/site-legal-nav";
+import { SitePublicNav } from "@/components/site-public-nav";
 import {
   formatGridFetchedAt,
   lookAheadFromPublic,
@@ -540,7 +540,14 @@ export function Dashboard({
           id="section-commodities"
           title="Gas & oil"
           tooltip="Oil and gas context on a slower market horizon. The chart keeps the full published set."
-          footer={captionCommodities()}
+          footer={
+            <>
+              {captionCommodities()}{" "}
+              <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
+                UK gas price
+              </Link>
+            </>
+          }
           active={focus === "commodities"}
           headerRight={
             <TimeRangeSelector
@@ -610,7 +617,14 @@ export function Dashboard({
           id="section-records"
           title="Records and the energy transition"
           tooltip="Peaks, firsts and the coal-to-wind shift, computed from NESO historic generation mix. Supported by National Energy SO Open Data."
-          footer={captionNeso()}
+          footer={
+            <>
+              {captionNeso()}{" "}
+              <Link href="/records" className="text-blue-700 underline-offset-2 hover:underline">
+                GB electricity records
+              </Link>
+            </>
+          }
           active={focus === "records"}
         >
           {shared == null ? (
@@ -684,27 +698,16 @@ export function Dashboard({
         <footer className="border-t border-gray-alpha-400 pt-8 pb-4">
           <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
-            Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
-            wind, and Sheffield Solar PV Live. Look-ahead uses the NESO Carbon Intensity 48-hour
-            forecast, Elexon WINDFOR, Elexon NDF, and the{" "}
-            <a
-              href={NESO_EMBEDDED_FORECAST_URL}
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
-            >
-              NESO embedded wind and solar forecast
-            </a>
-            , fetched by Grid and cached for 30 minutes.
-            Year and All time, plus records, use NESO{" "}
-            <a
-              href={NESO_HISTORIC_MIX_URL}
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
-            >
-              Historic generation mix and carbon intensity
-            </a>
-            . The headline price is the short-term wholesale market price from Elexon’s Market
-            Index (APXMIDP), not the day-ahead auction. System price is the imbalance (cash-out)
-            price. Oil and gas prices come from EIA, World Bank Commodity Price Data (The Pink
-            Sheet, CC BY 4.0), and National Gas.
+            Grid is compiled hourly from Elexon BMRS, NESO, the Carbon Intensity API and Sheffield
+            Solar PV Live, with oil and gas context from EIA, World Bank and National Gas.{" "}
+            <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
+              How the numbers are made
+            </Link>
+            . Public JSON is documented on the{" "}
+            <Link href="/api" className="text-blue-700 underline-offset-2 hover:underline">
+              API page
+            </Link>
+            .
           </p>
           <p className="mt-3 max-w-3xl text-copy-14 text-gray-900">
             {elexonBmrsAttribution()}{" "}
@@ -728,31 +731,9 @@ export function Dashboard({
             >
               carbonintensity.org.uk
             </a>
-            . Forecast times are when Grid fetched the source, not the publisher’s own stamp.
+            .
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-mono-12 text-gray-900">
-            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
-              GET /api/dashboard?period={period}
-            </code>
-            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
-              GET /api/snapshots?range={range}
-            </code>
-            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
-              GET /api/generation?range={range}
-            </code>
-            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
-              GET /api/prices?range={commodityRange}
-            </code>
-            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
-              GET /api/look-ahead
-            </code>
-          </div>
-          <p className="mt-3 text-label-12 text-gray-900">
-            URL state is canonical for the selected period, per-block overrides, commodity horizon,
-            and section focus. Range changes use <code>history.replaceState</code> and refetch only
-            the affected charts. Share links use <code>?period=year</code> or <code>?period=all</code>
-            . Rate limit remains 60 requests per minute.
-          </p>
+          <SitePublicNav className="mt-4" />
           <SiteLegalNav className="mt-4" />
         </footer>
       </main>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePageHeader } from "@/components/site-page-header";
+import { SitePublicNav } from "@/components/site-public-nav";
 
 export function LegalPage({
   section,
@@ -25,7 +26,19 @@ export function LegalPage({
         </section>
         <div className="max-w-3xl space-y-8 text-copy-16 text-gray-900">{children}</div>
         <footer className="border-t border-gray-alpha-400 pt-8 pb-4">
-          <SiteLegalNav />
+          <SitePublicNav />
+          <SiteLegalNav className="mt-4" />
+          <p className="mt-4 text-copy-14 text-gray-900">
+            Made by{" "}
+            <a
+              href="https://vahaah.com/"
+              rel="author"
+              className="text-blue-700 underline-offset-2 hover:underline"
+            >
+              Alex Vakhitov
+            </a>
+            .
+          </p>
         </footer>
       </main>
     </div>

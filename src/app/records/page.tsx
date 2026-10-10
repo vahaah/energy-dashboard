@@ -4,6 +4,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { EnergyTransition } from "@/components/energy-transition";
 import { JsonLd } from "@/components/json-ld";
 import { SiteLegalNav } from "@/components/site-legal-nav";
+import { SitePublicNav } from "@/components/site-public-nav";
 import { Card, CARD_GRID_CLASS, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
@@ -259,7 +260,19 @@ export default async function RecordsPage() {
               Back to Grid
             </Link>
           </p>
+          <SitePublicNav className="mt-4" />
           <SiteLegalNav className="mt-4" />
+          <p className="mt-4">
+            Made by{" "}
+            <a
+              href="https://vahaah.com/"
+              rel="author"
+              className="text-blue-700 underline-offset-2 hover:underline"
+            >
+              Alex Vakhitov
+            </a>
+            .
+          </p>
         </footer>
       </main>
     </div>

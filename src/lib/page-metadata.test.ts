@@ -3,15 +3,20 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildPageMetadata,
+  apiDocsPageMetadata,
   dataSourcesPageMetadata,
   FOCUS_PAGE_COPY,
+  gasPageMetadata,
   homePageMetadata,
+  methodologyPageMetadata,
+  priceCapPageMetadata,
   ogFocusImagePath,
   privacyPageMetadata,
   recordsPageMetadata,
   shareFocusPath,
   sharePageMetadata,
   termsPageMetadata,
+  todayPageMetadata,
 } from "@/lib/page-metadata";
 import { HOME_TITLE, RECORDS_TITLE, SITE_OG_IMAGE } from "@/lib/site";
 
@@ -77,10 +82,20 @@ describe("page metadata", () => {
     expect(privacyPageMetadata().alternates?.canonical).toBe("/privacy");
     expect(termsPageMetadata().alternates?.canonical).toBe("/terms");
     expect(dataSourcesPageMetadata().alternates?.canonical).toBe("/data-sources");
+    expect(todayPageMetadata().alternates?.canonical).toBe("/today");
+    expect(priceCapPageMetadata().alternates?.canonical).toBe("/explained/price-cap");
+    expect(gasPageMetadata().alternates?.canonical).toBe("/prices/gas");
+    expect(methodologyPageMetadata().alternates?.canonical).toBe("/methodology");
+    expect(apiDocsPageMetadata().alternates?.canonical).toBe("/api");
+    expect(JSON.stringify(apiDocsPageMetadata().openGraph?.images)).toContain("/og?page=api");
+    expect(JSON.stringify(apiDocsPageMetadata().openGraph?.images)).not.toContain(
+      "/api/opengraph-image"
+    );
   });
 
-  it("does not ship root file-based OG routes", () => {
+  it("does not ship root file-based OG routes or an /api OG image", () => {
     expect(existsSync(resolve(process.cwd(), "src/app/opengraph-image.tsx"))).toBe(false);
     expect(existsSync(resolve(process.cwd(), "src/app/twitter-image.tsx"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "src/app/api/opengraph-image.tsx"))).toBe(false);
   });
 });
