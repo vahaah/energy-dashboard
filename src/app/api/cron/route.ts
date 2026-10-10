@@ -6,7 +6,11 @@ import { sourceStatusesHaveFailure, type SourceStatus } from "@/lib/http";
 import { collectRecentGeneration } from "@/lib/ingest/collect-generation";
 import { collectRecentSnapshots } from "@/lib/ingest/collect-grid";
 import { formatTinybirdDateTime } from "@/lib/london-time";
-import { emptyIntegrityReport, integritySourceStatus } from "@/lib/snapshot-integrity";
+import {
+  emptyIntegrityReport,
+  integritySourceStatus,
+  logSoftIntegrityFindings,
+} from "@/lib/snapshot-integrity";
 import { ingestRows } from "@/lib/tinybird";
 
 /**
@@ -37,6 +41,7 @@ export async function GET(request: Request) {
 
   const sources: SourceStatus[] = [...snapshots.sources, ...generation.sources];
   const integrity = snapshots.integrity ?? emptyIntegrityReport(now);
+  logSoftIntegrityFindings(integrity, "cron");
   sources.push(integritySourceStatus(integrity));
 
   if (snapshots.rows.length > 0) {

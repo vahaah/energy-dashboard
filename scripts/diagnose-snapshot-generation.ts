@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * Read-only scan of energy_snapshots half-hours where generation > 1.5× demand.
+ * Read-only scan of energy_snapshots half-hours that fail the like-for-like
+ * balance check (generation vs ITSDO + embedded, with export headroom).
  * One Tinybird SQL query (free-plan quota). Does not write.
  *
  * Usage:
@@ -104,7 +105,7 @@ function summarize(
   const last = rows.at(-1);
   const worst = [...rows].sort((left, right) => right.ratio - left.ratio).slice(0, 15);
 
-  process.stdout.write(`\nInflated energy_snapshots (generation > 1.5× demand)\n`);
+  process.stdout.write(`\nInflated energy_snapshots (generation > headline demand × limit)\n`);
   process.stdout.write(`  Periods: ${rows.length}\n`);
   if (source === "snapshots_range") {
     process.stdout.write(

@@ -9,6 +9,7 @@ import { formatTinybirdDateTime, yesterdayLondonDate } from "@/lib/london-time";
 import {
   integrityReportForWrittenRows,
   integritySourceStatus,
+  logSoftIntegrityFindings,
   recordSnapshotIntegrity,
   shouldRecordSnapshotIntegrity,
   type StoredSnapshotIntegrity,
@@ -78,6 +79,7 @@ export async function GET(request: Request) {
       integrityReportForWrittenRows(integrity, snapshots.rows)
     );
   }
+  logSoftIntegrityFindings(integrity, "cron-yesterday");
   sources.push(integritySourceStatus(integrity));
 
   const ingested = sources.some((source) => source.ok && (source.rows ?? 0) > 0);

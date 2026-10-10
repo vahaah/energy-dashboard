@@ -1,12 +1,27 @@
 import { getRedis } from "@/lib/redis-cache";
 import type { EnergySnapshot } from "@/lib/types";
-import { formatTinybirdDateTime } from "@/lib/london-time";
+import {
+  addUtcDays,
+  formatTinybirdDateTime,
+  getLondonDate,
+  londonMidnightUtc,
+  parseUtcDateTime,
+} from "@/lib/london-time";
+import { listSettlementPeriods, settlementTimestamp } from "@/lib/settlement-period";
 
-/** Nightly cron and /records use this; 1.25× leaves headroom for ~8 GW of exports. */
+/** Per-fuel snapshot vs FUELINST inflation flag in the diagnostic SQL. */
 export const GENERATION_OVER_DEMAND_LIMIT = 1.25;
 
-/** Diagnostic / confirmed-corrupt threshold from the 162-period scan. */
-export const GENERATION_OVER_DEMAND_DIAGNOSTIC = 1.5;
+/** Always-on slack for measurement mismatch on a like-for-like basis. */
+export const SNAPSHOT_BALANCE_TOLERANCE = 0.15;
+
+/**
+ * Extra headroom when `gen_imports_pct` is missing or low. Snapshots store no
+ * export MW, and sunny half-hours are often net exporters.
+ */
+export const SNAPSHOT_EXPORT_HEADROOM = 0.25;
+
+export const LOW_IMPORT_SHARE_PCT = 10;
 
 export const GB_TOTAL_DEMAND_MAX_MW = 80_000;
 export const CARBON_INTENSITY_MAX = 1_000;
@@ -53,7 +68,8 @@ export const SNAPSHOT_PCT_FIELDS = [
 
 export const SNAPSHOT_INTEGRITY_REDIS_KEY = "grid:snapshot-integrity";
 
-export type SnapshotIntegrityCode = "generation_vs_demand" | "fuel_maxima" | "out_of_bounds";
+export type SnapshotIntegrityCode = "balance" | "fuel_maxima" | "out_of_bounds";
+export type SnapshotIntegritySeverity = "hard" | "soft";
 
 export type SnapshotIntegrityIssue = {
   code: SnapshotIntegrityCode;
@@ -61,6 +77,28 @@ export type SnapshotIntegrityIssue = {
   value: number;
   limit: number;
 };
+
+export function issueSeverity(code: SnapshotIntegrityCode): SnapshotIntegritySeverity {
+  switch (code) {
+    case "balance":
+      return "soft";
+    case "fuel_maxima":
+    case "out_of_bounds":
+      return "hard";
+    default: {
+      const exhaustive: never = code;
+      return exhaustive;
+    }
+  }
+}
+
+export function findingHasHardIssue(finding: SnapshotIntegrityFinding): boolean {
+  return finding.issues.some((issue) => issueSeverity(issue.code) === "hard");
+}
+
+export function findingHasOnlySoftIssues(finding: SnapshotIntegrityFinding): boolean {
+  return finding.issues.length > 0 && !findingHasHardIssue(finding);
+}
 
 export type SnapshotIntegrityFinding = {
   timestamp: string;
@@ -104,6 +142,10 @@ function asFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function fieldMw(row: SnapshotLike, field: string): number | null {
+  return asFiniteNumber((row as Record<string, unknown>)[field]);
+}
+
 export function fuelFromSnapshotMwField(field: string): string {
   return field.replace(/^gen_/, "").replace(/_mw$/, "");
 }
@@ -120,6 +162,45 @@ export function snapshotDomesticGenerationMw(row: SnapshotLike): number | null {
     seen = true;
   }
   return seen ? total : null;
+}
+
+/**
+ * Embedded MW on the snapshot. Prefer explicit embedded columns; otherwise
+ * treat `gen_solar_mw` as the embedded-inclusive solar series — on every
+ * falsely flagged sunny row the gen−ITSDO gap was 8.9–12.2 GW of solar.
+ */
+export function snapshotEmbeddedMw(row: SnapshotLike): number {
+  const explicitWind = fieldMw(row, "embedded_wind_mw") ?? fieldMw(row, "gen_embedded_wind_mw");
+  const explicitSolar = fieldMw(row, "embedded_solar_mw") ?? fieldMw(row, "gen_embedded_solar_mw");
+  if (explicitWind != null || explicitSolar != null) {
+    return Math.max(0, explicitWind ?? 0) + Math.max(0, explicitSolar ?? 0);
+  }
+  return Math.max(0, asFiniteNumber(row.gen_solar_mw) ?? 0);
+}
+
+/** Headline demand: ITSDO + embedded. Same basis as the dashboard. */
+export function snapshotHeadlineDemandMw(row: SnapshotLike): number | null {
+  const itsdo = asFiniteNumber(row.demand_mw);
+  if (itsdo == null) {
+    return null;
+  }
+  return itsdo + snapshotEmbeddedMw(row);
+}
+
+/** Transmission-connected generation: total minus the embedded series. */
+export function snapshotTransmissionGenerationMw(row: SnapshotLike): number | null {
+  const generation = snapshotDomesticGenerationMw(row);
+  if (generation == null) {
+    return null;
+  }
+  return generation - snapshotEmbeddedMw(row);
+}
+
+export function snapshotBalanceLimitMultiplier(row: SnapshotLike): number {
+  const importsPct = asFiniteNumber(row.gen_imports_pct);
+  const exportHeadroom =
+    importsPct == null || importsPct < LOW_IMPORT_SHARE_PCT ? SNAPSHOT_EXPORT_HEADROOM : 0;
+  return 1 + SNAPSHOT_BALANCE_TOLERANCE + exportHeadroom;
 }
 
 export function snapshotIntegrityIssues(
@@ -180,17 +261,19 @@ export function snapshotIntegrityIssues(
   }
 
   const generation = snapshotDomesticGenerationMw(row);
+  const headlineDemand = snapshotHeadlineDemandMw(row);
+  const multiplier = snapshotBalanceLimitMultiplier(row);
   if (
-    demand != null &&
-    demand > 0 &&
+    headlineDemand != null &&
+    headlineDemand > 0 &&
     generation != null &&
-    generation > demand * GENERATION_OVER_DEMAND_LIMIT
+    generation > headlineDemand * multiplier
   ) {
     issues.push({
-      code: "generation_vs_demand",
+      code: "balance",
       field: "generation_mw",
       value: generation,
-      limit: demand * GENERATION_OVER_DEMAND_LIMIT,
+      limit: headlineDemand * multiplier,
     });
   }
 
@@ -203,11 +286,15 @@ export function findingFromSnapshotRow(
 ): SnapshotIntegrityFinding {
   const demandMw = asFiniteNumber(row.demand_mw);
   const generationMw = snapshotDomesticGenerationMw(row);
+  const headlineDemand = snapshotHeadlineDemandMw(row);
   return {
     timestamp: typeof row.timestamp === "string" ? integrityTimestampKey(row.timestamp) : "",
     demandMw,
     generationMw,
-    ratio: demandMw != null && demandMw > 0 && generationMw != null ? generationMw / demandMw : null,
+    ratio:
+      headlineDemand != null && headlineDemand > 0 && generationMw != null
+        ? generationMw / headlineDemand
+        : null,
     issues,
   };
 }
@@ -242,7 +329,41 @@ export function snapshotRowFailsIntegrity(
   row: SnapshotLike,
   rejectedGenTimes?: Set<string>
 ): boolean {
+  return snapshotIntegrityIssues(row, rejectedGenTimes).some(
+    (issue) => issueSeverity(issue.code) === "hard"
+  );
+}
+
+export function snapshotRowHasIntegrityIssues(
+  row: SnapshotLike,
+  rejectedGenTimes?: Set<string>
+): boolean {
   return snapshotIntegrityIssues(row, rejectedGenTimes).length > 0;
+}
+
+export function snapshotRowSoftIntegrityIssues(
+  row: SnapshotLike,
+  rejectedGenTimes?: Set<string>
+): SnapshotIntegrityIssue[] {
+  return snapshotIntegrityIssues(row, rejectedGenTimes).filter(
+    (issue) => issueSeverity(issue.code) === "soft"
+  );
+}
+
+export function partitionRepairedSnapshotRows(
+  rows: SnapshotLike[],
+  rejectedGenTimes?: Set<string>
+): { repaired: SnapshotLike[]; stillFailing: SnapshotLike[] } {
+  const repaired: SnapshotLike[] = [];
+  const stillFailing: SnapshotLike[] = [];
+  for (const row of rows) {
+    if (snapshotRowHasIntegrityIssues(row, rejectedGenTimes)) {
+      stillFailing.push(row);
+    } else {
+      repaired.push(row);
+    }
+  }
+  return { repaired, stillFailing };
 }
 
 export function emptyIntegrityReport(
@@ -257,20 +378,40 @@ export function emptyIntegrityReport(
   };
 }
 
+export function hardIntegrityFindings(report: SnapshotIntegrityReport): SnapshotIntegrityFinding[] {
+  return report.failing.filter(findingHasHardIssue);
+}
+
+export function softIntegrityFindings(report: SnapshotIntegrityReport): SnapshotIntegrityFinding[] {
+  return report.failing.filter(findingHasOnlySoftIssues);
+}
+
+export function logSoftIntegrityFindings(report: SnapshotIntegrityReport, label: string): void {
+  const soft = softIntegrityFindings(report);
+  if (soft.length === 0) {
+    return;
+  }
+  console.warn(`[${label}] keeping ${soft.length} half-hours that failed only the soft balance check`, {
+    timestamps: soft.map((finding) => finding.timestamp),
+    ratios: soft.map((finding) => finding.ratio),
+  });
+}
+
 export function integritySourceStatus(report: SnapshotIntegrityReport): {
   source: string;
   ok: boolean;
   rows: number;
   error?: string;
 } {
-  if (report.failing.length === 0) {
+  const hard = hardIntegrityFindings(report);
+  if (hard.length === 0) {
     return { source: "snapshot_integrity", ok: true, rows: report.checkedTimestamps.length };
   }
   return {
     source: "snapshot_integrity",
     ok: false,
-    rows: report.failing.length,
-    error: `${report.failing.length} half-hours failed generation/demand or bounds checks`,
+    rows: hard.length,
+    error: `${hard.length} half-hours failed fuel maxima, bounds, or duplicate-publish checks`,
   };
 }
 
@@ -369,7 +510,7 @@ export function writtenIntegrityTimestamps(rows: SnapshotLike[]): string[] {
   )].sort();
 }
 
-/** Persist only timestamps that reached Tinybird; keep unwritten failures. */
+/** Persist written timestamps as checked; keep current findings, including soft-kept rows. */
 export function integrityReportForWrittenRows(
   report: SnapshotIntegrityReport,
   writtenRows: SnapshotLike[]
@@ -378,19 +519,16 @@ export function integrityReportForWrittenRows(
   return {
     ...report,
     checkedTimestamps: [...written].sort(),
-    failing: report.failing.filter((finding) => !written.has(integrityTimestampKey(finding.timestamp))),
+    failing: report.failing,
   };
 }
 
+/** Re-check written rows for hard and soft issues. Still-failing timestamps stay excluded. */
 export function integrityReportForRepairedRows(
   writtenRows: SnapshotLike[],
   now = new Date()
 ): SnapshotIntegrityReport {
-  return {
-    checkedAt: formatTinybirdDateTime(now),
-    checkedTimestamps: writtenIntegrityTimestamps(writtenRows),
-    failing: [],
-  };
+  return inspectSnapshotRows(writtenRows, { now });
 }
 
 export function missingAffectedTimestamps(
@@ -404,18 +542,187 @@ export function missingAffectedTimestamps(
   return [...remaining].sort();
 }
 
+const TINYBIRD_DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+/** Max London settlement dates per Tinybird presence query. */
+export const INTEGRITY_REPAIR_DATE_BATCH_DAYS = 14;
+
+export function assertTinybirdDateTime(value: string): string {
+  if (!TINYBIRD_DATETIME_RE.test(value)) {
+    throw new Error(`invalid Tinybird datetime: ${value}`);
+  }
+  return value;
+}
+
+export function settlementDatesForTimestamps(timestamps: Iterable<string>): string[] {
+  const dates = new Set<string>();
+  for (const timestamp of timestamps) {
+    const key = integrityTimestampKey(timestamp);
+    if (key.length < 16) {
+      continue;
+    }
+    dates.add(getLondonDate(parseUtcDateTime(key)));
+  }
+  return [...dates].sort();
+}
+
+/** Stored checked dates plus dates implied by failing / inflated timestamps. */
+export function settlementDatesForIntegrityRepair(
+  stored: StoredSnapshotIntegrity | null,
+  extraTimestamps: Iterable<string> = []
+): string[] {
+  const dates = new Set(stored?.settlementDates ?? []);
+  for (const date of settlementDatesForTimestamps(stored?.failingTimestamps ?? [])) {
+    dates.add(date);
+  }
+  for (const date of settlementDatesForTimestamps(extraTimestamps)) {
+    dates.add(date);
+  }
+  return [...dates].sort();
+}
+
+export function expectedSettlementTimestamps(dates: Iterable<string>): string[] {
+  const timestamps: string[] = [];
+  for (const date of dates) {
+    for (const period of listSettlementPeriods(date)) {
+      timestamps.push(settlementTimestamp(period));
+    }
+  }
+  return timestamps;
+}
+
+export function missingSettlementTimestamps(
+  dates: Iterable<string>,
+  present: Iterable<string>
+): string[] {
+  const have = normalizeTimestampSet(present);
+  return expectedSettlementTimestamps(dates).filter(
+    (timestamp) => !have.has(integrityTimestampKey(timestamp))
+  );
+}
+
+function calendarDaysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  return Math.round((end - start) / 86_400_000);
+}
+
+export function settlementDateQueryBounds(
+  startDate: string,
+  endDateInclusive: string
+): { start: string; end: string } {
+  return {
+    start: formatTinybirdDateTime(londonMidnightUtc(startDate)),
+    end: formatTinybirdDateTime(londonMidnightUtc(addUtcDays(endDateInclusive, 1))),
+  };
+}
+
+export type IntegrityRepairDateRange = {
+  startDate: string;
+  endDate: string;
+  start: string;
+  end: string;
+};
+
+function rangeForSettlementDates(startDate: string, endDate: string): IntegrityRepairDateRange {
+  const bounds = settlementDateQueryBounds(startDate, endDate);
+  return {
+    startDate,
+    endDate,
+    start: bounds.start,
+    end: bounds.end,
+  };
+}
+
+/** Contiguous London dates, split so each Tinybird query covers at most `maxDays`. */
+export function batchSettlementDateRanges(
+  dates: Iterable<string>,
+  maxDays = INTEGRITY_REPAIR_DATE_BATCH_DAYS
+): IntegrityRepairDateRange[] {
+  const sorted = [...new Set(dates)].sort();
+  if (sorted.length === 0) {
+    return [];
+  }
+
+  const ranges: IntegrityRepairDateRange[] = [];
+  let startDate = sorted[0];
+  let endDate = sorted[0];
+
+  for (const date of sorted.slice(1)) {
+    const contiguous = calendarDaysBetween(endDate, date) === 1;
+    const span = calendarDaysBetween(startDate, date) + 1;
+    if (contiguous && span <= maxDays) {
+      endDate = date;
+      continue;
+    }
+    ranges.push(rangeForSettlementDates(startDate, endDate));
+    startDate = date;
+    endDate = date;
+  }
+  ranges.push(rangeForSettlementDates(startDate, endDate));
+  return ranges;
+}
+
+/** Timestamps only — one request per settlement-date range, never per half-hour. */
+export function snapshotTimestampsInRangeSql(start: string, endExclusive: string): string {
+  return `
+SELECT timestamp
+FROM energy_snapshots FINAL
+WHERE timestamp >= '${assertTinybirdDateTime(start)}'
+  AND timestamp < '${assertTinybirdDateTime(endExclusive)}'
+ORDER BY timestamp
+`.trim();
+}
+
+export type IntegrityRepairSeed = {
+  inflated: string[];
+  storedFailing: string[];
+  missing: string[];
+  affected: string[];
+  scanDates: string[];
+  collectDates: string[];
+};
+
+/**
+ * Seed repair from the current inflated query, Redis failingTimestamps, and
+ * missing half-hours on previously checked settlement dates.
+ */
+export function seedIntegrityRepair(options: {
+  inflatedTimestamps: Iterable<string>;
+  stored: StoredSnapshotIntegrity | null;
+  presentTimestamps: Iterable<string>;
+}): IntegrityRepairSeed {
+  const inflated = [...normalizeTimestampSet(options.inflatedTimestamps)].sort();
+  const storedFailing = [...normalizeTimestampSet(options.stored?.failingTimestamps ?? [])].sort();
+  const scanDates = settlementDatesForIntegrityRepair(options.stored, inflated);
+  const missing = missingSettlementTimestamps(scanDates, options.presentTimestamps);
+  const affected = [...normalizeTimestampSet([...inflated, ...storedFailing, ...missing])].sort();
+  return {
+    inflated,
+    storedFailing,
+    missing,
+    affected,
+    scanDates,
+    collectDates: settlementDatesForTimestamps(affected),
+  };
+}
+
 /**
  * One Tinybird SQL statement: inflated energy_snapshots vs half-hourly FUELINST.
  * Do not issue this from cron — scripts only, one request per run.
  */
 export function inflatedSnapshotSql(): string {
   const generationExpr = SNAPSHOT_MW_FIELDS.map((field) => `ifNull(${field}, 0)`).join(" + ");
+  const embeddedExpr = "greatest(ifNull(gen_solar_mw, 0), 0)";
+  const headlineExpr = `demand_mw + ${embeddedExpr}`;
+  const multiplierExpr = `1 + ${SNAPSHOT_BALANCE_TOLERANCE} + if(ifNull(gen_imports_pct, 0) < ${LOW_IMPORT_SHARE_PCT}, ${SNAPSHOT_EXPORT_HEADROOM}, 0)`;
   return `
 WITH snaps AS (
   SELECT
     timestamp,
     demand_mw,
     carbon_intensity,
+    gen_imports_pct,
     gen_gas_mw,
     gen_coal_mw,
     gen_nuclear_mw,
@@ -426,10 +733,11 @@ WITH snaps AS (
     gen_other_mw,
     gen_pumped_mw,
     gen_battery_mw,
-    ${generationExpr} AS generation_mw
+    ${generationExpr} AS generation_mw,
+    ${headlineExpr} AS headline_demand_mw
   FROM energy_snapshots FINAL
   WHERE demand_mw > 0
-    AND (${generationExpr}) > ${GENERATION_OVER_DEMAND_DIAGNOSTIC} * demand_mw
+    AND (${generationExpr}) > (${headlineExpr}) * (${multiplierExpr})
 ),
 fuelinst_5min AS (
   SELECT
@@ -468,7 +776,8 @@ SELECT
   s.timestamp,
   s.demand_mw,
   s.generation_mw,
-  s.generation_mw / s.demand_mw AS ratio,
+  s.headline_demand_mw,
+  s.generation_mw / s.headline_demand_mw AS ratio,
   s.carbon_intensity,
   s.gen_gas_mw,
   s.gen_coal_mw,
@@ -508,6 +817,7 @@ export type InflatedSnapshotRow = {
   timestamp: string;
   demand_mw: number;
   generation_mw: number;
+  headline_demand_mw?: number;
   ratio: number;
   carbon_intensity: number | null;
   gen_gas_mw: number | null;
@@ -565,10 +875,11 @@ export function inflatedFuelsForRow(row: InflatedSnapshotRow): string[] {
 export function inflatedSnapshotFromWideRow(row: SnapshotLike): InflatedSnapshotRow | null {
   const demand = typeof row.demand_mw === "number" ? row.demand_mw : null;
   const generation = snapshotDomesticGenerationMw(row);
-  if (demand == null || demand <= 0 || generation == null) {
+  const headlineDemand = snapshotHeadlineDemandMw(row);
+  if (demand == null || demand <= 0 || generation == null || headlineDemand == null || headlineDemand <= 0) {
     return null;
   }
-  if (generation <= demand * GENERATION_OVER_DEMAND_DIAGNOSTIC) {
+  if (generation <= headlineDemand * snapshotBalanceLimitMultiplier(row)) {
     return null;
   }
   const mw = (field: (typeof SNAPSHOT_MW_FIELDS)[number]): number | null => {
@@ -579,7 +890,8 @@ export function inflatedSnapshotFromWideRow(row: SnapshotLike): InflatedSnapshot
     timestamp: typeof row.timestamp === "string" ? integrityTimestampKey(row.timestamp) : "",
     demand_mw: demand,
     generation_mw: generation,
-    ratio: generation / demand,
+    headline_demand_mw: headlineDemand,
+    ratio: generation / headlineDemand,
     carbon_intensity: typeof row.carbon_intensity === "number" ? row.carbon_intensity : null,
     gen_gas_mw: mw("gen_gas_mw"),
     gen_coal_mw: mw("gen_coal_mw"),

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tinybirdReadToken, tinybirdSqlRequestInit, tinybirdSqlToken } from "@/lib/tinybird-sql";
 
@@ -16,6 +18,19 @@ describe("Tinybird script tokens", () => {
       "TINYBIRD_READ_TOKEN is not set"
     );
     expect(tinybirdSqlToken({ TINYBIRD_READ_TOKEN: "read-token" })).toBe("read-token");
+  });
+
+  it("loads present snapshot timestamps in settlement-date batches", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "./tinybird-sql.ts"), "utf8");
+    expect(source).toContain("queryPresentSnapshotTimestamps");
+    expect(source).toContain("querySnapshotTimestampsInRange");
+    expect(source).toContain("batchSettlementDateRanges");
+    expect(source).toContain("snapshotTimestampsInRangeSql");
+    expect(source).toContain("TINYBIRD_QUERY_GAP_MS");
+    expect(source).toContain('"snapshots_range"');
+    expect(source.indexOf("querySnapshotTimestampsInRange")).toBeLessThan(
+      source.indexOf("queryPresentSnapshotTimestamps")
+    );
   });
 
   it("POSTs SQL as the q form parameter like backfill-gb-gas-sap", () => {

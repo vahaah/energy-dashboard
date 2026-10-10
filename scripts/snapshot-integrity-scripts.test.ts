@@ -26,15 +26,33 @@ describe("snapshot integrity scripts", () => {
   it("backfills only affected snapshot rows and stays dry-run without --execute", () => {
     const source = readFileSync(resolve(process.cwd(), "scripts/backfill-inflated-snapshots.ts"), "utf8");
     expect(source).toContain("queryInflatedSnapshots");
+    expect(source).toContain("queryPresentSnapshotTimestamps");
+    expect(source).toContain("loadSnapshotIntegrity");
+    expect(source).toContain("seedIntegrityRepair");
+    expect(source).toContain("settlementDatesForIntegrityRepair");
     expect(source).toContain("const execute = args.includes(\"--execute\")");
     expect(source).toContain("const dryRun = !execute");
     expect(source).toContain("affected.has(timestamp)");
     expect(source).toContain("collectSnapshotsForSettlementDate");
     expect(source).toContain("missingAffectedTimestamps");
+    expect(source).toContain("partitionRepairedSnapshotRows");
     expect(source).toContain("integrityReportForRepairedRows");
     expect(source).toContain("recordSnapshotIntegrity");
+    expect(source).toContain("writtenIntegrityTimestamps");
     expect(source).toContain("if (execute)");
+    expect(source).toContain("Still failing integrity after re-collect");
+    expect(source).toContain('await ingestRows("energy_snapshots", repaired)');
+    expect(source).not.toContain('await ingestRows("energy_snapshots", rows)');
     expect(source).toContain("process.exit(1)");
+    expect(source.lastIndexOf("loadSnapshotIntegrity")).toBeLessThan(
+      source.lastIndexOf("queryPresentSnapshotTimestamps")
+    );
+    expect(source.lastIndexOf("queryPresentSnapshotTimestamps")).toBeLessThan(
+      source.lastIndexOf("seedIntegrityRepair")
+    );
+    expect(source.indexOf("partitionRepairedSnapshotRows")).toBeLessThan(
+      source.indexOf('await ingestRows("energy_snapshots"')
+    );
     expect(source.indexOf('await ingestRows("energy_snapshots"')).toBeLessThan(
       source.lastIndexOf("recordSnapshotIntegrity")
     );
