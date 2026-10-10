@@ -53,11 +53,11 @@ export async function prefetchQuery<T>(
 ): Promise<T> {
   fetchers.set(key, fetcher);
   const existing = getQueryEntry<T>(key);
-  if (!options?.force && existing && isFreshQueryEntry(existing) && existing.promise === undefined) {
-    return existing.data as T;
-  }
-  if (!options?.force && existing?.promise) {
+  if (existing?.promise) {
     return existing.promise;
+  }
+  if (!options?.force && existing && isFreshQueryEntry(existing)) {
+    return existing.data as T;
   }
 
   const promise = fetcher()

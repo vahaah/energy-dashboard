@@ -128,9 +128,14 @@ export async function loadDashboardPayloadUncached(
             { range: "24h", date: headlineDate, now }
           ).catch(() => noGeneration),
     ]),
-    getHistoricPeriodView("all", now).catch(() => null),
+    getHistoricPeriodView("all", now).catch((error: unknown) => {
+      if (historicPeriod === "all") {
+        throw error;
+      }
+      return null;
+    }),
     historicPeriod === "year"
-      ? getHistoricPeriodView("year", now).catch(() => null)
+      ? getHistoricPeriodView("year", now)
       : Promise.resolve(null),
     getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
     getLookAhead().catch(() => null),

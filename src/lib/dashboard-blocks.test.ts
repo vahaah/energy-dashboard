@@ -22,8 +22,7 @@ describe("dashboard blocks", () => {
     expect(adjacentPeriods("week")).toEqual(["day", "year"]);
     expect(adjacentPeriods("year")).toEqual(["week", "all"]);
     expect(adjacentPeriods("all")).toEqual(["year"]);
-    expect(dashboardQueryKey("week", null)).toBe("dashboard:week::90d");
-    expect(dashboardQueryKey("day", "2026-05-19")).toBe("dashboard:day:2026-05-19:90d");
-    expect(dashboardQueryKey("day", null, "1y")).toBe("dashboard:day::1y");
+    expect(dashboardQueryKey("week", null)).toBe("dashboard:week:");
+    expect(dashboardQueryKey("day", "2026-05-19")).toBe("dashboard:day:2026-05-19");
   });
 });

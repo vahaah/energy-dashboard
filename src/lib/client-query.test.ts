@@ -22,6 +22,22 @@ describe("client query cache", () => {
     expect(getQueryEntry("day")?.data).toEqual({ rows: [1] });
   });
 
+  it("reuses an in-flight promise even when a later caller forces refresh", async () => {
+    let resolveFirst: (value: string) => void = () => undefined;
+    const firstFetcher = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    const first = prefetchQuery("day", firstFetcher);
+    const forced = prefetchQuery("day", async () => "forced", { force: true });
+    resolveFirst("first");
+    await expect(Promise.all([first, forced])).resolves.toEqual(["first", "first"]);
+    expect(firstFetcher).toHaveBeenCalledOnce();
+    expect(getQueryEntry<string>("day")?.data).toBe("first");
+  });
+
   it("keeps the last value while a forced revalidate is in flight", async () => {
     await prefetchQuery("week", async () => "old");
     let resolveFresh: (value: string) => void = () => undefined;

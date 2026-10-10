@@ -21,6 +21,13 @@ describe("dashboard header controls", () => {
     expect(source).toContain("shallow: true");
     expect(source).not.toContain("router.refresh()");
     expect(source).not.toContain("Refresh");
+    expect(source).toContain("minDate={getDashboardCoverageStart(now)}");
+    expect(source).toContain("price.error && !priceData");
+    expect(source).toContain("transfers.error && !transfersData");
+    expect(source).toContain("mix.error && !mixData");
+    expect(source).toContain("carbon.error && !carbonData");
+    expect(source).toContain("fetchDashboardPayload(period, date)");
+    expect(source).not.toContain("dashboardQueryKey(period, date, commodityRange)");
   });
 });
 

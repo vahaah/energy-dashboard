@@ -108,6 +108,35 @@ describe("dashboard payload", () => {
     ).rejects.toThrow("tinybird down");
   });
 
+  it("rethrows a required Year historic-view failure", async () => {
+    getHistoricPeriodView.mockImplementation((period: string) => {
+      if (period === "year") {
+        return Promise.reject(new Error("neso down"));
+      }
+      return Promise.resolve(buildHistoricPeriodView([]));
+    });
+
+    await expect(
+      loadDashboardPayloadUncached({
+        period: "year",
+        commodityRange: "90d",
+        now,
+      })
+    ).rejects.toThrow("neso down");
+  });
+
+  it("still loads Day when the optional all-time transition view fails", async () => {
+    getHistoricPeriodView.mockRejectedValue(new Error("neso down"));
+
+    await expect(
+      loadDashboardPayloadUncached({
+        period: "day",
+        commodityRange: "90d",
+        now,
+      })
+    ).resolves.toMatchObject({ period: "day", historicView: null });
+  });
+
   it("serializes the all-time historic series once", async () => {
     const historic = buildHistoricPeriodView([]);
     historic.snapshots = [{ timestamp: "2026-01-01 00:00:00" } as never];

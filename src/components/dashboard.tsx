@@ -130,28 +130,23 @@ export function Dashboard() {
 
   const generation = useDashboardPeriod(
     generationPeriod,
-    queryDateForPeriod(generationPeriod, urlState.date, todayDate),
-    commodityRange
+    queryDateForPeriod(generationPeriod, urlState.date, todayDate)
   );
   const price = useDashboardPeriod(
     pricePeriod,
-    queryDateForPeriod(pricePeriod, urlState.date, todayDate),
-    commodityRange
+    queryDateForPeriod(pricePeriod, urlState.date, todayDate)
   );
   const transfers = useDashboardPeriod(
     transfersPeriod,
-    queryDateForPeriod(transfersPeriod, urlState.date, todayDate),
-    commodityRange
+    queryDateForPeriod(transfersPeriod, urlState.date, todayDate)
   );
   const mix = useDashboardPeriod(
     mixPeriod,
-    queryDateForPeriod(mixPeriod, urlState.date, todayDate),
-    commodityRange
+    queryDateForPeriod(mixPeriod, urlState.date, todayDate)
   );
   const carbon = useDashboardPeriod(
     carbonPeriod,
-    queryDateForPeriod(carbonPeriod, urlState.date, todayDate),
-    commodityRange
+    queryDateForPeriod(carbonPeriod, urlState.date, todayDate)
   );
   const fetchPrices = useCallback(() => fetchPublicPrices(commodityRange), [commodityRange]);
   const pricesQuery = useClientQuery(pricesQueryKey(commodityRange), fetchPrices);
@@ -171,7 +166,7 @@ export function Dashboard() {
   const records = shared?.records ?? null;
   const historicView = generationData?.historicView ?? null;
   const transitionView = shared?.transitionView ?? generationData?.historicView ?? null;
-  const initialPrices = pricesQuery.data ?? generationData?.prices ?? EMPTY_PRICES;
+  const initialPrices = pricesQuery.data ?? EMPTY_PRICES;
   const chartRange = chartRangeForPeriod(generationPeriod, range);
   const neso = isNesoPeriod(generationPeriod);
   const power = getDisplayedPower(facts, headlineSnapshots);
@@ -213,7 +208,7 @@ export function Dashboard() {
 
     const run = () => {
       for (const next of toPrefetch) {
-        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate), commodityRange);
+        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
       }
       prefetchQuery(pricesQueryKey(commodityRange), () => fetchPublicPrices(commodityRange));
     };
@@ -316,7 +311,7 @@ export function Dashboard() {
   };
 
   const prefetchBlock = (next: DashboardPeriod) => {
-    prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate), commodityRange);
+    prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
   };
 
   return (
@@ -341,7 +336,7 @@ export function Dashboard() {
         }}
         onPeriodIntent={prefetchBlock}
         activeDate={activeDate}
-        minDate={facts.coverageStart || getDashboardCoverageStart(now)}
+        minDate={getDashboardCoverageStart(now)}
         maxDate={todayDate}
         onDateChange={(date) => {
           void setUrlState({ date: date || todayDate });
@@ -455,7 +450,9 @@ export function Dashboard() {
             </div>
           }
         >
-          {price.isLoading ? (
+          {price.error && !priceData ? (
+            <BlockQueryError onRetry={() => revalidateAllQueries()} />
+          ) : price.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : priceNeso ? (
             <p className="text-copy-14 text-gray-900">
@@ -481,7 +478,9 @@ export function Dashboard() {
             />
           }
         >
-          {transfers.isLoading ? (
+          {transfers.error && !transfersData ? (
+            <BlockQueryError onRetry={() => revalidateAllQueries()} />
+          ) : transfers.isLoading ? (
             <TransfersSkeleton />
           ) : hasInterconnectorHistory ? (
             <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -530,7 +529,9 @@ export function Dashboard() {
             />
           }
         >
-          {mix.isLoading ? (
+          {mix.error && !mixData ? (
+            <BlockQueryError onRetry={() => revalidateAllQueries()} />
+          ) : mix.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : mixHistory.length > 0 ? (
             <GenerationStackChart data={mixHistory} range={mixChartRange} />
@@ -562,7 +563,9 @@ export function Dashboard() {
             />
           }
         >
-          {pricesQuery.isLoading ? (
+          {pricesQuery.error && !pricesQuery.data ? (
+            <BlockQueryError onRetry={() => revalidateAllQueries()} />
+          ) : pricesQuery.isLoading ? (
             <CommoditySkeleton />
           ) : initialPrices.length > 0 ? (
             <>
@@ -636,7 +639,9 @@ export function Dashboard() {
             />
           }
         >
-          {carbon.isLoading ? (
+          {carbon.error && !carbonData ? (
+            <BlockQueryError onRetry={() => revalidateAllQueries()} />
+          ) : carbon.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : (
             <>
@@ -741,26 +746,13 @@ export function Dashboard() {
   );
 }
 
-function useDashboardPeriod(
-  period: DashboardPeriod,
-  date: string | null,
-  commodityRange: CommodityRange
-) {
-  const fetcher = useCallback(
-    () => fetchDashboardPayload(period, date, commodityRange),
-    [period, date, commodityRange]
-  );
-  return useClientQuery(dashboardQueryKey(period, date, commodityRange), fetcher);
+function useDashboardPeriod(period: DashboardPeriod, date: string | null) {
+  const fetcher = useCallback(() => fetchDashboardPayload(period, date), [period, date]);
+  return useClientQuery(dashboardQueryKey(period, date), fetcher);
 }
 
-function prefetchPeriod(
-  period: DashboardPeriod,
-  date: string | null,
-  commodityRange: CommodityRange
-): void {
-  void prefetchQuery(dashboardQueryKey(period, date, commodityRange), () =>
-    fetchDashboardPayload(period, date, commodityRange)
-  );
+function prefetchPeriod(period: DashboardPeriod, date: string | null): void {
+  void prefetchQuery(dashboardQueryKey(period, date), () => fetchDashboardPayload(period, date));
 }
 
 function fallbackFacts(now: Date) {
@@ -862,6 +854,21 @@ function CommoditySkeleton() {
       </div>
       <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
     </>
+  );
+}
+
+function BlockQueryError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="text-copy-14 text-gray-1000" aria-live="polite">
+      Couldn&apos;t load this chart.{" "}
+      <button
+        type="button"
+        className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+        onClick={onRetry}
+      >
+        Retry
+      </button>
+    </p>
   );
 }
 
