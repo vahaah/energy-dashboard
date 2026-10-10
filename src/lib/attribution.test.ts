@@ -3,6 +3,7 @@ import {
   CARBON_INTENSITY_API_URL,
   CARBON_INTENSITY_ATTRIBUTION,
   CARBON_INTENSITY_FORECAST_NOTE,
+  CC_BY_4_0_LICENSE_URL,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
@@ -37,5 +38,6 @@ describe("Elexon BMRS attribution", () => {
     expect(CARBON_INTENSITY_API_URL).toBe("https://carbonintensity.org.uk/");
     expect(CARBON_INTENSITY_ATTRIBUTION).toContain("CC BY 4.0");
     expect(CARBON_INTENSITY_FORECAST_NOTE).toContain("raw forecast series is not republished");
+    expect(CC_BY_4_0_LICENSE_URL).toBe("https://creativecommons.org/licenses/by/4.0/");
   });
 });

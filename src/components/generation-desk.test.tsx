@@ -143,7 +143,6 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Demand profile");
     expect(html).not.toContain("Generation desk");
     expect(html).not.toContain("SP ");
-    expect(dashboardSource).toContain("What&apos;s powering Britain");
     expect(dashboardSource).toContain("What does power cost?");
     expect(dashboardSource).toContain("Where is power flowing?");
     expect(dashboardSource).toContain("How has the mix changed?");
@@ -156,7 +155,9 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("Imbalance price");
     expect(dashboardSource).not.toContain("Carbon pulse");
     expect(dashboardSource).not.toContain("KpiCard");
+    expect(pageSource).toContain("export const revalidate = 300");
     expect(pageSource).toContain('export const dynamic = "force-static"');
+    expect(pageSource).toContain("HomepageBriefing");
     expect(pageSource).toContain("<Suspense");
     expect(pageSource).not.toContain("/api/dashboard?period=day");
     expect(pageSource).not.toContain("queryPipe");
@@ -187,7 +188,7 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, 'id="section-overview"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-generation"')
     );
-    expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
+    expect(indexAfter(dashboardSource, 'id="section-overview"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-price"')
     );
     expect(indexAfter(dashboardSource, 'id="section-price"')).toBeLessThan(
@@ -205,7 +206,7 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, 'id="section-records"')).toBeLessThan(
       indexAfter(dashboardSource, 'id="section-carbon"')
     );
-    expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
+    expect(indexAfter(dashboardSource, 'id="section-overview"')).toBeLessThan(
       indexAfter(dashboardSource, "How clean is it?")
     );
     expect(dashboardSource).toContain(
@@ -221,6 +222,10 @@ describe("generation desk layout", () => {
     expect(readFileSync(resolve(import.meta.dirname, "./mix-bar.tsx"), "utf8")).toContain("shrink-0");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain("formatLondonDayMonthYear");
     expect(dashboardSource).toContain("stale={facts.isStale}");
+    expect(indexAfter(dashboardSource, "<SiteHeader")).toBeLessThan(
+      indexAfter(dashboardSource, "historicalHomepageH1(dayQueryDate)")
+    );
+    expect(dashboardSource).toContain("historicalHomepageH1");
     expect(dashboardSource).toContain('id="section-overview"');
     expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
     expect(dashboardSource).toContain('from "@/components/ui/card"');

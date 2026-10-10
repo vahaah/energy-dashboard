@@ -5,6 +5,7 @@ import {
   getQueryEntry,
   prefetchQuery,
   revalidateAllQueries,
+  seedQuery,
   subscribeQuery,
 } from "@/lib/client-query";
 
@@ -81,5 +82,11 @@ describe("client query cache", () => {
     expect(active).toHaveBeenCalledTimes(2);
     expect(idle).toHaveBeenCalledOnce();
     unsubscribe();
+  });
+
+  it("seeds a key once so SSR can hydrate without a refetch race", () => {
+    seedQuery("day", { rows: [1] });
+    seedQuery("day", { rows: [2] });
+    expect(getQueryEntry("day")?.data).toEqual({ rows: [1] });
   });
 });

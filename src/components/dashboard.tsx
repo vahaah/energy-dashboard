@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryStates } from "nuqs";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
@@ -41,7 +41,8 @@ import {
   type DashboardBlock,
 } from "@/lib/dashboard-blocks";
 import { fetchDashboardPayload, fetchPublicPrices } from "@/lib/dashboard-client";
-import { prefetchQuery, revalidateAllQueries } from "@/lib/client-query";
+import { prefetchQuery, revalidateAllQueries, seedQuery } from "@/lib/client-query";
+import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { useClientQuery } from "@/lib/use-client-query";
 import { PeriodAveragesRow } from "@/components/period-averages";
 import { RecordsCard } from "@/components/records-card";
@@ -64,6 +65,7 @@ import {
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
 import { getLatestFacts } from "@/lib/facts";
+import { historicalHomepageH1 } from "@/lib/homepage-briefing";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
@@ -107,7 +109,13 @@ function queryDateForPeriod(period: DashboardPeriod, date: string | null, today:
   return date;
 }
 
-export function Dashboard() {
+export function Dashboard({
+  initialPayload = null,
+  children,
+}: {
+  initialPayload?: DashboardPayload | null;
+  children?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
     history: "replace",
@@ -130,25 +138,35 @@ export function Dashboard() {
   const mixPeriod = effectiveBlockPeriod(period, urlState.mixPeriod);
   const carbonPeriod = effectiveBlockPeriod(period, urlState.carbonPeriod);
 
+  const dayQueryDate = queryDateForPeriod("day", urlState.date, todayDate);
+  if (initialPayload && dayQueryDate === null) {
+    seedQuery(dashboardQueryKey("day", null), hydrateDashboardPayload(initialPayload));
+  }
+
   const generation = useDashboardPeriod(
     generationPeriod,
-    queryDateForPeriod(generationPeriod, urlState.date, todayDate)
+    queryDateForPeriod(generationPeriod, urlState.date, todayDate),
+    initialForPeriod(generationPeriod, urlState.date, todayDate, initialPayload)
   );
   const price = useDashboardPeriod(
     pricePeriod,
-    queryDateForPeriod(pricePeriod, urlState.date, todayDate)
+    queryDateForPeriod(pricePeriod, urlState.date, todayDate),
+    initialForPeriod(pricePeriod, urlState.date, todayDate, initialPayload)
   );
   const transfers = useDashboardPeriod(
     transfersPeriod,
-    queryDateForPeriod(transfersPeriod, urlState.date, todayDate)
+    queryDateForPeriod(transfersPeriod, urlState.date, todayDate),
+    initialForPeriod(transfersPeriod, urlState.date, todayDate, initialPayload)
   );
   const mix = useDashboardPeriod(
     mixPeriod,
-    queryDateForPeriod(mixPeriod, urlState.date, todayDate)
+    queryDateForPeriod(mixPeriod, urlState.date, todayDate),
+    initialForPeriod(mixPeriod, urlState.date, todayDate, initialPayload)
   );
   const carbon = useDashboardPeriod(
     carbonPeriod,
-    queryDateForPeriod(carbonPeriod, urlState.date, todayDate)
+    queryDateForPeriod(carbonPeriod, urlState.date, todayDate),
+    initialForPeriod(carbonPeriod, urlState.date, todayDate, initialPayload)
   );
   const fetchPrices = useCallback(() => fetchPublicPrices(commodityRange), [commodityRange]);
   const pricesQuery = useClientQuery(pricesQueryKey(commodityRange), fetchPrices);
@@ -276,7 +294,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background-100 text-gray-1000">
+    <div className="bg-background-100 text-gray-1000">
       <a
         href="#section-overview"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
@@ -314,6 +332,14 @@ export function Dashboard() {
         }}
       />
 
+      {dayQueryDate === null ? (
+        children ? <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{children}</div> : null
+      ) : (
+        <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>
+          <h1 className="text-heading-32 text-gray-1000">{historicalHomepageH1(dayQueryDate)}</h1>
+        </div>
+      )}
+
       <main className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (
           <Card>
@@ -330,30 +356,22 @@ export function Dashboard() {
           </Card>
         ) : null}
         {facts.empty && facts.emptyState && generationData ? (
-          <Card id="section-overview">
-            <h1 className="text-heading-32">{answer}</h1>
-            <p className="mt-3 text-copy-16 text-gray-900">{facts.emptyState.message}</p>
-            <a
-              href={facts.emptyState.href}
-              className="mt-4 inline-flex h-8 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
-            >
-              {facts.emptyState.action}
-            </a>
-          </Card>
+          <section id="section-overview" className="scroll-mt-28">
+            <Card>
+              <p className="text-copy-16 text-gray-900">{facts.emptyState.message}</p>
+              <a
+                href={facts.emptyState.href}
+                className="mt-4 inline-flex h-8 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
+              >
+                {facts.emptyState.action}
+              </a>
+            </Card>
+          </section>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            <div className="flex items-center gap-2">
-              <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
-              <InfoTooltip
-                text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
-                label="What is What's powering Britain?"
-              />
-            </div>
-            {generation.isLoading ? (
-              <Skeleton className="mt-2 h-10 w-full max-w-3xl" />
-            ) : (
-              <h1 className="mt-1 text-heading-32 text-gray-1000">{answer}</h1>
-            )}
+            {generationPeriod !== "day" ? (
+              <p className="text-heading-24 text-gray-1000">{answer}</p>
+            ) : null}
             <Card
               id="section-generation"
               className="mt-4"
@@ -723,9 +741,31 @@ export function Dashboard() {
   );
 }
 
-function useDashboardPeriod(period: DashboardPeriod, date: string | null) {
+function initialForPeriod(
+  period: DashboardPeriod,
+  date: string | null,
+  today: string,
+  initialPayload: DashboardPayload | null
+): DashboardPayload | null {
+  if (!initialPayload || period !== "day" || queryDateForPeriod(period, date, today) !== null) {
+    return null;
+  }
+  return initialPayload;
+}
+
+function useDashboardPeriod(
+  period: DashboardPeriod,
+  date: string | null,
+  initial: DashboardPayload | null
+) {
   const fetcher = useCallback(() => fetchDashboardPayload(period, date), [period, date]);
-  return useClientQuery(dashboardQueryKey(period, date), fetcher);
+  const query = useClientQuery(dashboardQueryKey(period, date), fetcher);
+  const hydrated = initial ? hydrateDashboardPayload(initial) : undefined;
+  return {
+    ...query,
+    data: query.data ?? hydrated,
+    isLoading: query.data === undefined && hydrated === undefined && query.error === undefined,
+  };
 }
 
 function prefetchPeriod(period: DashboardPeriod, date: string | null): void {
@@ -733,12 +773,15 @@ function prefetchPeriod(period: DashboardPeriod, date: string | null): void {
 }
 
 function fallbackFacts(now: Date) {
-  return getLatestFacts({
-    resolution: resolveDashboardDate(null, now, "24h"),
-    snapshots: [],
-    generation: [],
-    now,
-  });
+  return {
+    ...getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [],
+      generation: [],
+      now,
+    }),
+    headerStamp: "Grid updates hourly from public data.",
+  };
 }
 
 function BlockPeriodControl({

@@ -9,21 +9,14 @@ export function RecordsCard({ records }: { records: GridRecords }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <RecordStat
-        label="Wind record"
+        label="Highest wind since Grid's records began"
         value={formatHeadlineGw(records.maxWind?.value ?? null)}
         unit="GW"
         when={records.maxWind?.timestampUtc}
         help={`${records.maxWind?.basis ?? "Wind record."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
       />
       <RecordStat
-        label="Solar record"
-        value={formatHeadlineGw(records.maxSolar?.value ?? null)}
-        unit="GW"
-        when={records.maxSolar?.timestampUtc}
-        help={`${records.maxSolar?.basis ?? "Solar record."} ${NESO_OPEN_DATA_ATTRIBUTION}.`}
-      />
-      <RecordStat
-        label="Lowest carbon"
+        label="Lowest carbon since Grid's records began"
         value={records.lowestCarbon ? records.lowestCarbon.value.toFixed(0) : "—"}
         unit={records.lowestCarbon ? "g" : ""}
         when={records.lowestCarbon?.timestampUtc}

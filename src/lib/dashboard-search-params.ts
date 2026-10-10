@@ -85,6 +85,14 @@ export function resolveDashboardDate(
   return { status: "historical", date, today, coverageStart };
 }
 
+export function isLatestDashboardDate(
+  date: string | string[] | undefined,
+  now = new Date()
+): boolean {
+  const value = Array.isArray(date) ? date[0] : date;
+  return resolveDashboardDate(value, now).status === "latest";
+}
+
 const parseAsDashboardDate = createParser<string>({
   parse: (value) => (isValidDashboardDate(value) ? value : null),
   serialize: (value) => value,
