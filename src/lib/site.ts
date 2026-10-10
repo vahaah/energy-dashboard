@@ -28,6 +28,8 @@ export const SITE_TWITTER_CARD = {
   images: ["/og.png"],
 };
 
+export const SITE_OG_TYPE = "website" as const;
+
 export const TITLE_MAX_CHARS = 60;
 export const DESCRIPTION_MAX_CHARS = 155;
 

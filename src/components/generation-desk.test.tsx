@@ -223,8 +223,9 @@ describe("generation desk layout", () => {
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain("formatLondonDayMonthYear");
     expect(dashboardSource).toContain("stale={facts.isStale}");
     expect(indexAfter(dashboardSource, "<SiteHeader")).toBeLessThan(
-      indexAfter(dashboardSource, "{dayQueryDate === null && children")
+      indexAfter(dashboardSource, "historicalHomepageH1(dayQueryDate)")
     );
+    expect(dashboardSource).toContain("historicalHomepageH1");
     expect(dashboardSource).toContain('id="section-overview"');
     expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
     expect(dashboardSource).toContain('from "@/components/ui/card"');

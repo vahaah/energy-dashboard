@@ -44,10 +44,10 @@ export const NESO_OFFICIAL_RECORDS: Record<NesoOfficialRecordId, NesoOfficialRec
   solar: {
     id: "solar",
     kind: "official",
-    value: 15_158,
+    value: 15_400,
     unit: "MW",
-    observedAtLondon: "23 Apr 2026, 12:00",
-    sourceUrl: NESO_HISTORIC_MIX_URL,
+    observedAtLondon: "23 Apr 2026, 12:30–13:00",
+    sourceUrl: NESO_ZERO_CARBON_PRESS_URL,
     checkedAt: NESO_OFFICIAL_RECORDS_CHECKED_AT,
   },
   zero_carbon: {

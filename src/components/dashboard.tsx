@@ -65,6 +65,7 @@ import {
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
 import { getLatestFacts } from "@/lib/facts";
+import { historicalHomepageH1 } from "@/lib/homepage-briefing";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
@@ -331,9 +332,13 @@ export function Dashboard({
         }}
       />
 
-      {dayQueryDate === null && children ? (
-        <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{children}</div>
-      ) : null}
+      {dayQueryDate === null ? (
+        children ? <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{children}</div> : null
+      ) : (
+        <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>
+          <h1 className="text-heading-32 text-gray-1000">{historicalHomepageH1(dayQueryDate)}</h1>
+        </div>
+      )}
 
       <main className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (

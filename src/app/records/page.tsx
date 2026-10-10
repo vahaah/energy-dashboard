@@ -32,6 +32,7 @@ import {
   RECORDS_SUBLINE,
   RECORDS_TITLE,
   SITE_OG_IMAGE,
+  SITE_OG_TYPE,
   SITE_TWITTER_CARD,
 } from "@/lib/site";
 
@@ -43,6 +44,7 @@ export const metadata: Metadata = {
   description: RECORDS_DESCRIPTION,
   alternates: { canonical: "/records" },
   openGraph: {
+    type: SITE_OG_TYPE,
     title: RECORDS_TITLE,
     description: RECORDS_DESCRIPTION,
     url: "/records",
@@ -313,7 +315,7 @@ function faqItems(records: GridRecords): Array<{ question: string; answer: strin
     {
       question: "Why is there no solar record?",
       answer:
-        "Grid's solar peak currently disagrees with NESO's official record of 15,158 MW on 23 Apr 2026. The solar card is hidden until those figures match within 2%.",
+        "Grid's solar peak currently disagrees with NESO's official record of 15.4 GW between 12:30 and 13:00 on 23 Apr 2026. The solar card is hidden until those figures match within 2%.",
     },
     {
       question: "What was the lowest carbon half-hour since Grid's records began?",

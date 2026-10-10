@@ -8,7 +8,7 @@ import { PAGE_STACK_CLASS } from "@/components/ui/card";
 import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
-import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_TWITTER_CARD } from "@/lib/site";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_OG_TYPE, SITE_TWITTER_CARD } from "@/lib/site";
 
 /**
  * Homepage shell. Static/ISR so the CDN can HIT `/`. Headline copy is a Server
@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   description: HOME_DESCRIPTION,
   alternates: { canonical: "/" },
   openGraph: {
+    type: SITE_OG_TYPE,
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     url: "/",

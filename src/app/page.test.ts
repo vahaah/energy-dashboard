@@ -12,6 +12,7 @@ describe("homepage", () => {
     expect(source).toContain('export const dynamic = "force-static"');
     expect(source).toContain('canonical: "/"');
     expect(source).toContain("SITE_OG_IMAGE");
+    expect(source).toContain("SITE_OG_TYPE");
     expect(source).toContain("SITE_TWITTER_CARD");
     expect(source).toContain("{briefing}</Dashboard>");
     expect(source).not.toContain("searchParams");

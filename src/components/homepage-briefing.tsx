@@ -18,7 +18,7 @@ export function HomepageBriefing({ cite }: { cite: HomepageCite }) {
             </time>{" "}
             on {cite.dateLabel}, {cite.topFuel} was Britain&apos;s largest source of electricity at{" "}
             {cite.topGw} GW ({cite.topSharePct}%). Gas supplied {cite.gasSharePct}%, and carbon
-            intensity was {cite.carbon} gCO₂/kWh. The market index price was £{cite.price}/MWh.
+            intensity was {cite.carbon} gCO₂/kWh. The market index price was £{cite.price}/MWh.{" "}
             {HOME_CITE_SOURCES} Grid is free and updated hourly from public data.
           </p>
           <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

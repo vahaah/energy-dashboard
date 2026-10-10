@@ -1,4 +1,11 @@
-import { CC_BY_4_0_LICENSE_URL, elexonBmrsAttribution, NESO_HISTORIC_MIX_URL } from "@/lib/attribution";
+import {
+  CC_BY_4_0_LICENSE_URL,
+  ELEXON_BMRS_LICENCE_URL,
+  elexonBmrsAttribution,
+  NESO_HISTORIC_MIX_URL,
+  NESO_OPEN_DATA_LICENCE_URL,
+} from "@/lib/attribution";
+import { COMMODITY_LABELS } from "@/lib/colors";
 import { parseUtcDateTime } from "@/lib/london-time";
 import {
   DATASET_TEMPORAL_COVERAGE_START,
@@ -95,7 +102,7 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
     description:
       "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources.",
     url: `${SITE_ORIGIN}/`,
-    license: CC_BY_4_0_LICENSE_URL,
+    license: homepageDatasetLicenses(),
     isAccessibleForFree: true,
     creator: { "@id": APP_ID },
     publisher: { "@id": PERSON_ID },
@@ -109,11 +116,11 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
       "Market index price (GBP/MWh)",
       "System price (GBP/MWh)",
       "GB gas System Average Price",
-      "NBP",
+      COMMODITY_LABELS.eu_natural_gas,
       "Brent",
       "WTI",
       "Henry Hub",
-      "JKM",
+      COMMODITY_LABELS.lng_asia,
     ],
     isBasedOn: [
       "https://bmrs.elexon.co.uk/",
@@ -147,6 +154,26 @@ function datasetNode(facts: LatestFacts | null): JsonLdNode {
       },
     ],
   };
+}
+
+function homepageDatasetLicenses(): JsonLdNode[] {
+  return [
+    {
+      "@type": "CreativeWork",
+      name: "Elexon BMRS licence",
+      url: ELEXON_BMRS_LICENCE_URL,
+    },
+    {
+      "@type": "CreativeWork",
+      name: "NESO Open Data licence",
+      url: NESO_OPEN_DATA_LICENCE_URL,
+    },
+    {
+      "@type": "CreativeWork",
+      name: "Carbon Intensity API (CC BY 4.0)",
+      url: CC_BY_4_0_LICENSE_URL,
+    },
+  ];
 }
 
 function recordsDatasetNode(): JsonLdNode {

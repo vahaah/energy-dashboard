@@ -2,6 +2,7 @@ import { fuelLabel } from "@/lib/colors";
 import {
   generationSharesFromRows,
   normalizeFuelType,
+  splitLatestGenerationRows,
   type GenerationShare,
 } from "@/lib/dashboard-model";
 import {
@@ -13,6 +14,7 @@ import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import {
   formatLondonCiteDate,
   formatLondonClock,
+  formatLondonDayMonthYear,
   formatLondonIsoOffset,
   parseUtcDateTime,
 } from "@/lib/london-time";
@@ -20,6 +22,10 @@ import { HOME_H1 } from "@/lib/site";
 import type { EnergySnapshot } from "@/lib/types";
 
 export { HOME_H1 };
+
+export function historicalHomepageH1(date: string): string {
+  return `What powered Britain's electricity on ${formatLondonDayMonthYear(date)}`;
+}
 
 export const HOME_CITE_SOURCES =
   "Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live.";
@@ -62,11 +68,8 @@ export function buildHomepageCite(input: {
   headlineSnapshots?: EnergySnapshot[];
 }): HomepageCite {
   const power = getDisplayedPower(input.facts, input.headlineSnapshots ?? []);
-  const shareSource =
-    input.facts.shares.length > 0
-      ? input.facts.shares
-      : generationSharesFromRows(power.generationRows);
-  const shares = citeFuelShares(shareSource);
+  const alignedFrame = splitLatestGenerationRows(power.generationRows);
+  const shares = citeFuelShares(generationSharesFromRows(alignedFrame.sources));
   const top = [...shares].sort((left, right) => right.mw - left.mw)[0];
   const gas = shares.find((share) => share.fuel === "gas");
   const timestamp = power.generationStartUtc ?? input.facts.generationMw.periodStartUtc;

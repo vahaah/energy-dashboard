@@ -4,6 +4,7 @@ import { HomepageBriefing } from "@/components/homepage-briefing";
 import type { LatestFacts } from "@/lib/facts";
 import {
   buildHomepageCite,
+  historicalHomepageH1,
   homepageCitePlainText,
   HOME_CITE_FALLBACK,
   HOME_H1,
@@ -126,10 +127,12 @@ describe("homepage briefing", () => {
     expect(html).toContain("<time");
     expect(html).toContain('dateTime="2026-10-10T12:00:00+01:00"');
     expect(html).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");
+    expect(html).not.toContain("/MWh.Sources:");
+    expect(html).toContain("/MWh. Sources:");
     expect(html).not.toContain("No data yet");
   });
 
-  it("uses latest facts.shares instead of summing the slimmed history", () => {
+  it("takes cite shares from the aligned generation frame, not facts.shares", () => {
     const manyRows = [
       ...rows,
       generation("2026-10-10 10:00:00", "wind", 16_000),
@@ -137,17 +140,24 @@ describe("homepage briefing", () => {
     ];
     const latest = facts(manyRows);
     latest.shares = [
-      { fuel: "wind", mw: 16_000, sharePct: 70 },
-      { fuel: "gas", mw: 4000, sharePct: 17 },
-      { fuel: "nuclear", mw: 3000, sharePct: 13 },
+      { fuel: "solar", mw: 20_000, sharePct: 80 },
+      { fuel: "gas", mw: 3000, sharePct: 12 },
+      { fuel: "nuclear", mw: 2000, sharePct: 8 },
     ];
     const cite = buildHomepageCite({ facts: latest, headlineSnapshots: [snapshot()] });
     expect(cite.kind).toBe("numbers");
     if (cite.kind !== "numbers") {
       return;
     }
+    expect(cite.topFuel).toBe("Wind");
     expect(cite.topGw).toBe("16.0");
     expect(cite.topSharePct).toBe("70");
+  });
+
+  it("uses a date-specific H1 for historical days", () => {
+    expect(historicalHomepageH1("2026-03-10")).toBe(
+      "What powered Britain's electricity on 10 Mar 2026"
+    );
   });
 
   it("never uses the empty-state line when the payload is missing", () => {
