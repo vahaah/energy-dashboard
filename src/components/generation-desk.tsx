@@ -118,6 +118,11 @@ export function GenerationDesk({
                 ? lookAhead.demandSeries
                 : []
             }
+            demandBasis={
+              lookAhead && showsDemandForecast(range, facts.isHistorical)
+                ? lookAhead.demandBasis
+                : null
+            }
             now={lookAhead && showsDemandForecast(range, facts.isHistorical) ? now : null}
           />
         ) : (

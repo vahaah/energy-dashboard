@@ -9,6 +9,7 @@ import {
   CARBON_INTENSITY_ATTRIBUTION,
   elexonBmrsAttribution,
   ELEXON_BMRS_LICENCE_URL,
+  NESO_EMBEDDED_FORECAST_URL,
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
@@ -649,7 +650,14 @@ export function Dashboard() {
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
             Grid metrics are refreshed from the Carbon Intensity API, Elexon BMRS, NESO embedded
             wind, and Sheffield Solar PV Live. Look-ahead uses the NESO Carbon Intensity 48-hour
-            forecast, Elexon WINDFOR, and Elexon NDF, fetched by Grid and cached for 30 minutes.
+            forecast, Elexon WINDFOR, Elexon NDF, and the{" "}
+            <a
+              href={NESO_EMBEDDED_FORECAST_URL}
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+            >
+              NESO embedded wind and solar forecast
+            </a>
+            , fetched by Grid and cached for 30 minutes.
             Year and All time, plus records, use NESO{" "}
             <a
               href={NESO_HISTORIC_MIX_URL}

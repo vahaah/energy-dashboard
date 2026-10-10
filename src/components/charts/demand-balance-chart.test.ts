@@ -10,6 +10,10 @@ describe("DemandBalanceChart layout", () => {
     expect(source).toContain("demandSeriesLabelLayout");
     expect(source).toContain("forecastLabelLayout");
     expect(source).toContain("formatDemandBalanceTickLines");
+    expect(source).toContain("demandChartTimeTicks");
+    expect(source).toContain('scale="time"');
+    expect(source).toContain("Forecast starts");
+    expect(source).toContain("NESO embedded wind and solar forecast");
     expect(source).toContain("width === 0 || width < COMPACT_CHART_WIDTH");
     expect(source).not.toContain("right: compact ? 12 : 108");
     expect(source).not.toContain("const showEndLabels = !compact");

@@ -11,10 +11,13 @@ import {
   demandBalanceGapLabel,
   demandBalanceXTicks,
   demandChartMargin,
+  demandChartTimeTicks,
+  demandForecastStartMs,
   demandSeriesLabelLayout,
   forecastLabelLayout,
   formatDemandBalanceTickLines,
   appendDemandForecastPoints,
+  withDemandChartTime,
   prepareDemandBalanceChartData,
   fillDailyCalendarSlots,
   ROLLING_AVERAGE_MIN_DAYS,
@@ -855,9 +858,20 @@ describe("demand balance chart view", () => {
       bottom: 4,
       left: 8,
     });
+    expect(demandChartMargin(false, true, true)).toEqual({
+      top: 24,
+      right: 64,
+      bottom: 4,
+      left: 8,
+    });
     expect(forecastLabelLayout()).toEqual({
+      xOffset: 8,
+      yOffset: -16,
+      textAnchor: "start",
+    });
+    expect(forecastLabelLayout(true)).toEqual({
       xOffset: -8,
-      yOffset: 0,
+      yOffset: -16,
       textAnchor: "end",
     });
 
@@ -1170,6 +1184,35 @@ describe("demand balance chart view", () => {
       generationGw: null,
       demandForecastGw: 19.5,
     });
+  });
+
+  it("keeps the day-ahead gap on a true time axis and marks forecast start", () => {
+    const points = withDemandChartTime(
+      appendDemandForecastPoints(
+        buildDemandBalanceChartPoints([
+          {
+            time: "2026-10-10 06:00:00",
+            demandMw: 32_000,
+            domesticGenerationMw: 30_000,
+            embeddedMissing: [],
+          },
+        ]),
+        [{ time: "2026-10-11 05:00:00", value: 28_000 }]
+      )
+    );
+
+    expect(points).toHaveLength(2);
+    expect(points[1]?.ts - points[0]?.ts).toBe(23 * 60 * 60 * 1000);
+    expect(demandForecastStartMs(points)).toBe(points[1]?.ts);
+
+    const ticks = demandChartTimeTicks(
+      points.map((point) => point.ts),
+      true
+    );
+    expect(ticks).toHaveLength(3);
+    expect(ticks[1] - ticks[0]).toBe(ticks[2] - ticks[1]);
+    expect(ticks[0]).toBe(points[0]?.ts);
+    expect(ticks[2]).toBe(points[1]?.ts);
   });
 });
 

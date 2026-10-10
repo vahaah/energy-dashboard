@@ -12,6 +12,11 @@ export const NESO_OPEN_DATA_ATTRIBUTION = "Supported by National Energy SO Open 
 export const NESO_HISTORIC_MIX_URL =
   "https://www.neso.energy/data-portal/historic-generation-mix";
 
+export const NESO_EMBEDDED_FORECAST_URL =
+  "https://www.neso.energy/data-portal/embedded-wind-and-solar-forecasts";
+
+export const NESO_EMBEDDED_FORECAST_RESOURCE_ID = "db6c038f-98af-4570-ab60-24d71ebd0ae5";
+
 export const CARBON_INTENSITY_API_URL = "https://carbonintensity.org.uk/";
 
 export const CARBON_INTENSITY_ATTRIBUTION =

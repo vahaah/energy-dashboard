@@ -13,6 +13,13 @@ import {
 } from "@/lib/dashboard-model";
 import { formatHeadlineGw, type Fact, type LatestFacts } from "@/lib/facts";
 import {
+  chartTimeDomain,
+  chartTimeMs,
+  evenTimeTicks,
+  firstDefinedSeriesMs,
+  timeTickCount,
+} from "@/lib/chart-time";
+import {
   formatLondonClock,
   formatLondonDateLabel,
   formatLondonDayMonthYear,
@@ -566,10 +573,10 @@ export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[]
   return gwAxisTicks(maxGw);
 }
 
-export function demandChartMargin(compact: boolean, datedTicks: boolean) {
+export function demandChartMargin(compact: boolean, datedTicks: boolean, hasForecast = false) {
   return {
     top: 24,
-    right: 12,
+    right: compact ? 12 : hasForecast ? 64 : 12,
     bottom: compact && datedTicks ? 22 : 4,
     left: 8,
   };
@@ -600,8 +607,35 @@ export function demandSeriesLabelLayout(
   };
 }
 
-export function forecastLabelLayout(): DemandEndLabelLayout {
-  return { xOffset: -8, yOffset: 0, textAnchor: "end" };
+export function forecastLabelLayout(compact = false): DemandEndLabelLayout {
+  if (compact) {
+    return { xOffset: -8, yOffset: -END_LABEL_STACK_PX, textAnchor: "end" };
+  }
+  return { xOffset: 8, yOffset: -END_LABEL_STACK_PX, textAnchor: "start" };
+}
+
+export function demandForecastStartMs(points: DemandBalanceChartPoint[]): number | null {
+  return firstDefinedSeriesMs(points, (point) => point.demandForecastGw);
+}
+
+export function demandChartTimeTicks(
+  times: Array<string | number>,
+  compact = false
+): number[] {
+  const domain = chartTimeDomain(times);
+  if (!domain) {
+    return [];
+  }
+  return evenTimeTicks(domain[0], domain[1], timeTickCount(domain[1] - domain[0], compact));
+}
+
+export function withDemandChartTime(
+  points: DemandBalanceChartPoint[]
+): Array<DemandBalanceChartPoint & { ts: number }> {
+  return points.map((point) => ({
+    ...point,
+    ts: chartTimeMs(point.time),
+  }));
 }
 
 export function demandBalanceXTicks(
@@ -682,12 +716,12 @@ export function demandBalanceXTicks(
 }
 
 export function formatDemandBalanceTickLines(
-  timestamp: string,
+  timestamp: string | number,
   range: TimeRange,
   options: { includeDate?: boolean; compact?: boolean } = {}
 ): string[] {
-  if (range === "24h" && options.includeDate && options.compact) {
-    const date = parseUtcDateTime(timestamp);
+  if ((range === "24h" || options.includeDate) && options.compact && options.includeDate) {
+    const date = new Date(chartTimeMs(timestamp));
     const parts = getLondonDateTimeParts(date);
     const month = LONDON_MONTHS[parts.month - 1];
     const hour = String(parts.hour).padStart(2, "0");
@@ -698,11 +732,11 @@ export function formatDemandBalanceTickLines(
 }
 
 export function formatDemandBalanceTick(
-  timestamp: string,
+  timestamp: string | number,
   range: TimeRange,
   options: { includeDate?: boolean } = {}
 ): string {
-  const date = parseUtcDateTime(timestamp);
+  const date = new Date(chartTimeMs(timestamp));
   const parts = getLondonDateTimeParts(date);
   const month = LONDON_MONTHS[parts.month - 1];
   const hour = String(parts.hour).padStart(2, "0");
@@ -731,10 +765,10 @@ export function formatDemandBalanceTick(
 }
 
 export function formatDemandBalanceTooltipLabel(
-  timestamp: string,
+  timestamp: string | number,
   range: TimeRange
 ): string {
-  const date = parseUtcDateTime(timestamp);
+  const date = new Date(chartTimeMs(timestamp));
   const parts = getLondonDateTimeParts(date);
   const month = LONDON_MONTHS[parts.month - 1];
   const hour = String(parts.hour).padStart(2, "0");

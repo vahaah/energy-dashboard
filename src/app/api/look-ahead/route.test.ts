@@ -37,6 +37,7 @@ describe("/api/look-ahead", () => {
         basis: "Transmission-connected wind only. Embedded wind is not in this forecast.",
       },
       demandSeries: [{ time: "2026-10-10 13:00:00", value: 19_500 }],
+      demandBasis: "Elexon National Demand Forecast plus NESO embedded wind and solar forecast.",
     });
   });
 

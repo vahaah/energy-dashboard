@@ -6,6 +6,8 @@ import {
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
+  NESO_EMBEDDED_FORECAST_RESOURCE_ID,
+  NESO_EMBEDDED_FORECAST_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
@@ -27,6 +29,8 @@ describe("Elexon BMRS attribution", () => {
   it("credits NESO historic mix under the Open Data licence", () => {
     expect(NESO_OPEN_DATA_ATTRIBUTION).toBe("Supported by National Energy SO Open Data");
     expect(NESO_OPEN_DATA_LICENCE_URL).toContain("neso-open-data-licence");
+    expect(NESO_EMBEDDED_FORECAST_URL).toContain("embedded-wind-and-solar-forecasts");
+    expect(NESO_EMBEDDED_FORECAST_RESOURCE_ID).toBe("db6c038f-98af-4570-ab60-24d71ebd0ae5");
   });
 
   it("credits the Carbon Intensity API as CC BY 4.0 and forbids raw forecast republishing", () => {
