@@ -46,6 +46,102 @@ describe("dashboard payload", () => {
     getLookAhead.mockResolvedValue(null);
   });
 
+  it("builds Week headlines from unaggregated latest rows, not the hourly series", async () => {
+    queryPipe.mockImplementation((pipe: string, params: Record<string, string> = {}) => {
+      if (pipe === "snapshots_range") {
+        return Promise.resolve([
+          {
+            timestamp: "2026-10-10 11:30:00",
+            carbon_intensity: 80,
+            carbon_forecast: 80,
+            carbon_index: "low",
+            demand_mw: 30_000,
+            price_gbp_mwh: 50,
+            gen_gas_pct: 30,
+            gen_coal_pct: 0,
+            gen_nuclear_pct: 15,
+            gen_wind_pct: 35,
+            gen_solar_pct: 5,
+            gen_hydro_pct: 5,
+            gen_biomass_pct: 5,
+            gen_imports_pct: 5,
+            gen_other_pct: 0,
+            gen_gas_mw: 6000,
+            gen_coal_mw: 0,
+            gen_nuclear_mw: 3000,
+            gen_wind_mw: 7000,
+            gen_solar_mw: 1000,
+            gen_hydro_mw: 1000,
+            gen_biomass_mw: 1000,
+            gen_other_mw: 0,
+          },
+        ]);
+      }
+
+      if (pipe === "generation_5min_range") {
+        if (params.granularity === "hour") {
+          return Promise.resolve([
+            {
+              timestamp: "2026-10-10 11:00:00",
+              fuel_type: "wind",
+              generation_mw: 8000,
+              source: "fuelinst",
+            },
+            {
+              timestamp: "2026-10-10 11:00:00",
+              fuel_type: "ccgt",
+              generation_mw: 7000,
+              source: "fuelinst",
+            },
+          ]);
+        }
+
+        return Promise.resolve([
+          {
+            timestamp: "2026-10-10 11:30:00",
+            fuel_type: "wind",
+            generation_mw: 4000,
+            source: "fuelinst",
+          },
+          {
+            timestamp: "2026-10-10 11:30:00",
+            fuel_type: "ccgt",
+            generation_mw: 2000,
+            source: "fuelinst",
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+
+    const payload = await loadDashboardPayloadUncached({
+      period: "week",
+      now,
+    });
+
+    expect(payload.facts.generationMw.value).toBe(6000);
+    expect(payload.facts.demand.value).toBe(30_000);
+    expect(payload.facts.generationRows.some((row) => row.timestamp === "2026-10-10 11:30:00")).toBe(
+      true
+    );
+    expect(payload.facts.generationRows.some((row) => row.timestamp === "2026-10-10 11:00:00")).toBe(
+      false
+    );
+
+    const generationCalls = queryPipe.mock.calls.filter((call) => call[0] === "generation_5min_range");
+    expect(generationCalls).toHaveLength(2);
+    const granularities = generationCalls.map((call) => {
+      const params = call[1];
+      if (params && typeof params === "object" && "granularity" in params) {
+        return params.granularity;
+      }
+      return undefined;
+    });
+    expect(granularities).toContain("hour");
+    expect(granularities).toContain(undefined);
+  });
+
   it("uses Tinybird for Day and skips grid pipes for Year", async () => {
     await loadDashboardPayloadUncached({
       period: "day",
@@ -278,6 +374,91 @@ describe("dashboard payload", () => {
     expect(compact.headlineGeneration).toEqual([]);
     expect(compact.transitionView?.generation).toEqual([]);
     expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 4);
+  });
+
+  it("averages All-time monthly snapshots by each field's non-missing count", () => {
+    const historic = buildHistoricPeriodView([]);
+    historic.snapshots = [
+      {
+        timestamp: "2026-01-10 00:00:00",
+        carbon_intensity: 100,
+        carbon_forecast: 100,
+        carbon_index: "low",
+        demand_mw: 30_000,
+        price_gbp_mwh: 50,
+        gen_gas_pct: 30,
+        gen_coal_pct: 0,
+        gen_nuclear_pct: 15,
+        gen_wind_pct: 35,
+        gen_solar_pct: 5,
+        gen_hydro_pct: 5,
+        gen_biomass_pct: 5,
+        gen_imports_pct: 5,
+        gen_other_pct: 0,
+        gen_gas_mw: 6000,
+        gen_coal_mw: 0,
+        gen_nuclear_mw: 3000,
+        gen_wind_mw: 7000,
+        gen_solar_mw: 1000,
+        gen_hydro_mw: 1000,
+        gen_biomass_mw: 1000,
+        gen_other_mw: 0,
+      },
+      {
+        timestamp: "2026-01-20 00:00:00",
+        carbon_intensity: null,
+        carbon_forecast: null,
+        carbon_index: "low",
+        demand_mw: 20_000,
+        price_gbp_mwh: null,
+        gen_gas_pct: 10,
+        gen_coal_pct: 0,
+        gen_nuclear_pct: 15,
+        gen_wind_pct: 55,
+        gen_solar_pct: 5,
+        gen_hydro_pct: 5,
+        gen_biomass_pct: 5,
+        gen_imports_pct: 5,
+        gen_other_pct: 0,
+        gen_gas_mw: 2000,
+        gen_coal_mw: 0,
+        gen_nuclear_mw: 3000,
+        gen_wind_mw: 11_000,
+        gen_solar_mw: 1000,
+        gen_hydro_mw: 1000,
+        gen_biomass_mw: 1000,
+        gen_other_mw: 0,
+      },
+    ];
+
+    const compact = compactDashboardPayload({
+      period: "all",
+      chartRange: "1y",
+      dateResolution: {
+        status: "latest",
+        date: "2026-10-10",
+        today: "2026-10-10",
+        coverageStart: "2009-01-01",
+      },
+      facts: {} as never,
+      snapshots: [],
+      headlineSnapshots: [],
+      generationHistory: [],
+      headlineGeneration: [],
+      prices: [],
+      records: null,
+      historicView: historic,
+      transitionView: null,
+      lookAhead: null,
+    });
+
+    const [month] = compact.historicView?.snapshots ?? [];
+    expect(month?.timestamp).toBe("2026-01-01 00:00:00");
+    expect(month?.carbon_intensity).toBe(100);
+    expect(month?.carbon_forecast).toBe(100);
+    expect(month?.demand_mw).toBe(25_000);
+    expect(month?.price_gbp_mwh).toBe(50);
+    expect(month?.gen_wind_mw).toBe(9000);
   });
 });
 

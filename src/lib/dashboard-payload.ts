@@ -8,7 +8,11 @@ import {
   tinybirdRangeForPeriod,
   type DashboardPeriod,
 } from "@/lib/dashboard-period";
-import { getGenerationQueryParams, getSnapshotsQueryParams } from "@/lib/dashboard-data";
+import {
+  getGenerationQueryParams,
+  getHeadlineGenerationQueryParams,
+  getSnapshotsQueryParams,
+} from "@/lib/dashboard-data";
 import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
 import { publicLookAhead } from "@/lib/forecast-model";
@@ -107,6 +111,13 @@ export async function loadDashboardPayloadUncached(
             getGenerationQueryParams(tinybirdRange, now, headlineDate),
             { range: tinybirdRange, date: headlineDate, now }
           ).catch(() => noGeneration),
+      skipGrid || !needsUnaggregatedHeadlineGeneration(period)
+        ? Promise.resolve(noGeneration)
+        : queryPipe<Generation5min>(
+            "generation_5min_range",
+            getHeadlineGenerationQueryParams(now, headlineDate),
+            { range: "24h", date: headlineDate, now }
+          ).catch(() => noGeneration),
     ]),
     getHistoricPeriodView("all", now).catch((error: unknown) => {
       if (historicPeriod === "all") {
@@ -121,9 +132,12 @@ export async function loadDashboardPayloadUncached(
     getLookAhead().catch(() => null),
   ]);
 
-  let [snapshots, generationHistory] = tinybird;
+  let [snapshots, generationHistory, unaggregatedHeadlineGeneration] = tinybird;
   let headlineSnapshots = headlineWindow(snapshots);
-  let headlineGeneration = headlineWindow(generationHistory);
+  let headlineGeneration =
+    unaggregatedHeadlineGeneration.length > 0
+      ? unaggregatedHeadlineGeneration
+      : headlineWindow(generationHistory);
   const transitionView = allHistoric;
   const historicView: HistoricPeriodView | null =
     historicPeriod === "year" ? periodHistoric : historicPeriod === "all" ? allHistoric : null;
@@ -162,5 +176,20 @@ export async function loadDashboardPayloadUncached(
     transitionView,
     lookAhead: lookAhead ? publicLookAhead(lookAhead) : null,
   });
+}
+
+function needsUnaggregatedHeadlineGeneration(period: DashboardPeriod): boolean {
+  switch (period) {
+    case "week":
+      return true;
+    case "day":
+    case "year":
+    case "all":
+      return false;
+    default: {
+      const exhaustive: never = period;
+      return exhaustive;
+    }
+  }
 }
 

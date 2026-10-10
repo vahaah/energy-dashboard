@@ -66,26 +66,26 @@ export function proxy(request: NextRequest) {
     return new NextResponse(null, { status: 204, headers });
   }
 
-  if (isEdgeCacheableApi(pathname, request.method)) {
-    const response = NextResponse.next();
-    headers.forEach((value, key) => response.headers.set(key, value));
-    return response;
-  }
-
+  const cacheableGet = isEdgeCacheableApi(pathname, request.method);
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "anonymous";
 
   const { allowed, remaining } = checkLimit(ip);
-  headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
-  headers.set("X-RateLimit-Remaining", String(remaining));
 
   if (!allowed) {
+    headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
+    headers.set("X-RateLimit-Remaining", String(remaining));
     return NextResponse.json(
       { error: "Too many requests. Limit: 60/min." },
       { status: 429, headers }
     );
+  }
+
+  if (!cacheableGet) {
+    headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
+    headers.set("X-RateLimit-Remaining", String(remaining));
   }
 
   const response = NextResponse.next();

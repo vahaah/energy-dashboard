@@ -259,10 +259,41 @@ function bucketGenerationByMonth(rows: Generation5min[]): Generation5min[] {
     }));
 }
 
+const SNAPSHOT_AVERAGE_FIELDS = [
+  "carbon_intensity",
+  "carbon_forecast",
+  "demand_mw",
+  "price_gbp_mwh",
+  "price_mid_gbp_mwh",
+  "mid_volume_mwh",
+  "gen_gas_pct",
+  "gen_coal_pct",
+  "gen_nuclear_pct",
+  "gen_wind_pct",
+  "gen_solar_pct",
+  "gen_hydro_pct",
+  "gen_biomass_pct",
+  "gen_imports_pct",
+  "gen_other_pct",
+  "gen_gas_mw",
+  "gen_coal_mw",
+  "gen_nuclear_mw",
+  "gen_wind_mw",
+  "gen_solar_mw",
+  "gen_hydro_mw",
+  "gen_biomass_mw",
+  "gen_other_mw",
+  "gen_pumped_mw",
+  "gen_battery_mw",
+] as const;
+
+type SnapshotAverageField = (typeof SNAPSHOT_AVERAGE_FIELDS)[number];
+type SnapshotFieldCounts = Record<SnapshotAverageField, number>;
+
 function bucketSnapshotsByMonth(snapshots: EnergySnapshot[]): EnergySnapshot[] {
   const groups = new Map<
     string,
-    { sum: EnergySnapshot; count: number; time: number }
+    { sum: EnergySnapshot; counts: SnapshotFieldCounts; time: number }
   >();
 
   for (const snapshot of snapshots) {
@@ -273,18 +304,18 @@ function bucketSnapshotsByMonth(snapshots: EnergySnapshot[]): EnergySnapshot[] {
     if (!existing) {
       groups.set(key, {
         sum: { ...snapshot, timestamp: formatTinybirdDateTime(new Date(monthStart)) },
-        count: 1,
+        counts: snapshotFieldCounts(snapshot),
         time: monthStart,
       });
       continue;
     }
     existing.sum = addSnapshots(existing.sum, snapshot);
-    existing.count += 1;
+    existing.counts = addSnapshotFieldCounts(existing.counts, snapshot);
   }
 
   return [...groups.values()]
     .sort((left, right) => left.time - right.time)
-    .map((group) => averageSnapshot(group.sum, group.count, group.time));
+    .map((group) => averageSnapshot(group.sum, group.counts, group.time));
 }
 
 function utcMonthStart(date: Date): number {
@@ -324,35 +355,86 @@ function addSnapshots(left: EnergySnapshot, right: EnergySnapshot): EnergySnapsh
   };
 }
 
-function averageSnapshot(sum: EnergySnapshot, count: number, time: number): EnergySnapshot {
+function averageSnapshot(
+  sum: EnergySnapshot,
+  counts: SnapshotFieldCounts,
+  time: number
+): EnergySnapshot {
   return {
     ...sum,
     timestamp: formatTinybirdDateTime(new Date(time)),
-    carbon_intensity: divideNullable(sum.carbon_intensity, count),
-    carbon_forecast: divideNullable(sum.carbon_forecast, count),
-    demand_mw: divideNullable(sum.demand_mw, count),
-    price_gbp_mwh: divideNullable(sum.price_gbp_mwh, count),
-    price_mid_gbp_mwh: divideNullable(sum.price_mid_gbp_mwh, count),
-    mid_volume_mwh: divideNullable(sum.mid_volume_mwh, count),
-    gen_gas_pct: divideNullable(sum.gen_gas_pct, count),
-    gen_coal_pct: divideNullable(sum.gen_coal_pct, count),
-    gen_nuclear_pct: divideNullable(sum.gen_nuclear_pct, count),
-    gen_wind_pct: divideNullable(sum.gen_wind_pct, count),
-    gen_solar_pct: divideNullable(sum.gen_solar_pct, count),
-    gen_hydro_pct: divideNullable(sum.gen_hydro_pct, count),
-    gen_biomass_pct: divideNullable(sum.gen_biomass_pct, count),
-    gen_imports_pct: divideNullable(sum.gen_imports_pct, count),
-    gen_other_pct: divideNullable(sum.gen_other_pct, count),
-    gen_gas_mw: divideNullable(sum.gen_gas_mw, count),
-    gen_coal_mw: divideNullable(sum.gen_coal_mw, count),
-    gen_nuclear_mw: divideNullable(sum.gen_nuclear_mw, count),
-    gen_wind_mw: divideNullable(sum.gen_wind_mw, count),
-    gen_solar_mw: divideNullable(sum.gen_solar_mw, count),
-    gen_hydro_mw: divideNullable(sum.gen_hydro_mw, count),
-    gen_biomass_mw: divideNullable(sum.gen_biomass_mw, count),
-    gen_other_mw: divideNullable(sum.gen_other_mw, count),
-    gen_pumped_mw: divideNullable(sum.gen_pumped_mw, count),
-    gen_battery_mw: divideNullable(sum.gen_battery_mw, count),
+    carbon_intensity: divideNullable(sum.carbon_intensity, counts.carbon_intensity),
+    carbon_forecast: divideNullable(sum.carbon_forecast, counts.carbon_forecast),
+    demand_mw: divideNullable(sum.demand_mw, counts.demand_mw),
+    price_gbp_mwh: divideNullable(sum.price_gbp_mwh, counts.price_gbp_mwh),
+    price_mid_gbp_mwh: divideNullable(sum.price_mid_gbp_mwh, counts.price_mid_gbp_mwh),
+    mid_volume_mwh: divideNullable(sum.mid_volume_mwh, counts.mid_volume_mwh),
+    gen_gas_pct: divideNullable(sum.gen_gas_pct, counts.gen_gas_pct),
+    gen_coal_pct: divideNullable(sum.gen_coal_pct, counts.gen_coal_pct),
+    gen_nuclear_pct: divideNullable(sum.gen_nuclear_pct, counts.gen_nuclear_pct),
+    gen_wind_pct: divideNullable(sum.gen_wind_pct, counts.gen_wind_pct),
+    gen_solar_pct: divideNullable(sum.gen_solar_pct, counts.gen_solar_pct),
+    gen_hydro_pct: divideNullable(sum.gen_hydro_pct, counts.gen_hydro_pct),
+    gen_biomass_pct: divideNullable(sum.gen_biomass_pct, counts.gen_biomass_pct),
+    gen_imports_pct: divideNullable(sum.gen_imports_pct, counts.gen_imports_pct),
+    gen_other_pct: divideNullable(sum.gen_other_pct, counts.gen_other_pct),
+    gen_gas_mw: divideNullable(sum.gen_gas_mw, counts.gen_gas_mw),
+    gen_coal_mw: divideNullable(sum.gen_coal_mw, counts.gen_coal_mw),
+    gen_nuclear_mw: divideNullable(sum.gen_nuclear_mw, counts.gen_nuclear_mw),
+    gen_wind_mw: divideNullable(sum.gen_wind_mw, counts.gen_wind_mw),
+    gen_solar_mw: divideNullable(sum.gen_solar_mw, counts.gen_solar_mw),
+    gen_hydro_mw: divideNullable(sum.gen_hydro_mw, counts.gen_hydro_mw),
+    gen_biomass_mw: divideNullable(sum.gen_biomass_mw, counts.gen_biomass_mw),
+    gen_other_mw: divideNullable(sum.gen_other_mw, counts.gen_other_mw),
+    gen_pumped_mw: divideNullable(sum.gen_pumped_mw, counts.gen_pumped_mw),
+    gen_battery_mw: divideNullable(sum.gen_battery_mw, counts.gen_battery_mw),
+  };
+}
+
+function snapshotFieldCounts(snapshot: EnergySnapshot): SnapshotFieldCounts {
+  return addSnapshotFieldCounts(emptySnapshotFieldCounts(), snapshot);
+}
+
+function addSnapshotFieldCounts(
+  counts: SnapshotFieldCounts,
+  snapshot: EnergySnapshot
+): SnapshotFieldCounts {
+  const next = { ...counts };
+  for (const field of SNAPSHOT_AVERAGE_FIELDS) {
+    if (snapshot[field] != null) {
+      next[field] += 1;
+    }
+  }
+  return next;
+}
+
+function emptySnapshotFieldCounts(): SnapshotFieldCounts {
+  return {
+    carbon_intensity: 0,
+    carbon_forecast: 0,
+    demand_mw: 0,
+    price_gbp_mwh: 0,
+    price_mid_gbp_mwh: 0,
+    mid_volume_mwh: 0,
+    gen_gas_pct: 0,
+    gen_coal_pct: 0,
+    gen_nuclear_pct: 0,
+    gen_wind_pct: 0,
+    gen_solar_pct: 0,
+    gen_hydro_pct: 0,
+    gen_biomass_pct: 0,
+    gen_imports_pct: 0,
+    gen_other_pct: 0,
+    gen_gas_mw: 0,
+    gen_coal_mw: 0,
+    gen_nuclear_mw: 0,
+    gen_wind_mw: 0,
+    gen_solar_mw: 0,
+    gen_hydro_mw: 0,
+    gen_biomass_mw: 0,
+    gen_other_mw: 0,
+    gen_pumped_mw: 0,
+    gen_battery_mw: 0,
   };
 }
 
