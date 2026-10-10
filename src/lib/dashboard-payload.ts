@@ -19,6 +19,7 @@ import {
 } from "@/lib/dashboard-data";
 import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
+import { publicLookAhead } from "@/lib/forecast-model";
 import { getLookAhead } from "@/lib/forecasts";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import {
@@ -179,7 +180,7 @@ export async function loadDashboardPayloadUncached(
     records,
     historicView,
     transitionView,
-    lookAhead,
+    lookAhead: lookAhead ? publicLookAhead(lookAhead) : null,
   });
 }
 

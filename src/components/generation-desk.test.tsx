@@ -157,6 +157,7 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("Carbon pulse");
     expect(dashboardSource).not.toContain("KpiCard");
     expect(pageSource).toContain('export const dynamic = "force-static"');
+    expect(pageSource).toContain("<Suspense");
     expect(pageSource).not.toContain("/api/dashboard?period=day");
     expect(pageSource).not.toContain("queryPipe");
     expect(payloadSource).toContain("headlineSnapshots");
@@ -173,6 +174,7 @@ describe("generation desk layout", () => {
     expect(payloadSource).toContain("getHistoricPeriodView");
     expect(payloadSource).toContain("getGridRecords");
     expect(payloadSource).toContain("getLookAhead");
+    expect(payloadSource).toContain("publicLookAhead");
     expect(payloadSource).not.toContain("queryPipe<LookAhead");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
       'label: "All time"'

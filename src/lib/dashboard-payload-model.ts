@@ -2,7 +2,7 @@ import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min, Ti
 import type { DashboardDateResolution } from "@/lib/dashboard-search-params";
 import { isNesoPeriod, type DashboardPeriod } from "@/lib/dashboard-period";
 import type { LatestFacts } from "@/lib/facts";
-import type { LookAheadView } from "@/lib/forecast-model";
+import type { PublicLookAhead } from "@/lib/forecast-model";
 import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
 import { historicalCachePolicy, liveCachePolicy } from "@/lib/tinybird-cache";
 
@@ -19,7 +19,7 @@ export type DashboardPayload = {
   records: GridRecords | null;
   historicView: HistoricPeriodView | null;
   transitionView: HistoricPeriodView | null;
-  lookAhead: LookAheadView | null;
+  lookAhead: PublicLookAhead | null;
 };
 
 export function dashboardPayloadCacheKey(
@@ -56,6 +56,7 @@ export function compactHistoricPayload(payload: DashboardPayload): DashboardPayl
     generationHistory: [],
     headlineGeneration: [],
     transitionView: payload.period === "all" ? null : payload.transitionView,
+    prices: [],
   };
 }
 

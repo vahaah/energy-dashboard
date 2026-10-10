@@ -156,5 +156,37 @@ describe("dashboard payload", () => {
     expect(hydrated.snapshots).toEqual(historic.snapshots);
     expect(hydrated.transitionView).toEqual(historic);
     expect(compactHistoricPayload(hydrated).transitionView).toBeNull();
+    expect(payload.prices).toEqual([]);
+  });
+
+  it("publishes only the public look-ahead shape", async () => {
+    getLookAhead.mockResolvedValue({
+      fetchedAt: "2026-10-10T12:00:00.000Z",
+      greenest: {
+        startUtc: "2026-10-10T13:00Z",
+        endUtc: "2026-10-10T15:00Z",
+        grams: 43,
+        sentence: "Cleanest window",
+      },
+      carbonSeries: [{ time: "2026-10-10 13:00:00", value: 40 }],
+      wind: {
+        tonightGw: 11,
+        tomorrowEveningGw: 8,
+        sparkline: [11, 8],
+        sentence: "Wind falls",
+        basis: "Transmission-connected wind only. Embedded wind is not in this forecast.",
+      },
+      demandSeries: [{ time: "2026-10-10 13:00:00", value: 19_500 }],
+    });
+
+    const payload = await loadDashboardPayloadUncached({
+      period: "day",
+      commodityRange: "90d",
+      now,
+    });
+    expect(payload.lookAhead?.greenestWindow?.grams).toBe(43);
+    expect(payload.lookAhead).not.toHaveProperty("carbonSeries");
+    expect(payload.lookAhead).not.toHaveProperty("demandSeries");
+    expect(JSON.stringify(payload.lookAhead)).not.toContain("13:00:00");
   });
 });

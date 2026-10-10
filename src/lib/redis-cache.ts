@@ -72,6 +72,7 @@ export function setRedisForTests(client: RedisCommands | null): void {
 export function resetRedisClient(): void {
   testRedis = null;
   cachedRedis = null;
+  inflightLoads.clear();
 }
 
 export function externalCacheKey(source: string, parts: readonly string[]): string {
@@ -159,6 +160,8 @@ export function scheduleBackground(work: () => Promise<void>): void {
   }
 }
 
+const inflightLoads = new Map<string, Promise<unknown>>();
+
 export async function readThroughCache<T>(
   logicalKey: string,
   policy: TinybirdCachePolicy,
@@ -193,18 +196,32 @@ async function refreshAndStore<T>(
   policy: TinybirdCachePolicy,
   load: () => Promise<T>
 ): Promise<T> {
-  const data = await load();
-  const envelope: CacheEnvelope<T> = {
-    data,
-    cachedAt: Date.now(),
-    freshFor: policy.revalidateSeconds,
-  };
-  try {
-    await redis.set(key, envelope, { ex: redisTtlSeconds(policy) });
-  } catch {
-    return data;
+  const existing = inflightLoads.get(key);
+  if (existing) {
+    return existing as Promise<T>;
   }
-  return data;
+
+  const pending = (async () => {
+    try {
+      const data = await load();
+      const envelope: CacheEnvelope<T> = {
+        data,
+        cachedAt: Date.now(),
+        freshFor: policy.revalidateSeconds,
+      };
+      try {
+        await redis.set(key, envelope, { ex: redisTtlSeconds(policy) });
+      } catch {
+        return data;
+      }
+      return data;
+    } finally {
+      inflightLoads.delete(key);
+    }
+  })();
+
+  inflightLoads.set(key, pending);
+  return pending;
 }
 
 function scheduleRefresh<T>(

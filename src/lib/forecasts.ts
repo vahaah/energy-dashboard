@@ -29,6 +29,7 @@ export {
   formatLookAheadWindow,
   greenestWindow,
   lookAheadFromRows,
+  lookAheadFromPublic,
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,

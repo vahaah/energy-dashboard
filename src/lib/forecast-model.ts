@@ -64,6 +64,28 @@ export function emptyLookAhead(now = new Date()): LookAheadView {
   };
 }
 
+export function lookAheadFromPublic(view: PublicLookAhead | null): LookAheadView | null {
+  if (!view) {
+    return null;
+  }
+
+  return {
+    fetchedAt: view.fetchedAt,
+    greenest: view.greenestWindow,
+    carbonSeries: [],
+    wind: view.wind
+      ? {
+          tonightGw: view.wind.tonightGw,
+          tomorrowEveningGw: view.wind.tomorrowEveningGw,
+          sparkline: [],
+          sentence: view.wind.sentence,
+          basis: view.wind.basis,
+        }
+      : null,
+    demandSeries: [],
+  };
+}
+
 export function publicLookAhead(view: LookAheadView): PublicLookAhead {
   return {
     fetchedAt: view.fetchedAt,

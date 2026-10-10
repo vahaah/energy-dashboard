@@ -15,6 +15,7 @@ import {
 } from "@/lib/attribution";
 import {
   formatGridFetchedAt,
+  lookAheadFromPublic,
   showsCarbonForecast,
   showsLookAheadCopy,
 } from "@/lib/forecast-model";
@@ -162,7 +163,7 @@ export function Dashboard() {
   const headlineGeneration = generationData?.headlineGeneration ?? EMPTY_GENERATION;
   const initialSnapshots = generationData?.snapshots ?? EMPTY_SNAPSHOTS;
   const generationHistory = generationData?.generationHistory ?? EMPTY_GENERATION;
-  const lookAhead = shared?.lookAhead ?? null;
+  const lookAhead = lookAheadFromPublic(shared?.lookAhead ?? null);
   const records = shared?.records ?? null;
   const historicView = generationData?.historicView ?? null;
   const transitionView = shared?.transitionView ?? generationData?.historicView ?? null;
@@ -294,7 +295,7 @@ export function Dashboard() {
   const carbonSnapshots = carbonData?.snapshots ?? EMPTY_SNAPSHOTS;
   const carbonFacts = carbonData?.facts ?? facts;
   const carbonChartRange = chartRangeForPeriod(carbonPeriod, range);
-  const carbonLookAhead = carbonData?.lookAhead ?? lookAhead;
+  const carbonLookAhead = lookAheadFromPublic(carbonData?.lookAhead ?? null) ?? lookAhead;
   const hasPriceSnapshots = priceSnapshots.length > 0;
   const hasInterconnectorHistory = transfersHistory.some((row) =>
     normalizeFuelType(row.fuel_type).startsWith("int")

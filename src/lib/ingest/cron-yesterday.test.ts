@@ -32,6 +32,7 @@ describe("yesterday settlement heal", () => {
     expect(warmer).toContain("revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 })");
     expect(warmer).toContain('revalidatePath("/api/dashboard")');
     expect(warmer).toContain("dangerouslyDeleteByTag(DASHBOARD_CACHE_TAG)");
+    expect(warmer).toContain("scheduleBackground");
     expect(warmer.indexOf("revalidateTag")).toBeLessThan(warmer.indexOf("bumpHistoricalCacheEpoch"));
     expect(warmer.indexOf("bumpHistoricalCacheEpoch")).toBeLessThan(
       warmer.indexOf("warmHotDashboardKeys")

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Dashboard } from "@/components/dashboard";
 
 /**
@@ -9,5 +10,9 @@ export const revalidate = 300;
 export const dynamic = "force-static";
 
 export default function Home() {
-  return <Dashboard />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background-100" />}>
+      <Dashboard />
+    </Suspense>
+  );
 }

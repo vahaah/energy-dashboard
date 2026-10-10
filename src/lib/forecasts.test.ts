@@ -18,6 +18,7 @@ import {
   greenestWindow,
   loadLookAhead,
   lookAheadFromRows,
+  lookAheadFromPublic,
   publicLookAhead,
   showsCarbonForecast,
   showsDemandForecast,
@@ -318,6 +319,10 @@ describe("look-ahead copy and public payload", () => {
       },
     };
     const published = publicLookAhead(view);
+    const restored = lookAheadFromPublic(published);
+    expect(restored?.carbonSeries).toEqual([]);
+    expect(restored?.demandSeries).toEqual([]);
+    expect(restored?.greenest?.grams).toBe(43);
     expect(published).not.toHaveProperty("carbonSeries");
     expect(published).not.toHaveProperty("demandSeries");
     expect(JSON.stringify(published)).not.toContain("13:00:00");

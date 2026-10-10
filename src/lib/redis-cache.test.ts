@@ -110,6 +110,22 @@ describe("readThroughCache", () => {
     expect(stored?.data).toEqual(["refreshed"]);
   });
 
+  it("single-flights concurrent misses for the same Redis key", async () => {
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    let release: (value: string[]) => void = () => undefined;
+    const gate = new Promise<string[]>((resolve) => {
+      release = resolve;
+    });
+    const load = vi.fn(() => gate);
+    const first = readThroughCache("tb:miss", liveCachePolicy(), load);
+    const second = readThroughCache("tb:miss", liveCachePolicy(), load);
+    await vi.waitFor(() => expect(load).toHaveBeenCalled());
+    release(["shared"]);
+    await expect(Promise.all([first, second])).resolves.toEqual([["shared"], ["shared"]]);
+    expect(load).toHaveBeenCalledOnce();
+  });
+
   it("falls back to the loader when Redis get throws", async () => {
     setRedisForTests({
       get: async () => {

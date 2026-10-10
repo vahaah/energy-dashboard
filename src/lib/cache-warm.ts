@@ -6,7 +6,7 @@ import { COMMODITY_RANGES } from "@/lib/dashboard-search-params";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { getPricesQueryParams } from "@/lib/dashboard-data";
 import { getLookAhead } from "@/lib/forecasts";
-import { bumpCacheEpoch, bumpHistoricalCacheEpoch } from "@/lib/redis-cache";
+import { bumpCacheEpoch, bumpHistoricalCacheEpoch, scheduleBackground } from "@/lib/redis-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { CommodityPrice } from "@/lib/types";
 
@@ -49,7 +49,9 @@ export async function invalidateAndWarm(
     } catch {
       // Local and CI have no Vercel purge credentials.
     }
-    await warmHotDashboardKeys(now);
+    scheduleBackground(async () => {
+      await warmHotDashboardKeys(now);
+    });
   } catch {
     return;
   }
