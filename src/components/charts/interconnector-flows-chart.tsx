@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import {
@@ -29,6 +29,49 @@ import type { Generation5min, TimeRange } from "@/lib/types";
 interface Props {
   data: Generation5min[];
   range: TimeRange;
+}
+
+type InterconnectorTooltipEntry = {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string | null;
+  color?: string;
+};
+
+export function InterconnectorFlowsTooltip({
+  active,
+  label,
+  payload,
+  range,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: InterconnectorTooltipEntry[];
+  range: TimeRange;
+}) {
+  if (!active || payload == null || payload.length === 0 || label == null) {
+    return null;
+  }
+
+  const rows = [...payload]
+    .filter((entry) => entry.value != null)
+    .sort((left, right) => Math.abs(Number(right.value)) - Math.abs(Number(left.value)));
+
+  return (
+    <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
+      {rows.map((entry) => {
+        const key = String(entry.dataKey ?? entry.name ?? "");
+        return (
+          <ChartTooltipRow
+            key={key}
+            color={connectorSwatch(key, entry.color)}
+            label={connectorLabel(String(entry.name ?? key))}
+            value={`${Number(entry.value).toFixed(2)} GW`}
+          />
+        );
+      })}
+    </ChartTooltipCard>
+  );
 }
 
 export function InterconnectorFlowsChart({ data, range }: Props) {
@@ -101,24 +144,7 @@ export function InterconnectorFlowsChart({ data, range }: Props) {
           />
           <Tooltip
             cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
-            content={({ active, label, payload }) => {
-              if (!active || payload == null || payload.length === 0 || label == null) {
-                return null;
-              }
-              const rows = [...payload]
-                .filter((entry) => entry.value != null)
-                .sort((left, right) => Math.abs(Number(right.value)) - Math.abs(Number(left.value)));
-              return (
-                <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
-                  {rows.map((entry) => (
-                    <p key={String(entry.dataKey)} className="flex justify-between gap-6">
-                      <span>{connectorLabel(String(entry.name))}</span>
-                      <span className="tabular-nums">{Number(entry.value).toFixed(2)} GW</span>
-                    </p>
-                  ))}
-                </ChartTooltipCard>
-              );
-            }}
+            content={<InterconnectorFlowsTooltip range={range} />}
             wrapperStyle={{ zIndex: 320 }}
           />
           <ReferenceLine y={0} stroke="var(--gray-alpha-200)" />
@@ -144,4 +170,11 @@ function connectorLabel(name: string): string {
     return "Other";
   }
   return INTERCONNECTOR_LABELS[name] ?? name;
+}
+
+function connectorSwatch(dataKey: string, color?: string): string {
+  if (dataKey === "other") {
+    return "var(--chart-other)";
+  }
+  return INTERCONNECTOR_COLORS[dataKey] ?? color ?? "var(--chart-other)";
 }

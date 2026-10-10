@@ -16,7 +16,7 @@ import type {
   CommodityRange,
   CommodityScale,
 } from "@/lib/types";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { chartAnimation, chartAxisLine, chartAxisTick, chartGrid, chartLine, CHART_HEIGHT_HERO } from "@/lib/chart-theme";
 import {
@@ -62,16 +62,14 @@ export function CommodityNativeTooltip({ active, label, range, series }: NativeT
   return (
     <ChartTooltipCard time={formatChartTooltip(time, range)}>
       {rows.map((row) => (
-        <p key={row.commodity} className="flex justify-between gap-6">
-          <span className="inline-flex items-center gap-2">
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: row.color }} />
-            {row.label}
-          </span>
-          <span className="tabular-nums">
-            {formatCommodityPointNative(row)}
-            {row.date === hoverDate ? "" : ` · ${formatChartTooltip(row.date, range)}`}
-          </span>
-        </p>
+        <ChartTooltipRow
+          key={row.commodity}
+          color={row.color}
+          label={row.label}
+          value={`${formatCommodityPointNative(row)}${
+            row.date === hoverDate ? "" : ` · ${formatChartTooltip(row.date, range)}`
+          }`}
+        />
       ))}
     </ChartTooltipCard>
   );
