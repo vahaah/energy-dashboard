@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import type {
-  CommodityPrice,
-  EnergySnapshot,
-  Generation5min,
-  TimeRange,
-} from "@/lib/types";
-import type { DashboardSearchParams } from "@/lib/dashboard-search-params";
+import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
 import {
   CARBON_INTENSITY_API_URL,
   CARBON_INTENSITY_ATTRIBUTION,
@@ -24,9 +17,12 @@ import {
   formatGridFetchedAt,
   showsCarbonForecast,
   showsLookAheadCopy,
-  type LookAheadView,
 } from "@/lib/forecast-model";
-import { dashboardSearchParamParsers } from "@/lib/dashboard-search-params";
+import {
+  dashboardSearchParamParsers,
+  getDashboardCoverageStart,
+  resolveDashboardDate,
+} from "@/lib/dashboard-search-params";
 import {
   chartRangeForPeriod,
   isNesoPeriod,
@@ -34,11 +30,22 @@ import {
   selectedPeriod,
   type DashboardPeriod,
 } from "@/lib/dashboard-period";
+import {
+  adjacentPeriods,
+  blockPeriodParam,
+  dashboardQueryKey,
+  effectiveBlockPeriod,
+  PERIOD_OPTIONS,
+  pricesQueryKey,
+  type DashboardBlock,
+} from "@/lib/dashboard-blocks";
+import { fetchDashboardPayload, fetchPublicPrices } from "@/lib/dashboard-client";
+import { prefetchQuery, revalidateAllQueries } from "@/lib/client-query";
+import { useClientQuery } from "@/lib/use-client-query";
 import { PeriodAveragesRow } from "@/components/period-averages";
 import { RecordsCard } from "@/components/records-card";
 import { EnergyTransition } from "@/components/energy-transition";
 import { snapshotPeriodAverages } from "@/lib/period-averages";
-import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
 import { getDisplayedPower } from "@/lib/displayed-demand";
 import {
@@ -55,6 +62,8 @@ import {
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
+import { getLatestFacts } from "@/lib/facts";
+import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { SectionBlock } from "@/components/section-block";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -68,8 +77,6 @@ import { GenerationStackChart } from "@/components/charts/generation-stack-chart
 import { CommodityChart } from "@/components/charts/commodity-chart";
 import { InterconnectorChart } from "@/components/charts/interconnector-chart";
 import { InterconnectorFlowsChart } from "@/components/charts/interconnector-flows-chart";
-import type { LatestFacts } from "@/lib/facts";
-
 const COMMODITY_RANGE_OPTIONS = [
   { value: "30d", label: "30d" },
   { value: "90d", label: "90d" },
@@ -81,66 +88,75 @@ const PRICE_SERIES_OPTIONS = [
   { value: "system", label: "System" },
 ] as const;
 
+const EMPTY_SNAPSHOTS: EnergySnapshot[] = [];
+const EMPTY_GENERATION: Generation5min[] = [];
+const EMPTY_PRICES: CommodityPrice[] = [];
+
 const COMMODITY_HELP: Record<string, string> = {
   brent_crude: "North Sea crude oil benchmark. Source: US EIA.",
   henry_hub_gas: "US natural gas benchmark. Source: US EIA.",
   gb_gas_sap: "Great Britain System Average Price for gas. Source: National Gas.",
 };
 
-interface Props {
-  searchParams: DashboardSearchParams;
-  selectedDate: string;
-  todayDate: string;
-  facts: LatestFacts;
-  initialSnapshots: EnergySnapshot[];
-  headlineSnapshots: EnergySnapshot[];
-  initialPrices: CommodityPrice[];
-  generationHistory: Generation5min[];
-  headlineGeneration: Generation5min[];
-  records: GridRecords | null;
-  historicView: HistoricPeriodView | null;
-  transitionView: HistoricPeriodView | null;
-  period: DashboardPeriod | null;
-  chartRange: TimeRange;
-  lookAhead: LookAheadView | null;
+function queryDateForPeriod(period: DashboardPeriod, date: string | null, today: string): string | null {
+  if (period !== "day" || !date || date === today) {
+    return null;
+  }
+  return date;
 }
 
-export function Dashboard({
-  searchParams,
-  selectedDate,
-  todayDate,
-  facts,
-  initialSnapshots,
-  headlineSnapshots,
-  initialPrices,
-  generationHistory,
-  headlineGeneration,
-  records,
-  historicView,
-  transitionView,
-  period: periodProp,
-  lookAhead,
-}: Props) {
-  const router = useRouter();
+export function Dashboard() {
   const [copied, setCopied] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
-    history: "push",
-    shallow: false,
+    history: "replace",
+    shallow: true,
     scroll: false,
-    startTransition,
   });
 
-  const range = urlState.range ?? searchParams.range;
-  const period = selectedPeriod(urlState.period ?? searchParams.period, range) ?? periodProp;
-  const chartRange = chartRangeForPeriod(period, range);
-  const neso = isNesoPeriod(period);
-  const commodityRange = urlState.commodityRange ?? searchParams.commodityRange;
-  const focus = urlState.focus ?? searchParams.focus;
-  const priceSeries = urlState.price ?? searchParams.price;
-  const activeDate = urlState.date ?? searchParams.date ?? selectedDate ?? todayDate;
+  const now = useMemo(() => new Date(), []);
+  const todayDate = getLondonDate(now);
+  const range = urlState.range;
+  const period = selectedPeriod(urlState.period, range) ?? "day";
+  const commodityRange = urlState.commodityRange;
+  const focus = urlState.focus;
+  const priceSeries = urlState.price;
+  const activeDate = urlState.date ?? todayDate;
+
+  const generationPeriod = effectiveBlockPeriod(period, urlState.generationPeriod);
+  const pricePeriod = effectiveBlockPeriod(period, urlState.pricePeriod);
+  const transfersPeriod = effectiveBlockPeriod(period, urlState.transfersPeriod);
+  const mixPeriod = effectiveBlockPeriod(period, urlState.mixPeriod);
+  const carbonPeriod = effectiveBlockPeriod(period, urlState.carbonPeriod);
+
+  const generation = useDashboardPeriod(generationPeriod, queryDateForPeriod(generationPeriod, urlState.date, todayDate));
+  const price = useDashboardPeriod(pricePeriod, queryDateForPeriod(pricePeriod, urlState.date, todayDate));
+  const transfers = useDashboardPeriod(transfersPeriod, queryDateForPeriod(transfersPeriod, urlState.date, todayDate));
+  const mix = useDashboardPeriod(mixPeriod, queryDateForPeriod(mixPeriod, urlState.date, todayDate));
+  const carbon = useDashboardPeriod(carbonPeriod, queryDateForPeriod(carbonPeriod, urlState.date, todayDate));
+  const fetchPrices = useCallback(() => fetchPublicPrices(commodityRange), [commodityRange]);
+  const pricesQuery = useClientQuery(pricesQueryKey(commodityRange), fetchPrices);
+
+  const generationData = generation.data;
+  const priceData = price.data;
+  const transfersData = transfers.data;
+  const mixData = mix.data;
+  const carbonData = carbon.data;
+  const shared = generationData ?? priceData ?? transfersData ?? mixData ?? carbonData;
+  const facts = generationData?.facts ?? fallbackFacts(now);
+  const headlineSnapshots = generationData?.headlineSnapshots ?? EMPTY_SNAPSHOTS;
+  const headlineGeneration = generationData?.headlineGeneration ?? EMPTY_GENERATION;
+  const initialSnapshots = generationData?.snapshots ?? EMPTY_SNAPSHOTS;
+  const generationHistory = generationData?.generationHistory ?? EMPTY_GENERATION;
+  const lookAhead = shared?.lookAhead ?? null;
+  const records = shared?.records ?? null;
+  const historicView = generationData?.historicView ?? null;
+  const transitionView = shared?.transitionView ?? generationData?.historicView ?? null;
+  const initialPrices = pricesQuery.data ?? generationData?.prices ?? EMPTY_PRICES;
+  const chartRange = chartRangeForPeriod(generationPeriod, range);
+  const neso = isNesoPeriod(generationPeriod);
   const power = getDisplayedPower(facts, headlineSnapshots);
   const averages = historicView?.averages ?? snapshotPeriodAverages(initialSnapshots);
+  const isPending = generation.isValidating || price.isValidating || transfers.isValidating || mix.isValidating || carbon.isValidating;
 
   useEffect(() => {
     if (focus === "overview") return;
@@ -151,22 +167,62 @@ export function Dashboard({
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        startTransition(() => {
-          router.refresh();
-        });
+        revalidateAllQueries();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [router, startTransition]);
+  }, []);
 
-  const topShare = useMemo(() => {
-    const shares = generationSharesFromRows(power.generationRows);
+  useEffect(() => {
+    const periods = new Set<DashboardPeriod>([
+      period,
+      generationPeriod,
+      pricePeriod,
+      transfersPeriod,
+      mixPeriod,
+      carbonPeriod,
+    ]);
+    const toPrefetch = new Set<DashboardPeriod>();
+    for (const current of periods) {
+      for (const next of adjacentPeriods(current)) {
+        toPrefetch.add(next);
+      }
+    }
+
+    const run = () => {
+      for (const next of toPrefetch) {
+        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
+      }
+      prefetchQuery(pricesQueryKey(commodityRange), () => fetchPublicPrices(commodityRange));
+    };
+
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(run);
+      return () => cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(run, 200);
+    return () => window.clearTimeout(id);
+  }, [
+    period,
+    generationPeriod,
+    pricePeriod,
+    transfersPeriod,
+    mixPeriod,
+    carbonPeriod,
+    commodityRange,
+    urlState.date,
+    todayDate,
+  ]);
+
+  const generationRows = power.generationRows;
+  const topShare = (() => {
+    const shares = generationSharesFromRows(generationRows);
     if (shares.length === 0) {
       return null;
     }
     return [...shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
-  }, [power.generationRows]);
+  })();
 
   const answer = buildAnswerSentence({
     topFuel: topShare?.fuel ?? null,
@@ -174,16 +230,16 @@ export function Dashboard({
     topSharePct: topShare?.sharePct ?? null,
     transfersMw: power.transfersMw,
     empty: facts.empty,
-    horizon: period === "year" || period === "all" ? period : "live",
+    horizon: generationPeriod === "year" || generationPeriod === "all" ? generationPeriod : "live",
   });
 
   const commodityStats = useMemo(() => {
     const groups = new Map<string, CommodityPrice[]>();
-    for (const price of initialPrices) {
-      if (!groups.has(price.commodity)) {
-        groups.set(price.commodity, []);
+    for (const priceRow of initialPrices) {
+      if (!groups.has(priceRow.commodity)) {
+        groups.set(priceRow.commodity, []);
       }
-      groups.get(price.commodity)?.push(price);
+      groups.get(priceRow.commodity)?.push(priceRow);
     }
 
     return Array.from(groups.entries())
@@ -211,15 +267,36 @@ export function Dashboard({
     COMMODITY_CARD_KEYS.some((key) => key === stat.commodity)
   );
 
-  const latestInterconnectors = useMemo(
-    () => splitLatestGenerationRows(power.generationRows).interconnectors,
-    [power.generationRows]
-  );
-
-  const hasSnapshots = initialSnapshots.length > 0;
-  const hasInterconnectorHistory = generationHistory.some((row) =>
+  const priceSnapshots = priceData?.snapshots ?? EMPTY_SNAPSHOTS;
+  const priceNeso = isNesoPeriod(pricePeriod);
+  const priceChartRange = chartRangeForPeriod(pricePeriod, range);
+  const transfersHistory = transfersData?.generationHistory ?? EMPTY_GENERATION;
+  const transfersNeso = isNesoPeriod(transfersPeriod);
+  const transfersChartRange = chartRangeForPeriod(transfersPeriod, range);
+  const mixHistory = mixData?.generationHistory ?? EMPTY_GENERATION;
+  const mixChartRange = chartRangeForPeriod(mixPeriod, range);
+  const carbonSnapshots = carbonData?.snapshots ?? EMPTY_SNAPSHOTS;
+  const carbonFacts = carbonData?.facts ?? facts;
+  const carbonChartRange = chartRangeForPeriod(carbonPeriod, range);
+  const carbonLookAhead = carbonData?.lookAhead ?? lookAhead;
+  const hasPriceSnapshots = priceSnapshots.length > 0;
+  const hasInterconnectorHistory = transfersHistory.some((row) =>
     normalizeFuelType(row.fuel_type).startsWith("int")
   );
+  const latestTransferInterconnectors = splitLatestGenerationRows(
+    getDisplayedPower(
+      transfersData?.facts ?? facts,
+      transfersData?.headlineSnapshots ?? headlineSnapshots
+    ).generationRows
+  ).interconnectors;
+
+  const setBlockPeriod = (block: DashboardBlock, next: DashboardPeriod) => {
+    void setUrlState({ [blockPeriodParam(block)]: next === period ? null : next });
+  };
+
+  const prefetchBlock = (next: DashboardPeriod) => {
+    prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
+  };
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
@@ -232,10 +309,18 @@ export function Dashboard({
       <SiteHeader
         period={period}
         onPeriodChange={(nextPeriod) => {
-          void setUrlState(searchStateForPeriod(nextPeriod));
+          void setUrlState({
+            ...searchStateForPeriod(nextPeriod),
+            generationPeriod: urlState.generationPeriod === nextPeriod ? null : urlState.generationPeriod,
+            pricePeriod: urlState.pricePeriod === nextPeriod ? null : urlState.pricePeriod,
+            transfersPeriod: urlState.transfersPeriod === nextPeriod ? null : urlState.transfersPeriod,
+            mixPeriod: urlState.mixPeriod === nextPeriod ? null : urlState.mixPeriod,
+            carbonPeriod: urlState.carbonPeriod === nextPeriod ? null : urlState.carbonPeriod,
+          });
         }}
+        onPeriodIntent={prefetchBlock}
         activeDate={activeDate}
-        minDate={facts.coverageStart}
+        minDate={facts.coverageStart || getDashboardCoverageStart(now)}
         maxDate={todayDate}
         onDateChange={(date) => {
           void setUrlState({ date: date || todayDate });
@@ -253,7 +338,7 @@ export function Dashboard({
       />
 
       <main className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-12 overflow-x-clip px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
-        {facts.empty && facts.emptyState && !isPending ? (
+        {facts.empty && facts.emptyState && generationData ? (
           <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
             <h1 className="text-heading-32">{answer}</h1>
             <p className="mt-3 text-copy-16 text-gray-900">{facts.emptyState.message}</p>
@@ -266,20 +351,27 @@ export function Dashboard({
           </div>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            <div className="flex items-center gap-2">
-              <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
-              <InfoTooltip
-                text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
-                label="What is What's powering Britain?"
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
+                <InfoTooltip
+                  text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
+                  label="What is What's powering Britain?"
+                />
+              </div>
+              <BlockPeriodControl
+                value={generationPeriod}
+                onChange={(next) => setBlockPeriod("generation", next)}
+                onIntent={prefetchBlock}
               />
             </div>
-            {isPending ? (
+            {generation.isLoading ? (
               <Skeleton className="mt-2 h-10 w-full max-w-3xl" />
             ) : (
               <h1 className="mt-1 text-heading-32 text-gray-1000">{answer}</h1>
             )}
             <div id="section-generation" className="mt-6 scroll-mt-28">
-              {isPending ? (
+              {generation.isLoading ? (
                 <GenerationDeskSkeleton />
               ) : (
                 <>
@@ -290,7 +382,7 @@ export function Dashboard({
                     generation={generationHistory}
                     headlineGeneration={headlineGeneration}
                     range={chartRange}
-                    pending={isPending}
+                    pending={generation.isValidating}
                     lookAhead={lookAhead}
                   />
                   <div className="mt-8">
@@ -308,27 +400,33 @@ export function Dashboard({
           tooltip="Market is the short-term wholesale market price from Elexon’s Market Index (APXMIDP). It is not the day-ahead auction price. System is the imbalance (cash-out) price for being long or short in a half-hour."
           active={focus === "price"}
           headerRight={
-            <TimeRangeSelector
-              value={priceSeries}
-              onChange={(nextSeries) => {
-                void setUrlState({ price: nextSeries });
-              }}
-              options={PRICE_SERIES_OPTIONS}
-              pending={isPending}
-              compact
-              variant="segmented"
-              ariaLabel="Price series"
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <BlockPeriodControl
+                value={pricePeriod}
+                onChange={(next) => setBlockPeriod("price", next)}
+                onIntent={prefetchBlock}
+              />
+              <TimeRangeSelector
+                value={priceSeries}
+                onChange={(nextSeries) => {
+                  void setUrlState({ price: nextSeries });
+                }}
+                options={PRICE_SERIES_OPTIONS}
+                compact
+                variant="segmented"
+                ariaLabel="Price series"
+              />
+            </div>
           }
         >
-          {isPending ? (
+          {price.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
-          ) : neso ? (
+          ) : priceNeso ? (
             <p className="text-copy-14 text-gray-900">
               Market prices are not in the NESO historic mix. Use Day or Week for the Market Index.
             </p>
-          ) : hasSnapshots ? (
-            <ElectricityPriceChart data={initialSnapshots} range={chartRange} series={priceSeries} />
+          ) : hasPriceSnapshots ? (
+            <ElectricityPriceChart data={priceSnapshots} range={priceChartRange} series={priceSeries} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -339,8 +437,15 @@ export function Dashboard({
           title="Where is power flowing?"
           tooltip="Interconnector flows into and out of Great Britain. Positive values are imports."
           active={focus === "transfers"}
+          headerRight={
+            <BlockPeriodControl
+              value={transfersPeriod}
+              onChange={(next) => setBlockPeriod("transfers", next)}
+              onIntent={prefetchBlock}
+            />
+          }
         >
-          {isPending ? (
+          {transfers.isLoading ? (
             <TransfersSkeleton />
           ) : hasInterconnectorHistory ? (
             <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -349,28 +454,28 @@ export function Dashboard({
                   <h3 className="text-heading-16 text-gray-1000">Latest flows</h3>
                   <InfoTooltip
                     text={
-                      neso
+                      transfersNeso
                         ? "NESO historic mix publishes one imports total, not per-link flows. Supported by National Energy SO Open Data."
                         : "The latest metered flow on each interconnector. Positive is an import into Great Britain. Source: Elexon FUELINST."
                     }
                     label="What is Latest flows?"
                   />
                 </div>
-                <InterconnectorChart data={latestInterconnectors} />
+                <InterconnectorChart data={latestTransferInterconnectors} />
               </div>
               <div className="min-w-0">
                 <div className="mb-3 flex items-center gap-2">
                   <h3 className="text-heading-16 text-gray-1000">Flows over time</h3>
                   <InfoTooltip
                     text={
-                      neso
+                      transfersNeso
                         ? "Imports over the selected historic window. Source: NESO historic generation mix."
                         : "How those interconnector flows moved through the selected window. Source: Elexon FUELINST."
                     }
                     label="What is Flows over time?"
                   />
                 </div>
-                <InterconnectorFlowsChart data={generationHistory} range={chartRange} />
+                <InterconnectorFlowsChart data={transfersHistory} range={transfersChartRange} />
               </div>
             </div>
           ) : (
@@ -381,11 +486,18 @@ export function Dashboard({
         <SectionBlock
           title="How has the mix changed?"
           tooltip="How the generation stack shifts through the selected window, including embedded solar and wind."
+          headerRight={
+            <BlockPeriodControl
+              value={mixPeriod}
+              onChange={(next) => setBlockPeriod("mix", next)}
+              onIntent={prefetchBlock}
+            />
+          }
         >
-          {isPending ? (
+          {mix.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
-          ) : generationHistory.length > 0 ? (
-            <GenerationStackChart data={generationHistory} range={chartRange} />
+          ) : mixHistory.length > 0 ? (
+            <GenerationStackChart data={mixHistory} range={mixChartRange} />
           ) : (
             <EmptyState stamp={facts.headerStamp} />
           )}
@@ -402,15 +514,19 @@ export function Dashboard({
               onChange={(nextRange) => {
                 void setUrlState({ commodityRange: nextRange });
               }}
+              onOptionIntent={(nextRange) => {
+                void prefetchQuery(pricesQueryKey(nextRange), () =>
+                  fetchPublicPrices(nextRange as CommodityRange)
+                );
+              }}
               options={COMMODITY_RANGE_OPTIONS}
-              pending={isPending}
               compact
               variant="tabs"
               ariaLabel="Commodity range"
             />
           }
         >
-          {isPending ? (
+          {pricesQuery.isLoading ? (
             <CommoditySkeleton />
           ) : initialPrices.length > 0 ? (
             <>
@@ -453,7 +569,7 @@ export function Dashboard({
           tooltip="Peaks, firsts and the coal-to-wind shift, computed from NESO historic generation mix. Supported by National Energy SO Open Data."
           active={focus === "records"}
         >
-          {isPending ? (
+          {shared == null ? (
             <Skeleton className="h-40 w-full rounded-xl" />
           ) : records ? (
             <div className="space-y-8">
@@ -476,8 +592,15 @@ export function Dashboard({
           title="How clean is it?"
           tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges. The 48-hour forecast is a derived cleanest-window answer from the NESO Carbon Intensity API."
           active={focus === "carbon"}
+          headerRight={
+            <BlockPeriodControl
+              value={carbonPeriod}
+              onChange={(next) => setBlockPeriod("carbon", next)}
+              onIntent={prefetchBlock}
+            />
+          }
         >
-          {isPending ? (
+          {carbon.isLoading ? (
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : (
             <>
@@ -489,17 +612,17 @@ export function Dashboard({
                   </p>
                 </div>
               ) : null}
-              {hasSnapshots ? (
+              {carbonSnapshots.length > 0 ? (
                 <CarbonIntensityChart
-                  data={initialSnapshots}
-                  range={chartRange}
+                  data={carbonSnapshots}
+                  range={carbonChartRange}
                   forecast={
-                    lookAhead && showsCarbonForecast(chartRange, facts.isHistorical)
-                      ? lookAhead.carbonSeries
+                    carbonLookAhead && showsCarbonForecast(carbonChartRange, carbonFacts.isHistorical)
+                      ? carbonLookAhead.carbonSeries
                       : []
                   }
                   now={
-                    lookAhead && showsCarbonForecast(chartRange, facts.isHistorical)
+                    carbonLookAhead && showsCarbonForecast(carbonChartRange, carbonFacts.isHistorical)
                       ? new Date()
                       : null
                   }
@@ -555,6 +678,9 @@ export function Dashboard({
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-mono-12 text-gray-900">
             <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
+              GET /api/dashboard?period={period}
+            </code>
+            <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
               GET /api/snapshots?range={range}
             </code>
             <code className="rounded-md border border-gray-alpha-400 bg-background-200 px-2 py-1">
@@ -568,13 +694,54 @@ export function Dashboard({
             </code>
           </div>
           <p className="mt-3 text-label-12 text-gray-900">
-            URL state is canonical for the selected period, commodity horizon, and section focus.
-            Share links use <code>?period=year</code> or <code>?period=all</code>. Rate limit
-            remains 60 requests per minute.
+            URL state is canonical for the selected period, per-block overrides, commodity horizon,
+            and section focus. Range changes use <code>history.replaceState</code> and refetch only
+            the affected charts. Share links use <code>?period=year</code> or <code>?period=all</code>
+            . Rate limit remains 60 requests per minute.
           </p>
         </footer>
       </main>
     </div>
+  );
+}
+
+function useDashboardPeriod(period: DashboardPeriod, date: string | null) {
+  const fetcher = useCallback(() => fetchDashboardPayload(period, date), [period, date]);
+  return useClientQuery(dashboardQueryKey(period, date), fetcher);
+}
+
+function prefetchPeriod(period: DashboardPeriod, date: string | null): void {
+  void prefetchQuery(dashboardQueryKey(period, date), () => fetchDashboardPayload(period, date));
+}
+
+function fallbackFacts(now: Date) {
+  return getLatestFacts({
+    resolution: resolveDashboardDate(null, now, "24h"),
+    snapshots: [],
+    generation: [],
+    now,
+  });
+}
+
+function BlockPeriodControl({
+  value,
+  onChange,
+  onIntent,
+}: {
+  value: DashboardPeriod;
+  onChange: (period: DashboardPeriod) => void;
+  onIntent?: (period: DashboardPeriod) => void;
+}) {
+  return (
+    <TimeRangeSelector
+      value={value}
+      onChange={onChange}
+      onOptionIntent={onIntent}
+      options={PERIOD_OPTIONS}
+      compact
+      variant="segmented"
+      ariaLabel="Chart range"
+    />
   );
 }
 

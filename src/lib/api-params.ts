@@ -1,3 +1,4 @@
+import { DASHBOARD_PERIODS, type DashboardPeriod } from "@/lib/dashboard-period";
 import {
   COMMODITY_RANGES,
   DASHBOARD_RANGES,
@@ -52,6 +53,13 @@ export function parseInterconnectorRange(
   fallback: InterconnectorRange = "24h"
 ): ParseResult<InterconnectorRange> {
   return parseLiteral(value, INTERCONNECTOR_RANGES, fallback, "range");
+}
+
+export function parseDashboardPeriod(
+  value: string | null,
+  fallback: DashboardPeriod = "day"
+): ParseResult<DashboardPeriod> {
+  return parseLiteral(value, DASHBOARD_PERIODS, fallback, "period");
 }
 
 export function parseOptionalDate(value: string | null): ParseResult<string | null> {

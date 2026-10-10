@@ -2,6 +2,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-route";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { invalidateAndWarm } from "@/lib/cache-warm";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import type { SourceStatus } from "@/lib/http";
 import { fetchGbGasSapRange, sapCronWindow } from "@/lib/gb-gas-sap";
@@ -63,6 +64,7 @@ export async function GET(request: Request) {
   if (ingested) {
     revalidateTag(DASHBOARD_CACHE_TAG, "max");
     revalidatePath("/");
+    await invalidateAndWarm(now);
   }
 
   const hasHardFailure = ingestStatuses.some(

@@ -10,6 +10,7 @@
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { readThroughCache } from "@/lib/redis-cache";
 import {
   dateForTinybirdCacheKey,
   deserializePipeParams,
@@ -157,12 +158,22 @@ export async function queryPipe<T = Record<string, unknown>>(
     purpose: options?.purpose,
   });
 
-  const rows = await queryPipeDeduped(
+  const logicalKey = tinybirdLogicalCacheKey({
     pipeName,
-    serializePipeParams(params),
-    options?.range ?? "",
-    cacheDate,
-    policy.revalidateSeconds
+    range: options?.range,
+    date: cacheDate,
+    params,
+    revalidateSeconds: policy.revalidateSeconds,
+  });
+
+  const rows = await readThroughCache(logicalKey, policy, () =>
+    queryPipeDeduped(
+      pipeName,
+      serializePipeParams(params),
+      options?.range ?? "",
+      cacheDate,
+      policy.revalidateSeconds
+    )
   );
   return rows as T[];
 }

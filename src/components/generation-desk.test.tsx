@@ -117,6 +117,10 @@ describe("generation desk layout", () => {
     const dashboardSource = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
     const deskSource = readFileSync(resolve(import.meta.dirname, "./generation-desk.tsx"), "utf8");
     const pageSource = readFileSync(resolve(import.meta.dirname, "../app/page.tsx"), "utf8");
+    const payloadSource = readFileSync(
+      resolve(import.meta.dirname, "../lib/dashboard-payload.ts"),
+      "utf8"
+    );
 
     expect(html).toContain(`data-stat="${DISPLAYED_DEMAND_STAT}"`);
     expect(html).toContain('data-stat="generating"');
@@ -152,21 +156,24 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("Imbalance price");
     expect(dashboardSource).not.toContain("Carbon pulse");
     expect(dashboardSource).not.toContain("KpiCard");
-    expect(pageSource).toContain("headlineSnapshots={headlineSnapshots}");
-    expect(pageSource).toContain("headlineGeneration={headlineGeneration}");
-    expect(pageSource).toContain('"snapshots_range"');
-    expect(pageSource).toContain('"generation_5min_range"');
-    expect(pageSource).toContain('"prices_range"');
-    expect(pageSource).not.toContain("Promise.resolve([] as CommodityPrice[])");
-    expect(pageSource).toContain(".catch(() => noPrices)");
-    expect(pageSource.match(/queryPipe</g)?.length).toBe(5);
+    expect(pageSource).toContain('export const dynamic = "force-static"');
+    expect(pageSource).toContain("/api/dashboard?period=day");
+    expect(pageSource).not.toContain("queryPipe");
+    expect(payloadSource).toContain("headlineSnapshots");
+    expect(payloadSource).toContain("headlineGeneration");
+    expect(payloadSource).toContain('"snapshots_range"');
+    expect(payloadSource).toContain('"generation_5min_range"');
+    expect(payloadSource).toContain('"prices_range"');
+    expect(payloadSource).not.toContain("Promise.resolve([] as CommodityPrice[])");
+    expect(payloadSource).toContain(".catch(() => noPrices)");
+    expect(payloadSource.match(/queryPipe</g)?.length).toBe(5);
     expect(dashboardSource).toContain("Oil and gas prices are not available for this range.");
-    expect(pageSource).toContain("isNesoPeriod");
-    expect(pageSource).toContain("tinybirdRangeForPeriod");
-    expect(pageSource).toContain("getHistoricPeriodView");
-    expect(pageSource).toContain("getGridRecords");
-    expect(pageSource).toContain("getLookAhead");
-    expect(pageSource).not.toContain("queryPipe<LookAhead");
+    expect(payloadSource).toContain("isNesoPeriod");
+    expect(payloadSource).toContain("tinybirdRangeForPeriod");
+    expect(payloadSource).toContain("getHistoricPeriodView");
+    expect(payloadSource).toContain("getGridRecords");
+    expect(payloadSource).toContain("getLookAhead");
+    expect(payloadSource).not.toContain("queryPipe<LookAhead");
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
       'label: "All time"'
     );

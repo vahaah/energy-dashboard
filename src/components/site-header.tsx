@@ -16,6 +16,7 @@ const PERIODS = [
 export function SiteHeader({
   period,
   onPeriodChange,
+  onPeriodIntent,
   activeDate,
   minDate,
   maxDate,
@@ -29,6 +30,7 @@ export function SiteHeader({
 }: {
   period: DashboardPeriod | null;
   onPeriodChange: (period: DashboardPeriod) => void;
+  onPeriodIntent?: (period: DashboardPeriod) => void;
   activeDate: string;
   minDate: string;
   maxDate: string;
@@ -54,7 +56,12 @@ export function SiteHeader({
           className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
           aria-label="Time period"
         >
-          <PeriodTabs period={period} onPeriodChange={onPeriodChange} pending={pending} />
+          <PeriodTabs
+            period={period}
+            onPeriodChange={onPeriodChange}
+            onPeriodIntent={onPeriodIntent}
+            pending={pending}
+          />
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
@@ -69,7 +76,6 @@ export function SiteHeader({
                 min={minDate}
                 max={maxDate}
                 onChange={(event) => onDateChange(event.target.value || maxDate)}
-                disabled={pending}
                 className="absolute inset-0 cursor-pointer opacity-0"
               />
             </label>
@@ -88,7 +94,12 @@ export function SiteHeader({
 
       <div className="border-t border-gray-alpha-400 md:hidden">
         <div className="mx-auto flex h-10 max-w-[1200px] items-center overflow-x-auto px-4">
-          <PeriodTabs period={period} onPeriodChange={onPeriodChange} pending={pending} />
+          <PeriodTabs
+            period={period}
+            onPeriodChange={onPeriodChange}
+            onPeriodIntent={onPeriodIntent}
+            pending={pending}
+          />
         </div>
       </div>
 
@@ -109,14 +120,16 @@ export function SiteHeader({
 function PeriodTabs({
   period,
   onPeriodChange,
+  onPeriodIntent,
   pending,
 }: {
   period: DashboardPeriod | null;
   onPeriodChange: (next: DashboardPeriod) => void;
+  onPeriodIntent?: (next: DashboardPeriod) => void;
   pending: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4" role="tablist" aria-label="Time period">
+    <div className={`flex items-center gap-4 ${pending ? "opacity-70" : ""}`} role="tablist" aria-label="Time period">
       {PERIODS.map((item) => {
         const selected = item.value === period;
         return (
@@ -125,7 +138,8 @@ function PeriodTabs({
             type="button"
             role="tab"
             aria-selected={selected}
-            disabled={pending}
+            onMouseEnter={() => onPeriodIntent?.(item.value)}
+            onFocus={() => onPeriodIntent?.(item.value)}
             onClick={() => onPeriodChange(item.value)}
             className={`shrink-0 border-b-2 pb-1 text-label-13 ${
               selected

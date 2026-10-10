@@ -97,6 +97,11 @@ export const dashboardSearchParamParsers = {
   focus: parseAsStringLiteral(DASHBOARD_FOCUSES).withDefault("overview"),
   price: parseAsStringLiteral(PRICE_SERIES).withDefault("mid"),
   date: parseAsDashboardDate,
+  generationPeriod: parseAsStringLiteral(DASHBOARD_PERIODS),
+  pricePeriod: parseAsStringLiteral(DASHBOARD_PERIODS),
+  transfersPeriod: parseAsStringLiteral(DASHBOARD_PERIODS),
+  mixPeriod: parseAsStringLiteral(DASHBOARD_PERIODS),
+  carbonPeriod: parseAsStringLiteral(DASHBOARD_PERIODS),
 };
 
 export type DashboardSearchParams = inferParserType<

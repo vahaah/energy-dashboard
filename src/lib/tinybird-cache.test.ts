@@ -7,6 +7,7 @@ import {
   getTinybirdCachePolicy,
   getTinybirdLastGood,
   isTinybirdLimitError,
+  policyForExternalWindow,
   resolveTinybirdPipeFailure,
   serializePipeParams,
   setTinybirdLastGood,
@@ -145,6 +146,11 @@ describe("getTinybirdCachePolicy", () => {
         params: { start: "2026-07-04", end: "2026-10-02" },
       }).revalidateSeconds
     ).toBe(TINYBIRD_CACHE_SECONDS.longYear);
+  });
+
+  it("treats completed external windows as historical", () => {
+    expect(policyForExternalWindow("2026-05-19T22:59:59.000Z", now).tier).toBe("historical");
+    expect(policyForExternalWindow("2026-10-02T12:00:00.000Z", now).tier).toBe("live");
   });
 
   it("does not treat a leftover historical date as immutable when the window is 30d", () => {

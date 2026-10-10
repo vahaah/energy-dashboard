@@ -52,7 +52,7 @@ describe("forecast cache policy", () => {
       revalidate: 1_800,
       tags: ["forecasts"],
     });
-    expect(forecastCacheControl()).toBe("private, no-store");
+    expect(forecastCacheControl()).toBe("public, s-maxage=1800, stale-while-revalidate=86400");
     expect(readFileSync(resolve(import.meta.dirname, "./types.ts"), "utf8")).toContain(
       "export type LookAheadView"
     );
@@ -62,7 +62,8 @@ describe("forecast cache policy", () => {
     expect(source).toContain("cachedForecastRows");
     expect(source).toContain("lookAheadFromRows(rows, new Date())");
     expect(source).not.toContain("queryPipe");
-    expect(source).not.toContain("tinybird");
+    expect(source).not.toContain("@/lib/tinybird\"");
+    expect(source).not.toContain("from \"@/lib/tinybird\"");
   });
 
   it("recomputes the greenest window from cached rows at request time", () => {

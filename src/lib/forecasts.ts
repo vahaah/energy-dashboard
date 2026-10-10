@@ -9,6 +9,8 @@ import {
   type WindForecastRow,
 } from "@/lib/forecast-model";
 import { fetchJson } from "@/lib/http";
+import { longCachePolicy } from "@/lib/tinybird-cache";
+import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
 import type { CarbonIntensityResponse } from "@/lib/types";
 
 export const FORECAST_REVALIDATE_SECONDS = 1_800;
@@ -56,7 +58,7 @@ export function carbonForecastUrl(now: Date): string {
 }
 
 export function forecastCacheControl(): string {
-  return "private, no-store";
+  return `public, s-maxage=${FORECAST_REVALIDATE_SECONDS}, stale-while-revalidate=86400`;
 }
 
 export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> {
@@ -85,24 +87,37 @@ const cachedForecastRows = unstable_cache(
 );
 
 export const getLookAhead = cache(async (): Promise<LookAheadView> => {
-  const rows = await cachedForecastRows();
+  const rows = await readThroughCache(
+    externalCacheKey("forecasts", [FORECAST_CACHE_KEY]),
+    longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+    () => cachedForecastRows()
+  );
   return lookAheadFromRows(rows, new Date());
 });
 
 export async function fetchCarbonForecast48h(now: Date): Promise<CarbonForecastRow[]> {
-  const json = await fetchJson<CarbonIntensityResponse>(
-    carbonForecastUrl(now),
-    forecastRequestInit()
-  );
+  const json = await fetchJson<CarbonIntensityResponse>(carbonForecastUrl(now), {
+    ...forecastRequestInit(),
+    cacheKey: externalCacheKey("carbon-intensity", ["forecast-48h"]),
+    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+  });
   return json.data ?? [];
 }
 
 export async function fetchWindForecast(): Promise<WindForecastRow[]> {
-  const json = await fetchJson<{ data: WindForecastRow[] }>(WINDFOR_URL, forecastRequestInit());
+  const json = await fetchJson<{ data: WindForecastRow[] }>(WINDFOR_URL, {
+    ...forecastRequestInit(),
+    cacheKey: externalCacheKey("elexon", ["windfor"]),
+    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+  });
   return json.data ?? [];
 }
 
 export async function fetchDemandForecast(): Promise<DemandForecastRow[]> {
-  const json = await fetchJson<{ data: DemandForecastRow[] }>(NDF_URL, forecastRequestInit());
+  const json = await fetchJson<{ data: DemandForecastRow[] }>(NDF_URL, {
+    ...forecastRequestInit(),
+    cacheKey: externalCacheKey("elexon", ["ndf"]),
+    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+  });
   return json.data ?? [];
 }

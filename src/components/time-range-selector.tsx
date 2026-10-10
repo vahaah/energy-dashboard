@@ -3,6 +3,7 @@
 interface Props<T extends string> {
   value: T;
   onChange: (value: T) => void;
+  onOptionIntent?: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
   pending?: boolean;
   compact?: boolean;
@@ -13,6 +14,7 @@ interface Props<T extends string> {
 export function TimeRangeSelector<T extends string>({
   value,
   onChange,
+  onOptionIntent,
   options,
   pending = false,
   compact = false,
@@ -32,6 +34,8 @@ export function TimeRangeSelector<T extends string>({
             type="button"
             aria-pressed={value === opt.value}
             onClick={() => onChange(opt.value)}
+            onMouseEnter={() => onOptionIntent?.(opt.value)}
+            onFocus={() => onOptionIntent?.(opt.value)}
             disabled={pending}
             className={`inline-flex h-11 min-w-11 items-center justify-center border-b-2 px-1 text-label-13 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-blue-700 ${
               value === opt.value
@@ -60,6 +64,8 @@ export function TimeRangeSelector<T extends string>({
           type="button"
           aria-pressed={value === opt.value}
           onClick={() => onChange(opt.value)}
+          onMouseEnter={() => onOptionIntent?.(opt.value)}
+          onFocus={() => onOptionIntent?.(opt.value)}
           disabled={pending}
           className={`inline-flex h-11 min-w-11 items-center justify-center rounded-md px-3 font-medium motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 focus-visible:ring-offset-background-100 ${
             compact ? "text-xs" : "text-sm"

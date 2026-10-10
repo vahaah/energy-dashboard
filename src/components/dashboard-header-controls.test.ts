@@ -16,7 +16,10 @@ describe("dashboard header controls", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
 
     expect(source).toContain("visibilitychange");
-    expect(source).toContain("router.refresh()");
+    expect(source).toContain("revalidateAllQueries()");
+    expect(source).toContain('history: "replace"');
+    expect(source).toContain("shallow: true");
+    expect(source).not.toContain("router.refresh()");
     expect(source).not.toContain("Refresh");
   });
 });

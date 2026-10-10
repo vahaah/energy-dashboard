@@ -5,6 +5,8 @@ import {
   type CollectionResult,
   type SourceStatus,
 } from "@/lib/http";
+import { externalCacheKey } from "@/lib/redis-cache";
+import { policyForExternalWindow } from "@/lib/tinybird-cache";
 import { mapElexonFuel, SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
@@ -62,21 +64,33 @@ export async function fetchCarbonIntensity(
   toIso: string
 ): Promise<IntensityRow[]> {
   const json = await fetchJson<CarbonIntensityResponse>(
-    `https://api.carbonintensity.org.uk/intensity/${fromIso}/${toIso}`
+    `https://api.carbonintensity.org.uk/intensity/${fromIso}/${toIso}`,
+    {
+      cacheKey: externalCacheKey("carbon-intensity", [fromIso, toIso]),
+      cachePolicy: policyForExternalWindow(toIso),
+    }
   );
   return json.data ?? [];
 }
 
 export async function fetchCarbonMix(fromIso: string, toIso: string): Promise<MixRow[]> {
   const json = await fetchJson<{ data: MixRow[] }>(
-    `https://api.carbonintensity.org.uk/generation/${fromIso}/${toIso}`
+    `https://api.carbonintensity.org.uk/generation/${fromIso}/${toIso}`,
+    {
+      cacheKey: externalCacheKey("carbon-mix", [fromIso, toIso]),
+      cachePolicy: policyForExternalWindow(toIso),
+    }
   );
   return json.data ?? [];
 }
 
 export async function fetchSystemPrices(settlementDate: string): Promise<ElexonSystemPrice[]> {
   const json = await fetchJson<{ data: ElexonSystemPrice[] }>(
-    `https://data.elexon.co.uk/bmrs/api/v1/balancing/settlement/system-prices/${settlementDate}`
+    `https://data.elexon.co.uk/bmrs/api/v1/balancing/settlement/system-prices/${settlementDate}`,
+    {
+      cacheKey: externalCacheKey("elexon-system-prices", [settlementDate]),
+      cachePolicy: policyForExternalWindow(`${settlementDate}T23:59:59.000Z`),
+    }
   );
   return json.data ?? [];
 }
@@ -85,7 +99,11 @@ export const MID_DATA_PROVIDER = "APXMIDP";
 
 export async function fetchMarketIndex(fromIso: string, toIso: string): Promise<ElexonMarketIndex[]> {
   const json = await fetchJson<{ data: ElexonMarketIndex[] }>(
-    `https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=${fromIso}&to=${toIso}&dataProviders=${MID_DATA_PROVIDER}`
+    `https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=${fromIso}&to=${toIso}&dataProviders=${MID_DATA_PROVIDER}`,
+    {
+      cacheKey: externalCacheKey("elexon-market-index", [fromIso, toIso]),
+      cachePolicy: policyForExternalWindow(toIso),
+    }
   );
   return json.data ?? [];
 }
@@ -153,7 +171,11 @@ export async function fetchElexonWindow<T>(
   toIso: string
 ): Promise<T[]> {
   const json = await fetchJson<{ data: T[] }>(
-    `https://data.elexon.co.uk/bmrs/api/v1/datasets/${dataset}?publishDateTimeFrom=${fromIso}&publishDateTimeTo=${toIso}`
+    `https://data.elexon.co.uk/bmrs/api/v1/datasets/${dataset}?publishDateTimeFrom=${fromIso}&publishDateTimeTo=${toIso}`,
+    {
+      cacheKey: externalCacheKey("elexon-dataset", [dataset, fromIso, toIso]),
+      cachePolicy: policyForExternalWindow(toIso),
+    }
   );
   return json.data ?? [];
 }
