@@ -308,22 +308,38 @@ function parseStoredIntegrity(value: StoredSnapshotIntegrity | string | null): S
   return value;
 }
 
-export async function readSnapshotIntegrity(): Promise<StoredSnapshotIntegrity | null> {
+export type SnapshotIntegrityLoad =
+  | { status: "ok"; value: StoredSnapshotIntegrity | null }
+  | { status: "error" };
+
+export async function loadSnapshotIntegrity(): Promise<SnapshotIntegrityLoad> {
   const redis = getRedis();
   if (!redis) {
-    return null;
+    return { status: "ok", value: null };
   }
   try {
-    return parseStoredIntegrity(
-      await redis.get<StoredSnapshotIntegrity | string>(SNAPSHOT_INTEGRITY_REDIS_KEY)
-    );
+    return {
+      status: "ok",
+      value: parseStoredIntegrity(
+        await redis.get<StoredSnapshotIntegrity | string>(SNAPSHOT_INTEGRITY_REDIS_KEY)
+      ),
+    };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 
+export async function readSnapshotIntegrity(): Promise<StoredSnapshotIntegrity | null> {
+  const loaded = await loadSnapshotIntegrity();
+  return loaded.status === "ok" ? loaded.value : null;
+}
+
 export async function recordSnapshotIntegrity(report: SnapshotIntegrityReport): Promise<StoredSnapshotIntegrity> {
-  const merged = mergeStoredIntegrity(await readSnapshotIntegrity(), report);
+  const loaded = await loadSnapshotIntegrity();
+  const merged = mergeStoredIntegrity(loaded.status === "ok" ? loaded.value : null, report);
+  if (loaded.status === "error") {
+    return merged;
+  }
   const redis = getRedis();
   if (!redis) {
     return merged;
@@ -334,6 +350,17 @@ export async function recordSnapshotIntegrity(report: SnapshotIntegrityReport): 
     return merged;
   }
   return merged;
+}
+
+export function shouldRecordSnapshotIntegrity(
+  report: SnapshotIntegrityReport,
+  writtenRows: SnapshotLike[],
+  ingestFailed: boolean
+): boolean {
+  if (ingestFailed) {
+    return false;
+  }
+  return writtenRows.length > 0 || report.failing.length > 0;
 }
 
 export function writtenIntegrityTimestamps(rows: SnapshotLike[]): string[] {

@@ -35,6 +35,11 @@ describe("snapshot integrity scripts", () => {
     expect(source).toContain("recordSnapshotIntegrity");
     expect(source).toContain("if (execute)");
     expect(source).toContain("process.exit(1)");
-    expect(source.indexOf("process.exit(1)")).toBeLessThan(source.lastIndexOf("recordSnapshotIntegrity"));
+    expect(source.indexOf('await ingestRows("energy_snapshots"')).toBeLessThan(
+      source.lastIndexOf("recordSnapshotIntegrity")
+    );
+    expect(source.lastIndexOf("recordSnapshotIntegrity")).toBeLessThan(
+      source.lastIndexOf("missingAffectedTimestamps")
+    );
   });
 });

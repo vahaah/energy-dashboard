@@ -25,6 +25,7 @@ describe("yesterday settlement heal", () => {
     expect(route).toContain("yesterdayLondonDate");
     expect(route).toContain("sourceStatusesHaveFailure");
     expect(route).toContain("recordSnapshotIntegrity");
+    expect(route).toContain("shouldRecordSnapshotIntegrity");
     expect(route).toContain("integrityReportForWrittenRows");
     expect(route).toContain("integritySourceStatus");
     expect(route.indexOf('await ingestRows("energy_snapshots"')).toBeLessThan(

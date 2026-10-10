@@ -93,6 +93,9 @@ async function main() {
       await ingestRows("energy_snapshots", rows);
       wouldWrite += rows.length;
       written.push(...rows);
+      if (execute) {
+        await recordSnapshotIntegrity(integrityReportForRepairedRows(rows));
+      }
     }
     process.stdout.write(`${rows.length} affected / ${describeCollection(result)}\n`);
     await sleep(300);
@@ -108,9 +111,6 @@ async function main() {
     if (execute) {
       process.exit(1);
     }
-  }
-  if (execute && missing.length === 0 && written.length > 0) {
-    await recordSnapshotIntegrity(integrityReportForRepairedRows(written));
   }
   if (dryRun) {
     console.log("Re-run with --execute after review. Do not run from CI or agents.\n");

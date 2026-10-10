@@ -10,6 +10,7 @@ import {
   integrityReportForWrittenRows,
   integritySourceStatus,
   recordSnapshotIntegrity,
+  shouldRecordSnapshotIntegrity,
   type StoredSnapshotIntegrity,
 } from "@/lib/snapshot-integrity";
 import { ingestRows } from "@/lib/tinybird";
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
   }
 
   let storedIntegrity: StoredSnapshotIntegrity | null = null;
-  if (snapshots.rows.length > 0 && !snapshotIngestFailed) {
+  if (shouldRecordSnapshotIntegrity(integrity, snapshots.rows, snapshotIngestFailed)) {
     storedIntegrity = await recordSnapshotIntegrity(
       integrityReportForWrittenRows(integrity, snapshots.rows)
     );

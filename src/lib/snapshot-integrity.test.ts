@@ -14,6 +14,7 @@ import {
   missingAffectedTimestamps,
   readSnapshotIntegrity,
   recordSnapshotIntegrity,
+  shouldRecordSnapshotIntegrity,
   snapshotDomesticGenerationMw,
   snapshotIntegrityIssues,
   snapshotRowFailsIntegrity,
@@ -156,6 +157,54 @@ describe("snapshot integrity", () => {
     await expect(recordSnapshotIntegrity(report)).resolves.toMatchObject({
       failingTimestamps: ["2025-11-18 12:30:00"],
     });
+  });
+
+  it("does not overwrite Redis when the existing integrity key cannot be read", async () => {
+    const sets: string[] = [];
+    setRedisForTests({
+      get: async () => {
+        throw new Error("timeout");
+      },
+      set: async (_key, value) => {
+        sets.push(typeof value === "string" ? value : JSON.stringify(value));
+        return "OK";
+      },
+      del: async () => 1,
+      incr: async () => 1,
+    });
+
+    const report = inspectSnapshotRows([
+      snapshot({
+        timestamp: "2025-11-18 12:30:00",
+        gen_wind_mw: 24_000,
+        gen_solar_mw: 16_000,
+        gen_gas_mw: 20_000,
+        gen_nuclear_mw: 8_000,
+        gen_biomass_mw: 4_000,
+      }),
+    ]);
+    await recordSnapshotIntegrity(report);
+    expect(sets).toEqual([]);
+  });
+
+  it("records failures even when no snapshot rows were written", () => {
+    const failing = snapshot({
+      timestamp: "2025-11-18 12:30:00",
+      gen_wind_mw: 24_000,
+      gen_solar_mw: 16_000,
+      gen_gas_mw: 20_000,
+      gen_nuclear_mw: 8_000,
+      gen_biomass_mw: 4_000,
+    });
+    const report = inspectSnapshotRows([failing]);
+    expect(shouldRecordSnapshotIntegrity(report, [], false)).toBe(true);
+    expect(shouldRecordSnapshotIntegrity(report, [], true)).toBe(false);
+    expect(shouldRecordSnapshotIntegrity(inspectSnapshotRows([snapshot()]), [], false)).toBe(false);
+
+    const persisted = integrityReportForWrittenRows(report, []);
+    expect(persisted.checkedTimestamps).toEqual([]);
+    expect(persisted.failing.map((finding) => finding.timestamp)).toEqual(["2025-11-18 12:30:00"]);
+    expect(mergeStoredIntegrity(null, persisted).failingTimestamps).toEqual(["2025-11-18 12:30:00"]);
   });
 
   it("persists only written timestamps and keeps unwritten failures", () => {
