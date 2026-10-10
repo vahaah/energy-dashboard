@@ -64,8 +64,12 @@ export function adjacentPeriods(period: DashboardPeriod): DashboardPeriod[] {
   }
 }
 
-export function dashboardQueryKey(period: DashboardPeriod, date: string | null): string {
-  return `dashboard:${period}:${date ?? ""}`;
+export function dashboardQueryKey(
+  period: DashboardPeriod,
+  date: string | null,
+  commodityRange = "90d"
+): string {
+  return `dashboard:${period}:${date ?? ""}:${commodityRange}`;
 }
 
 export function pricesQueryKey(range: string): string {

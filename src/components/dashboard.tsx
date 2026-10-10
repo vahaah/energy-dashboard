@@ -113,7 +113,7 @@ export function Dashboard() {
     scroll: false,
   });
 
-  const now = useMemo(() => new Date(), []);
+  const [now, setNow] = useState(() => new Date());
   const todayDate = getLondonDate(now);
   const range = urlState.range;
   const period = selectedPeriod(urlState.period, range) ?? "day";
@@ -128,11 +128,31 @@ export function Dashboard() {
   const mixPeriod = effectiveBlockPeriod(period, urlState.mixPeriod);
   const carbonPeriod = effectiveBlockPeriod(period, urlState.carbonPeriod);
 
-  const generation = useDashboardPeriod(generationPeriod, queryDateForPeriod(generationPeriod, urlState.date, todayDate));
-  const price = useDashboardPeriod(pricePeriod, queryDateForPeriod(pricePeriod, urlState.date, todayDate));
-  const transfers = useDashboardPeriod(transfersPeriod, queryDateForPeriod(transfersPeriod, urlState.date, todayDate));
-  const mix = useDashboardPeriod(mixPeriod, queryDateForPeriod(mixPeriod, urlState.date, todayDate));
-  const carbon = useDashboardPeriod(carbonPeriod, queryDateForPeriod(carbonPeriod, urlState.date, todayDate));
+  const generation = useDashboardPeriod(
+    generationPeriod,
+    queryDateForPeriod(generationPeriod, urlState.date, todayDate),
+    commodityRange
+  );
+  const price = useDashboardPeriod(
+    pricePeriod,
+    queryDateForPeriod(pricePeriod, urlState.date, todayDate),
+    commodityRange
+  );
+  const transfers = useDashboardPeriod(
+    transfersPeriod,
+    queryDateForPeriod(transfersPeriod, urlState.date, todayDate),
+    commodityRange
+  );
+  const mix = useDashboardPeriod(
+    mixPeriod,
+    queryDateForPeriod(mixPeriod, urlState.date, todayDate),
+    commodityRange
+  );
+  const carbon = useDashboardPeriod(
+    carbonPeriod,
+    queryDateForPeriod(carbonPeriod, urlState.date, todayDate),
+    commodityRange
+  );
   const fetchPrices = useCallback(() => fetchPublicPrices(commodityRange), [commodityRange]);
   const pricesQuery = useClientQuery(pricesQueryKey(commodityRange), fetchPrices);
 
@@ -167,6 +187,7 @@ export function Dashboard() {
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
+        setNow(new Date());
         revalidateAllQueries();
       }
     };
@@ -192,7 +213,7 @@ export function Dashboard() {
 
     const run = () => {
       for (const next of toPrefetch) {
-        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
+        prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate), commodityRange);
       }
       prefetchQuery(pricesQueryKey(commodityRange), () => fetchPublicPrices(commodityRange));
     };
@@ -295,7 +316,7 @@ export function Dashboard() {
   };
 
   const prefetchBlock = (next: DashboardPeriod) => {
-    prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
+    prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate), commodityRange);
   };
 
   return (
@@ -338,6 +359,21 @@ export function Dashboard() {
       />
 
       <main className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-12 overflow-x-clip px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
+        {generation.error && !generationData ? (
+          <p
+            className="surface-card p-4 text-copy-14 text-gray-1000"
+            aria-live="polite"
+          >
+            Couldn&apos;t load the grid.{" "}
+            <button
+              type="button"
+              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+              onClick={() => revalidateAllQueries()}
+            >
+              Retry
+            </button>
+          </p>
+        ) : null}
         {facts.empty && facts.emptyState && generationData ? (
           <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
             <h1 className="text-heading-32">{answer}</h1>
@@ -604,11 +640,11 @@ export function Dashboard() {
             <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
           ) : (
             <>
-              {lookAhead?.greenest && showsLookAheadCopy(facts) ? (
+              {carbonLookAhead?.greenest && showsLookAheadCopy(carbonFacts) ? (
                 <div className="mb-4">
-                  <p className="text-copy-16 text-gray-1000">{lookAhead.greenest.sentence}</p>
+                  <p className="text-copy-16 text-gray-1000">{carbonLookAhead.greenest.sentence}</p>
                   <p className="mt-1 text-label-12 text-gray-900">
-                    {formatGridFetchedAt(lookAhead.fetchedAt)} · NESO Carbon Intensity API
+                    {formatGridFetchedAt(carbonLookAhead.fetchedAt)} · NESO Carbon Intensity API
                   </p>
                 </div>
               ) : null}
@@ -705,13 +741,26 @@ export function Dashboard() {
   );
 }
 
-function useDashboardPeriod(period: DashboardPeriod, date: string | null) {
-  const fetcher = useCallback(() => fetchDashboardPayload(period, date), [period, date]);
-  return useClientQuery(dashboardQueryKey(period, date), fetcher);
+function useDashboardPeriod(
+  period: DashboardPeriod,
+  date: string | null,
+  commodityRange: CommodityRange
+) {
+  const fetcher = useCallback(
+    () => fetchDashboardPayload(period, date, commodityRange),
+    [period, date, commodityRange]
+  );
+  return useClientQuery(dashboardQueryKey(period, date, commodityRange), fetcher);
 }
 
-function prefetchPeriod(period: DashboardPeriod, date: string | null): void {
-  void prefetchQuery(dashboardQueryKey(period, date), () => fetchDashboardPayload(period, date));
+function prefetchPeriod(
+  period: DashboardPeriod,
+  date: string | null,
+  commodityRange: CommodityRange
+): void {
+  void prefetchQuery(dashboardQueryKey(period, date, commodityRange), () =>
+    fetchDashboardPayload(period, date, commodityRange)
+  );
 }
 
 function fallbackFacts(now: Date) {

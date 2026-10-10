@@ -11,7 +11,7 @@ export function useClientQuery<T>(key: string, fetcher: () => Promise<T>) {
   );
 
   useEffect(() => {
-    void prefetchQuery(key, fetcher);
+    void prefetchQuery(key, fetcher).catch(() => undefined);
   }, [key, fetcher]);
 
   const [previous, setPrevious] = useState<T | undefined>(undefined);
@@ -23,7 +23,7 @@ export function useClientQuery<T>(key: string, fetcher: () => Promise<T>) {
   return {
     data,
     error: cached?.error,
-    isLoading: data === undefined,
+    isLoading: data === undefined && cached?.error === undefined,
     isValidating: cached?.promise !== undefined,
   };
 }

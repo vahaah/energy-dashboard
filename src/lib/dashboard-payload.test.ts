@@ -18,7 +18,13 @@ vi.mock("@/lib/forecasts", () => ({
   getLookAhead: (...args: unknown[]) => getLookAhead(...args),
 }));
 
-import { dashboardPayloadPolicy, loadDashboardPayloadUncached } from "@/lib/dashboard-payload";
+import {
+  compactHistoricPayload,
+  dashboardPayloadCacheDate,
+  dashboardPayloadPolicy,
+  hydrateDashboardPayload,
+  loadDashboardPayloadUncached,
+} from "@/lib/dashboard-payload";
 import { buildHistoricPeriodView, emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 
 describe("dashboard payload", () => {
@@ -58,5 +64,51 @@ describe("dashboard payload", () => {
     expect(dashboardPayloadPolicy("day").tier).toBe("live");
     expect(dashboardPayloadPolicy("year").tier).toBe("historical");
     expect(dashboardPayloadPolicy("all").tier).toBe("historical");
+  });
+
+  it("keeps out-of-coverage dates off the live Day key", () => {
+    expect(
+      dashboardPayloadCacheDate(
+        {
+          status: "empty",
+          date: "2010-01-01",
+          today: "2026-10-10",
+          coverageStart: "2025-10-10",
+        },
+        "2010-01-01"
+      )
+    ).toBe("2010-01-01");
+    expect(
+      dashboardPayloadCacheDate(
+        {
+          status: "latest",
+          date: "2026-10-10",
+          today: "2026-10-10",
+          coverageStart: "2025-10-10",
+        },
+        null
+      )
+    ).toBeNull();
+  });
+
+  it("serializes the all-time historic series once", async () => {
+    const historic = buildHistoricPeriodView([]);
+    historic.snapshots = [{ timestamp: "2026-01-01 00:00:00" } as never];
+    historic.generation = [{ timestamp: "2026-01-01 00:00:00", fuel_type: "wind" } as never];
+    getHistoricPeriodView.mockResolvedValue(historic);
+
+    const payload = await loadDashboardPayloadUncached({
+      period: "all",
+      commodityRange: "90d",
+      now,
+    });
+    expect(payload.historicView).toBeTruthy();
+    expect(payload.transitionView).toBeNull();
+    expect(payload.snapshots).toEqual([]);
+    expect(payload.generationHistory).toEqual([]);
+    const hydrated = hydrateDashboardPayload(payload);
+    expect(hydrated.snapshots).toEqual(historic.snapshots);
+    expect(hydrated.transitionView).toEqual(historic);
+    expect(compactHistoricPayload(hydrated).transitionView).toBeNull();
   });
 });

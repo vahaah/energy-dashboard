@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CLIENT_QUERY_MAX_AGE_MS,
   clearQueryCache,
   getQueryEntry,
   prefetchQuery,
@@ -32,6 +33,21 @@ describe("client query cache", () => {
     resolveFresh("new");
     await expect(revalidate).resolves.toBe("new");
     expect(getQueryEntry<string>("week")?.data).toBe("new");
+  });
+
+  it("refetches a key once the client TTL expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-10T12:00:00.000Z"));
+    const fetcher = vi.fn(async () => "fresh");
+    await prefetchQuery("day", fetcher);
+    fetcher.mockResolvedValue("later");
+    await prefetchQuery("day", fetcher);
+    expect(fetcher).toHaveBeenCalledOnce();
+    vi.setSystemTime(new Date(Date.now() + CLIENT_QUERY_MAX_AGE_MS + 1));
+    await prefetchQuery("day", fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(getQueryEntry<string>("day")?.data).toBe("later");
+    vi.useRealTimers();
   });
 
   it("revalidates registered keys", async () => {

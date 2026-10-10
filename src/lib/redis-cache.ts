@@ -1,10 +1,12 @@
 import { Redis } from "@upstash/redis";
+import { waitUntil } from "@vercel/functions";
 import {
   type TinybirdCachePolicy,
   type TinybirdCacheTier,
 } from "@/lib/tinybird-cache";
 
 export const CACHE_EPOCH_KEY = "grid:cache-epoch";
+export const CACHE_HIST_EPOCH_KEY = "grid:cache-hist-epoch";
 export const REDIS_LOCK_SECONDS = 30;
 
 export type CacheEnvelope<T> = {
@@ -119,9 +121,29 @@ export async function bumpCacheEpoch(): Promise<void> {
   await redis.incr(CACHE_EPOCH_KEY);
 }
 
+export async function currentHistoricalCacheEpoch(): Promise<string> {
+  const redis = getRedis();
+  if (!redis) {
+    return "0";
+  }
+
+  const value = await redis.get<number | string>(CACHE_HIST_EPOCH_KEY);
+  return String(value ?? "0");
+}
+
+export async function bumpHistoricalCacheEpoch(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) {
+    return;
+  }
+
+  await redis.incr(CACHE_HIST_EPOCH_KEY);
+}
+
 export async function redisKeyFor(logicalKey: string, tier: TinybirdCacheTier): Promise<string> {
   if (tier === "historical") {
-    return `grid:hist:${logicalKey}`;
+    const epoch = await currentHistoricalCacheEpoch();
+    return `grid:hist:${epoch}:${logicalKey}`;
   }
 
   const epoch = await currentCacheEpoch();
@@ -129,8 +151,12 @@ export async function redisKeyFor(logicalKey: string, tier: TinybirdCacheTier): 
 }
 
 export function scheduleBackground(work: () => Promise<void>): void {
-  // Keep this module free of Next request APIs so ISR pages stay static.
-  void work();
+  const pending = work();
+  try {
+    waitUntil(pending);
+  } catch {
+    void pending;
+  }
 }
 
 export async function readThroughCache<T>(

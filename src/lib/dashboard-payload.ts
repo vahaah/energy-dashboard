@@ -1,23 +1,9 @@
 import { filterPublicCommodityPrices } from "@/lib/commodity-series";
 import { queryPipe } from "@/lib/tinybird";
-import type {
-  CommodityPrice,
-  CommodityRange,
-  EnergySnapshot,
-  Generation5min,
-  TimeRange,
-} from "@/lib/types";
-import {
-  historicalCachePolicy,
-  liveCachePolicy,
-  longCachePolicy,
-  TINYBIRD_CACHE_SECONDS,
-} from "@/lib/tinybird-cache";
+import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
+import { longCachePolicy, TINYBIRD_CACHE_SECONDS } from "@/lib/tinybird-cache";
 import { readThroughCache } from "@/lib/redis-cache";
-import {
-  resolveDashboardDate,
-  type DashboardDateResolution,
-} from "@/lib/dashboard-search-params";
+import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import {
   chartRangeForPeriod,
   isNesoPeriod,
@@ -31,7 +17,7 @@ import {
   getPricesQueryParams,
   getSnapshotsQueryParams,
 } from "@/lib/dashboard-data";
-import { getLatestFacts, type LatestFacts } from "@/lib/facts";
+import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
 import type { LookAheadView } from "@/lib/forecast-model";
 import { getLookAhead } from "@/lib/forecasts";
@@ -41,21 +27,22 @@ import {
   type GridRecords,
   type HistoricPeriodView,
 } from "@/lib/historic-mix";
-export type DashboardPayload = {
-  period: DashboardPeriod;
-  chartRange: TimeRange;
-  dateResolution: DashboardDateResolution;
-  facts: LatestFacts;
-  snapshots: EnergySnapshot[];
-  headlineSnapshots: EnergySnapshot[];
-  generationHistory: Generation5min[];
-  headlineGeneration: Generation5min[];
-  prices: CommodityPrice[];
-  records: GridRecords | null;
-  historicView: HistoricPeriodView | null;
-  transitionView: HistoricPeriodView | null;
-  lookAhead: LookAheadView | null;
-};
+import {
+  compactHistoricPayload,
+  dashboardPayloadCacheDate,
+  dashboardPayloadCacheKey,
+  dashboardPayloadPolicy,
+  type DashboardPayload,
+} from "@/lib/dashboard-payload-model";
+
+export type { DashboardPayload } from "@/lib/dashboard-payload-model";
+export {
+  compactHistoricPayload,
+  dashboardPayloadCacheDate,
+  dashboardPayloadCacheKey,
+  dashboardPayloadPolicy,
+  hydrateDashboardPayload,
+} from "@/lib/dashboard-payload-model";
 
 export type LoadDashboardPayloadInput = {
   period: DashboardPeriod;
@@ -63,18 +50,6 @@ export type LoadDashboardPayloadInput = {
   commodityRange?: CommodityRange;
   now?: Date;
 };
-
-export function dashboardPayloadCacheKey(
-  period: DashboardPeriod,
-  date: string | null,
-  commodityRange: CommodityRange
-): string {
-  return `dashboard:${period}:${date ?? ""}:${commodityRange}`;
-}
-
-export function dashboardPayloadPolicy(period: DashboardPeriod) {
-  return isNesoPeriod(period) ? historicalCachePolicy() : liveCachePolicy();
-}
 
 export async function loadDashboardPayload(
   input: LoadDashboardPayloadInput
@@ -84,7 +59,7 @@ export async function loadDashboardPayload(
   const date = input.date ?? null;
   const tinybirdRange = tinybirdRangeForPeriod(input.period, chartRangeForPeriod(input.period, "24h"));
   const dateResolution = resolveDashboardDate(date, now, tinybirdRange);
-  const cacheDate = dateResolution.status === "historical" ? dateResolution.date : null;
+  const cacheDate = dashboardPayloadCacheDate(dateResolution, date);
 
   return readThroughCache(
     dashboardPayloadCacheKey(input.period, cacheDate, commodityRange),
@@ -206,7 +181,7 @@ export async function loadDashboardPayloadUncached(
           now,
         });
 
-  return {
+  return compactHistoricPayload({
     period,
     chartRange,
     dateResolution,
@@ -220,7 +195,7 @@ export async function loadDashboardPayloadUncached(
     historicView,
     transitionView,
     lookAhead,
-  };
+  });
 }
 
 export function pricesCachePolicy(range: CommodityRange) {

@@ -35,9 +35,15 @@ export function getQueryEntry<T>(key: string): CacheEntry<T> | undefined {
   return cache.get(key) as CacheEntry<T> | undefined;
 }
 
+export const CLIENT_QUERY_MAX_AGE_MS = 5 * 60 * 1000;
+
 export function clearQueryCache(): void {
   cache.clear();
   fetchers.clear();
+}
+
+export function isFreshQueryEntry(entry: CacheEntry<unknown>, now = Date.now()): boolean {
+  return entry.data !== undefined && now - entry.updatedAt < CLIENT_QUERY_MAX_AGE_MS;
 }
 
 export async function prefetchQuery<T>(
@@ -47,8 +53,8 @@ export async function prefetchQuery<T>(
 ): Promise<T> {
   fetchers.set(key, fetcher);
   const existing = getQueryEntry<T>(key);
-  if (!options?.force && existing?.data !== undefined && existing.promise === undefined) {
-    return existing.data;
+  if (!options?.force && existing && isFreshQueryEntry(existing) && existing.promise === undefined) {
+    return existing.data as T;
   }
   if (!options?.force && existing?.promise) {
     return existing.promise;

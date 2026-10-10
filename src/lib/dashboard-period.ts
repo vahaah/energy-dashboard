@@ -26,8 +26,9 @@ export function selectedPeriod(
     case "all":
       return "all";
     case "30d":
+      return "week";
     case "90d":
-      return null;
+      return "year";
     default: {
       const exhaustive: never = range;
       return exhaustive;

@@ -1,12 +1,13 @@
 import type { CommodityRange, CommodityPrice } from "@/lib/types";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
-import type { DashboardPayload } from "@/lib/dashboard-payload";
+import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 
 export async function fetchDashboardPayload(
   period: DashboardPeriod,
-  date: string | null
+  date: string | null,
+  commodityRange: CommodityRange = "90d"
 ): Promise<DashboardPayload> {
-  const params = new URLSearchParams({ period });
+  const params = new URLSearchParams({ period, commodityRange });
   if (date) {
     params.set("date", date);
   }
@@ -16,7 +17,7 @@ export async function fetchDashboardPayload(
   if (!response.ok) {
     throw new Error(`Dashboard query failed (${response.status})`);
   }
-  return (await response.json()) as DashboardPayload;
+  return hydrateDashboardPayload((await response.json()) as DashboardPayload);
 }
 
 export async function fetchPublicPrices(range: CommodityRange): Promise<CommodityPrice[]> {

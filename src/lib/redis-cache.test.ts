@@ -5,6 +5,7 @@ import { liveCachePolicy } from "@/lib/tinybird-cache";
 import {
   CACHE_EPOCH_KEY,
   bumpCacheEpoch,
+  bumpHistoricalCacheEpoch,
   externalCacheKey,
   isFreshEnvelope,
   isStaleUsableEnvelope,
@@ -131,7 +132,9 @@ describe("readThroughCache", () => {
     await bumpCacheEpoch();
     expect(await redis.get<number>(CACHE_EPOCH_KEY)).toBe(1);
     expect(await redisKeyFor("tb:live", "live")).toBe("grid:1:tb:live");
-    expect(await redisKeyFor("tb:old-day", "historical")).toBe("grid:hist:tb:old-day");
+    expect(await redisKeyFor("tb:old-day", "historical")).toBe("grid:hist:0:tb:old-day");
+    await bumpHistoricalCacheEpoch();
+    expect(await redisKeyFor("tb:old-day", "historical")).toBe("grid:hist:1:tb:old-day");
   });
 });
 

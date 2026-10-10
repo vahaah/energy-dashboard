@@ -157,7 +157,7 @@ describe("generation desk layout", () => {
     expect(dashboardSource).not.toContain("Carbon pulse");
     expect(dashboardSource).not.toContain("KpiCard");
     expect(pageSource).toContain('export const dynamic = "force-static"');
-    expect(pageSource).toContain("/api/dashboard?period=day");
+    expect(pageSource).not.toContain("/api/dashboard?period=day");
     expect(pageSource).not.toContain("queryPipe");
     expect(payloadSource).toContain("headlineSnapshots");
     expect(payloadSource).toContain("headlineGeneration");
@@ -208,7 +208,9 @@ describe("generation desk layout", () => {
     expect(indexAfter(dashboardSource, "What&apos;s powering Britain")).toBeLessThan(
       indexAfter(dashboardSource, "How clean is it?")
     );
-    expect(dashboardSource).toContain("lookAhead?.greenest && showsLookAheadCopy(facts)");
+    expect(dashboardSource).toContain(
+      "carbonLookAhead?.greenest && showsLookAheadCopy(carbonFacts)"
+    );
     expect(dashboardSource).not.toContain("new Date(lookAhead.fetchedAt)");
     expect(dashboardSource).toContain("GET /api/look-ahead");
     expect(deskSource).toContain("LookAheadStrip");

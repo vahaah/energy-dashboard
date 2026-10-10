@@ -62,7 +62,7 @@ export async function GET(request: Request) {
   if (ingested) {
     revalidateTag(DASHBOARD_CACHE_TAG, "max");
     revalidatePath("/");
-    await invalidateAndWarm(now);
+    await invalidateAndWarm(now, { historical: true });
   }
 
   const failed = sourceStatusesHaveFailure(sources);
