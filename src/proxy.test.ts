@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
+import { API_CDN_VARY } from "@/lib/edge-cacheable-api";
 import { isEdgeCacheableApi, proxy } from "@/proxy";
 
 describe("edge-cacheable API proxy", () => {
@@ -44,5 +45,26 @@ describe("edge-cacheable API proxy", () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("X-RateLimit-Limit")).toBe("60");
     expect(blocked.headers.get("X-RateLimit-Remaining")).toBe("0");
+  });
+
+  it("pins cacheable GET Vary to Accept-Encoding and strips flight headers", () => {
+    const response = proxy(
+      new NextRequest("http://localhost/api/dashboard?period=week", {
+        headers: {
+          accept: "application/json",
+          rsc: "1",
+          "next-router-state-tree": "unique-tree",
+          "next-router-prefetch": "1",
+        },
+      })
+    );
+    expect(response.headers.get("Vary")).toBe(API_CDN_VARY);
+    expect(response.headers.get("x-middleware-request-rsc")).toBeNull();
+    expect(response.headers.get("x-middleware-request-next-router-state-tree")).toBeNull();
+    expect(response.headers.get("x-middleware-request-accept")).toBe("application/json");
+    expect(response.headers.get("x-middleware-override-headers")).toContain("accept");
+    expect(response.headers.get("x-middleware-override-headers")).not.toMatch(
+      /(?:^|,)rsc(?:,|$)/
+    );
   });
 });
