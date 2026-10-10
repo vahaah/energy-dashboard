@@ -10,6 +10,10 @@ import {
   dropLeadingIncompleteChartPoints,
   demandBalanceGapLabel,
   demandBalanceXTicks,
+  demandChartMargin,
+  demandSeriesLabelLayout,
+  forecastLabelLayout,
+  formatDemandBalanceTickLines,
   appendDemandForecastPoints,
   prepareDemandBalanceChartData,
   fillDailyCalendarSlots,
@@ -831,6 +835,55 @@ describe("demand balance chart view", () => {
       "2026-01-15 12:00:00",
       "2026-01-15 18:00:00",
     ]);
+    expect(demandBalanceXTicks(times, "24h", true, true)).toEqual([
+      "2026-01-15 00:00:00",
+      "2026-01-15 12:00:00",
+      "2026-01-15 18:00:00",
+    ]);
+  });
+
+  it("stacks colliding end labels inside the plot and thins dated compact ticks", () => {
+    expect(demandChartMargin(true, true)).toEqual({
+      top: 24,
+      right: 12,
+      bottom: 22,
+      left: 8,
+    });
+    expect(demandChartMargin(false, false)).toEqual({
+      top: 24,
+      right: 12,
+      bottom: 4,
+      left: 8,
+    });
+    expect(forecastLabelLayout()).toEqual({
+      xOffset: -8,
+      yOffset: 0,
+      textAnchor: "end",
+    });
+
+    const stacked = demandSeriesLabelLayout(21.2, 20.9);
+    expect(stacked.demand.yOffset).toBe(-16);
+    expect(stacked.generation.yOffset).toBe(16);
+    expect(stacked.demand.textAnchor).toBe("end");
+    expect(stacked.generation.xOffset).toBe(-8);
+
+    const inverted = demandSeriesLabelLayout(18, 20);
+    expect(inverted.demand.yOffset).toBe(16);
+    expect(inverted.generation.yOffset).toBe(-16);
+
+    const apart = demandSeriesLabelLayout(30, 20);
+    expect(apart.demand.yOffset).toBe(0);
+    expect(apart.generation.yOffset).toBe(0);
+
+    expect(
+      formatDemandBalanceTickLines("2026-09-28 06:00:00", "24h", {
+        includeDate: true,
+        compact: true,
+      })
+    ).toEqual(["28 Sep", "07:00"]);
+    expect(
+      formatDemandBalanceTickLines("2026-09-28 06:00:00", "24h", { includeDate: true })
+    ).toEqual(["28 Sep 07:00"]);
   });
 
   it("drops leading 24h points that are missing embedded generation", () => {

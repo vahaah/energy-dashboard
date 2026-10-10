@@ -27,6 +27,15 @@ import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 /** /api/cron is hourly. 90 min = one cycle plus grace; health stays at 2.5h. */
 export const FUELINST_STALE_MS = 90 * 60 * 1000;
 export const COMPACT_CHART_MAX_TICKS = 4;
+export const COMPACT_DATED_MAX_TICKS = 3;
+export const END_LABEL_COLLIDE_GW = 3;
+export const END_LABEL_STACK_PX = 16;
+
+export type DemandEndLabelLayout = {
+  xOffset: number;
+  yOffset: number;
+  textAnchor: "start" | "end";
+};
 
 export const GENERATION_DESK_RANGE_OPTIONS: ReadonlyArray<{
   value: TimeRange;
@@ -557,31 +566,71 @@ export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[]
   return gwAxisTicks(maxGw);
 }
 
+export function demandChartMargin(compact: boolean, datedTicks: boolean) {
+  return {
+    top: 24,
+    right: 12,
+    bottom: compact && datedTicks ? 22 : 4,
+    left: 8,
+  };
+}
+
+export function demandSeriesLabelLayout(
+  demandY: number | null | undefined,
+  generationY: number | null | undefined
+): { demand: DemandEndLabelLayout; generation: DemandEndLabelLayout } {
+  const collide =
+    demandY != null &&
+    generationY != null &&
+    Math.abs(demandY - generationY) < END_LABEL_COLLIDE_GW;
+  const demandHigher = demandY == null || generationY == null || demandY >= generationY;
+  const demandOffset = collide ? (demandHigher ? -END_LABEL_STACK_PX : END_LABEL_STACK_PX) : 0;
+
+  return {
+    demand: {
+      xOffset: -8,
+      yOffset: demandOffset,
+      textAnchor: "end",
+    },
+    generation: {
+      xOffset: -8,
+      yOffset: collide ? -demandOffset : 0,
+      textAnchor: "end",
+    },
+  };
+}
+
+export function forecastLabelLayout(): DemandEndLabelLayout {
+  return { xOffset: -8, yOffset: 0, textAnchor: "end" };
+}
+
 export function demandBalanceXTicks(
   times: string[],
   range: TimeRange,
-  compact = false
+  compact = false,
+  dated = false
 ): string[] {
   if (times.length === 0) {
     return [];
   }
 
-  const dated = times.map((time) => ({
+  const datedTimes = times.map((time) => ({
     time,
     parts: getLondonDateTimeParts(parseUtcDateTime(time)),
   }));
   switch (range) {
     case "24h": {
-      const hourly = dated
+      const hourly = datedTimes
         .filter((entry) => entry.parts.minute === 0 && entry.parts.hour % 6 === 0)
         .map((entry) => entry.time);
       const ticks = hourly.length > 0 ? hourly : pickEvenly(times, compact ? 4 : 5);
-      return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
+      const max = compact && dated ? COMPACT_DATED_MAX_TICKS : COMPACT_CHART_MAX_TICKS;
+      return compact ? capTicks(ticks, max) : ticks;
     }
     case "7d": {
       const days: string[] = [];
       let previousDay: string | null = null;
-      for (const entry of dated) {
+      for (const entry of datedTimes) {
         const dayKey = `${entry.parts.year}-${entry.parts.month}-${entry.parts.day}`;
         if (dayKey === previousDay) {
           continue;
@@ -593,15 +642,15 @@ export function demandBalanceXTicks(
     }
     case "30d":
     case "90d": {
-      const ticks = dated
-        .filter((_, index) => index % 5 === 0 || index === dated.length - 1)
+      const ticks = datedTimes
+        .filter((_, index) => index % 5 === 0 || index === datedTimes.length - 1)
         .map((entry) => entry.time);
       return compact ? capTicks(ticks, COMPACT_CHART_MAX_TICKS) : ticks;
     }
     case "1y": {
       const monthStarts: string[] = [];
       let previousMonth: string | null = null;
-      for (const entry of dated) {
+      for (const entry of datedTimes) {
         const monthKey = `${entry.parts.year}-${entry.parts.month}`;
         if (monthKey === previousMonth) {
           continue;
@@ -615,7 +664,7 @@ export function demandBalanceXTicks(
     case "all": {
       const yearStarts: string[] = [];
       let previousYear: number | null = null;
-      for (const entry of dated) {
+      for (const entry of datedTimes) {
         if (entry.parts.year === previousYear) {
           continue;
         }
@@ -630,6 +679,22 @@ export function demandBalanceXTicks(
       return exhaustive;
     }
   }
+}
+
+export function formatDemandBalanceTickLines(
+  timestamp: string,
+  range: TimeRange,
+  options: { includeDate?: boolean; compact?: boolean } = {}
+): string[] {
+  if (range === "24h" && options.includeDate && options.compact) {
+    const date = parseUtcDateTime(timestamp);
+    const parts = getLondonDateTimeParts(date);
+    const month = LONDON_MONTHS[parts.month - 1];
+    const hour = String(parts.hour).padStart(2, "0");
+    const minute = String(parts.minute).padStart(2, "0");
+    return [`${parts.day} ${month}`, `${hour}:${minute}`];
+  }
+  return [formatDemandBalanceTick(timestamp, range, options)];
 }
 
 export function formatDemandBalanceTick(

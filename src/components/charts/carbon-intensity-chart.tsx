@@ -23,6 +23,7 @@ import {
   chartAxisTick,
   chartGrid,
   chartHeroLine,
+  chartYAxisUnitLabel,
   CHART_HEIGHT_HERO,
 } from "@/lib/chart-theme";
 import { CARBON_INDEX_BANDS, carbonIndexColor } from "@/lib/colors";
@@ -66,7 +67,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
       ) : null}
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
             <CartesianGrid {...chartGrid} />
             {carbonBands(ceiling).map((band) => (
               <ReferenceArea
@@ -113,12 +114,10 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
               {...chartAxisLine}
               width={44}
               tickFormatter={(value: number) => String(value)}
-              label={{
-                value: "g",
-                position: "insideTopLeft",
-                offset: 8,
-                style: chartAxisTick,
-              }}
+            label={{
+              value: "g",
+              ...chartYAxisUnitLabel,
+            }}
             />
             <Tooltip
               cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}

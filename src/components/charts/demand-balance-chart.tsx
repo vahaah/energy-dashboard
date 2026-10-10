@@ -28,6 +28,7 @@ import {
   chartGrid,
   chartHeroLine,
   chartLine,
+  chartYAxisUnitLabel,
   CHART_HEIGHT_HERO,
 } from "@/lib/chart-theme";
 import {
@@ -39,12 +40,16 @@ import {
   demandBalanceGapLabel,
   demandBalanceXTicks,
   demandBalanceYTicks,
-  formatDemandBalanceTick,
+  demandChartMargin,
+  demandSeriesLabelLayout,
+  forecastLabelLayout,
+  formatDemandBalanceTickLines,
   formatDemandBalanceTooltipLabel,
   lastDefinedIndex,
   prepareDemandBalanceChartData,
   usesLongRangeSmoothing,
   type DemandBalanceChartPoint,
+  type DemandEndLabelLayout,
 } from "@/lib/generation-desk-view";
 
 interface Props {
@@ -131,7 +136,7 @@ export function DemandBalanceChart({
   now = null,
 }: Props) {
   const { ref, width } = useElementWidth();
-  const compact = width > 0 && width < COMPACT_CHART_WIDTH;
+  const compact = width === 0 || width < COMPACT_CHART_WIDTH;
   const series = buildDemandBalanceSeries(snapshots, generation, range);
   const chartData = appendDemandForecastPoints(
     prepareDemandBalanceChartData(series, range),
@@ -139,25 +144,25 @@ export function DemandBalanceChart({
   );
   const smoothed = usesLongRangeSmoothing(range);
   const yTicks = demandBalanceYTicks(chartData);
+  const datedDayTicks = range === "24h" && demandForecast.length > 0;
   const xTicks = demandBalanceXTicks(
     chartData.map((point) => point.time),
     range,
-    compact
+    compact,
+    datedDayTicks
   );
   const demandLabelIndex = lastDefinedIndex(chartData, "demandGw");
   const generationLabelIndex = lastDefinedIndex(chartData, "generationGw");
   const forecastLabelIndex = lastDefinedIndex(chartData, "demandForecastGw");
   const nowX = nowDemandMarker(chartData, now);
   const lastForecast = chartData.at(-1)?.demandForecastGw != null ? chartData.at(-1)?.time : null;
-  const datedDayTicks = range === "24h" && demandForecast.length > 0;
   const yMax = yTicks.at(-1) ?? 40;
-  const demandEndY = chartData[demandLabelIndex]?.demandGw;
-  const generationEndY = chartData[generationLabelIndex]?.generationGw;
-  const labelsCollide =
-    demandEndY != null &&
-    generationEndY != null &&
-    Math.abs(demandEndY - generationEndY) < 2;
-  const showEndLabels = !compact;
+  const seriesLabels = demandSeriesLabelLayout(
+    chartData[demandLabelIndex]?.demandGw,
+    chartData[generationLabelIndex]?.generationGw
+  );
+  const forecastLabel = forecastLabelLayout();
+  const plotMargin = demandChartMargin(compact, datedDayTicks);
 
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
@@ -167,22 +172,23 @@ export function DemandBalanceChart({
       </div>
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
-            data={chartData}
-            margin={{ top: 8, right: compact ? 12 : 108, bottom: 4, left: 8 }}
-          >
+          <ComposedChart data={chartData} margin={plotMargin}>
             <CartesianGrid {...chartGrid} />
             <XAxis
               dataKey="time"
               ticks={xTicks}
               interval={0}
-              minTickGap={compact ? 48 : 24}
-              tickFormatter={(value: string | number) =>
-                formatDemandBalanceTick(String(value), range, {
-                  includeDate: datedDayTicks,
-                })
-              }
-              tick={chartAxisTick}
+              minTickGap={compact ? 64 : 24}
+              tick={(props) => (
+                <DemandBalanceXTick
+                  x={props.x}
+                  y={props.y}
+                  payload={props.payload}
+                  range={range}
+                  includeDate={datedDayTicks}
+                  compact={compact}
+                />
+              )}
               {...chartAxisLine}
             />
             <YAxis
@@ -194,9 +200,7 @@ export function DemandBalanceChart({
               width={44}
               label={{
                 value: "GW",
-                position: "insideTopLeft",
-                offset: 8,
-                style: chartAxisTick,
+                ...chartYAxisUnitLabel,
               }}
             />
             <Tooltip
@@ -294,24 +298,22 @@ export function DemandBalanceChart({
               {...chartLine}
               {...chartAnimation}
             >
-              {showEndLabels ? (
-                <LabelList
-                  dataKey="demandForecastGw"
-                  content={(props) => {
-                    const raw = props.value;
-                    return endLineLabel({
-                      index: props.index,
-                      x: props.x,
-                      y: props.y,
-                      value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
-                      targetIndex: forecastLabelIndex,
-                      text: "Forecast",
-                      color: "var(--gray-700)",
-                      yOffset: 0,
-                    });
-                  }}
-                />
-              ) : null}
+              <LabelList
+                dataKey="demandForecastGw"
+                content={(props) => {
+                  const raw = props.value;
+                  return endLineLabel({
+                    index: props.index,
+                    x: props.x,
+                    y: props.y,
+                    value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
+                    targetIndex: forecastLabelIndex,
+                    text: "Forecast",
+                    color: "var(--gray-700)",
+                    layout: forecastLabel,
+                  });
+                }}
+              />
             </Line>
             <Line
               type="monotone"
@@ -321,24 +323,22 @@ export function DemandBalanceChart({
               {...chartHeroLine}
               {...chartAnimation}
             >
-              {showEndLabels ? (
-                <LabelList
-                  dataKey="demandGw"
-                  content={(props) => {
-                    const raw = props.value;
-                    return endLineLabel({
-                      index: props.index,
-                      x: props.x,
-                      y: props.y,
-                      value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
-                      targetIndex: demandLabelIndex,
-                      text: "Demand",
-                      color: "var(--gray-1000)",
-                      yOffset: labelsCollide ? -10 : 0,
-                    });
-                  }}
-                />
-              ) : null}
+              <LabelList
+                dataKey="demandGw"
+                content={(props) => {
+                  const raw = props.value;
+                  return endLineLabel({
+                    index: props.index,
+                    x: props.x,
+                    y: props.y,
+                    value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
+                    targetIndex: demandLabelIndex,
+                    text: "Demand",
+                    color: "var(--gray-1000)",
+                    layout: seriesLabels.demand,
+                  });
+                }}
+              />
             </Line>
             <Line
               type="monotone"
@@ -348,24 +348,22 @@ export function DemandBalanceChart({
               {...chartLine}
               {...chartAnimation}
             >
-              {showEndLabels ? (
-                <LabelList
-                  dataKey="generationGw"
-                  content={(props) => {
-                    const raw = props.value;
-                    return endLineLabel({
-                      index: props.index,
-                      x: props.x,
-                      y: props.y,
-                      value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
-                      targetIndex: generationLabelIndex,
-                      text: "Generation",
-                      color: "var(--gray-900)",
-                      yOffset: labelsCollide ? 10 : 0,
-                    });
-                  }}
-                />
-              ) : null}
+              <LabelList
+                dataKey="generationGw"
+                content={(props) => {
+                  const raw = props.value;
+                  return endLineLabel({
+                    index: props.index,
+                    x: props.x,
+                    y: props.y,
+                    value: typeof raw === "number" || typeof raw === "string" ? raw : undefined,
+                    targetIndex: generationLabelIndex,
+                    text: "Generation",
+                    color: "var(--gray-900)",
+                    layout: seriesLabels.generation,
+                  });
+                }}
+              />
             </Line>
           </ComposedChart>
         </ResponsiveContainer>
@@ -485,6 +483,47 @@ function useElementWidth() {
   return { ref, width };
 }
 
+function DemandBalanceXTick({
+  x,
+  y,
+  payload,
+  range,
+  includeDate,
+  compact,
+}: {
+  x?: number | string;
+  y?: number | string;
+  payload?: { value?: string | number };
+  range: TimeRange;
+  includeDate: boolean;
+  compact: boolean;
+}) {
+  if (x == null || y == null || payload?.value == null) {
+    return null;
+  }
+
+  const lines = formatDemandBalanceTickLines(String(payload.value), range, {
+    includeDate,
+    compact,
+  });
+
+  return (
+    <text
+      x={Number(x)}
+      y={Number(y)}
+      fill={chartAxisTick.fill}
+      fontSize={chartAxisTick.fontSize}
+      textAnchor="middle"
+    >
+      {lines.map((line, index) => (
+        <tspan key={line} x={Number(x)} dy={index === 0 ? 12 : 14}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
 function endLineLabel({
   index,
   x,
@@ -493,7 +532,7 @@ function endLineLabel({
   targetIndex,
   text,
   color,
-  yOffset,
+  layout,
 }: {
   index?: number;
   x?: number | string;
@@ -502,7 +541,7 @@ function endLineLabel({
   targetIndex: number;
   text: string;
   color: string;
-  yOffset: number;
+  layout: DemandEndLabelLayout;
 }) {
   if (index !== targetIndex || value == null || x == null || y == null) {
     return null;
@@ -510,10 +549,11 @@ function endLineLabel({
 
   return (
     <text
-      x={Number(x) + 8}
-      y={Number(y) + yOffset}
+      x={Number(x) + layout.xOffset}
+      y={Number(y) + layout.yOffset}
       fill={color}
       fontSize={12}
+      textAnchor={layout.textAnchor}
       dominantBaseline="middle"
     >
       {text}

@@ -17,7 +17,7 @@ export function LookAheadStrip({ lookAhead }: { lookAhead: LookAheadView }) {
             href="#section-carbon"
             className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
           >
-            Cleanest time to use power in the next 48 hours
+            {lookAhead.greenest.sentence}
           </a>
         </p>
       ) : null}

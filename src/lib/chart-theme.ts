@@ -18,6 +18,13 @@ export const chartAxisTick = {
   fill: "var(--gray-700)",
 } as const;
 
+export const chartYAxisUnitLabel = {
+  position: "insideTopLeft" as const,
+  offset: 0,
+  dy: -18,
+  style: chartAxisTick,
+};
+
 export const chartAxisLine = {
   axisLine: false,
   tickLine: false,
