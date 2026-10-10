@@ -260,6 +260,7 @@ export type DemandForecastRow = {
 export type EmbeddedForecastRow = {
   settlementDate: string;
   settlementPeriod: number;
+  periodEndUtc?: string;
   embeddedWindMw: number | null;
   embeddedSolarMw: number | null;
 };

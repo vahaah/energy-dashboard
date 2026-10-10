@@ -54,9 +54,13 @@ export type {
   WindLookAhead,
 };
 
+const SETTLEMENT_PERIOD_MS = 30 * 60 * 1000;
+
 export function lookAheadFromRows(rows: CachedForecastRows, now: Date): LookAheadView {
   const embeddedRows = rows.embeddedRows ?? [];
-  const liftEmbedded = embeddedRows.length > 0;
+  const liftEmbedded =
+    rows.demandRows != null &&
+    hasCompleteOverlappingEmbedded(rows.demandRows, embeddedRows, now);
   return {
     fetchedAt: rows.fetchedAt,
     greenest: rows.carbonRows ? greenestWindow(rows.carbonRows, now) : null,
@@ -103,6 +107,7 @@ export function lookAheadFromPublic(view: PublicLookAhead | null): LookAheadView
         }
       : null,
     demandSeries: [],
+    demandBasis: view.demandBasis,
   };
 }
 
@@ -257,37 +262,45 @@ export function demandForecastPoints(
   now: Date,
   embeddedRows: EmbeddedForecastRow[] = []
 ): ForecastPoint[] {
-  const embeddedByTime = embeddedForecastByTime(embeddedRows);
+  const embeddedByEnd = embeddedForecastByTime(embeddedRows);
   const points: ForecastPoint[] = [];
-  for (const row of rows) {
-    if (row.nationalDemand == null) {
-      continue;
-    }
-    if (row.boundary != null && row.boundary !== "N") {
-      continue;
-    }
-    if (parseUtcDateTime(row.startTime).getTime() < now.getTime()) {
-      continue;
-    }
-    const time = formatTinybirdDateTime(parseUtcDateTime(row.startTime));
+  for (const row of futureNationalDemand(rows, now)) {
+    const start = parseUtcDateTime(row.startTime);
+    const embeddedMw = embeddedByEnd.get(formatTinybirdDateTime(demandPeriodEnd(start)));
     points.push({
-      time,
-      value: row.nationalDemand + (embeddedByTime.get(time) ?? 0),
+      time: formatTinybirdDateTime(start),
+      value: embeddedMw == null ? row.nationalDemand : row.nationalDemand + embeddedMw,
     });
   }
   return points;
 }
 
+export function hasCompleteOverlappingEmbedded(
+  demandRows: DemandForecastRow[],
+  embeddedRows: EmbeddedForecastRow[],
+  now: Date
+): boolean {
+  const future = futureNationalDemand(demandRows, now);
+  if (future.length === 0) {
+    return false;
+  }
+  const embeddedByEnd = embeddedForecastByTime(embeddedRows);
+  for (const row of future) {
+    const endKey = formatTinybirdDateTime(demandPeriodEnd(parseUtcDateTime(row.startTime)));
+    if (!embeddedByEnd.has(endKey)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function embeddedForecastByTime(rows: EmbeddedForecastRow[]): Map<string, number> {
   const byTime = new Map<string, number>();
   for (const row of rows) {
-    if (row.embeddedWindMw == null && row.embeddedSolarMw == null) {
+    if (row.embeddedWindMw == null || row.embeddedSolarMw == null) {
       continue;
     }
-    const time = formatTinybirdDateTime(
-      settlementPeriodToUtc(row.settlementDate, row.settlementPeriod)
-    );
-    byTime.set(time, (row.embeddedWindMw ?? 0) + (row.embeddedSolarMw ?? 0));
+    byTime.set(embeddedPeriodEndKey(row), row.embeddedWindMw + row.embeddedSolarMw);
   }
   return byTime;
 }
@@ -305,14 +318,65 @@ export function parseEmbeddedForecastRows(
     if (settlementPeriod < 1) {
       continue;
     }
+    const periodEnd =
+      parseGmtPeriodEnd(record.DATE_GMT, record.TIME_GMT) ??
+      demandPeriodEnd(settlementPeriodToUtc(settlementDate, settlementPeriod));
     rows.push({
       settlementDate,
       settlementPeriod,
+      periodEndUtc: formatTinybirdDateTime(periodEnd),
       embeddedWindMw: finiteOrNull(record.EMBEDDED_WIND_FORECAST),
       embeddedSolarMw: finiteOrNull(record.EMBEDDED_SOLAR_FORECAST),
     });
   }
   return rows;
+}
+
+function futureNationalDemand(
+  rows: DemandForecastRow[],
+  now: Date
+): Array<DemandForecastRow & { nationalDemand: number }> {
+  const future: Array<DemandForecastRow & { nationalDemand: number }> = [];
+  for (const row of rows) {
+    if (row.nationalDemand == null) {
+      continue;
+    }
+    if (row.boundary != null && row.boundary !== "N") {
+      continue;
+    }
+    if (parseUtcDateTime(row.startTime).getTime() < now.getTime()) {
+      continue;
+    }
+    future.push({ ...row, nationalDemand: row.nationalDemand });
+  }
+  return future;
+}
+
+function demandPeriodEnd(start: Date): Date {
+  return new Date(start.getTime() + SETTLEMENT_PERIOD_MS);
+}
+
+function embeddedPeriodEndKey(row: EmbeddedForecastRow): string {
+  if (row.periodEndUtc) {
+    return formatTinybirdDateTime(parseUtcDateTime(row.periodEndUtc));
+  }
+  return formatTinybirdDateTime(
+    demandPeriodEnd(settlementPeriodToUtc(row.settlementDate, row.settlementPeriod))
+  );
+}
+
+function parseGmtPeriodEnd(dateGmt: unknown, timeGmt: unknown): Date | null {
+  const timeRaw = String(timeGmt ?? "");
+  const embedded = timeRaw.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (embedded) {
+    return new Date(`${embedded[1]}T${embedded[2]}:${embedded[3]}:${embedded[4] ?? "00"}Z`);
+  }
+  const datePart = String(dateGmt ?? "").slice(0, 10);
+  const timePart = timeRaw.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || !timePart) {
+    return null;
+  }
+  return new Date(`${datePart}T${timePart[1]}:${timePart[2]}:${timePart[3] ?? "00"}Z`);
 }
 
 function finiteOrNull(value: unknown): number | null {

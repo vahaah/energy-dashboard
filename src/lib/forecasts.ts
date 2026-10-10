@@ -34,6 +34,7 @@ export {
   demandForecastPoints,
   emptyLookAhead,
   embeddedForecastByTime,
+  hasCompleteOverlappingEmbedded,
   parseEmbeddedForecastRows,
   formatGridFetchedAt,
   formatLookAheadWindow,
@@ -161,7 +162,7 @@ export async function fetchDemandForecast(now: Date): Promise<DemandForecastRow[
 
 export function nesoEmbeddedForecastSql(fromDate: string): string {
   return [
-    'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","EMBEDDED_WIND_FORECAST","EMBEDDED_SOLAR_FORECAST"',
+    'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","DATE_GMT","TIME_GMT","EMBEDDED_WIND_FORECAST","EMBEDDED_SOLAR_FORECAST"',
     `FROM "${NESO_EMBEDDED_FORECAST_RESOURCE_ID}"`,
     `WHERE "SETTLEMENT_DATE" >= '${fromDate}'`,
     'ORDER BY "SETTLEMENT_DATE","SETTLEMENT_PERIOD"',
