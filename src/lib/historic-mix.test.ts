@@ -192,6 +192,35 @@ describe("computeRecords", () => {
     expect(records.lowestCarbon?.timestampUtc).not.toBe("2026-07-07T10:00:00");
   });
 
+  it("suppresses extrema computed from failing integrity periods", () => {
+    const records = computeRecords(
+      [
+        row({
+          DATETIME: "2025-11-18T12:30:00",
+          WIND: 20_000,
+          WIND_EMB: 3_000,
+          SOLAR: 16_000,
+          GENERATION: 54_900,
+          CARBON_INTENSITY: 18,
+        }),
+        row({
+          DATETIME: "2024-04-15T12:00:00",
+          WIND: 8_000,
+          WIND_EMB: 2_000,
+          SOLAR: 4_000,
+          CARBON_INTENSITY: 19,
+        }),
+      ],
+      new Date("2026-10-09T12:00:00.000Z"),
+      ["2025-11-18 12:30:00"]
+    );
+
+    expect(records.maxWind?.timestampUtc).toBe("2024-04-15T12:00:00");
+    expect(records.maxSolar?.timestampUtc).toBe("2024-04-15T12:00:00");
+    expect(records.lowestCarbon?.timestampUtc).toBe("2024-04-15T12:00:00");
+  });
+
+
   it("keeps the coal-end record on 30 Sep 2024 despite NESO residual coal after Ratcliffe", () => {
     const ratcliffe = [
       row({

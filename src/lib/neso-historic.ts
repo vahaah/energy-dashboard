@@ -15,6 +15,7 @@ import {
   type NesoHistoricRow,
 } from "@/lib/historic-mix";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
+import { readSnapshotIntegrity } from "@/lib/snapshot-integrity";
 import { historicalCachePolicy } from "@/lib/tinybird-cache";
 import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
 
@@ -100,7 +101,8 @@ export const getGridRecords = cache(async (now = new Date()): Promise<GridRecord
       historicalCachePolicy(),
       () => cachedRecordRows()
     );
-    return computeRecords(rows, now);
+    const stored = await readSnapshotIntegrity();
+    return computeRecords(rows, now, stored?.failingTimestamps ?? []);
   } catch {
     return emptyRecordsWithDocumentedCoal(now);
   }

@@ -1,6 +1,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { dangerouslyDeleteByTag } from "@vercel/functions";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { NESO_HISTORIC_CACHE_TAG } from "@/lib/neso-historic";
 import { DASHBOARD_PERIODS } from "@/lib/dashboard-period";
 import { COMMODITY_RANGES } from "@/lib/dashboard-search-params";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
@@ -42,6 +43,8 @@ export async function invalidateAndWarm(
     revalidatePath("/api/dashboard");
     await bumpCacheEpoch();
     if (options?.historical) {
+      revalidatePath("/records");
+      revalidateTag(NESO_HISTORIC_CACHE_TAG, { expire: 0 });
       await bumpHistoricalCacheEpoch();
     }
     try {

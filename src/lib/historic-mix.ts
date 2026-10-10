@@ -1,5 +1,6 @@
 import { carbonIndexFromIntensity } from "@/lib/colors";
 import { formatTinybirdDateTime, getLondonDate, parseUtcDateTime } from "@/lib/london-time";
+import { integrityTimestampKey, normalizeTimestampSet } from "@/lib/snapshot-integrity";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 export const NESO_HISTORIC_RESOURCE_ID = "f93d1835-75bc-43e5-84ad-12472b180a98";
@@ -333,8 +334,15 @@ export function emptyRecordsWithDocumentedCoal(now = new Date()): GridRecords {
   };
 }
 
-export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridRecords {
-  const sane = saneHistoricRows(rows);
+export function computeRecords(
+  rows: NesoHistoricRow[],
+  now = new Date(),
+  excludeTimestamps: Iterable<string> = []
+): GridRecords {
+  const excluded = normalizeTimestampSet(excludeTimestamps);
+  const sane = saneHistoricRows(rows).filter(
+    (row) => !excluded.has(integrityTimestampKey(row.DATETIME))
+  );
   let maxWind: HistoricRecordPoint | null = null;
   let maxSolar: HistoricRecordPoint | null = null;
   let lowestCarbon: HistoricRecordPoint | null = null;

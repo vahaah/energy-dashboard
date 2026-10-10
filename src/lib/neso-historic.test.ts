@@ -24,6 +24,8 @@ describe("NESO historic request", () => {
       source.indexOf("() => cachedRecordRows()")
     );
     expect(source).toContain("emptyRecordsWithDocumentedCoal");
+    expect(source).toContain("readSnapshotIntegrity");
+    expect(source).toContain("stored?.failingTimestamps");
     expect(source).not.toContain("residualCoalAfterPowerEnded");
     expect(source).not.toContain("console.info");
   });

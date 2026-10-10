@@ -15,6 +15,7 @@ export function mapElexonFuel(psrType: string): string {
     case "Solar":
       return "solar";
     case "Hydro Run-of-river and poundage":
+    case "Hydro Water Reservoir":
       return "hydro";
     case "Hydro Pumped Storage":
       return "pumped";

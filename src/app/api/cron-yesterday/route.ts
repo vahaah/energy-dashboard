@@ -6,6 +6,7 @@ import { sourceStatusesHaveFailure, type SourceStatus } from "@/lib/http";
 import { collectGenerationForSettlementDate } from "@/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "@/lib/ingest/collect-grid";
 import { formatTinybirdDateTime, yesterdayLondonDate } from "@/lib/london-time";
+import { integritySourceStatus, recordSnapshotIntegrity } from "@/lib/snapshot-integrity";
 import { ingestRows } from "@/lib/tinybird";
 
 /**
@@ -35,6 +36,15 @@ export async function GET(request: Request) {
   ]);
 
   const sources: SourceStatus[] = [...snapshots.sources, ...generation.sources];
+  const integrity =
+    snapshots.integrity ?? {
+      checkedAt: formatTinybirdDateTime(now),
+      settlementDate,
+      checkedTimestamps: [],
+      failing: [],
+    };
+  const storedIntegrity = await recordSnapshotIntegrity(integrity);
+  sources.push(integritySourceStatus(integrity));
 
   if (snapshots.rows.length > 0) {
     try {
@@ -80,6 +90,7 @@ export async function GET(request: Request) {
       timestamp,
       settlementDate,
       sources,
+      integrity: storedIntegrity,
     },
     { status: failed ? 503 : 200 }
   );

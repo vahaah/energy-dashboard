@@ -315,6 +315,28 @@ describe("AGPT generation de-duplication", () => {
     });
   });
 
+  it("drops a combined Wind row when onshore and offshore are already present", () => {
+    const byTime = generationMwByPeriod([
+      agpt({
+        startTime: "2025-11-18T12:30:00Z",
+        psrType: "Wind",
+        quantity: 16_151,
+      }),
+      agpt({
+        startTime: "2025-11-18T12:30:00Z",
+        psrType: "Wind Onshore",
+        quantity: 7_778,
+      }),
+      agpt({
+        startTime: "2025-11-18T12:30:00Z",
+        psrType: "Wind Offshore",
+        quantity: 8_373,
+      }),
+    ]);
+
+    expect(byTime.get("2025-11-18 12:30:00")?.wind).toBe(16_151);
+  });
+
   it("keeps Hydro Pumped Storage out of hydro", () => {
     const byTime = generationMwByPeriod([
       agpt({
@@ -433,6 +455,41 @@ describe("AGPT generation de-duplication", () => {
 
     expect(result.rows.some((row) => row.timestamp === "2026-07-02 12:00:00")).toBe(false);
     expect(result.rows).toHaveLength(periods.length - 1);
+  });
+
+  it("rejects a 2× total that still sits under per-fuel maxima", () => {
+    const periods = listSettlementPeriods("2025-11-18");
+    const result = snapshotCollectionFromSources(
+      periods,
+      {
+        intensityByTime: new Map(),
+        mixByTime: new Map(),
+        priceByTime: new Map([["2025-11-18 12:30:00", 42.5]]),
+        demandByTime: new Map([["2025-11-18 12:30:00", 37_700]]),
+        genMwByTime: new Map([
+          [
+            "2025-11-18 12:30:00",
+            {
+              gas: 20_000,
+              coal: 0,
+              nuclear: 8_000,
+              wind: 24_000,
+              solar: 16_000,
+              hydro: 800,
+              biomass: 4_000,
+              other: 1_400,
+              pumped: 400,
+            },
+          ],
+        ]),
+      },
+      [{ source: "generation_mw", ok: true, rows: 1 }]
+    );
+
+    expect(result.rows.some((row) => row.timestamp === "2025-11-18 12:30:00")).toBe(false);
+    expect(result.integrity?.failing.some((finding) => finding.timestamp === "2025-11-18 12:30:00")).toBe(
+      true
+    );
   });
 });
 
