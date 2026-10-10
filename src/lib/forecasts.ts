@@ -96,28 +96,40 @@ export const getLookAhead = cache(async (): Promise<LookAheadView> => {
 });
 
 export async function fetchCarbonForecast48h(now: Date): Promise<CarbonForecastRow[]> {
-  const json = await fetchJson<CarbonIntensityResponse>(carbonForecastUrl(now), {
-    ...forecastRequestInit(),
-    cacheKey: externalCacheKey("carbon-intensity", ["forecast-48h"]),
-    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
-  });
-  return json.data ?? [];
+  return readThroughCache(
+    externalCacheKey("carbon-intensity", ["forecast-48h"]),
+    longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+    async () => {
+      const json = await fetchJson<CarbonIntensityResponse>(
+        carbonForecastUrl(now),
+        forecastRequestInit()
+      );
+      return json.data ?? [];
+    }
+  );
 }
 
 export async function fetchWindForecast(): Promise<WindForecastRow[]> {
-  const json = await fetchJson<{ data: WindForecastRow[] }>(WINDFOR_URL, {
-    ...forecastRequestInit(),
-    cacheKey: externalCacheKey("elexon", ["windfor"]),
-    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
-  });
-  return json.data ?? [];
+  return readThroughCache(
+    externalCacheKey("elexon", ["windfor"]),
+    longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+    async () => {
+      const json = await fetchJson<{ data: WindForecastRow[] }>(
+        WINDFOR_URL,
+        forecastRequestInit()
+      );
+      return json.data ?? [];
+    }
+  );
 }
 
 export async function fetchDemandForecast(): Promise<DemandForecastRow[]> {
-  const json = await fetchJson<{ data: DemandForecastRow[] }>(NDF_URL, {
-    ...forecastRequestInit(),
-    cacheKey: externalCacheKey("elexon", ["ndf"]),
-    cachePolicy: longCachePolicy(FORECAST_REVALIDATE_SECONDS),
-  });
-  return json.data ?? [];
+  return readThroughCache(
+    externalCacheKey("elexon", ["ndf"]),
+    longCachePolicy(FORECAST_REVALIDATE_SECONDS),
+    async () => {
+      const json = await fetchJson<{ data: DemandForecastRow[] }>(NDF_URL, forecastRequestInit());
+      return json.data ?? [];
+    }
+  );
 }

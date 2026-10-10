@@ -64,6 +64,8 @@ describe("forecast cache policy", () => {
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("@/lib/tinybird\"");
     expect(source).not.toContain("from \"@/lib/tinybird\"");
+    expect(source).toContain("readThroughCache");
+    expect(source).toContain("@/lib/redis-cache");
   });
 
   it("recomputes the greenest window from cached rows at request time", () => {
