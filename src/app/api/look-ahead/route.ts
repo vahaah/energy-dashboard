@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { cdnCacheHeaders } from "@/lib/api-route";
-import { forecastCacheControl, getLookAhead, publicLookAhead } from "@/lib/forecasts";
+import {
+  emptyLookAhead,
+  forecastCacheControl,
+  getLookAhead,
+  publicLookAhead,
+} from "@/lib/forecasts";
 
 /**
  * GET /api/look-ahead
@@ -13,16 +18,9 @@ import { forecastCacheControl, getLookAhead, publicLookAhead } from "@/lib/forec
 export async function GET() {
   const view = await getLookAhead().catch(() => null);
   if (!view) {
-    return NextResponse.json(
-      publicLookAhead({
-        fetchedAt: new Date().toISOString(),
-        greenest: null,
-        carbonSeries: [],
-        wind: null,
-        demandSeries: [],
-      }),
-      { headers: cdnCacheHeaders(forecastCacheControl()) }
-    );
+    return NextResponse.json(publicLookAhead(emptyLookAhead()), {
+      headers: cdnCacheHeaders(forecastCacheControl()),
+    });
   }
 
   return NextResponse.json(publicLookAhead(view), {

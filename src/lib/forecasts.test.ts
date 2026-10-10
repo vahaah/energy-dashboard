@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 import {
   CARBON_FORECAST_URL,
   NDF_URL,
+  NESO_EMBEDDED_FORECAST_SQL_URL,
+  nesoEmbeddedForecastSql,
+  parseEmbeddedForecastRows,
   WINDFOR_URL,
   carbonForecastPoints,
   carbonForecastUrl,
@@ -25,7 +28,11 @@ import {
   showsLookAheadCopy,
   windLookAhead,
 } from "@/lib/forecasts";
-import type { CarbonIntensityResponse } from "@/lib/types";
+import {
+  DEMAND_FORECAST_EMBEDDED_BASIS,
+  DEMAND_FORECAST_TRANSMISSION_BASIS,
+  type CarbonIntensityResponse,
+} from "@/lib/types";
 
 type IntensityRow = CarbonIntensityResponse["data"][number];
 
@@ -84,6 +91,7 @@ describe("forecast cache policy", () => {
       ],
       windRows: null,
       demandRows: null,
+      embeddedRows: null,
     };
 
     const atFetch = lookAheadFromRows(rows, new Date("2026-10-10T12:10:00.000Z"));
@@ -95,12 +103,15 @@ describe("forecast cache policy", () => {
     expect(later.fetchedAt).toBe(rows.fetchedAt);
   });
 
-  it("uses the dedicated fw48h, WINDFOR and NDF endpoints", () => {
+  it("uses the dedicated fw48h, WINDFOR, NDF and NESO embedded forecast endpoints", () => {
     expect(carbonForecastUrl(NOW)).toBe(
       `${CARBON_FORECAST_URL}/2026-10-10T12:00:00Z/fw48h`
     );
     expect(WINDFOR_URL).toContain("/forecast/generation/wind");
     expect(NDF_URL).toContain("/forecast/demand/day-ahead");
+    expect(NESO_EMBEDDED_FORECAST_SQL_URL).toContain("datastore_search_sql");
+    expect(nesoEmbeddedForecastSql("2026-10-10")).toContain("db6c038f-98af-4570-ab60-24d71ebd0ae5");
+    expect(nesoEmbeddedForecastSql("2026-10-10")).toContain("EMBEDDED_WIND_FORECAST");
   });
 });
 
@@ -244,6 +255,82 @@ describe("demand forecast points", () => {
     );
     expect(points).toEqual([{ time: "2026-10-10 12:30:00", value: 19_500 }]);
   });
+
+  it("adds NESO embedded wind and solar onto NDF so the dashed line matches demand", () => {
+    const points = demandForecastPoints(
+      [{ startTime: "2026-10-10T12:30:00Z", nationalDemand: 19_500, boundary: "N" }],
+      NOW,
+      [
+        {
+          settlementDate: "2026-10-10",
+          settlementPeriod: 28,
+          embeddedWindMw: 3_700,
+          embeddedSolarMw: 4_800,
+        },
+      ]
+    );
+
+    expect(points).toEqual([{ time: "2026-10-10 12:30:00", value: 28_000 }]);
+  });
+
+  it("marks the demand series as embedded-inclusive when NESO rows land", () => {
+    const lifted = lookAheadFromRows(
+      {
+        fetchedAt: NOW.toISOString(),
+        carbonRows: null,
+        windRows: null,
+        demandRows: [
+          { startTime: "2026-10-10T12:30:00Z", nationalDemand: 19_500, boundary: "N" },
+        ],
+        embeddedRows: [
+          {
+            settlementDate: "2026-10-10",
+            settlementPeriod: 28,
+            embeddedWindMw: 3_700,
+            embeddedSolarMw: 4_800,
+          },
+        ],
+      },
+      NOW
+    );
+    expect(lifted.demandBasis).toBe(DEMAND_FORECAST_EMBEDDED_BASIS);
+    expect(lifted.demandSeries).toEqual([{ time: "2026-10-10 12:30:00", value: 28_000 }]);
+
+    const raw = lookAheadFromRows(
+      {
+        fetchedAt: NOW.toISOString(),
+        carbonRows: null,
+        windRows: null,
+        demandRows: [
+          { startTime: "2026-10-10T12:30:00Z", nationalDemand: 19_500, boundary: "N" },
+        ],
+        embeddedRows: null,
+      },
+      NOW
+    );
+    expect(raw.demandBasis).toBe(DEMAND_FORECAST_TRANSMISSION_BASIS);
+    expect(raw.demandSeries).toEqual([{ time: "2026-10-10 12:30:00", value: 19_500 }]);
+  });
+
+  it("parses NESO CKAN rows onto settlement-period starts", () => {
+    expect(
+      parseEmbeddedForecastRows([
+        {
+          SETTLEMENT_DATE: "2026-10-10T00:00:00",
+          SETTLEMENT_PERIOD: 27,
+          EMBEDDED_WIND_FORECAST: 3700,
+          EMBEDDED_SOLAR_FORECAST: "4800",
+        },
+      ])
+    ).toEqual([
+      {
+        settlementDate: "2026-10-10",
+        settlementPeriod: 27,
+        embeddedWindMw: 3700,
+        embeddedSolarMw: 4800,
+      },
+    ]);
+  });
 });
 
 describe("carbon forecast points", () => {
@@ -310,6 +397,7 @@ describe("look-ahead copy and public payload", () => {
       },
       carbonSeries: [{ time: "2026-10-10 13:00:00", value: 40 }],
       demandSeries: [{ time: "2026-10-10 13:00:00", value: 20_000 }],
+      demandBasis: DEMAND_FORECAST_EMBEDDED_BASIS,
       wind: {
         tonightGw: 11,
         tomorrowEveningGw: 8.4,
@@ -333,7 +421,12 @@ describe("look-ahead copy and public payload", () => {
       sentence: "Wind is forecast to fall to 8.4 GW by tomorrow evening.",
       basis: "Transmission-connected wind only. Embedded wind is not in this forecast.",
     });
+    expect(published.demandBasis).toBe(DEMAND_FORECAST_EMBEDDED_BASIS);
     expect(published.attribution.carbonNote).toContain("not republished");
+    expect(published.attribution.nesoEmbedded.dataset).toContain(
+      "embedded-wind-and-solar-forecasts"
+    );
+    expect(published.attribution.nesoEmbedded.text).toContain("National Energy SO Open Data");
   });
 
   it("hides forecast lines on historic and long ranges", () => {

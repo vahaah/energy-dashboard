@@ -1,16 +1,20 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { NESO_EMBEDDED_FORECAST_RESOURCE_ID } from "@/lib/attribution";
 import {
   lookAheadFromRows,
+  parseEmbeddedForecastRows,
   type CachedForecastRows,
   type CarbonForecastRow,
   type DemandForecastRow,
+  type EmbeddedForecastRow,
   type LookAheadView,
   type WindForecastRow,
 } from "@/lib/forecast-model";
 import { fetchJson } from "@/lib/http";
-import { longCachePolicy } from "@/lib/tinybird-cache";
+import { getLondonDate } from "@/lib/london-time";
 import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
+import { longCachePolicy } from "@/lib/tinybird-cache";
 import type { CarbonIntensityResponse } from "@/lib/types";
 
 export const FORECAST_REVALIDATE_SECONDS = 1_800;
@@ -20,11 +24,17 @@ export const FORECAST_CACHE_KEY = "grid-look-ahead";
 export const CARBON_FORECAST_URL = "https://api.carbonintensity.org.uk/intensity";
 export const WINDFOR_URL = "https://data.elexon.co.uk/bmrs/api/v1/forecast/generation/wind";
 export const NDF_URL = "https://data.elexon.co.uk/bmrs/api/v1/forecast/demand/day-ahead";
+export const NESO_EMBEDDED_FORECAST_SQL_URL =
+  "https://api.neso.energy/api/3/action/datastore_search_sql";
 
 export {
   carbonForecastPoints,
+  DEMAND_FORECAST_EMBEDDED_BASIS,
+  DEMAND_FORECAST_TRANSMISSION_BASIS,
   demandForecastPoints,
   emptyLookAhead,
+  embeddedForecastByTime,
+  parseEmbeddedForecastRows,
   formatGridFetchedAt,
   formatLookAheadWindow,
   greenestWindow,
@@ -38,6 +48,7 @@ export {
   WIND_FORECAST_BASIS,
 } from "@/lib/forecast-model";
 export type {
+  DemandForecastBasis,
   ForecastPoint,
   GreenestWindow,
   LookAheadView,
@@ -63,10 +74,11 @@ export function forecastCacheControl(): string {
 }
 
 export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> {
-  const [carbonRows, windRows, demandRows] = await Promise.all([
+  const [carbonRows, windRows, demandRows, embeddedRows] = await Promise.all([
     fetchCarbonForecast48h(now).catch(() => null),
     fetchWindForecast().catch(() => null),
     fetchDemandForecast().catch(() => null),
+    fetchEmbeddedForecast(now).catch(() => null),
   ]);
 
   return {
@@ -74,6 +86,7 @@ export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> 
     carbonRows,
     windRows,
     demandRows,
+    embeddedRows,
   };
 }
 
@@ -133,4 +146,25 @@ export async function fetchDemandForecast(): Promise<DemandForecastRow[]> {
       return json.data ?? [];
     }
   );
+}
+
+export function nesoEmbeddedForecastSql(fromDate: string): string {
+  return [
+    'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","EMBEDDED_WIND_FORECAST","EMBEDDED_SOLAR_FORECAST"',
+    `FROM "${NESO_EMBEDDED_FORECAST_RESOURCE_ID}"`,
+    `WHERE "SETTLEMENT_DATE" >= '${fromDate}'`,
+    'ORDER BY "SETTLEMENT_DATE","SETTLEMENT_PERIOD"',
+  ].join(" ");
+}
+
+export async function fetchEmbeddedForecast(now: Date): Promise<EmbeddedForecastRow[]> {
+  const sql = nesoEmbeddedForecastSql(getLondonDate(now));
+  const json = await fetchJson<{
+    success?: boolean;
+    result?: { records?: Array<Record<string, unknown>> };
+  }>(`${NESO_EMBEDDED_FORECAST_SQL_URL}?sql=${encodeURIComponent(sql)}`, forecastRequestInit());
+  if (json.success === false) {
+    throw new Error("NESO embedded forecast query failed");
+  }
+  return parseEmbeddedForecastRows(json.result?.records ?? []);
 }

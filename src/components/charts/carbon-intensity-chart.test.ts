@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mergeCarbonSeries } from "@/components/charts/carbon-intensity-chart";
+import { evenTimeTicks, timeTickCount } from "@/lib/chart-time";
 import type { EnergySnapshot } from "@/lib/types";
 
 function snapshot(timestamp: string, carbon: number): EnergySnapshot {
@@ -43,10 +44,33 @@ describe("mergeCarbonSeries", () => {
     );
 
     expect(series).toEqual([
-      { time: "2026-10-10 11:00:00", actual: 80, forecast: null },
-      { time: "2026-10-10 11:30:00", actual: 76, forecast: 74 },
-      { time: "2026-10-10 12:00:00", actual: null, forecast: 45 },
+      {
+        time: "2026-10-10 11:00:00",
+        ts: Date.parse("2026-10-10T11:00:00Z"),
+        actual: 80,
+        forecast: null,
+      },
+      {
+        time: "2026-10-10 11:30:00",
+        ts: Date.parse("2026-10-10T11:30:00Z"),
+        actual: 76,
+        forecast: 74,
+      },
+      {
+        time: "2026-10-10 12:00:00",
+        ts: Date.parse("2026-10-10T12:00:00Z"),
+        actual: null,
+        forecast: 45,
+      },
     ]);
+  });
+
+  it("uses evenly spaced time ticks on a compact multi-day span", () => {
+    const start = Date.parse("2026-10-10T07:00:00Z");
+    const end = Date.parse("2026-10-12T07:00:00Z");
+    const ticks = evenTimeTicks(start, end, timeTickCount(end - start, true));
+    expect(ticks).toHaveLength(3);
+    expect(ticks[1] - ticks[0]).toBe(ticks[2] - ticks[1]);
   });
 
   it("keeps the g unit above the top y-axis tick", () => {
@@ -56,6 +80,8 @@ describe("mergeCarbonSeries", () => {
     );
     expect(source).toContain("chartYAxisUnitLabel");
     expect(source).toContain("top: 24");
+    expect(source).toContain('scale="time"');
+    expect(source).toContain("evenTimeTicks");
     expect(source).not.toContain("offset: 8");
   });
 });

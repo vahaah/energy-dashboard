@@ -2,6 +2,9 @@ import {
   CARBON_INTENSITY_ATTRIBUTION,
   CARBON_INTENSITY_FORECAST_NOTE,
   elexonBmrsAttributionBlock,
+  NESO_EMBEDDED_FORECAST_URL,
+  NESO_OPEN_DATA_ATTRIBUTION,
+  NESO_OPEN_DATA_LICENCE_URL,
 } from "@/lib/attribution";
 import { formatHeadlineGw } from "@/lib/facts";
 import {
@@ -16,11 +19,16 @@ import {
   londonMidnightUtc,
   parseUtcDateTime,
 } from "@/lib/london-time";
+import { settlementPeriodToUtc } from "@/lib/settlement-period";
 import {
+  DEMAND_FORECAST_EMBEDDED_BASIS,
+  DEMAND_FORECAST_TRANSMISSION_BASIS,
   WIND_FORECAST_BASIS,
   type CachedForecastRows,
   type CarbonForecastRow,
+  type DemandForecastBasis,
   type DemandForecastRow,
+  type EmbeddedForecastRow,
   type ForecastPoint,
   type GreenestWindow,
   type LookAheadView,
@@ -31,11 +39,13 @@ import {
 } from "@/lib/types";
 
 export const GREENEST_WINDOW_PERIODS = 4;
-export { WIND_FORECAST_BASIS };
+export { DEMAND_FORECAST_EMBEDDED_BASIS, DEMAND_FORECAST_TRANSMISSION_BASIS, WIND_FORECAST_BASIS };
 export type {
   CachedForecastRows,
   CarbonForecastRow,
+  DemandForecastBasis,
   DemandForecastRow,
+  EmbeddedForecastRow,
   ForecastPoint,
   GreenestWindow,
   LookAheadView,
@@ -45,12 +55,21 @@ export type {
 };
 
 export function lookAheadFromRows(rows: CachedForecastRows, now: Date): LookAheadView {
+  const embeddedRows = rows.embeddedRows ?? [];
+  const liftEmbedded = embeddedRows.length > 0;
   return {
     fetchedAt: rows.fetchedAt,
     greenest: rows.carbonRows ? greenestWindow(rows.carbonRows, now) : null,
     carbonSeries: rows.carbonRows ? carbonForecastPoints(rows.carbonRows, now) : [],
     wind: rows.windRows ? windLookAhead(rows.windRows, now) : null,
-    demandSeries: rows.demandRows ? demandForecastPoints(rows.demandRows, now) : [],
+    demandSeries: rows.demandRows
+      ? demandForecastPoints(rows.demandRows, now, liftEmbedded ? embeddedRows : [])
+      : [],
+    demandBasis: rows.demandRows
+      ? liftEmbedded
+        ? DEMAND_FORECAST_EMBEDDED_BASIS
+        : DEMAND_FORECAST_TRANSMISSION_BASIS
+      : null,
   };
 }
 
@@ -61,6 +80,7 @@ export function emptyLookAhead(now = new Date()): LookAheadView {
     carbonSeries: [],
     wind: null,
     demandSeries: [],
+    demandBasis: null,
   };
 }
 
@@ -98,10 +118,16 @@ export function publicLookAhead(view: LookAheadView): PublicLookAhead {
           basis: view.wind.basis,
         }
       : null,
+    demandBasis: view.demandBasis,
     attribution: {
       carbon: CARBON_INTENSITY_ATTRIBUTION,
       carbonNote: CARBON_INTENSITY_FORECAST_NOTE,
       elexon: elexonBmrsAttributionBlock(),
+      nesoEmbedded: {
+        text: NESO_OPEN_DATA_ATTRIBUTION,
+        licence: NESO_OPEN_DATA_LICENCE_URL,
+        dataset: NESO_EMBEDDED_FORECAST_URL,
+      },
     },
   };
 }
@@ -226,7 +252,12 @@ export function carbonForecastPoints(rows: CarbonForecastRow[], now: Date): Fore
   return points;
 }
 
-export function demandForecastPoints(rows: DemandForecastRow[], now: Date): ForecastPoint[] {
+export function demandForecastPoints(
+  rows: DemandForecastRow[],
+  now: Date,
+  embeddedRows: EmbeddedForecastRow[] = []
+): ForecastPoint[] {
+  const embeddedByTime = embeddedForecastByTime(embeddedRows);
   const points: ForecastPoint[] = [];
   for (const row of rows) {
     if (row.nationalDemand == null) {
@@ -238,12 +269,58 @@ export function demandForecastPoints(rows: DemandForecastRow[], now: Date): Fore
     if (parseUtcDateTime(row.startTime).getTime() < now.getTime()) {
       continue;
     }
+    const time = formatTinybirdDateTime(parseUtcDateTime(row.startTime));
     points.push({
-      time: formatTinybirdDateTime(parseUtcDateTime(row.startTime)),
-      value: row.nationalDemand,
+      time,
+      value: row.nationalDemand + (embeddedByTime.get(time) ?? 0),
     });
   }
   return points;
+}
+
+export function embeddedForecastByTime(rows: EmbeddedForecastRow[]): Map<string, number> {
+  const byTime = new Map<string, number>();
+  for (const row of rows) {
+    if (row.embeddedWindMw == null && row.embeddedSolarMw == null) {
+      continue;
+    }
+    const time = formatTinybirdDateTime(
+      settlementPeriodToUtc(row.settlementDate, row.settlementPeriod)
+    );
+    byTime.set(time, (row.embeddedWindMw ?? 0) + (row.embeddedSolarMw ?? 0));
+  }
+  return byTime;
+}
+
+export function parseEmbeddedForecastRows(
+  records: Array<Record<string, unknown>>
+): EmbeddedForecastRow[] {
+  const rows: EmbeddedForecastRow[] = [];
+  for (const record of records) {
+    const settlementDate = String(record.SETTLEMENT_DATE ?? "").slice(0, 10);
+    const settlementPeriod = Number(record.SETTLEMENT_PERIOD);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(settlementDate) || !Number.isFinite(settlementPeriod)) {
+      continue;
+    }
+    if (settlementPeriod < 1) {
+      continue;
+    }
+    rows.push({
+      settlementDate,
+      settlementPeriod,
+      embeddedWindMw: finiteOrNull(record.EMBEDDED_WIND_FORECAST),
+      embeddedSolarMw: finiteOrNull(record.EMBEDDED_SOLAR_FORECAST),
+    });
+  }
+  return rows;
+}
+
+function finiteOrNull(value: unknown): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = typeof value === "number" ? value : Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function windLookAhead(rows: WindForecastRow[], now: Date): WindLookAhead | null {

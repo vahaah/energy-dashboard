@@ -189,6 +189,16 @@ export type DashboardFocus =
 export const WIND_FORECAST_BASIS =
   "Transmission-connected wind only. Embedded wind is not in this forecast.";
 
+export const DEMAND_FORECAST_EMBEDDED_BASIS =
+  "Elexon National Demand Forecast plus NESO embedded wind and solar forecast." as const;
+
+export const DEMAND_FORECAST_TRANSMISSION_BASIS =
+  "Elexon National Demand Forecast (transmission only; excludes embedded)." as const;
+
+export type DemandForecastBasis =
+  | typeof DEMAND_FORECAST_EMBEDDED_BASIS
+  | typeof DEMAND_FORECAST_TRANSMISSION_BASIS;
+
 export type ForecastPoint = {
   time: string;
   value: number;
@@ -215,6 +225,7 @@ export type LookAheadView = {
   carbonSeries: ForecastPoint[];
   wind: WindLookAhead | null;
   demandSeries: ForecastPoint[];
+  demandBasis: DemandForecastBasis | null;
 };
 
 export type PublicLookAhead = {
@@ -226,10 +237,12 @@ export type PublicLookAhead = {
     sentence: string;
     basis: typeof WIND_FORECAST_BASIS;
   } | null;
+  demandBasis: DemandForecastBasis | null;
   attribution: {
     carbon: string;
     carbonNote: string;
     elexon: { text: string; licence: string };
+    nesoEmbedded: { text: string; licence: string; dataset: string };
   };
 };
 
@@ -244,6 +257,13 @@ export type DemandForecastRow = {
   boundary: string | null;
 };
 
+export type EmbeddedForecastRow = {
+  settlementDate: string;
+  settlementPeriod: number;
+  embeddedWindMw: number | null;
+  embeddedSolarMw: number | null;
+};
+
 export type CarbonForecastRow = CarbonIntensityResponse["data"][number];
 
 export type CachedForecastRows = {
@@ -251,4 +271,5 @@ export type CachedForecastRows = {
   carbonRows: CarbonForecastRow[] | null;
   windRows: WindForecastRow[] | null;
   demandRows: DemandForecastRow[] | null;
+  embeddedRows: EmbeddedForecastRow[] | null;
 };

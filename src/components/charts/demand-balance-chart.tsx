@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -15,12 +14,20 @@ import {
   YAxis,
 } from "recharts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
+import {
+  NESO_EMBEDDED_FORECAST_URL,
+  NESO_OPEN_DATA_ATTRIBUTION,
+} from "@/lib/attribution";
 import { EXPORT_GAP_COLOR, IMPORT_GAP_COLOR } from "@/lib/colors";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { useElementWidth } from "@/components/charts/use-element-width";
 import { ForecastBadge } from "@/components/ui/forecast-badge";
-import type { ForecastPoint } from "@/lib/forecast-model";
-import { formatTinybirdDateTime } from "@/lib/london-time";
+import {
+  DEMAND_FORECAST_EMBEDDED_BASIS,
+  type DemandForecastBasis,
+  type ForecastPoint,
+} from "@/lib/forecast-model";
 import {
   chartAnimation,
   chartAxisLine,
@@ -38,9 +45,10 @@ import {
 import {
   appendDemandForecastPoints,
   demandBalanceGapLabel,
-  demandBalanceXTicks,
   demandBalanceYTicks,
   demandChartMargin,
+  demandChartTimeTicks,
+  demandForecastStartMs,
   demandSeriesLabelLayout,
   forecastLabelLayout,
   formatDemandBalanceTickLines,
@@ -48,6 +56,7 @@ import {
   lastDefinedIndex,
   prepareDemandBalanceChartData,
   usesLongRangeSmoothing,
+  withDemandChartTime,
   type DemandBalanceChartPoint,
   type DemandEndLabelLayout,
 } from "@/lib/generation-desk-view";
@@ -57,13 +66,14 @@ interface Props {
   generation: Generation5min[];
   range: TimeRange;
   demandForecast?: ForecastPoint[];
+  demandBasis?: DemandForecastBasis | null;
   now?: Date | null;
 }
 
 const SERIES_LABELS: Record<string, string> = {
   demandGw: "Demand (incl. embedded)",
   generationGw: "Generation (incl. embedded)",
-  demandForecastGw: "Demand forecast (NDF)",
+  demandForecastGw: "Demand forecast",
 };
 
 const SERIES_COLORS: Record<string, string> = {
@@ -105,7 +115,7 @@ export function DemandBalanceTooltip({
   });
 
   return (
-    <ChartTooltipCard time={formatDemandBalanceTooltipLabel(String(label), range)}>
+    <ChartTooltipCard time={formatDemandBalanceTooltipLabel(label, range)}>
       {series.map((entry) => {
         if (entry.value == null) {
           return null;
@@ -142,36 +152,38 @@ export function DemandBalanceChart({
   generation,
   range,
   demandForecast = [],
+  demandBasis = null,
   now = null,
 }: Props) {
   const { ref, width } = useElementWidth();
   const compact = width === 0 || width < COMPACT_CHART_WIDTH;
   const series = buildDemandBalanceSeries(snapshots, generation, range);
-  const chartData = appendDemandForecastPoints(
-    prepareDemandBalanceChartData(series, range),
-    demandForecast
+  const chartData = withDemandChartTime(
+    appendDemandForecastPoints(prepareDemandBalanceChartData(series, range), demandForecast)
   );
   const smoothed = usesLongRangeSmoothing(range);
   const yTicks = demandBalanceYTicks(chartData);
-  const datedDayTicks = range === "24h" && demandForecast.length > 0;
-  const xTicks = demandBalanceXTicks(
-    chartData.map((point) => point.time),
-    range,
-    compact,
-    datedDayTicks
+  const datedDayTicks = demandForecast.length > 0;
+  const xTicks = demandChartTimeTicks(
+    chartData.map((point) => point.ts),
+    compact
   );
   const demandLabelIndex = lastDefinedIndex(chartData, "demandGw");
   const generationLabelIndex = lastDefinedIndex(chartData, "generationGw");
   const forecastLabelIndex = lastDefinedIndex(chartData, "demandForecastGw");
-  const nowX = nowDemandMarker(chartData, now);
-  const lastForecast = chartData.at(-1)?.demandForecastGw != null ? chartData.at(-1)?.time : null;
+  const nowX = now?.getTime() ?? null;
+  const forecastStartX = demandForecastStartMs(chartData);
+  const lastTs = chartData.at(-1)?.ts;
+  const domain: [number, number] | undefined =
+    chartData[0] && lastTs != null ? [chartData[0].ts, lastTs] : undefined;
   const yMax = yTicks.at(-1) ?? 40;
   const seriesLabels = demandSeriesLabelLayout(
     chartData[demandLabelIndex]?.demandGw,
     chartData[generationLabelIndex]?.generationGw
   );
-  const forecastLabel = forecastLabelLayout();
-  const plotMargin = demandChartMargin(compact, datedDayTicks);
+  const forecastLabel = forecastLabelLayout(compact);
+  const plotMargin = demandChartMargin(compact, datedDayTicks, demandForecast.length > 0);
+  const lifted = demandBasis === DEMAND_FORECAST_EMBEDDED_BASIS;
 
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
@@ -184,7 +196,10 @@ export function DemandBalanceChart({
           <ComposedChart data={chartData} margin={plotMargin}>
             <CartesianGrid {...chartGrid} />
             <XAxis
-              dataKey="time"
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={domain ?? ["dataMin", "dataMax"]}
               ticks={xTicks}
               interval={0}
               minTickGap={compact ? 64 : 24}
@@ -217,10 +232,10 @@ export function DemandBalanceChart({
               content={<DemandBalanceTooltip range={range} />}
               wrapperStyle={{ zIndex: 320 }}
             />
-            {nowX && lastForecast ? (
+            {forecastStartX != null && lastTs != null ? (
               <ReferenceArea
-                x1={nowX}
-                x2={lastForecast}
+                x1={forecastStartX}
+                x2={lastTs}
                 fill="var(--gray-alpha-100)"
                 strokeOpacity={0}
               />
@@ -233,6 +248,19 @@ export function DemandBalanceChart({
                 strokeDasharray="4 4"
                 label={{
                   value: "Now",
+                  position: "insideTopLeft",
+                  fill: "var(--gray-700)",
+                  fontSize: 12,
+                }}
+              />
+            ) : null}
+            {forecastStartX != null ? (
+              <ReferenceLine
+                x={forecastStartX}
+                stroke="var(--gray-700)"
+                strokeDasharray="2 4"
+                label={{
+                  value: "Forecast starts",
                   position: "insideTopLeft",
                   fill: "var(--gray-700)",
                   fontSize: 12,
@@ -303,7 +331,7 @@ export function DemandBalanceChart({
               dataKey="demandForecastGw"
               stroke="var(--gray-700)"
               strokeDasharray="4 4"
-              name="Demand forecast (NDF)"
+              name="Demand forecast"
               {...chartLine}
               {...chartAnimation}
             >
@@ -384,7 +412,20 @@ export function DemandBalanceChart({
       ) : null}
       {demandForecast.length > 0 ? (
         <p className="text-label-12 text-gray-900">
-          Dashed line is Elexon’s National Demand Forecast (transmission, excludes embedded).
+          {lifted ? (
+            <>
+              Dashed line continues demand including embedded: Elexon NDF plus{" "}
+              <a
+                href={NESO_EMBEDDED_FORECAST_URL}
+                className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+              >
+                NESO embedded wind and solar forecast
+              </a>
+              . {NESO_OPEN_DATA_ATTRIBUTION}. The blank stretch is the day-ahead gap.
+            </>
+          ) : (
+            "Dashed line is Elexon’s National Demand Forecast (transmission, excludes embedded)."
+          )}
         </p>
       ) : null}
       {compact ? <SeriesKey showForecast={demandForecast.length > 0} /> : null}
@@ -440,56 +481,11 @@ function SeriesKey({ showForecast }: { showForecast: boolean }) {
             className="h-0.5 w-3 shrink-0 border-t border-dashed border-gray-700"
             aria-hidden="true"
           />
-          Demand forecast (NDF)
+          Demand forecast
         </li>
       ) : null}
     </ul>
   );
-}
-
-function nowDemandMarker(
-  chartData: DemandBalanceChartPoint[],
-  now: Date | null
-): string | null {
-  if (!now || chartData.length === 0) {
-    return null;
-  }
-  const nowTime = formatTinybirdDateTime(now);
-  const exact = chartData.find((point) => point.time === nowTime);
-  if (exact) {
-    return exact.time;
-  }
-  return chartData.find((point) => point.time >= nowTime)?.time ?? null;
-}
-
-function useElementWidth() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      setWidth(node.clientWidth);
-    });
-    const observer = new ResizeObserver((entries) => {
-      const next = entries[0]?.contentRect.width;
-      if (next != null) {
-        setWidth(next);
-      }
-    });
-    observer.observe(node);
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, []);
-
-  return { ref, width };
 }
 
 function DemandBalanceXTick({
@@ -511,7 +507,7 @@ function DemandBalanceXTick({
     return null;
   }
 
-  const lines = formatDemandBalanceTickLines(String(payload.value), range, {
+  const lines = formatDemandBalanceTickLines(payload.value, range, {
     includeDate,
     compact,
   });

@@ -14,8 +14,10 @@ import {
 } from "recharts";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { useElementWidth } from "@/components/charts/use-element-width";
 import { ForecastBadge } from "@/components/ui/forecast-badge";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
+import { chartTimeMs, evenTimeTicks, timeTickCount } from "@/lib/chart-time";
 import {
   chartAnimation,
   chartArea,
@@ -28,11 +30,7 @@ import {
 } from "@/lib/chart-theme";
 import { CARBON_INDEX_BANDS, carbonIndexColor } from "@/lib/colors";
 import type { ForecastPoint } from "@/lib/forecast-model";
-import {
-  formatTinybirdDateTime,
-  getLondonDateTimeParts,
-  parseUtcDateTime,
-} from "@/lib/london-time";
+import { getLondonDateTimeParts } from "@/lib/london-time";
 import type { EnergySnapshot, TimeRange } from "@/lib/types";
 
 interface Props {
@@ -43,6 +41,8 @@ interface Props {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+const COMPACT_CHART_WIDTH = 480;
 
 const CARBON_SERIES_COLORS: Record<string, string> = {
   actual: "var(--gray-1000)",
@@ -93,9 +93,18 @@ export function CarbonIntensityTooltip({
 }
 
 export function CarbonIntensityChart({ data, range, forecast = [], now = null }: Props) {
+  const { ref, width } = useElementWidth();
+  const compact = width === 0 || width < COMPACT_CHART_WIDTH;
   const chartData = mergeCarbonSeries(data, forecast);
-  const nowX = nowMarker(chartData, now);
-  const lastForecast = chartData.at(-1)?.time;
+  const nowX = now?.getTime() ?? null;
+  const lastForecast = chartData.at(-1)?.ts;
+  const firstTs = chartData[0]?.ts;
+  const domain: [number, number] | undefined =
+    firstTs != null && lastForecast != null ? [firstTs, lastForecast] : undefined;
+  const xTicks =
+    domain != null
+      ? evenTimeTicks(domain[0], domain[1], timeTickCount(domain[1] - domain[0], compact))
+      : [];
   const yMax = Math.max(
     80,
     ...chartData.flatMap((point) => [point.actual ?? 0, point.forecast ?? 0])
@@ -104,7 +113,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
   const multiDay = forecast.length > 0;
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div ref={ref} className="flex min-w-0 flex-col gap-3">
       {forecast.length > 0 ? (
         <div className="flex items-center gap-2">
           <ForecastBadge />
@@ -115,7 +124,10 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
       ) : null}
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 24, right: 8, bottom: 4, left: 0 }}>
+          <ComposedChart
+            data={chartData}
+            margin={{ top: 24, right: 8, bottom: compact && multiDay ? 22 : 4, left: 0 }}
+          >
             <CartesianGrid {...chartGrid} />
             {carbonBands(ceiling).map((band) => (
               <ReferenceArea
@@ -149,11 +161,23 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
               />
             ) : null}
             <XAxis
-              dataKey="time"
-              tickFormatter={(t) =>
-                multiDay ? formatMultiDayTick(String(t)) : formatChartTick(String(t), range)
-              }
-              tick={chartAxisTick}
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={domain ?? ["dataMin", "dataMax"]}
+              ticks={xTicks}
+              interval={0}
+              minTickGap={compact ? 64 : 24}
+              tick={(props) => (
+                <CarbonXTick
+                  x={props.x}
+                  y={props.y}
+                  payload={props.payload}
+                  range={range}
+                  multiDay={multiDay}
+                  compact={compact}
+                />
+              )}
               {...chartAxisLine}
             />
             <YAxis
@@ -197,14 +221,22 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
   );
 }
 
+export type CarbonChartPoint = {
+  time: string;
+  ts: number;
+  actual: number | null;
+  forecast: number | null;
+};
+
 export function mergeCarbonSeries(
   data: EnergySnapshot[],
   forecast: ForecastPoint[]
-): Array<{ time: string; actual: number | null; forecast: number | null }> {
-  const byTime = new Map<string, { time: string; actual: number | null; forecast: number | null }>();
+): CarbonChartPoint[] {
+  const byTime = new Map<string, CarbonChartPoint>();
   for (const row of data) {
     byTime.set(row.timestamp, {
       time: row.timestamp,
+      ts: chartTimeMs(row.timestamp),
       actual: row.carbon_intensity == null ? null : Math.round(row.carbon_intensity),
       forecast: null,
     });
@@ -217,37 +249,63 @@ export function mergeCarbonSeries(
     }
     byTime.set(point.time, {
       time: point.time,
+      ts: chartTimeMs(point.time),
       actual: null,
       forecast: Math.round(point.value),
     });
   }
-  return [...byTime.values()].sort(
-    (left, right) => parseUtcDateTime(left.time).getTime() - parseUtcDateTime(right.time).getTime()
-  );
+  return [...byTime.values()].sort((left, right) => left.ts - right.ts);
 }
 
-function nowMarker(
-  chartData: Array<{ time: string }>,
-  now: Date | null
-): string | null {
-  if (!now || chartData.length === 0) {
-    return null;
-  }
-  const nowTime = formatTinybirdDateTime(now);
-  const exact = chartData.find((point) => point.time === nowTime);
-  if (exact) {
-    return exact.time;
-  }
-  const future = chartData.find((point) => point.time >= nowTime);
-  return future?.time ?? chartData.at(-1)?.time ?? null;
-}
-
-function formatMultiDayTick(value: string): string {
-  const date = parseUtcDateTime(value);
+function formatMultiDayTick(value: string | number, compact: boolean): string[] {
+  const date = new Date(chartTimeMs(value));
   const parts = getLondonDateTimeParts(date);
   const hour = String(parts.hour).padStart(2, "0");
   const minute = String(parts.minute).padStart(2, "0");
-  return `${parts.day} ${MONTHS[parts.month - 1]} ${hour}:${minute}`;
+  if (compact) {
+    return [`${parts.day} ${MONTHS[parts.month - 1]}`, `${hour}:${minute}`];
+  }
+  return [`${parts.day} ${MONTHS[parts.month - 1]} ${hour}:${minute}`];
+}
+
+function CarbonXTick({
+  x,
+  y,
+  payload,
+  range,
+  multiDay,
+  compact,
+}: {
+  x?: number | string;
+  y?: number | string;
+  payload?: { value?: string | number };
+  range: TimeRange;
+  multiDay: boolean;
+  compact: boolean;
+}) {
+  if (x == null || y == null || payload?.value == null) {
+    return null;
+  }
+
+  const lines = multiDay
+    ? formatMultiDayTick(payload.value, compact)
+    : [formatChartTick(payload.value, range)];
+
+  return (
+    <text
+      x={Number(x)}
+      y={Number(y)}
+      fill={chartAxisTick.fill}
+      fontSize={chartAxisTick.fontSize}
+      textAnchor="middle"
+    >
+      {lines.map((line, index) => (
+        <tspan key={line} x={Number(x)} dy={index === 0 ? 12 : 14}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
 }
 
 function carbonBands(ceiling: number): Array<{ index: string; y1: number; y2: number }> {
