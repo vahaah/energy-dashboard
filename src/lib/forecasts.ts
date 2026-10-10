@@ -57,11 +57,13 @@ export type {
 } from "@/lib/forecast-model";
 
 export function forecastRequestInit(): RequestInit & {
+  cache: RequestCache;
   next: { revalidate: number; tags: string[] };
 } {
   return {
+    cache: "no-store",
     next: { revalidate: FORECAST_REVALIDATE_SECONDS, tags: [FORECAST_CACHE_TAG] },
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(15_000),
   };
 }
 
@@ -77,7 +79,7 @@ export async function fetchForecastRows(now: Date): Promise<CachedForecastRows> 
   const [carbonRows, windRows, demandRows, embeddedRows] = await Promise.all([
     fetchCarbonForecast48h(now).catch(() => null),
     fetchWindForecast().catch(() => null),
-    fetchDemandForecast().catch(() => null),
+    fetchDemandForecast(now).catch(() => null),
     fetchEmbeddedForecast(now).catch(() => null),
   ]);
 
@@ -137,12 +139,21 @@ export async function fetchWindForecast(): Promise<WindForecastRow[]> {
   );
 }
 
-export async function fetchDemandForecast(): Promise<DemandForecastRow[]> {
+export function ndfUrl(now: Date): string {
+  const from = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const to = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  return `${NDF_URL}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+}
+
+export async function fetchDemandForecast(now: Date): Promise<DemandForecastRow[]> {
   return readThroughCache(
     externalCacheKey("elexon", ["ndf"]),
     longCachePolicy(FORECAST_REVALIDATE_SECONDS),
     async () => {
-      const json = await fetchJson<{ data: DemandForecastRow[] }>(NDF_URL, forecastRequestInit());
+      const json = await fetchJson<{ data: DemandForecastRow[] }>(
+        ndfUrl(now),
+        forecastRequestInit()
+      );
       return json.data ?? [];
     }
   );

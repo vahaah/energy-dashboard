@@ -5,6 +5,7 @@ import {
   CARBON_FORECAST_URL,
   NDF_URL,
   NESO_EMBEDDED_FORECAST_SQL_URL,
+  ndfUrl,
   nesoEmbeddedForecastSql,
   parseEmbeddedForecastRows,
   WINDFOR_URL,
@@ -109,6 +110,9 @@ describe("forecast cache policy", () => {
     );
     expect(WINDFOR_URL).toContain("/forecast/generation/wind");
     expect(NDF_URL).toContain("/forecast/demand/day-ahead");
+    expect(ndfUrl(NOW)).toContain("from=");
+    expect(ndfUrl(NOW)).toContain("to=");
+    expect(forecastRequestInit().cache).toBe("no-store");
     expect(NESO_EMBEDDED_FORECAST_SQL_URL).toContain("datastore_search_sql");
     expect(nesoEmbeddedForecastSql("2026-10-10")).toContain("db6c038f-98af-4570-ab60-24d71ebd0ae5");
     expect(nesoEmbeddedForecastSql("2026-10-10")).toContain("EMBEDDED_WIND_FORECAST");
