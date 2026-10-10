@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { ForecastBadge } from "@/components/ui/forecast-badge";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
@@ -43,6 +43,54 @@ interface Props {
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+const CARBON_SERIES_COLORS: Record<string, string> = {
+  actual: "var(--gray-1000)",
+  forecast: "var(--gray-700)",
+};
+
+type CarbonTooltipEntry = {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string | null;
+  color?: string;
+};
+
+export function CarbonIntensityTooltip({
+  active,
+  label,
+  payload,
+  range,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: CarbonTooltipEntry[];
+  range: TimeRange;
+}) {
+  if (!active || payload == null || payload.length === 0 || label == null) {
+    return null;
+  }
+
+  const rows = [...payload]
+    .filter((entry) => entry.value != null)
+    .sort((left, right) => Number(right.value) - Number(left.value));
+
+  return (
+    <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
+      {rows.map((entry) => {
+        const key = String(entry.dataKey ?? entry.name ?? "");
+        return (
+          <ChartTooltipRow
+            key={key}
+            color={CARBON_SERIES_COLORS[key] ?? entry.color ?? "var(--gray-1000)"}
+            label={String(entry.name ?? key)}
+            value={`${Number(entry.value).toFixed(0)} g`}
+          />
+        );
+      })}
+    </ChartTooltipCard>
+  );
+}
 
 export function CarbonIntensityChart({ data, range, forecast = [], now = null }: Props) {
   const chartData = mergeCarbonSeries(data, forecast);
@@ -121,24 +169,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
             />
             <Tooltip
               cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
-              content={({ active, label, payload }) => {
-                if (!active || payload == null || payload.length === 0 || label == null) {
-                  return null;
-                }
-                const rows = [...payload]
-                  .filter((entry) => entry.value != null)
-                  .sort((left, right) => Number(right.value) - Number(left.value));
-                return (
-                  <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
-                    {rows.map((entry) => (
-                      <p key={String(entry.dataKey)} className="flex justify-between gap-6">
-                        <span>{entry.name}</span>
-                        <span className="tabular-nums">{Number(entry.value).toFixed(0)} g</span>
-                      </p>
-                    ))}
-                  </ChartTooltipCard>
-                );
-              }}
+              content={<CarbonIntensityTooltip range={range} />}
               wrapperStyle={{ zIndex: 320 }}
             />
             <Line

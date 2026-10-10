@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import {
@@ -28,6 +28,35 @@ interface Props {
   data: EnergySnapshot[];
   range: TimeRange;
   series?: PriceSeries;
+}
+
+export function ElectricityPriceTooltip({
+  active,
+  label,
+  payload,
+  range,
+  name,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: Array<{ value?: number | string | null }>;
+  range: TimeRange;
+  name: string;
+}) {
+  if (!active || payload == null || payload.length === 0 || label == null) {
+    return null;
+  }
+
+  const value = payload[0]?.value;
+  return (
+    <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
+      <ChartTooltipRow
+        color="var(--gray-1000)"
+        label={name}
+        value={value == null ? "—" : `£${Number(value).toFixed(2)}`}
+      />
+    </ChartTooltipCard>
+  );
 }
 
 export function ElectricityPriceChart({ data, range, series = "mid" }: Props) {
@@ -71,20 +100,7 @@ export function ElectricityPriceChart({ data, range, series = "mid" }: Props) {
           />
           <Tooltip
             cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
-            content={({ active, label, payload }) => {
-              if (!active || payload == null || payload.length === 0 || label == null) {
-                return null;
-              }
-              const value = payload[0]?.value;
-              return (
-                <ChartTooltipCard time={formatChartTooltip(String(label), range)}>
-                  <p className="flex justify-between gap-6">
-                    <span>{name}</span>
-                    <span className="tabular-nums">{value == null ? "—" : `£${Number(value).toFixed(2)}`}</span>
-                  </p>
-                </ChartTooltipCard>
-              );
-            }}
+            content={<ElectricityPriceTooltip name={name} range={range} />}
             wrapperStyle={{ zIndex: 320 }}
           />
           <Line

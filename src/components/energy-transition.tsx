@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import {
   chartAnimation,
@@ -79,7 +79,7 @@ export function EnergyTransition({
   );
 }
 
-function TransitionTooltip({
+export function TransitionTooltip({
   active,
   payload,
   label,
@@ -95,13 +95,12 @@ function TransitionTooltip({
   return (
     <ChartTooltipCard time={String(label)}>
       {payload.map((entry) => (
-        <p key={entry.name} className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-2">
-            <span className="size-2 rounded-full" style={{ backgroundColor: entry.color }} aria-hidden="true" />
-            {entry.name}
-          </span>
-          <span className="tabular-nums">{Number(entry.value ?? 0).toFixed(1)}%</span>
-        </p>
+        <ChartTooltipRow
+          key={entry.name}
+          color={entry.color ?? "var(--gray-1000)"}
+          label={String(entry.name ?? "")}
+          value={`${Number(entry.value ?? 0).toFixed(1)}%`}
+        />
       ))}
     </ChartTooltipCard>
   );

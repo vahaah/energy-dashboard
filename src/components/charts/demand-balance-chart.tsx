@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 import { EXPORT_GAP_COLOR, IMPORT_GAP_COLOR } from "@/lib/colors";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { ForecastBadge } from "@/components/ui/forecast-badge";
 import type { ForecastPoint } from "@/lib/forecast-model";
@@ -66,6 +66,12 @@ const SERIES_LABELS: Record<string, string> = {
   demandForecastGw: "Demand forecast (NDF)",
 };
 
+const SERIES_COLORS: Record<string, string> = {
+  demandGw: "var(--gray-1000)",
+  generationGw: "var(--gray-900)",
+  demandForecastGw: "var(--gray-700)",
+};
+
 const COMPACT_CHART_WIDTH = 480;
 
 type DemandBalanceTooltipProps = {
@@ -113,13 +119,16 @@ export function DemandBalanceTooltip({
           daily = point?.generationDailyGw ?? null;
         }
         return (
-          <p key={key} className="flex justify-between gap-6">
-            <span>{SERIES_LABELS[key] ?? key}</span>
-            <span className="tabular-nums">
-              {Number(entry.value).toFixed(1)} GW
-              {daily != null ? ` · daily ${daily.toFixed(1)} GW` : null}
-            </span>
-          </p>
+          <ChartTooltipRow
+            key={key}
+            color={SERIES_COLORS[key] ?? "var(--gray-1000)"}
+            label={SERIES_LABELS[key] ?? key}
+            value={
+              daily == null
+                ? `${Number(entry.value).toFixed(1)} GW`
+                : `${Number(entry.value).toFixed(1)} GW · daily ${daily.toFixed(1)} GW`
+            }
+          />
         );
       })}
       {gap ? <p className="text-gray-900">{gap}</p> : null}

@@ -9,13 +9,53 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartTooltipCard } from "@/components/charts/chart-tooltip";
+import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { chartAnimation, chartAxisLine, chartAxisTick, chartGrid, chartStackedArea, CHART_HEIGHT_HERO } from "@/lib/chart-theme";
 import { fuelColor, fuelLabel } from "@/lib/colors";
 import { buildGenerationStackSeries, GENERATION_STACK_FUELS } from "@/lib/dashboard-model";
 import type { Generation5min, TimeRange } from "@/lib/types";
+
+type StackTooltipEntry = {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string;
+  color?: string;
+};
+
+export function GenerationStackTooltip({
+  active,
+  label,
+  payload,
+  range,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: StackTooltipEntry[];
+  range: TimeRange;
+}) {
+  if (!active || payload == null || payload.length === 0 || label == null) {
+    return null;
+  }
+
+  const rows = [...payload]
+    .filter((entry) => Number(entry.value) > 0)
+    .sort((left, right) => Number(right.value) - Number(left.value));
+
+  return (
+    <ChartTooltipCard time={formatChartTooltip(Number(label), range)}>
+      {rows.map((entry) => (
+        <ChartTooltipRow
+          key={String(entry.dataKey)}
+          color={fuelColor(String(entry.dataKey))}
+          label={fuelLabel(String(entry.name ?? entry.dataKey))}
+          value={`${Number(entry.value).toFixed(1)}%`}
+        />
+      ))}
+    </ChartTooltipCard>
+  );
+}
 
 interface Props {
   data: Generation5min[];
@@ -48,27 +88,7 @@ export function GenerationStackChart({ data, range }: Props) {
           />
           <Tooltip
             cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
-            content={({ active, label, payload }) => {
-              if (!active || payload == null || payload.length === 0 || label == null) {
-                return null;
-              }
-              const rows = [...payload]
-                .filter((entry) => Number(entry.value) > 0)
-                .sort((left, right) => Number(right.value) - Number(left.value));
-              return (
-                <ChartTooltipCard time={formatChartTooltip(Number(label), range)}>
-                  {rows.map((entry) => (
-                    <p key={String(entry.dataKey)} className="flex items-center justify-between gap-6">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="size-1.5 rounded-full" style={{ backgroundColor: String(entry.color) }} />
-                        {fuelLabel(String(entry.name))}
-                      </span>
-                      <span className="tabular-nums">{Number(entry.value).toFixed(1)}%</span>
-                    </p>
-                  ))}
-                </ChartTooltipCard>
-              );
-            }}
+            content={<GenerationStackTooltip range={range} />}
             wrapperStyle={{ zIndex: 320 }}
           />
           {GENERATION_STACK_FUELS.map((fuel) => (
