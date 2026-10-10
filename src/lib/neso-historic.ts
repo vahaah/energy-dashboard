@@ -2,6 +2,8 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import {
   buildHistoricPeriodView,
+  computeRecords,
+  emptyRecordsWithDocumentedCoal,
   historicRecordsSql,
   historicWeeklySql,
   NESO_HISTORIC_SQL_URL,
@@ -11,7 +13,6 @@ import {
   type GridRecords,
   type HistoricPeriodView,
   type NesoHistoricRow,
-  computeRecords,
 } from "@/lib/historic-mix";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
 
@@ -86,9 +87,13 @@ export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> 
 });
 
 export const getGridRecords = cache(async (now = new Date()): Promise<GridRecords> => {
-  await getHistoricWeeklyRows();
-  const rows = await cachedRecordRows();
-  return computeRecords(rows, now);
+  try {
+    await getHistoricWeeklyRows();
+    const rows = await cachedRecordRows();
+    return computeRecords(rows, now);
+  } catch {
+    return emptyRecordsWithDocumentedCoal(now);
+  }
 });
 
 export const getHistoricPeriodView = cache(

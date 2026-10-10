@@ -24,7 +24,11 @@ import {
 import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
-import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
+import {
+  emptyRecordsWithDocumentedCoal,
+  type GridRecords,
+  type HistoricPeriodView,
+} from "@/lib/historic-mix";
 
 /**
  * Main page — Server Component.
@@ -116,7 +120,7 @@ export default async function Home({
       historicPeriod === "year"
         ? getHistoricPeriodView("year", now).catch(() => null)
         : Promise.resolve(null),
-      getGridRecords(now).catch(() => null),
+      getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
     ]);
 
     [snapshots, headlineSnapshots, prices, generationHistory, headlineGeneration] = tinybird;

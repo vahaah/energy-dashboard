@@ -1,5 +1,5 @@
 import { carbonIndexFromIntensity } from "@/lib/colors";
-import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
+import { formatTinybirdDateTime, getLondonDate, parseUtcDateTime } from "@/lib/london-time";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 export const NESO_HISTORIC_RESOURCE_ID = "f93d1835-75bc-43e5-84ad-12472b180a98";
@@ -10,9 +10,18 @@ export const MAX_SOLAR_MW = 20_000;
 export const SHARE_SUM_TOLERANCE_PCT = 5;
 export const COAL_ENDED_MW = 100;
 export const COAL_ENDED_SHARE_PCT = 0.5;
-export const COAL_CONSECUTIVE_MS = 30 * 60 * 1000;
 export const WIND_MILESTONE_START_GW = 10;
 export const NESO_HISTORIC_START_YEAR = 2009;
+
+/**
+ * Britain's last coal power station, Ratcliffe-on-Soar (Uniper), closed on
+ * 30 Sep 2024. NESO historic mix still carries residual coal after that date;
+ * the published record is this documented closure, not those residuals.
+ * Source: https://www.uniper.energy/united-kingdom/power-plants-united-kingdom/ratcliffe-soar
+ */
+export const COAL_POWER_ENDED = "2024-09-30";
+export const COAL_POWER_ENDED_SOURCE =
+  "https://www.uniper.energy/united-kingdom/power-plants-united-kingdom/ratcliffe-soar";
 
 export const NESO_HISTORIC_SOURCE = "NESO historic generation mix";
 export const WIND_RECORD_BASIS =
@@ -21,7 +30,7 @@ export const SOLAR_RECORD_BASIS =
   "NESO historic mix solar, including embedded solar. Not the Sheffield Solar PV Live series.";
 export const CARBON_RECORD_BASIS = "Half-hour carbon intensity from NESO historic generation mix.";
 export const COAL_RECORD_BASIS =
-  "Last consecutive half-hour at or above 100 MW or 0.5% coal share in the NESO historic mix. Isolated residual readings are ignored.";
+  "Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. NESO historic mix still shows residual coal after that date; this record does not follow those readings.";
 
 const SHARE_FIELDS = [
   "GAS_perc",
@@ -288,31 +297,20 @@ export function isCoalOperating(row: NesoHistoricRow): boolean {
   return (row.COAL ?? 0) >= COAL_ENDED_MW || (row.COAL_perc ?? 0) >= COAL_ENDED_SHARE_PCT;
 }
 
-function isWithinCoalCluster(time: number, other: NesoHistoricRow | undefined): boolean {
-  if (other == null) {
-    return false;
-  }
-  return Math.abs(parseUtcDateTime(other.DATETIME).getTime() - time) <= COAL_CONSECUTIVE_MS;
+export function residualCoalAfterPowerEnded(rows: NesoHistoricRow[]): NesoHistoricRow[] {
+  return saneHistoricRows(rows).filter((row) => {
+    if (!isCoalOperating(row)) {
+      return false;
+    }
+    return row.DATETIME.slice(0, 10) > COAL_POWER_ENDED;
+  });
 }
 
-export function lastSustainedCoalRow(rows: NesoHistoricRow[]): NesoHistoricRow | null {
-  const operating = rows.filter(isCoalOperating).sort((left, right) =>
-    left.DATETIME.localeCompare(right.DATETIME)
-  );
-
-  for (let index = operating.length - 1; index >= 0; index -= 1) {
-    const current = operating.at(index);
-    if (current == null) {
-      return null;
-    }
-    const time = parseUtcDateTime(current.DATETIME).getTime();
-    const previous = index > 0 ? operating.at(index - 1) : undefined;
-    if (isWithinCoalCluster(time, previous) || isWithinCoalCluster(time, operating.at(index + 1))) {
-      return current;
-    }
-  }
-
-  return null;
+export function daysSinceCoalPowerEnded(now = new Date()): number {
+  const today = getLondonDate(now);
+  const ended = Date.parse(`${COAL_POWER_ENDED}T00:00:00.000Z`);
+  const todayUtc = Date.parse(`${today}T00:00:00.000Z`);
+  return Math.max(0, Math.floor((todayUtc - ended) / 86_400_000));
 }
 
 function recordPoint(
@@ -321,6 +319,18 @@ function recordPoint(
   basis: string
 ): HistoricRecordPoint {
   return { value, timestampUtc, basis };
+}
+
+export function documentedCoalEnd(): HistoricRecordPoint {
+  return recordPoint(0, `${COAL_POWER_ENDED}T00:00:00`, COAL_RECORD_BASIS);
+}
+
+export function emptyRecordsWithDocumentedCoal(now = new Date()): GridRecords {
+  return {
+    ...EMPTY_RECORDS,
+    lastCoal: documentedCoalEnd(),
+    daysSinceCoal: daysSinceCoalPowerEnded(now),
+  };
 }
 
 export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridRecords {
@@ -383,28 +393,14 @@ export function computeRecords(rows: NesoHistoricRow[], now = new Date()): GridR
     .sort((left, right) => left[0] - right[0])
     .map(([gw, timestampUtc]) => ({ gw, timestampUtc }));
 
-  const lastCoalRow = lastSustainedCoalRow(sane);
-  const lastCoal =
-    lastCoalRow == null
-      ? null
-      : recordPoint(lastCoalRow.COAL ?? 0, lastCoalRow.DATETIME, COAL_RECORD_BASIS);
-
-  const daysSinceCoal =
-    lastCoal == null
-      ? null
-      : Math.max(
-          0,
-          Math.floor((now.getTime() - parseUtcDateTime(lastCoal.timestampUtc).getTime()) / 86_400_000)
-        );
-
   return {
     maxWind,
     maxSolar,
     lowestCarbon,
     highestRenewableShare,
     highestZeroCarbonShare,
-    lastCoal,
-    daysSinceCoal,
+    lastCoal: documentedCoalEnd(),
+    daysSinceCoal: daysSinceCoalPowerEnded(now),
     windMilestones,
   };
 }
@@ -719,7 +715,6 @@ export function historicRecordsSql(): string {
     'SELECT * FROM sane WHERE "ZERO_CARBON_perc" <= 100 ORDER BY "ZERO_CARBON_perc" DESC LIMIT 5',
     'SELECT * FROM sane WHERE "GENERATION" > 0 AND "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND "SOLAR" IS NOT NULL AND "HYDRO" IS NOT NULL AND "NUCLEAR" IS NOT NULL ORDER BY (("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR") / "GENERATION") DESC LIMIT 5',
     'SELECT * FROM sane WHERE "RENEWABLE_perc" <= 100 ORDER BY "RENEWABLE_perc" DESC LIMIT 5',
-    `SELECT * FROM sane WHERE "COAL" >= ${COAL_ENDED_MW} OR "COAL_perc" >= ${COAL_ENDED_SHARE_PCT} ORDER BY "DATETIME" DESC LIMIT 24`,
   ];
 
   for (let gw = WIND_MILESTONE_START_GW; gw <= 30; gw += 1) {

@@ -14,7 +14,10 @@ describe("records page", () => {
     expect(source).toContain("Days since coal power ended");
     expect(source).not.toContain("Days without coal");
     expect(source).not.toContain("1 MW of coal");
-    expect(source).toContain("100 MW or 0.5%");
+    expect(source).toContain("Ratcliffe-on-Soar");
+    expect(source).toContain("COAL_POWER_ENDED_SOURCE");
+    expect(source).toContain("emptyRecordsWithDocumentedCoal");
+    expect(source).not.toContain("100 MW or 0.5%");
     expect(
       readFileSync(resolve(import.meta.dirname, "../../components/records-card.tsx"), "utf8")
     ).toContain("Days since coal power ended");

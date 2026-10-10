@@ -10,12 +10,14 @@ import {
 import { formatHeadlineGw } from "@/lib/facts";
 import {
   buildHistoricPeriodView,
-  EMPTY_RECORDS,
+  COAL_POWER_ENDED,
+  COAL_POWER_ENDED_SOURCE,
+  emptyRecordsWithDocumentedCoal,
   type GridRecords,
   type HistoricRecordPoint,
 } from "@/lib/historic-mix";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
-import { formatLondonDateTimeStamp, parseUtcDateTime } from "@/lib/london-time";
+import { formatLondonDateTimeStamp, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
 
 export const revalidate = 86_400;
 
@@ -34,7 +36,7 @@ export const metadata: Metadata = {
 export default async function RecordsPage() {
   const now = new Date();
   const [records, historic] = await Promise.all([
-    getGridRecords(now).catch(() => EMPTY_RECORDS),
+    getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
     getHistoricPeriodView("all", now).catch(() => buildHistoricPeriodView([])),
   ]);
 
@@ -110,7 +112,7 @@ export default async function RecordsPage() {
             title="Days since coal power ended"
             value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
-            extra="Last consecutive half-hour at or above 100 MW or 0.5% coal share. Isolated residual readings are ignored."
+            whenLabel={records.lastCoal ? formatLondonDayMonthYear(COAL_POWER_ENDED) : undefined}
           />
         </section>
 
@@ -186,6 +188,13 @@ export default async function RecordsPage() {
             >
               NESO Open Data Licence
             </a>
+            . Coal-end date:{" "}
+            <a
+              href={COAL_POWER_ENDED_SOURCE}
+              className="text-blue-700 underline-offset-2 hover:underline"
+            >
+              Uniper, Ratcliffe-on-Soar closed 30 Sep 2024
+            </a>
             .
           </p>
           <p className="mt-3">
@@ -204,21 +213,22 @@ function RecordBlock({
   value,
   record,
   extra,
+  whenLabel,
 }: {
   title: string;
   value: string;
   record: HistoricRecordPoint | null;
   extra?: string;
+  whenLabel?: string;
 }) {
+  const stamp =
+    whenLabel ?? (record ? formatLondonDateTimeStamp(parseUtcDateTime(record.timestampUtc)) : null);
+
   return (
     <article className="surface-card p-4 sm:p-6">
       <h2 className="text-label-13 text-gray-900">{title}</h2>
       <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">{value}</p>
-      {record ? (
-        <p className="mt-2 text-mono-12 text-gray-900">
-          {formatLondonDateTimeStamp(parseUtcDateTime(record.timestampUtc))}
-        </p>
-      ) : null}
+      {stamp ? <p className="mt-2 text-mono-12 text-gray-900">{stamp}</p> : null}
       {record ? <p className="mt-2 text-copy-14 text-gray-900">{record.basis}</p> : null}
       {extra ? <p className="mt-2 text-copy-14 text-gray-900">{extra}</p> : null}
     </article>
@@ -252,9 +262,9 @@ function faqItems(records: GridRecords): Array<{ question: string; answer: strin
     {
       question: "When did Britain stop burning coal for electricity?",
       answer:
-        records.lastCoal && records.daysSinceCoal != null
-          ? `The last consecutive half-hour at or above 100 MW or 0.5% coal share is ${formatLondonDateTimeStamp(parseUtcDateTime(records.lastCoal.timestampUtc))}, ${records.daysSinceCoal} days ago. Isolated residual readings after coal power ended are ignored.`
-          : "The last consecutive coal half-hour has not been computed yet.",
+        records.daysSinceCoal != null
+          ? `Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. That is ${records.daysSinceCoal} days ago. NESO historic mix still shows residual coal after closure; this record stays on the documented end date.`
+          : "Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024.",
     },
   ];
 }
