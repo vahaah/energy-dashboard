@@ -72,7 +72,7 @@ src/
 │   ├── dashboard.tsx       # Main client component, orchestrates all charts
 │   ├── time-range-selector.tsx  # 24h/7d/30d/90d toggle
 │   ├── ui/
-│   │   └── kpi-card.tsx    # KPI metric card
+│   │   └── card.tsx        # Shared widget card (header / footer / states)
 │   └── charts/
 │       ├── carbon-intensity-chart.tsx  # Area chart with forecast line
 │       ├── price-chart.tsx             # Line chart for £/MWh

@@ -71,6 +71,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SiteHeader } from "@/components/site-header";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
+import { Card, CardEmpty, CardError, CardLoading, PAGE_STACK_CLASS } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
@@ -354,24 +355,23 @@ export function Dashboard() {
         }}
       />
 
-      <main className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-12 overflow-x-clip px-4 py-6 sm:gap-16 sm:px-6 sm:py-10">
+      <main className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (
-          <p
-            className="surface-card p-4 text-copy-14 text-gray-1000"
-            aria-live="polite"
-          >
-            Couldn&apos;t load the grid.{" "}
-            <button
-              type="button"
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
-              onClick={() => revalidateAllQueries()}
-            >
-              Retry
-            </button>
-          </p>
+          <Card>
+            <CardError>
+              Couldn&apos;t load the grid.{" "}
+              <button
+                type="button"
+                className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+                onClick={() => revalidateAllQueries()}
+              >
+                Retry
+              </button>
+            </CardError>
+          </Card>
         ) : null}
         {facts.empty && facts.emptyState && generationData ? (
-          <div id="section-overview" className="surface-card scroll-mt-28 p-6 text-copy-16 text-gray-1000">
+          <Card id="section-overview">
             <h1 className="text-heading-32">{answer}</h1>
             <p className="mt-3 text-copy-16 text-gray-900">{facts.emptyState.message}</p>
             <a
@@ -380,21 +380,14 @@ export function Dashboard() {
             >
               {facts.emptyState.action}
             </a>
-          </div>
+          </Card>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
-                <InfoTooltip
-                  text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
-                  label="What is What's powering Britain?"
-                />
-              </div>
-              <BlockPeriodControl
-                value={generationPeriod}
-                onChange={(next) => setBlockPeriod("generation", next)}
-                onIntent={prefetchBlock}
+            <div className="flex items-center gap-2">
+              <p className="text-label-13 text-gray-900">What&apos;s powering Britain</p>
+              <InfoTooltip
+                text="The live generation mix for Great Britain, including estimated embedded wind and solar. Demand here is the one figure used everywhere on this page."
+                label="What is What's powering Britain?"
               />
             </div>
             {generation.isLoading ? (
@@ -402,7 +395,17 @@ export function Dashboard() {
             ) : (
               <h1 className="mt-1 text-heading-32 text-gray-1000">{answer}</h1>
             )}
-            <div id="section-generation" className="mt-6 scroll-mt-28">
+            <Card
+              id="section-generation"
+              className="mt-4"
+              actions={
+                <BlockPeriodControl
+                  value={generationPeriod}
+                  onChange={(next) => setBlockPeriod("generation", next)}
+                  onIntent={prefetchBlock}
+                />
+              }
+            >
               {generation.isLoading ? (
                 <GenerationDeskSkeleton />
               ) : (
@@ -417,12 +420,12 @@ export function Dashboard() {
                     pending={generation.isValidating}
                     lookAhead={lookAhead}
                   />
-                  <div className="mt-8">
+                  <div className="mt-6 border-t border-gray-alpha-400 pt-5">
                     <PeriodAveragesRow averages={averages} neso={neso} />
                   </div>
                 </>
               )}
-            </div>
+            </Card>
           </section>
         )}
 
@@ -454,7 +457,7 @@ export function Dashboard() {
           {price.error && !priceData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
           ) : price.isLoading ? (
-            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+            <CardLoading />
           ) : priceNeso ? (
             <p className="text-copy-14 text-gray-900">
               Market prices are not in the NESO historic mix. Use Day or Week for the Market Index.
@@ -462,7 +465,7 @@ export function Dashboard() {
           ) : hasPriceSnapshots ? (
             <ElectricityPriceChart data={priceSnapshots} range={priceChartRange} series={priceSeries} />
           ) : (
-            <EmptyState stamp={facts.headerStamp} />
+            <CardEmpty stamp={facts.headerStamp} />
           )}
         </SectionBlock>
 
@@ -515,7 +518,7 @@ export function Dashboard() {
               </div>
             </div>
           ) : (
-            <EmptyState stamp={facts.headerStamp} />
+            <CardEmpty stamp={facts.headerStamp} />
           )}
         </SectionBlock>
 
@@ -533,11 +536,11 @@ export function Dashboard() {
           {mix.error && !mixData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
           ) : mix.isLoading ? (
-            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+            <CardLoading />
           ) : mixHistory.length > 0 ? (
             <GenerationStackChart data={mixHistory} range={mixChartRange} />
           ) : (
-            <EmptyState stamp={facts.headerStamp} />
+            <CardEmpty stamp={facts.headerStamp} />
           )}
         </SectionBlock>
 
@@ -570,36 +573,43 @@ export function Dashboard() {
             <CommoditySkeleton />
           ) : initialPrices.length > 0 ? (
             <>
-              <div className="mb-5 grid gap-3 sm:grid-cols-3">
-                {commodityCards.map(({ commodity, latest, absoluteDelta, percentageDelta }) =>
-                  commodity === GB_GAS_SAP_COMMODITY ? (
-                    <GbGasSapCard
-                      key={commodity}
-                      latest={latest}
-                      absoluteDelta={absoluteDelta}
-                      percentageDelta={percentageDelta}
-                    />
-                  ) : (
-                    <CommodityStatCard
-                      key={commodity}
-                      commodity={commodity}
-                      latest={latest}
-                      absoluteDelta={absoluteDelta}
-                      percentageDelta={percentageDelta}
-                    />
-                  )
-                )}
+              <div className="grid sm:grid-cols-3">
+                {commodityCards.map(({ commodity, latest, absoluteDelta, percentageDelta }) => (
+                  <div
+                    key={commodity}
+                    className={
+                      commodity === commodityCards[0]?.commodity
+                        ? "pb-4 sm:pr-6 sm:pb-0"
+                        : "border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-0"
+                    }
+                  >
+                    {commodity === GB_GAS_SAP_COMMODITY ? (
+                      <GbGasSapCard
+                        latest={latest}
+                        absoluteDelta={absoluteDelta}
+                        percentageDelta={percentageDelta}
+                      />
+                    ) : (
+                      <CommodityStatCard
+                        commodity={commodity}
+                        latest={latest}
+                        absoluteDelta={absoluteDelta}
+                        percentageDelta={percentageDelta}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
-              <CommodityChart
-                data={initialPrices}
-                range={commodityRange}
-                selectedSeries={[...PUBLIC_COMMODITIES]}
-              />
+              <div className="mt-6 border-t border-gray-alpha-400 pt-5">
+                <CommodityChart
+                  data={initialPrices}
+                  range={commodityRange}
+                  selectedSeries={[...PUBLIC_COMMODITIES]}
+                />
+              </div>
             </>
           ) : (
-            <p className="text-copy-14 text-gray-900">
-              Oil and gas prices are not available for this range.
-            </p>
+            <CardEmpty>Oil and gas prices are not available for this range.</CardEmpty>
           )}
         </SectionBlock>
 
@@ -610,7 +620,7 @@ export function Dashboard() {
           active={focus === "records"}
         >
           {shared == null ? (
-            <Skeleton className="h-40 w-full rounded-xl" />
+            <CardLoading className="h-40 sm:h-40" />
           ) : records ? (
             <div className="space-y-8">
               <RecordsCard records={records} />
@@ -623,7 +633,7 @@ export function Dashboard() {
               </div>
             </div>
           ) : (
-            <EmptyState stamp={facts.headerStamp} />
+            <CardEmpty stamp={facts.headerStamp} />
           )}
         </SectionBlock>
 
@@ -643,7 +653,7 @@ export function Dashboard() {
           {carbon.error && !carbonData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
           ) : carbon.isLoading ? (
-            <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+            <CardLoading />
           ) : (
             <>
               {carbonLookAhead?.greenest && showsLookAheadCopy(carbonFacts) ? (
@@ -670,7 +680,7 @@ export function Dashboard() {
                   }
                 />
               ) : (
-                <EmptyState stamp={facts.headerStamp} />
+                <CardEmpty stamp={facts.headerStamp} />
               )}
             </>
           )}
@@ -801,7 +811,7 @@ function CommodityStatCard({
   const rising = absoluteDelta >= 0;
 
   return (
-    <div className="surface-card p-4 sm:p-6">
+    <div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1">
           <p className="text-label-13 text-gray-900">
@@ -839,8 +849,8 @@ function CommodityStatCard({
 function TransfersSkeleton() {
   return (
     <div className="grid gap-8 xl:grid-cols-[320px_1fr]">
-      <Skeleton className="h-64 w-full rounded-xl" />
-      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+      <Skeleton className="h-64 w-full" />
+      <CardLoading />
     </div>
   );
 }
@@ -848,19 +858,30 @@ function TransfersSkeleton() {
 function CommoditySkeleton() {
   return (
     <>
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="grid sm:grid-cols-3">
         {COMMODITY_CARD_KEYS.map((commodity) => (
-          <Skeleton key={commodity} className="h-28 w-full rounded-xl" />
+          <div
+            key={commodity}
+            className={
+              commodity === COMMODITY_CARD_KEYS[0]
+                ? "pb-4 sm:pr-6 sm:pb-0"
+                : "border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-0"
+            }
+          >
+            <Skeleton className="h-28 w-full" />
+          </div>
         ))}
       </div>
-      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+      <div className="mt-6 border-t border-gray-alpha-400 pt-5">
+        <CardLoading />
+      </div>
     </>
   );
 }
 
 function BlockQueryError({ onRetry }: { onRetry: () => void }) {
   return (
-    <p className="text-copy-14 text-gray-1000" aria-live="polite">
+    <CardError>
       Couldn&apos;t load this chart.{" "}
       <button
         type="button"
@@ -869,17 +890,10 @@ function BlockQueryError({ onRetry }: { onRetry: () => void }) {
       >
         Retry
       </button>
-    </p>
+    </CardError>
   );
 }
 
-function EmptyState({ stamp }: { stamp: string }) {
-  return (
-    <div className="flex h-40 items-center justify-center rounded-xl border border-gray-alpha-400 bg-background-200 text-copy-14 text-gray-900">
-      Data is catching up. Last update {stamp.replace("Data as of ", "")}
-    </div>
-  );
-}
 
 function formatCommodityPrice(latest: CommodityPrice): string {
   const symbol = latest.currency === "EUR" ? "€" : latest.currency === "GBP" ? "£" : "$";

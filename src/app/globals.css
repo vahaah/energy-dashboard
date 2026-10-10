@@ -73,6 +73,8 @@
   --red-700: #e5484d;
   --amber-700: #d97706;
   --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  --radius-card: 12px;
+  --spacing-card: 1rem;
   --chart-gas: #e06814;
   --chart-coal: #4e4b46;
   --chart-oil: #97918d;
@@ -113,6 +115,8 @@
   --red-700: #ff6369;
   --amber-700: #f5a524;
   --card-shadow: none;
+  --radius-card: 12px;
+  --spacing-card: 1rem;
   --chart-gas: #f97316;
   --chart-coal: #57534e;
   --chart-oil: #a8a29e;
@@ -208,7 +212,7 @@ body {
 .surface-card {
   background: var(--background-100);
   border: 1px solid var(--gray-alpha-400);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   box-shadow: var(--card-shadow);
 }
 

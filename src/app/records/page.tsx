@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EnergyTransition } from "@/components/energy-transition";
+import { Card, CARD_GRID_CLASS, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
@@ -64,7 +65,7 @@ export default async function RecordsPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-4 py-8 sm:gap-16 sm:px-6 sm:py-10">
+      <main className={PAGE_STACK_CLASS}>
         <section>
           <p className="text-label-13 text-gray-900">Great Britain</p>
           <h1 className="mt-1 text-heading-32 text-gray-1000">Electricity records</h1>
@@ -75,7 +76,7 @@ export default async function RecordsPage() {
           </p>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
+        <section className={CARD_GRID_CLASS}>
           <RecordBlock
             title="Highest wind"
             value={`${formatHeadlineGw(records.maxWind?.value ?? null)} GW`}
@@ -123,31 +124,33 @@ export default async function RecordsPage() {
             Transmission-connected wind plus embedded wind. The first half-hour that series
             reached each whole gigawatt from 10 GW up.
           </p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[480px] text-left text-copy-14">
-              <caption className="sr-only">Wind milestones</caption>
-              <thead className="bg-background-200 text-label-13 text-gray-900">
-                <tr>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    Milestone
-                  </th>
-                  <th scope="col" className="px-3 py-2 font-medium">
-                    First half-hour (London)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.windMilestones.map((milestone) => (
-                  <tr key={milestone.gw} className="border-t border-gray-alpha-200">
-                    <td className="px-3 py-2 tabular-nums">{milestone.gw} GW</td>
-                    <td className="px-3 py-2 text-mono-12">
-                      {formatLondonDateTimeStamp(parseUtcDateTime(milestone.timestampUtc))}
-                    </td>
+          <Card className="mt-4">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-copy-14">
+                <caption className="sr-only">Wind milestones</caption>
+                <thead className="text-label-13 text-gray-900">
+                  <tr>
+                    <th scope="col" className="pb-2 font-medium">
+                      Milestone
+                    </th>
+                    <th scope="col" className="pb-2 font-medium">
+                      First half-hour (London)
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {records.windMilestones.map((milestone) => (
+                    <tr key={milestone.gw} className="border-t border-gray-alpha-200">
+                      <td className="py-2 tabular-nums">{milestone.gw} GW</td>
+                      <td className="py-2 text-mono-12">
+                        {formatLondonDateTimeStamp(parseUtcDateTime(milestone.timestampUtc))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </section>
 
         <section>
@@ -156,21 +159,23 @@ export default async function RecordsPage() {
             Yearly averages computed from the same NESO historic series. The sentences use those
             averages; they are not hard-coded.
           </p>
-          <div className="mt-4">
+          <Card className="mt-4">
             <EnergyTransition yearly={historic.yearly} sentences={historic.sentences} />
-          </div>
+          </Card>
         </section>
 
         <section>
           <h2 className="text-heading-24 text-gray-1000">Questions</h2>
-          <dl className="mt-4 max-w-3xl space-y-4">
-            {faqs.map((faq) => (
-              <div key={faq.question}>
-                <dt className="text-heading-16 text-gray-1000">{faq.question}</dt>
-                <dd className="mt-1 text-copy-14 text-gray-900">{faq.answer}</dd>
-              </div>
-            ))}
-          </dl>
+          <Card className="mt-4">
+            <dl className="divide-y divide-gray-alpha-400">
+              {faqs.map((faq) => (
+                <div key={faq.question} className="py-4 first:pt-0 last:pb-0">
+                  <dt className="text-heading-16 text-gray-1000">{faq.question}</dt>
+                  <dd className="mt-1 text-copy-14 text-gray-900">{faq.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
         </section>
 
         <footer className="border-t border-gray-alpha-400 pt-8 pb-4 text-copy-14 text-gray-900">
@@ -226,13 +231,12 @@ function RecordBlock({
     whenLabel ?? (record ? formatLondonDateTimeStamp(parseUtcDateTime(record.timestampUtc)) : null);
 
   return (
-    <article className="surface-card p-4 sm:p-6">
-      <h2 className="text-label-13 text-gray-900">{title}</h2>
-      <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">{value}</p>
+    <Card as="article" title={title} size="stat">
+      <p className="font-sans text-heading-32 tabular-nums text-gray-1000">{value}</p>
       {stamp ? <p className="mt-2 text-mono-12 text-gray-900">{stamp}</p> : null}
       {record ? <p className="mt-2 text-copy-14 text-gray-900">{record.basis}</p> : null}
       {extra ? <p className="mt-2 text-copy-14 text-gray-900">{extra}</p> : null}
-    </article>
+    </Card>
   );
 }
 
