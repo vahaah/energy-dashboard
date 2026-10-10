@@ -44,8 +44,10 @@ export {
   downsampleSnapshots,
   headlineWindow,
   hydrateDashboardPayload,
+  packGeneration,
   payloadJsonBytes,
   slimFactsForClient,
+  unpackGeneration,
 } from "@/lib/dashboard-payload-model";
 
 export type LoadDashboardPayloadInput = {

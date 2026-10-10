@@ -12,6 +12,7 @@ import {
   getRedisFailureReason,
   isFreshEnvelope,
   isStaleUsableEnvelope,
+  parseRedisGet,
   readThroughCache,
   readThroughCacheResult,
   redisEnvPresent,
@@ -19,6 +20,7 @@ import {
   resetRedisClient,
   resolveRedisRestConfig,
   setRedisForTests,
+  UPSTASH_REDIS_CLIENT_OPTIONS,
   type CacheEnvelope,
   type RedisCommands,
 } from "@/lib/redis-cache";
@@ -81,9 +83,10 @@ describe("readThroughCache", () => {
   it("falls back to the loader when Redis env is absent", async () => {
     const load = vi.fn(async () => ["live"]);
     await expect(readThroughCache("tb:test", liveCachePolicy(), load)).resolves.toEqual(["live"]);
-    await expect(readThroughCacheResult("tb:test", liveCachePolicy(), load)).resolves.toEqual({
+    await expect(readThroughCacheResult("tb:test", liveCachePolicy(), load)).resolves.toMatchObject({
       data: ["live"],
       status: "fallback",
+      reason: expect.stringMatching(/env-missing|unknown/),
     });
     expect(load).toHaveBeenCalledTimes(2);
   });
@@ -164,12 +167,64 @@ describe("readThroughCache", () => {
     await expect(readThroughCacheResult("tb:err", liveCachePolicy(), load)).resolves.toEqual({
       data: ["fallback"],
       status: "fallback",
+      reason: expect.stringContaining("WRONGPASS"),
     });
-    const reason = getRedisFailureReason();
-    expect(reason).toContain("redis-get-failed");
-    expect(reason).toContain("WRONGPASS");
-    expect(reason).toContain("[url]");
-    expect(reason).not.toContain("secret.upstash.io");
+    const result = await readThroughCacheResult("tb:err", liveCachePolicy(), load);
+    expect(result.reason).toContain("redis-get-failed");
+    expect(result.reason).toContain("[url]");
+    expect(result.reason).not.toContain("secret.upstash.io");
+    expect(getRedisFailureReason()).toBeNull();
+  });
+
+  it("returns the fallback reason on the cache read, not a module-global", async () => {
+    const outer = vi.fn(async () => {
+      setRedisForTests(new MemoryRedis());
+      await readThroughCacheResult("tb:inner", liveCachePolicy(), async () => ["inner"]);
+      return ["outer"];
+    });
+    setRedisForTests({
+      get: async () => {
+        throw new TypeError("n.map is not a function");
+      },
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    const result = await readThroughCacheResult("tb:outer", liveCachePolicy(), outer);
+    expect(result).toMatchObject({
+      data: ["outer"],
+      status: "fallback",
+      reason: expect.stringContaining("n.map is not a function"),
+    });
+    expect(getRedisFailureReason()).toBeNull();
+  });
+
+  it("parses a JSON-string GET and does not treat objects as pipeline arrays", async () => {
+    const envelope: CacheEnvelope<string[]> = {
+      data: ["cached"],
+      cachedAt: Date.now(),
+      freshFor: liveCachePolicy().revalidateSeconds,
+    };
+    expect(parseRedisGet(JSON.stringify(envelope))).toEqual(envelope);
+    expect(parseRedisGet(envelope)).toEqual(envelope);
+    expect(parseRedisGet(null)).toBeNull();
+    expect(parseRedisGet("1")).toBe(1);
+    expect(UPSTASH_REDIS_CLIENT_OPTIONS.enableAutoPipelining).toBe(false);
+    expect(UPSTASH_REDIS_CLIENT_OPTIONS.automaticDeserialization).toBe(false);
+
+    setRedisForTests({
+      get: async () => parseRedisGet(JSON.stringify(envelope)),
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+    await expect(
+      readThroughCacheResult("tb:json-string", liveCachePolicy(), async () => ["fresh"])
+    ).resolves.toEqual({
+      data: ["cached"],
+      status: "redis-hit",
+    });
   });
 
   it("accepts Marketplace KV_REST_API_* aliases and rejects redis-protocol URLs", () => {
@@ -199,6 +254,15 @@ describe("readThroughCache", () => {
       resetRedisClient();
 
       expect(redisEnvPresent()).toBe(true);
+      expect(resolveRedisRestConfig()).toMatchObject({
+        urlEnv: "KV_REST_API_URL",
+        tokenEnv: "KV_REST_API_TOKEN",
+        host: "example.upstash.io",
+      });
+
+      process.env.UPSTASH_REDIS_REST_URL = "https://mixed.upstash.io";
+      delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      resetRedisClient();
       expect(resolveRedisRestConfig()).toMatchObject({
         urlEnv: "KV_REST_API_URL",
         tokenEnv: "KV_REST_API_TOKEN",

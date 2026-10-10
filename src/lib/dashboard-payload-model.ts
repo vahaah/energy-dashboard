@@ -1,6 +1,10 @@
 import type { CommodityPrice, EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 import type { DashboardDateResolution } from "@/lib/dashboard-search-params";
 import { isNesoPeriod, type DashboardPeriod } from "@/lib/dashboard-period";
+import {
+  EMBEDDED_ALIGN_WINDOW_MS,
+  EMBEDDED_CARRY_INTRADAY_MS,
+} from "@/lib/dashboard-model";
 import type { LatestFacts } from "@/lib/facts";
 import type { PublicLookAhead } from "@/lib/forecast-model";
 import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
@@ -19,6 +23,7 @@ export type DashboardPayload = {
   snapshots: EnergySnapshot[];
   headlineSnapshots: EnergySnapshot[];
   generationHistory: Generation5min[];
+  packedGeneration?: PackedGeneration | null;
   headlineGeneration: Generation5min[];
   prices: CommodityPrice[];
   records: GridRecords | null;
@@ -27,11 +32,17 @@ export type DashboardPayload = {
   lookAhead: PublicLookAhead | null;
 };
 
+export type PackedGeneration = {
+  timestamps: string[];
+  fuels: string[];
+  sources: string[];
+  rows: Array<readonly [number, number, number, number]>;
+};
+
 export const HEADLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
-export const WEEK_GENERATION_BUCKET_MS = 3 * 60 * 60 * 1000;
-export const WEEK_SNAPSHOT_BUCKET_MS = 60 * 60 * 1000;
-export const FACTS_GENERATION_FRAMES = 2;
-export const EMBEDDED_FACTS_KEEP_MS = 90 * 60 * 1000;
+export const WEEK_BUCKET_MS = 60 * 60 * 1000;
+export const WEEK_GENERATION_BUCKET_MS = WEEK_BUCKET_MS;
+export const WEEK_SNAPSHOT_BUCKET_MS = WEEK_BUCKET_MS;
 
 export function dashboardPayloadCacheKey(
   period: DashboardPeriod,
@@ -73,12 +84,21 @@ export function headlineWindow<T extends { timestamp: string }>(rows: T[]): T[] 
 
 export function compactDashboardPayload(payload: DashboardPayload): DashboardPayload {
   const historic = compactHistoricPayload(payload);
+  const generationHistory = downsampleGeneration(
+    historic.generationHistory.length > 0
+      ? historic.generationHistory
+      : historic.packedGeneration
+        ? unpackGeneration(historic.packedGeneration)
+        : [],
+    payload.period
+  );
   return {
     ...historic,
     prices: [],
     facts: slimFactsForClient(historic.facts),
     snapshots: downsampleSnapshots(historic.snapshots, payload.period),
-    generationHistory: downsampleGeneration(historic.generationHistory, payload.period),
+    generationHistory: [],
+    packedGeneration: packGeneration(generationHistory),
     headlineSnapshots: compactHeadlineSnapshots(payload),
     headlineGeneration: [],
     transitionView: slimTransitionView(historic.transitionView),
@@ -107,6 +127,7 @@ export function compactHistoricPayload(payload: DashboardPayload): DashboardPayl
     snapshots: [],
     headlineSnapshots: [],
     generationHistory: [],
+    packedGeneration: null,
     headlineGeneration: [],
     transitionView: payload.period === "all" ? null : payload.transitionView,
     prices: [],
@@ -120,7 +141,9 @@ export function hydrateDashboardPayload(payload: DashboardPayload): DashboardPay
   const generationHistory =
     payload.generationHistory.length > 0
       ? payload.generationHistory
-      : (historic?.generation ?? []);
+      : payload.packedGeneration
+        ? unpackGeneration(payload.packedGeneration)
+        : (historic?.generation ?? []);
 
   return {
     ...payload,
@@ -179,7 +202,9 @@ export function downsampleSnapshots(
 function compactHeadlineSnapshots(payload: DashboardPayload): EnergySnapshot[] {
   switch (payload.period) {
     case "week":
-      return headlineWindow(payload.snapshots);
+      return payload.headlineSnapshots.length > 0
+        ? payload.headlineSnapshots
+        : headlineWindow(payload.snapshots);
     case "day":
     case "year":
     case "all":
@@ -192,7 +217,8 @@ function compactHeadlineSnapshots(payload: DashboardPayload): EnergySnapshot[] {
 }
 
 function slimGenerationRows(rows: Generation5min[]): Generation5min[] {
-  const fuelinstTimes = new Set<number>();
+  const fuelinstTimes: number[] = [];
+  let latestFuelinst = Number.NEGATIVE_INFINITY;
   let latestAny = Number.NEGATIVE_INFINITY;
 
   for (const row of rows) {
@@ -201,30 +227,76 @@ function slimGenerationRows(rows: Generation5min[]): Generation5min[] {
       latestAny = ms;
     }
     if (row.source === "fuelinst") {
-      fuelinstTimes.add(ms);
+      fuelinstTimes.push(ms);
+      if (ms > latestFuelinst) {
+        latestFuelinst = ms;
+      }
     }
   }
 
-  const keptFuelinst = [...fuelinstTimes].sort((left, right) => left - right).slice(-FACTS_GENERATION_FRAMES);
-  if (keptFuelinst.length === 0) {
+  if (!Number.isFinite(latestFuelinst)) {
     if (!Number.isFinite(latestAny)) {
       return [];
     }
-    const start = latestAny - EMBEDDED_FACTS_KEEP_MS;
+    const start = latestAny - EMBEDDED_CARRY_INTRADAY_MS;
     return rows.filter((row) => parseUtcDateTime(row.timestamp).getTime() >= start);
   }
 
-  const minKept = keptFuelinst[0];
-  const maxKept = keptFuelinst[keptFuelinst.length - 1];
-  const kept = new Set(keptFuelinst);
+  const minKept = latestFuelinst - EMBEDDED_CARRY_INTRADAY_MS;
+  const maxKept = latestFuelinst;
 
   return rows.filter((row) => {
     const ms = parseUtcDateTime(row.timestamp).getTime();
     if (row.source === "fuelinst") {
-      return kept.has(ms);
+      return ms >= minKept && ms <= maxKept;
     }
-    return ms <= maxKept + 5 * 60 * 1000 && ms >= minKept - EMBEDDED_FACTS_KEEP_MS;
+    return ms <= maxKept + EMBEDDED_ALIGN_WINDOW_MS && ms >= minKept;
   });
+}
+
+export function packGeneration(rows: Generation5min[]): PackedGeneration | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const timestamps: string[] = [];
+  const fuels: string[] = [];
+  const sources: string[] = [];
+  const timeIndex = new Map<string, number>();
+  const fuelIndex = new Map<string, number>();
+  const sourceIndex = new Map<string, number>();
+  const packed: Array<[number, number, number, number]> = [];
+
+  const intern = (value: string, list: string[], index: Map<string, number>) => {
+    const existing = index.get(value);
+    if (existing != null) {
+      return existing;
+    }
+    const next = list.length;
+    list.push(value);
+    index.set(value, next);
+    return next;
+  };
+
+  for (const row of rows) {
+    packed.push([
+      intern(row.timestamp, timestamps, timeIndex),
+      intern(row.fuel_type, fuels, fuelIndex),
+      intern(row.source, sources, sourceIndex),
+      row.generation_mw,
+    ]);
+  }
+
+  return { timestamps, fuels, sources, rows: packed };
+}
+
+export function unpackGeneration(packed: PackedGeneration): Generation5min[] {
+  return packed.rows.map(([time, fuel, source, generationMw]) => ({
+    timestamp: packed.timestamps[time] ?? "",
+    fuel_type: packed.fuels[fuel] ?? "",
+    generation_mw: generationMw,
+    source: packed.sources[source] ?? "fuelinst",
+  }));
 }
 
 export function downsampleHistoricView(

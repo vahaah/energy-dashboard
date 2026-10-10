@@ -16,7 +16,13 @@ export type GridCacheStatus = (typeof GRID_CACHE_STATUSES)[number];
 export type CacheRead<T> = {
   data: T;
   status: GridCacheStatus;
+  reason?: string;
 };
+
+export const UPSTASH_REDIS_CLIENT_OPTIONS = {
+  automaticDeserialization: false,
+  enableAutoPipelining: false,
+} as const;
 
 export type CacheEnvelope<T> = {
   data: T;
@@ -35,8 +41,12 @@ export type RedisCommands = {
   incr: (key: string) => Promise<number>;
 };
 
-const REDIS_REST_URL_KEYS = ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL"] as const;
-const REDIS_REST_TOKEN_KEYS = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN"] as const;
+const REDIS_REST_PAIRS = [
+  { urlEnv: "UPSTASH_REDIS_REST_URL", tokenEnv: "UPSTASH_REDIS_REST_TOKEN" },
+  { urlEnv: "KV_REST_API_URL", tokenEnv: "KV_REST_API_TOKEN" },
+] as const;
+const REDIS_REST_URL_KEYS = REDIS_REST_PAIRS.map((pair) => pair.urlEnv);
+const REDIS_REST_TOKEN_KEYS = REDIS_REST_PAIRS.map((pair) => pair.tokenEnv);
 const REDIS_PROTOCOL_URL_KEYS = ["KV_URL", "REDIS_URL"] as const;
 
 export type RedisRestConfig = {
@@ -77,40 +87,40 @@ export function redisEnvKeyPresence(): { present: string[]; absent: string[] } {
 }
 
 export function resolveRedisRestConfig(): RedisRestConfig | null {
-  const url = firstEnv(REDIS_REST_URL_KEYS);
-  const token = firstEnv(REDIS_REST_TOKEN_KEYS);
-  if (!url && !token) {
-    const protocolUrls = firstEnv(REDIS_PROTOCOL_URL_KEYS);
-    setRedisFailure(
-      protocolUrls
+  let partial: string | null = null;
+  for (const pair of REDIS_REST_PAIRS) {
+    const url = readEnv(pair.urlEnv);
+    const token = readEnv(pair.tokenEnv);
+    if (url && token) {
+      const parsed = parseRestUrl(url);
+      if (!parsed.ok) {
+        setRedisFailure(`url-not-https protocol=${parsed.protocol} env=${pair.urlEnv}`);
+        return null;
+      }
+      lastRedisFailure = null;
+      return {
+        url,
+        token,
+        urlEnv: pair.urlEnv,
+        tokenEnv: pair.tokenEnv,
+        host: parsed.host,
+      };
+    }
+    if (url || token) {
+      partial ??= url
+        ? `token-missing urlEnv=${pair.urlEnv}`
+        : `url-missing tokenEnv=${pair.tokenEnv}`;
+    }
+  }
+
+  const protocolUrls = firstEnv(REDIS_PROTOCOL_URL_KEYS);
+  setRedisFailure(
+    partial ??
+      (protocolUrls
         ? `env-missing have-redis-protocol=${protocolUrls.key}`
-        : `env-missing present=${formatKeyList(redisEnvKeyPresence().present)}`
-    );
-    return null;
-  }
-  if (!url) {
-    setRedisFailure(`url-missing tokenEnv=${token?.key ?? "none"}`);
-    return null;
-  }
-  if (!token) {
-    setRedisFailure(`token-missing urlEnv=${url.key}`);
-    return null;
-  }
-
-  const parsed = parseRestUrl(url.value);
-  if (!parsed.ok) {
-    setRedisFailure(`url-not-https protocol=${parsed.protocol} env=${url.key}`);
-    return null;
-  }
-
-  lastRedisFailure = null;
-  return {
-    url: url.value,
-    token: token.value,
-    urlEnv: url.key,
-    tokenEnv: token.key,
-    host: parsed.host,
-  };
+        : `env-missing present=${formatKeyList(redisEnvKeyPresence().present)}`)
+  );
+  return null;
 }
 
 export function getRedis(): RedisCommands | null {
@@ -128,12 +138,15 @@ export function getRedis(): RedisCommands | null {
   }
 
   try {
+    // Default auto-pipelining runs GET through pipeline.exec, which does
+    // res.map() and throws TypeError when Upstash returns a single object.
     const redis = new Redis({
       url: config.url,
       token: config.token,
+      ...UPSTASH_REDIS_CLIENT_OPTIONS,
     });
     cachedRedis = {
-      get: <T>(key: string) => redis.get<T>(key),
+      get: async <T>(key: string) => parseRedisGet<T>(await redis.get<unknown>(key)),
       set: async (key, value, opts) => {
         const result = opts?.nx
           ? await redis.set(key, value, { nx: true, ex: opts.ex ?? REDIS_LOCK_SECONDS })
@@ -265,17 +278,17 @@ export async function readThroughCacheResult<T>(
 ): Promise<CacheRead<T>> {
   const redis = getRedis();
   if (!redis) {
-    if (!lastRedisFailure) {
-      setRedisFailure("env-missing");
-    }
-    return { data: await load(), status: "fallback" };
+    return {
+      data: await load(),
+      status: "fallback",
+      reason: lastRedisFailure ?? `env-missing present=${formatKeyList(redisEnvKeyPresence().present)}`,
+    };
   }
 
   let key: string;
   try {
     key = await redisKeyFor(logicalKey, policy.tier);
     const hit = await redis.get<CacheEnvelope<T>>(key);
-    lastRedisFailure = null;
     if (hit && isFreshEnvelope(hit, policy)) {
       return { data: hit.data, status: "redis-hit" };
     }
@@ -284,11 +297,28 @@ export async function readThroughCacheResult<T>(
       return { data: hit.data, status: "redis-stale" };
     }
   } catch (error) {
-    setRedisFailure(formatRedisError("get", error, redisHostHint()));
-    return { data: await load(), status: "fallback" };
+    return {
+      data: await load(),
+      status: "fallback",
+      reason: formatRedisError("get", error, redisHostHint()),
+    };
   }
 
   return { data: await refreshAndStore(redis, key, policy, load), status: "miss" };
+}
+
+export function parseRedisGet<T>(value: unknown): T | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
+    }
+  }
+  return value as T;
 }
 
 async function refreshAndStore<T>(

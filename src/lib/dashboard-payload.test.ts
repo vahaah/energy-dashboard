@@ -33,7 +33,12 @@ import {
   loadDashboardPayloadUncached,
   payloadJsonBytes,
   slimFactsForClient,
+  unpackGeneration,
 } from "@/lib/dashboard-payload";
+import {
+  WEEK_GENERATION_BUCKET_MS,
+  WEEK_SNAPSHOT_BUCKET_MS,
+} from "@/lib/dashboard-payload-model";
 import { buildHistoricPeriodView, emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 
 describe("dashboard payload", () => {
@@ -307,7 +312,8 @@ describe("dashboard payload", () => {
     ];
     expect(downsampleGeneration(rows, "day")).toHaveLength(3);
     expect(downsampleGeneration(rows, "week")).toEqual([
-      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 2000, source: "fuelinst" },
+      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 1500, source: "fuelinst" },
+      { timestamp: "2026-10-10 01:00:00", fuel_type: "wind", generation_mw: 3000, source: "fuelinst" },
     ]);
     expect(
       downsampleGeneration(
@@ -318,9 +324,11 @@ describe("dashboard payload", () => {
         "week"
       )
     ).toEqual([
-      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 2000, source: "fuelinst" },
-      { timestamp: "2026-10-10 03:00:00", fuel_type: "wind", generation_mw: 4000, source: "fuelinst" },
+      { timestamp: "2026-10-10 00:00:00", fuel_type: "wind", generation_mw: 1500, source: "fuelinst" },
+      { timestamp: "2026-10-10 01:00:00", fuel_type: "wind", generation_mw: 3000, source: "fuelinst" },
+      { timestamp: "2026-10-10 04:00:00", fuel_type: "wind", generation_mw: 4000, source: "fuelinst" },
     ]);
+    expect(WEEK_GENERATION_BUCKET_MS).toBe(WEEK_SNAPSHOT_BUCKET_MS);
     expect(headlineWindow(rows)).toEqual(rows);
   });
 
@@ -394,7 +402,8 @@ describe("dashboard payload", () => {
     expect(compact.prices).toEqual([]);
     expect(compact.headlineGeneration).toEqual([]);
     expect(compact.transitionView?.generation).toEqual([]);
-    expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 4);
+    expect(compact.generationHistory).toEqual([]);
+    expect(unpackGeneration(compact.packedGeneration!).length).toBeLessThan(generationHistory.length / 4);
   });
 
   it("cuts a realistic Week payload with facts under 300 KB", () => {
@@ -561,14 +570,38 @@ describe("dashboard payload", () => {
       lookAhead: null,
     });
 
+    const hydrated = hydrateDashboardPayload(compact);
+    const twice = compactDashboardPayload(compact);
     expect(payloadJsonBytes(compact)).toBeLessThan(300_000);
-    expect(compact.facts.generationRows.length).toBeLessThan(fuels.length * 6);
+    expect(compact.facts.generationRows.length).toBeGreaterThan(fuels.length * 2);
+    expect(compact.facts.generationRows.length).toBeLessThan(fuels.length * 20);
     expect(compact.facts.generationRows.some((row) => row.source === "fuelinst")).toBe(true);
-    expect(compact.generationHistory.length).toBeLessThan(generationHistory.length / 2);
+    expect(hydrated.generationHistory.length).toBe(generationHistory.length);
+    expect(new Set(hydrated.generationHistory.map((row) => row.timestamp.slice(0, 13))).size).toBeGreaterThan(100);
     expect(compact.snapshots.length).toBeLessThan(snapshots.length);
-    expect(compact.headlineSnapshots.length).toBeLessThanOrEqual(49);
-    expect(downsampleSnapshots(snapshots, "week").length).toBeLessThan(snapshots.length);
+    expect(compact.headlineSnapshots.some((row) => row.timestamp.endsWith(":30:00"))).toBe(true);
+    expect(twice.headlineSnapshots).toEqual(compact.headlineSnapshots);
+    expect(downsampleSnapshots(snapshots, "week").length).toBe(168);
+    expect(downsampleGeneration(generationHistory, "week").length).toBe(generationHistory.length);
     expect(slimFactsForClient(facts).generationRows.length).toBeLessThan(headlineGeneration.length / 10);
+  });
+
+  it("keeps the FUELINST alignment window and 30-minute embedded lead", () => {
+    const rows = [
+      { timestamp: "2026-10-10 10:50:00", fuel_type: "ccgt", generation_mw: 1000, source: "fuelinst" },
+      { timestamp: "2026-10-10 11:00:00", fuel_type: "ccgt", generation_mw: 1100, source: "fuelinst" },
+      { timestamp: "2026-10-10 11:25:00", fuel_type: "ccgt", generation_mw: 1200, source: "fuelinst" },
+      { timestamp: "2026-10-10 11:25:00", fuel_type: "embedded_wind", generation_mw: 4000, source: "neso" },
+      { timestamp: "2026-10-10 11:50:00", fuel_type: "embedded_solar", generation_mw: 5000, source: "pvlive" },
+      { timestamp: "2026-10-10 12:00:00", fuel_type: "embedded_solar", generation_mw: 6000, source: "pvlive" },
+    ];
+    const slimmed = slimFactsForClient({
+      generationRows: rows,
+    } as never);
+
+    expect(slimmed.generationRows.some((row) => row.timestamp === "2026-10-10 10:50:00")).toBe(true);
+    expect(slimmed.generationRows.some((row) => row.timestamp === "2026-10-10 11:50:00")).toBe(true);
+    expect(slimmed.generationRows.some((row) => row.timestamp === "2026-10-10 12:00:00")).toBe(false);
   });
 
   it("averages All-time monthly snapshots by each field's non-missing count", () => {

@@ -52,12 +52,15 @@ describe("/api/dashboard", () => {
         prices: [],
       },
       status: "fallback",
+      reason: "redis-get-failed host=example.upstash.io name=TypeError message=n.map is not a function",
     });
 
     const response = await GET(new NextRequest("http://localhost/api/dashboard?period=week"));
     expect(response.status).toBe(200);
     expect(response.headers.get("x-grid-cache")).toBe("fallback");
-    expect(info.mock.calls.some((call) => String(call[0]).includes("reason="))).toBe(true);
+    expect(info.mock.calls.some((call) => String(call[0]).includes("n.map is not a function"))).toBe(
+      true
+    );
     info.mockRestore();
   });
 
