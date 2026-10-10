@@ -94,14 +94,15 @@ describe("DemandBalanceTooltip", () => {
         payload={[
           { dataKey: "demandGw", name: "Demand (incl. embedded)", value: 32.4 },
           { dataKey: "generationGw", name: "Generation (incl. embedded)", value: 30.1 },
-          { dataKey: "demandForecastGw", name: "Demand forecast (NDF)", value: 31.8 },
+          { dataKey: "demandForecastGw", name: "Demand forecast", value: 31.8 },
         ]}
       />
     );
 
     expect(html).toContain("Demand (incl. embedded)");
     expect(html).toContain("Generation (incl. embedded)");
-    expect(html).toContain("Demand forecast (NDF)");
+    expect(html).toContain("Demand forecast");
+    expect(html).not.toContain("Demand forecast (NDF)");
     expect(html).toContain("background-color:var(--gray-1000)");
     expect(html).toContain("background-color:var(--gray-900)");
     expect(html).toContain("background-color:var(--gray-700)");
