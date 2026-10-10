@@ -507,7 +507,7 @@ describe("AGPT generation de-duplication", () => {
     expect(result.rows).toHaveLength(periods.length - 1);
   });
 
-  it("rejects a 2× total that still sits under per-fuel maxima", () => {
+  it("keeps a 2× total that only fails the soft balance check", () => {
     const periods = listSettlementPeriods("2025-11-18");
     const result = snapshotCollectionFromSources(
       periods,
@@ -515,7 +515,7 @@ describe("AGPT generation de-duplication", () => {
         intensityByTime: new Map(),
         mixByTime: new Map(),
         priceByTime: new Map([["2025-11-18 12:30:00", 42.5]]),
-        demandByTime: new Map([["2025-11-18 12:30:00", 37_700]]),
+        demandByTime: new Map([["2025-11-18 12:30:00", 37_736]]),
         genMwByTime: new Map([
           [
             "2025-11-18 12:30:00",
@@ -524,7 +524,7 @@ describe("AGPT generation de-duplication", () => {
               coal: 0,
               nuclear: 8_000,
               wind: 24_000,
-              solar: 16_000,
+              solar: 7_070,
               hydro: 800,
               biomass: 4_000,
               other: 1_400,
@@ -536,10 +536,15 @@ describe("AGPT generation de-duplication", () => {
       [{ source: "generation_mw", ok: true, rows: 1 }]
     );
 
-    expect(result.rows.some((row) => row.timestamp === "2025-11-18 12:30:00")).toBe(false);
+    expect(result.rows.some((row) => row.timestamp === "2025-11-18 12:30:00")).toBe(true);
     expect(result.integrity?.failing.some((finding) => finding.timestamp === "2025-11-18 12:30:00")).toBe(
       true
     );
+    expect(
+      result.integrity?.failing
+        .find((finding) => finding.timestamp === "2025-11-18 12:30:00")
+        ?.issues.some((issue) => issue.code === "balance")
+    ).toBe(true);
   });
 });
 

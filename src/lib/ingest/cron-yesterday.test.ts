@@ -38,6 +38,8 @@ describe("yesterday settlement heal", () => {
 
     const hourly = readFileSync(resolve(process.cwd(), "src/app/api/cron/route.ts"), "utf8");
     expect(hourly).toContain("integritySourceStatus");
+    expect(hourly).toContain("logSoftIntegrityFindings");
+    expect(route).toContain("logSoftIntegrityFindings");
     expect(hourly).toContain("emptyIntegrityReport");
     expect(hourly).toContain("status: failed ? 503 : 200");
     expect(route).toContain("invalidateAndWarm(now, { historical: true })");

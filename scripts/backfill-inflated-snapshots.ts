@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
- * Rewrite only energy_snapshots half-hours whose stored generation is > 1.5× demand.
+ * Rewrite energy_snapshots half-hours that fail the like-for-like balance
+ * check (generation vs ITSDO + embedded, with export headroom).
  * Dry-run by default. The parent runs --execute.
  *
  * Usage:

@@ -13,6 +13,7 @@ import {
   GB_GENERATION_MAX_MW,
   inspectSnapshotRows,
   snapshotRowFailsIntegrity,
+  snapshotRowSoftIntegrityIssues,
   type SnapshotIntegrityReport,
 } from "@/lib/snapshot-integrity";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
@@ -474,6 +475,13 @@ export function buildSnapshotRowsForPeriods(
     const row = snapshotRowForPeriod(period, sources);
     if (snapshotRowFailsIntegrity(row, sources.rejectedGenTimes)) {
       return [];
+    }
+    const soft = snapshotRowSoftIntegrityIssues(row, sources.rejectedGenTimes);
+    if (soft.length > 0) {
+      console.warn("[snapshots] keeping half-hour that failed only the soft balance check", {
+        timestamp: row.timestamp,
+        issues: soft,
+      });
     }
     return [row];
   });
