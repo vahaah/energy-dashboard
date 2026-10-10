@@ -1,3 +1,4 @@
+import { getPricesQueryParams } from "@/lib/dashboard-data";
 import { dashboardPayloadCacheKey, dashboardPayloadPolicy } from "@/lib/dashboard-payload-model";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
 import { externalCacheKey, peekThroughCache } from "@/lib/redis-cache";
@@ -19,11 +20,20 @@ export async function peekLatestDashboardPayload(): Promise<DashboardPayload | n
   );
 }
 
-export async function peekLatestPrices(): Promise<CommodityPrice[] | null> {
-  const policy = getTinybirdCachePolicy({ pipeName: "latest_prices" });
+export async function peekLatestPrices(now = new Date()): Promise<CommodityPrice[] | null> {
+  const range = "90d";
+  const params = getPricesQueryParams(range, now);
+  const policy = getTinybirdCachePolicy({
+    pipeName: "prices_range",
+    params,
+    range,
+    now,
+  });
   return peekThroughCache<CommodityPrice[]>(
     tinybirdLogicalCacheKey({
-      pipeName: "latest_prices",
+      pipeName: "prices_range",
+      range,
+      params,
       revalidateSeconds: policy.revalidateSeconds,
     }),
     policy
@@ -44,7 +54,7 @@ export async function peekCachedGridRecords(now = new Date()): Promise<GridRecor
 export async function peekOgCacheSnapshot(now = new Date()): Promise<OgCacheSnapshot> {
   const [dashboard, prices, nesoRecords] = await Promise.all([
     peekLatestDashboardPayload(),
-    peekLatestPrices(),
+    peekLatestPrices(now),
     peekCachedGridRecords(now),
   ]);
 

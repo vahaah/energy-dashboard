@@ -19,10 +19,12 @@ export const NESO_EMBEDDED_FORECAST_RESOURCE_ID = "db6c038f-98af-4570-ab60-24d71
 
 export const CARBON_INTENSITY_API_URL = "https://carbonintensity.org.uk/";
 
-export const CARBON_INTENSITY_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
+export const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
+
+export const CARBON_INTENSITY_LICENCE_URL = CC_BY_4_0_LICENSE_URL;
 
 export const CARBON_INTENSITY_ATTRIBUTION =
-  "National carbon intensity from the NESO Carbon Intensity API (CC BY 4.0). Developed by NESO with the University of Oxford, EDF Energy and WWF.";
+  "National carbon intensity from the NESO Carbon Intensity API (CC BY 4.0). Developed by NESO with the University of Oxford, Environmental Defense Fund Europe and WWF.";
 
 export const CARBON_INTENSITY_FORECAST_NOTE =
   "Grid shows a derived cleanest-window answer from the 48-hour forecast. The raw forecast series is not republished.";
@@ -173,8 +175,8 @@ export function captionNeso(): string {
   return `${NESO_OPEN_DATA_ATTRIBUTION}.`;
 }
 
-export function captionCarbon(): string {
-  return CARBON_INTENSITY_ATTRIBUTION;
+export function captionCarbon(neso = false): string {
+  return neso ? `${NESO_OPEN_DATA_ATTRIBUTION}.` : CARBON_INTENSITY_ATTRIBUTION;
 }
 
 export function captionGeneration(year = new Date().getUTCFullYear()): string {

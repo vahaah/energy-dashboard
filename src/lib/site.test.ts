@@ -7,11 +7,15 @@ import {
   pageTitleLength,
   RECORDS_DESCRIPTION,
   RECORDS_TITLE,
+  SITE_ORIGIN,
+  SITE_URL,
   TITLE_MAX_CHARS,
 } from "@/lib/site";
 
 describe("SEO titles and descriptions", () => {
   it("keeps homepage and records copy within the plan limits", () => {
+    expect(SITE_ORIGIN).toBe("https://grid.vahaah.com");
+    expect(SITE_URL).toBe(SITE_ORIGIN);
     expect(HOME_TITLE).toBe("Grid: what's powering Britain's electricity today");
     expect(RECORDS_TITLE).toBe("GB electricity records: wind, solar and carbon");
     expect(pageTitleLength(HOME_TITLE)).toBeLessThanOrEqual(TITLE_MAX_CHARS);

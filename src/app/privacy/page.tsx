@@ -40,8 +40,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             An in-memory rate limiter on public <code>/api/*</code> routes (60 requests per minute
-            per IP). Counts live only in that server instance and expire after one minute. They are
-            not written to a database.
+            per IP). The counting window is one minute. After that window ends, or when the server
+            instance recycles, the IP entry is dropped. Counts are not written to a database.
           </li>
           <li>
             Optional theme preference in <code>localStorage</code> on your device. That is not a

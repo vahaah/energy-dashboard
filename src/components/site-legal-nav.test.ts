@@ -21,7 +21,7 @@ describe("legal nav", () => {
     expect(dashboard).toContain("captionTransfers(");
     expect(dashboard).toContain("captionCommodities()");
     expect(dashboard).toContain("captionNeso()");
-    expect(dashboard).toContain("captionCarbon()");
+    expect(dashboard).toContain("captionCarbon(isNesoPeriod(carbonPeriod))");
     expect(records).toContain("SiteLegalNav");
     expect(config).toContain('source: "/attributions"');
     expect(config).toContain('destination: "/data-sources"');

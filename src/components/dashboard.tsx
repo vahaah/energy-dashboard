@@ -631,7 +631,7 @@ export function Dashboard({
           id="section-carbon"
           title="How clean is it?"
           tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges. The 48-hour forecast is a derived cleanest-window answer from the NESO Carbon Intensity API."
-          footer={captionCarbon()}
+          footer={captionCarbon(isNesoPeriod(carbonPeriod))}
           active={focus === "carbon"}
           headerRight={
             <BlockPeriodControl

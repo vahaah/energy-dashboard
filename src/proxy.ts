@@ -19,11 +19,20 @@ const CRON_OR_HEALTH = new Set([
   "/api/health",
 ]);
 
+function pruneExpired(now: number): void {
+  for (const [key, entry] of store) {
+    if (now > entry.resetAt) {
+      store.delete(key);
+    }
+  }
+}
+
 function checkLimit(ip: string): { allowed: boolean; remaining: number } {
   const now = Date.now();
+  pruneExpired(now);
   const entry = store.get(ip);
 
-  if (!entry || now > entry.resetAt) {
+  if (!entry) {
     store.set(ip, { count: 1, resetAt: now + WINDOW_MS });
     return { allowed: true, remaining: MAX_REQUESTS - 1 };
   }

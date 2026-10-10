@@ -17,5 +17,6 @@ describe("cookies", () => {
     expect(packageJson).not.toContain("@vercel/analytics");
     expect(privacy).toContain("does not show a cookie banner");
     expect(privacy).toContain("does not set first-party cookies");
+    expect(proxy).toContain("store.delete");
   });
 });

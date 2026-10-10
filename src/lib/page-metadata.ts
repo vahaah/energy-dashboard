@@ -4,12 +4,13 @@ import {
   type DashboardSearchParams,
 } from "@/lib/dashboard-search-params";
 import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
   OG_IMAGE_HEIGHT,
   OG_IMAGE_WIDTH,
-  SITE_DESCRIPTION,
+  RECORDS_DESCRIPTION,
+  RECORDS_TITLE,
   SITE_NAME,
-  SITE_TITLE,
-  SITE_URL,
 } from "@/lib/site";
 
 export type PageMetadataInput = {
@@ -22,8 +23,8 @@ export type PageMetadataInput = {
 
 export const FOCUS_PAGE_COPY = {
   overview: {
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
   generation: {
     title: "What’s powering Britain — Grid",
@@ -72,16 +73,16 @@ export function isDashboardFocus(
 
 export function canonicalPath(path: string): string {
   if (path === "/" || path === "") {
-    return SITE_URL;
+    return "/";
   }
-  return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  return path.startsWith("/") ? path : `/${path}`;
 }
 
 export function ogImageUrl(imagePath: string): string {
   if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
     return imagePath;
   }
-  return `${SITE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`;
+  return imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
 }
 
 export function buildPageMetadata(input: PageMetadataInput): Metadata {
@@ -120,11 +121,10 @@ export function homePageMetadata(
   focus: DashboardSearchParams["focus"] = "overview"
 ): Metadata {
   const copy = FOCUS_PAGE_COPY[focus];
-  const path = focus === "overview" ? "/" : `/?focus=${focus}`;
   return buildPageMetadata({
     title: copy.title,
     description: copy.description,
-    path,
+    path: "/",
     imagePath: `/og?focus=${focus}`,
     imageAlt: copy.title,
   });
@@ -132,12 +132,11 @@ export function homePageMetadata(
 
 export function recordsPageMetadata(): Metadata {
   return buildPageMetadata({
-    title: "GB electricity records — Grid",
-    description:
-      "Great Britain electricity records: highest wind and solar, lowest carbon intensity, days since coal power ended, and the first times wind passed each gigawatt. From NESO historic generation mix.",
+    title: RECORDS_TITLE,
+    description: RECORDS_DESCRIPTION,
     path: "/records",
     imagePath: "/records/opengraph-image",
-    imageAlt: "GB electricity records — Grid",
+    imageAlt: RECORDS_TITLE,
   });
 }
 

@@ -135,6 +135,21 @@ describe("readThroughCache", () => {
     await expect(peekThroughCache("tb:missing", liveCachePolicy())).resolves.toBeNull();
   });
 
+  it("treats a Redis read error as a peek miss instead of throwing", async () => {
+    setRedisForTests({
+      get: async () => {
+        throw new Error("WRONGPASS invalid token https://secret.upstash.io/path");
+      },
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    await expect(peekThroughCache("tb:og-err", liveCachePolicy())).resolves.toBeNull();
+    expect(getRedisFailureReason()).toContain("redis-get-failed");
+    expect(getRedisFailureReason()).not.toContain("secret.upstash.io");
+  });
+
   it("serves stale data immediately and refreshes in the background", async () => {
     const redis = new MemoryRedis();
     setRedisForTests(redis);

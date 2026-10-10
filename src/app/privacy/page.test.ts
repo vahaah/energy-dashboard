@@ -12,6 +12,8 @@ describe("legal pages", () => {
     expect(source).toContain("UK GDPR");
     expect(source).toContain("Vercel platform logs");
     expect(source).toContain("does not show a cookie banner");
+    expect(source).toContain("The counting window is one minute");
+    expect(source).toContain("the IP entry is dropped");
   });
 
   it("keeps terms informational, MIT, and not financial advice", () => {

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildPageMetadata,
@@ -7,9 +9,10 @@ import {
   recordsPageMetadata,
   termsPageMetadata,
 } from "@/lib/page-metadata";
+import { HOME_TITLE, RECORDS_TITLE } from "@/lib/site";
 
 describe("page metadata", () => {
-  it("sets openGraph, twitter summary_large_image, and a canonical URL", () => {
+  it("sets openGraph, twitter summary_large_image, and a canonical path", () => {
     const metadata = buildPageMetadata({
       title: "Terms — Grid",
       description: "Informational only.",
@@ -18,12 +21,12 @@ describe("page metadata", () => {
       imageAlt: "Terms — Grid",
     });
 
-    expect(metadata.alternates?.canonical).toBe("https://grid.vahaah.com/terms");
-    expect(metadata.openGraph?.url).toBe("https://grid.vahaah.com/terms");
+    expect(metadata.alternates?.canonical).toBe("/terms");
+    expect(metadata.openGraph?.url).toBe("/terms");
     expect(JSON.stringify(metadata.twitter)).toContain("summary_large_image");
     expect(metadata.openGraph?.images).toEqual([
       {
-        url: "https://grid.vahaah.com/terms/opengraph-image",
+        url: "/terms/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Terms — Grid",
@@ -31,12 +34,14 @@ describe("page metadata", () => {
     ]);
   });
 
-  it("points homepage focus shares at /og?focus= and keeps overview canonical clean", () => {
+  it("keeps every homepage URL canonical to / and varies only the OG image", () => {
     const overview = homePageMetadata("overview");
-    expect(overview.alternates?.canonical).toBe("https://grid.vahaah.com");
+    expect(overview.title).toBe(HOME_TITLE);
+    expect(overview.alternates?.canonical).toBe("/");
+    expect(overview.openGraph?.url).toBe("/");
     expect(overview.openGraph?.images).toEqual([
       {
-        url: "https://grid.vahaah.com/og?focus=overview",
+        url: "/og?focus=overview",
         width: 1200,
         height: 630,
         alt: overview.title,
@@ -44,10 +49,11 @@ describe("page metadata", () => {
     ]);
 
     const carbon = homePageMetadata("carbon");
-    expect(carbon.alternates?.canonical).toBe("https://grid.vahaah.com/?focus=carbon");
+    expect(carbon.alternates?.canonical).toBe("/");
+    expect(carbon.openGraph?.url).toBe("/");
     expect(carbon.openGraph?.images).toEqual([
       {
-        url: "https://grid.vahaah.com/og?focus=carbon",
+        url: "/og?focus=carbon",
         width: 1200,
         height: 630,
         alt: carbon.title,
@@ -57,11 +63,15 @@ describe("page metadata", () => {
   });
 
   it("covers records and the legal pages", () => {
-    expect(recordsPageMetadata().alternates?.canonical).toBe("https://grid.vahaah.com/records");
-    expect(privacyPageMetadata().alternates?.canonical).toBe("https://grid.vahaah.com/privacy");
-    expect(termsPageMetadata().alternates?.canonical).toBe("https://grid.vahaah.com/terms");
-    expect(dataSourcesPageMetadata().alternates?.canonical).toBe(
-      "https://grid.vahaah.com/data-sources"
-    );
+    expect(recordsPageMetadata().title).toBe(RECORDS_TITLE);
+    expect(recordsPageMetadata().alternates?.canonical).toBe("/records");
+    expect(privacyPageMetadata().alternates?.canonical).toBe("/privacy");
+    expect(termsPageMetadata().alternates?.canonical).toBe("/terms");
+    expect(dataSourcesPageMetadata().alternates?.canonical).toBe("/data-sources");
+  });
+
+  it("does not ship root file-based OG routes that would override generateMetadata", () => {
+    expect(existsSync(resolve(process.cwd(), "src/app/opengraph-image.tsx"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "src/app/twitter-image.tsx"))).toBe(false);
   });
 });

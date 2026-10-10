@@ -280,13 +280,17 @@ export async function peekThroughCache<T>(
     return null;
   }
 
-  const key = await redisKeyFor(logicalKey, policy.tier);
-  const hit = await redis.get<CacheEnvelope<T>>(key);
-  if (hit && isStaleUsableEnvelope(hit, policy)) {
-    return hit.data;
+  try {
+    const key = await redisKeyFor(logicalKey, policy.tier);
+    const hit = await redis.get<CacheEnvelope<T>>(key);
+    if (hit && isStaleUsableEnvelope(hit, policy)) {
+      return hit.data;
+    }
+    return null;
+  } catch (error) {
+    markRedisUnusable("get", error);
+    return null;
   }
-
-  return null;
 }
 
 export async function readThroughCache<T>(

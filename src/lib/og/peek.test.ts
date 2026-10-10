@@ -15,6 +15,8 @@ describe("og cache peek", () => {
     const route = readFileSync(resolve(process.cwd(), "src/app/og/route.tsx"), "utf8");
 
     expect(peek).toContain("peekThroughCache");
+    expect(peek).toContain("prices_range");
+    expect(peek).not.toContain("latest_prices");
     expect(peek).not.toContain("queryPipe");
     expect(peek).not.toContain("loadDashboardPayloadUncached");
     expect(peek).not.toContain("fetchPipeRows");

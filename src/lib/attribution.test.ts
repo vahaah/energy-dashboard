@@ -5,6 +5,7 @@ import {
   CARBON_INTENSITY_FORECAST_NOTE,
   CC_BY_4_0_LICENSE_URL,
   DATA_SOURCE_IDS,
+  captionCarbon,
   dataSources,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
@@ -44,10 +45,13 @@ describe("Elexon BMRS attribution", () => {
     expect(CARBON_INTENSITY_API_URL).toBe("https://carbonintensity.org.uk/");
     expect(CARBON_INTENSITY_ATTRIBUTION).toContain("CC BY 4.0");
     expect(CARBON_INTENSITY_ATTRIBUTION).toContain("University of Oxford");
-    expect(CARBON_INTENSITY_ATTRIBUTION).toContain("EDF Energy");
+    expect(CARBON_INTENSITY_ATTRIBUTION).toContain("Environmental Defense Fund Europe");
+    expect(CARBON_INTENSITY_ATTRIBUTION).not.toContain("EDF Energy");
     expect(CARBON_INTENSITY_ATTRIBUTION).toContain("WWF");
     expect(CARBON_INTENSITY_FORECAST_NOTE).toContain("raw forecast series is not republished");
     expect(CC_BY_4_0_LICENSE_URL).toBe("https://creativecommons.org/licenses/by/4.0/");
+    expect(captionCarbon(false)).toBe(CARBON_INTENSITY_ATTRIBUTION);
+    expect(captionCarbon(true)).toBe(`${NESO_OPEN_DATA_ATTRIBUTION}.`);
   });
 
   it("lists every ingest source with its required attribution text", () => {
