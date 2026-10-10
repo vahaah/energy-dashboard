@@ -45,8 +45,9 @@ GB electricity dashboard — half-hourly Great Britain grid data, with commodity
 
 ## Stack
 
-- **Next.js 16** (App Router, Server Components, ISR)
+- **Next.js 16** (App Router, static/ISR shell, client-side range switching)
 - **Tinybird** (ClickHouse-backed time-series storage + API)
+- **Upstash Redis** (optional REST read-through cache in front of Tinybird / NESO / Elexon / Carbon Intensity)
 - **Vercel** (hosting, cron jobs)
 - **Recharts** (client-side charts)
 
@@ -181,14 +182,28 @@ Set environment variables in Vercel dashboard:
 - `TINYBIRD_READ_TOKEN`
 - `EIA_API_KEY`
 - `CRON_SECRET`
+- `UPSTASH_REDIS_REST_URL` (optional — Vercel Marketplace Upstash Redis)
+- `UPSTASH_REDIS_REST_TOKEN` (optional — paired with the REST URL)
 - `OIL_PRICE_API_KEY` (optional, unused — ingest disabled in cron and backfill)
 - `FRED_API_KEY` (optional, unused — ingest disabled in cron and backfill)
+
+If the Upstash vars are missing, Redis errors, or the lock cannot be taken, `queryPipe` and the NESO / Elexon / Carbon Intensity fetches fall back to the existing Next.js cache. After each ingest, crons bump a cache epoch (invalidating live keys) and warm Day / Week / Year / All plus commodity ranges.
 
 The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours and self-backfills EIA + World Bank history within 24h of deploy. `scripts/backfill-commodities.ts` is optional.
 
 ## Public API
 
 All API endpoints are public. Rate limiting is an in-memory 60 req/min per IP **per instance** in `src/proxy.ts` (not shared across serverless isolates; resets on cold start). `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
+
+### `GET /api/dashboard`
+
+Assembled homepage payload for client-side range switching. Used by `/` so Day / Week / Year / All never reload the page.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `period` | `day\|week\|year\|all` | `day` | Global (or per-block) period |
+| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `period=day` |
+| `commodityRange` | `30d\|90d\|1y` | `90d` | Oil/gas window included on the payload |
 
 ### `GET /api/snapshots`
 
@@ -240,6 +255,8 @@ Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds fo
 - Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
 - Returns `429 Too Many Requests` when exceeded
 - In-memory only — not distributed. There is no Upstash (or other shared) limiter.
+- Public JSON uses `s-maxage` + `stale-while-revalidate` (`/api/dashboard`, `/api/snapshots`, `/api/generation`, `/api/prices`, `/api/look-ahead`).
+- Homepage range changes update the URL with `history.replaceState` and refetch only the affected charts. Per-block overrides (`generationPeriod`, `pricePeriod`, `transfersPeriod`, `mixPeriod`, `carbonPeriod`) keep `?focus=` share links working.
 
 ## Data Model
 

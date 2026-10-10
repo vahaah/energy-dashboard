@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseCommodityRange,
+  parseDashboardPeriod,
   parseInterconnectorRange,
   parseOptionalDate,
   parseTimeRange,
@@ -16,6 +17,9 @@ describe("API query params", () => {
     expect(parseCommodityRange("24h").ok).toBe(false);
     expect(parseInterconnectorRange("7d")).toEqual({ ok: true, value: "7d" });
     expect(parseInterconnectorRange("30d").ok).toBe(false);
+    expect(parseDashboardPeriod("week")).toEqual({ ok: true, value: "week" });
+    expect(parseDashboardPeriod(null)).toEqual({ ok: true, value: "day" });
+    expect(parseDashboardPeriod("24h").ok).toBe(false);
   });
 
   it("validates optional dates", () => {

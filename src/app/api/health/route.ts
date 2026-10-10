@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cdnCacheHeaders } from "@/lib/api-route";
 import {
   healthHttpStatus,
   latestObservedTimestamp,
@@ -58,7 +59,7 @@ export async function GET() {
       },
       {
         status,
-        headers: { "Cache-Control": tinybirdCacheControl(policy) },
+        headers: cdnCacheHeaders(tinybirdCacheControl(policy)),
       }
     );
   } catch (error) {

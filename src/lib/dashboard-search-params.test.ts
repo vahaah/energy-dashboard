@@ -20,6 +20,11 @@ describe("dashboard search params", () => {
       focus: "overview",
       price: "mid",
       date: null,
+      generationPeriod: null,
+      pricePeriod: null,
+      transfersPeriod: null,
+      mixPeriod: null,
+      carbonPeriod: null,
     });
   });
 
@@ -41,6 +46,11 @@ describe("dashboard search params", () => {
       focus: "commodities",
       price: "system",
       date: "2026-03-10",
+      generationPeriod: null,
+      pricePeriod: null,
+      transfersPeriod: null,
+      mixPeriod: null,
+      carbonPeriod: null,
     });
 
     await expect(
@@ -59,6 +69,29 @@ describe("dashboard search params", () => {
       focus: "overview",
       price: "mid",
       date: null,
+      generationPeriod: null,
+      pricePeriod: null,
+      transfersPeriod: null,
+      mixPeriod: null,
+      carbonPeriod: null,
+    });
+  });
+
+  it("parses per-block period overrides without dropping focus", async () => {
+    await expect(
+      loadDashboardSearchParams(
+        Promise.resolve({
+          period: "day",
+          pricePeriod: "week",
+          carbonPeriod: "year",
+          focus: "price",
+        })
+      )
+    ).resolves.toMatchObject({
+      period: "day",
+      pricePeriod: "week",
+      carbonPeriod: "year",
+      focus: "price",
     });
   });
 

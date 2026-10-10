@@ -215,7 +215,7 @@ function asKnownRange(range: string | null | undefined): KnownQueryRange | null 
   }
 }
 
-function livePolicy(): TinybirdCachePolicy {
+export function liveCachePolicy(): TinybirdCachePolicy {
   return {
     tier: "live",
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.live,
@@ -224,7 +224,7 @@ function livePolicy(): TinybirdCachePolicy {
   };
 }
 
-function healthPolicy(): TinybirdCachePolicy {
+export function healthCachePolicy(): TinybirdCachePolicy {
   return {
     tier: "health",
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.health,
@@ -233,7 +233,7 @@ function healthPolicy(): TinybirdCachePolicy {
   };
 }
 
-function longPolicy(seconds: number): TinybirdCachePolicy {
+export function longCachePolicy(seconds: number): TinybirdCachePolicy {
   return {
     tier: "long",
     revalidateSeconds: seconds,
@@ -242,13 +242,57 @@ function longPolicy(seconds: number): TinybirdCachePolicy {
   };
 }
 
-function historicalPolicy(): TinybirdCachePolicy {
+export function historicalCachePolicy(): TinybirdCachePolicy {
   return {
     tier: "historical",
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.historical,
     sMaxAge: TINYBIRD_CACHE_SECONDS.historical,
     staleWhileRevalidate: 604_800,
   };
+}
+
+export function policyForExternalWindow(endIso: string, now = new Date()): TinybirdCachePolicy {
+  const end = new Date(endIso);
+  if (Number.isNaN(end.getTime())) {
+    return liveCachePolicy();
+  }
+
+  return getLondonDate(end) < getLondonDate(now) ? historicalCachePolicy() : liveCachePolicy();
+}
+
+function addIsoDateDays(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * System prices for a settlement date keep publishing after London midnight.
+ * Cache them as live through the following London day so the 00:00 GMT hourly
+ * ingest cannot freeze an incomplete day before `/api/cron-yesterday` heals it.
+ */
+export function policyForSettlementPrices(
+  settlementDate: string,
+  now = new Date()
+): TinybirdCachePolicy {
+  return getLondonDate(now) <= addIsoDateDays(settlementDate, 1)
+    ? liveCachePolicy()
+    : historicalCachePolicy();
+}
+
+function livePolicy(): TinybirdCachePolicy {
+  return liveCachePolicy();
+}
+
+function healthPolicy(): TinybirdCachePolicy {
+  return healthCachePolicy();
+}
+
+function longPolicy(seconds: number): TinybirdCachePolicy {
+  return longCachePolicy(seconds);
+}
+
+function historicalPolicy(): TinybirdCachePolicy {
+  return historicalCachePolicy();
 }
 
 function isHistoricalQuery(input: TinybirdCacheInput, now: Date): boolean {

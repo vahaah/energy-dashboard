@@ -16,8 +16,18 @@ describe("dashboard header controls", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
 
     expect(source).toContain("visibilitychange");
-    expect(source).toContain("router.refresh()");
+    expect(source).toContain("revalidateAllQueries()");
+    expect(source).toContain('history: "replace"');
+    expect(source).toContain("shallow: true");
+    expect(source).not.toContain("router.refresh()");
     expect(source).not.toContain("Refresh");
+    expect(source).toContain("minDate={getDashboardCoverageStart(now)}");
+    expect(source).toContain("price.error && !priceData");
+    expect(source).toContain("transfers.error && !transfersData");
+    expect(source).toContain("mix.error && !mixData");
+    expect(source).toContain("carbon.error && !carbonData");
+    expect(source).toContain("fetchDashboardPayload(period, date)");
+    expect(source).not.toContain("dashboardQueryKey(period, date, commodityRange)");
   });
 });
 

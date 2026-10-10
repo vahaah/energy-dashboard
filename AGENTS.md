@@ -130,6 +130,8 @@ EIA_API_KEY=<free-eia-key>
 CRON_SECRET=<required-secret-for-vercel-cron>
 OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
+UPSTASH_REDIS_REST_URL=<optional — Vercel Marketplace Redis REST URL>
+UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
 ```
 
 ### How tokens work

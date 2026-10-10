@@ -1,5 +1,7 @@
 import { fetchJson, type CollectionResult, type SourceStatus } from "@/lib/http";
 import { elexonPublishWindow } from "@/lib/ingest/collect-grid";
+import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
+import { liveCachePolicy, policyForExternalWindow } from "@/lib/tinybird-cache";
 import {
   addUtcDays,
   formatTinybirdDateTime,
@@ -169,24 +171,39 @@ export async function collectRecentGeneration(now: Date): Promise<CollectionResu
     settleSource(
       "fuelinst",
       () =>
-        fetchJson<FuelInstRow[]>(
-          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
+        readThroughCache(
+          externalCacheKey("elexon-fuelinst", [from.toISOString(), now.toISOString()]),
+          liveCachePolicy(),
+          () =>
+            fetchJson<FuelInstRow[]>(
+              `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
+            )
         ),
       (rows) => fuelInstRowsToIngest(rows ?? [])
     ),
     settleSource(
       "neso",
       () =>
-        fetchJson<{ result?: { records?: NesoRecord[] } }>(
-          `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+        readThroughCache(
+          externalCacheKey("neso-embedded", [yesterday, today]),
+          liveCachePolicy(),
+          () =>
+            fetchJson<{ result?: { records?: NesoRecord[] } }>(
+              `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+            )
         ),
       (json) => nesoRecordsToIngest(json.result?.records ?? [], "embedded_wind", now)
     ),
     settleSource(
       "pvlive",
       () =>
-        fetchJson<PvLiveResponse>(
-          `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${pvFrom.toISOString()}&end=${now.toISOString()}`
+        readThroughCache(
+          externalCacheKey("pvlive", [pvFrom.toISOString(), now.toISOString()]),
+          liveCachePolicy(),
+          () =>
+            fetchJson<PvLiveResponse>(
+              `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${pvFrom.toISOString()}&end=${now.toISOString()}`
+            )
         ),
       (json) => pvLiveRowsToIngest(json.data ?? [], now)
     ),
@@ -216,24 +233,39 @@ export async function collectGenerationForSettlementDate(
     settleSource(
       "fuelinst",
       () =>
-        fetchJson<FuelInstRow[]>(
-          `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${publish.fromIso}&publishDateTimeTo=${publish.toIso}`
+        readThroughCache(
+          externalCacheKey("elexon-fuelinst", [publish.fromIso, publish.toIso]),
+          policyForExternalWindow(publish.toIso, now),
+          () =>
+            fetchJson<FuelInstRow[]>(
+              `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${publish.fromIso}&publishDateTimeTo=${publish.toIso}`
+            )
         ),
       (rows) => fuelInstRowsToIngest(rows ?? [])
     ),
     settleSource(
       "neso",
       () =>
-        fetchJson<{ result?: { records?: NesoRecord[] } }>(
-          `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+        readThroughCache(
+          externalCacheKey("neso-embedded", [settlementDate]),
+          policyForExternalWindow(to.toISOString(), now),
+          () =>
+            fetchJson<{ result?: { records?: NesoRecord[] } }>(
+              `https://api.neso.energy/api/3/action/datastore_search_sql?sql=${encodeURIComponent(nesoSql)}`
+            )
         ),
       (json) => nesoRecordsToIngest(json.result?.records ?? [], "embedded_wind", now)
     ),
     settleSource(
       "pvlive",
       () =>
-        fetchJson<PvLiveResponse>(
-          `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${from.toISOString()}&end=${to.toISOString()}`
+        readThroughCache(
+          externalCacheKey("pvlive", [from.toISOString(), to.toISOString()]),
+          policyForExternalWindow(to.toISOString(), now),
+          () =>
+            fetchJson<PvLiveResponse>(
+              `https://api.pvlive.uk/pvlive/api/v4/gsp/0?start=${from.toISOString()}&end=${to.toISOString()}`
+            )
         ),
       (json) => pvLiveRowsToIngest(json.data ?? [], now)
     ),

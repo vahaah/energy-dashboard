@@ -15,6 +15,8 @@ import {
   type NesoHistoricRow,
 } from "@/lib/historic-mix";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
+import { historicalCachePolicy } from "@/lib/tinybird-cache";
+import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
 
 export const NESO_HISTORIC_REVALIDATE_SECONDS = 86_400;
 export const NESO_HISTORIC_CACHE_TAG = "neso-historic";
@@ -83,13 +85,21 @@ const cachedRecordRows = unstable_cache(
 );
 
 export const getHistoricWeeklyRows = cache(async (): Promise<NesoHistoricRow[]> => {
-  return cachedWeeklyRows();
+  return readThroughCache(
+    externalCacheKey("neso-historic", ["weekly"]),
+    historicalCachePolicy(),
+    () => cachedWeeklyRows()
+  );
 });
 
 export const getGridRecords = cache(async (now = new Date()): Promise<GridRecords> => {
   try {
     await getHistoricWeeklyRows();
-    const rows = await cachedRecordRows();
+    const rows = await readThroughCache(
+      externalCacheKey("neso-historic", ["records"]),
+      historicalCachePolicy(),
+      () => cachedRecordRows()
+    );
     return computeRecords(rows, now);
   } catch {
     return emptyRecordsWithDocumentedCoal(now);

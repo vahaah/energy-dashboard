@@ -173,9 +173,9 @@ describe("commodity series stay on their own units", () => {
   });
 
   it("filters public commodity rows on the homepage and /api/prices", () => {
-    const page = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
+    const payload = readFileSync(resolve(process.cwd(), "src/lib/dashboard-payload.ts"), "utf8");
     const prices = readFileSync(resolve(process.cwd(), "src/app/api/prices/route.ts"), "utf8");
-    expect(page).toContain("filterPublicCommodityPrices");
+    expect(payload).toContain("filterPublicCommodityPrices");
     expect(prices).toContain("filterPublicCommodityPrices");
   });
 

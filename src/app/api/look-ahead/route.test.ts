@@ -45,7 +45,12 @@ describe("/api/look-ahead", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=1800, stale-while-revalidate=86400"
+    );
+    expect(response.headers.get("CDN-Cache-Control")).toBe(
+      "public, s-maxage=1800, stale-while-revalidate=86400"
+    );
     expect(body.greenestWindow.grams).toBe(43);
     expect(body.wind.sentence).toContain("fall to 8.4 GW");
     expect(body).not.toHaveProperty("carbonSeries");

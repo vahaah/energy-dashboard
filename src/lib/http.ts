@@ -1,7 +1,8 @@
-async function fetchOk(
-  url: string,
-  options?: RequestInit & { timeoutMs?: number }
-): Promise<Response> {
+type FetchOptions = RequestInit & {
+  timeoutMs?: number;
+};
+
+async function fetchOk(url: string, options?: FetchOptions): Promise<Response> {
   const { timeoutMs = 12_000, ...init } = options ?? {};
   const response = await fetch(url, {
     ...init,
@@ -15,26 +16,17 @@ async function fetchOk(
   return response;
 }
 
-export async function fetchJson<T>(
-  url: string,
-  options?: RequestInit & { timeoutMs?: number }
-): Promise<T> {
+export async function fetchJson<T>(url: string, options?: FetchOptions): Promise<T> {
   const response = await fetchOk(url, options);
   return (await response.json()) as T;
 }
 
-export async function fetchText(
-  url: string,
-  options?: RequestInit & { timeoutMs?: number }
-): Promise<string> {
+export async function fetchText(url: string, options?: FetchOptions): Promise<string> {
   const response = await fetchOk(url, options);
   return await response.text();
 }
 
-export async function fetchBytes(
-  url: string,
-  options?: RequestInit & { timeoutMs?: number }
-): Promise<Uint8Array> {
+export async function fetchBytes(url: string, options?: FetchOptions): Promise<Uint8Array> {
   const response = await fetchOk(url, options);
   return new Uint8Array(await response.arrayBuffer());
 }

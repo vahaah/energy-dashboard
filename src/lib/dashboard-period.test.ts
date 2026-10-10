@@ -13,7 +13,8 @@ describe("dashboard period", () => {
     expect(selectedPeriod("all", "7d")).toBe("all");
     expect(selectedPeriod(null, "7d")).toBe("week");
     expect(selectedPeriod(null, "1y")).toBe("year");
-    expect(selectedPeriod(null, "30d")).toBeNull();
+    expect(selectedPeriod(null, "30d")).toBe("week");
+    expect(selectedPeriod(null, "90d")).toBe("year");
   });
 
   it("sends Year and All time off Tinybird", () => {

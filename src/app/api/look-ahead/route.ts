@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cdnCacheHeaders } from "@/lib/api-route";
 import { forecastCacheControl, getLookAhead, publicLookAhead } from "@/lib/forecasts";
 
 /**
@@ -20,11 +21,11 @@ export async function GET() {
         wind: null,
         demandSeries: [],
       }),
-      { headers: { "Cache-Control": forecastCacheControl() } }
+      { headers: cdnCacheHeaders(forecastCacheControl()) }
     );
   }
 
   return NextResponse.json(publicLookAhead(view), {
-    headers: { "Cache-Control": forecastCacheControl() },
+    headers: cdnCacheHeaders(forecastCacheControl()),
   });
 }
