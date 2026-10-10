@@ -7,7 +7,7 @@ import {
 } from "@/lib/dashboard-payload";
 import {
   GRID_CACHE_HEADER,
-  getRedisFailureReason,
+  fallbackLogReason,
   type GridCacheStatus,
 } from "@/lib/redis-cache";
 import { payloadJsonBytes } from "@/lib/dashboard-payload-model";
@@ -51,10 +51,13 @@ function logDashboardCache(
   date: string | null,
   bytes: number
 ): void {
-  const reason = status === "fallback" ? getRedisFailureReason() : null;
+  if (status === "fallback") {
+    console.info(
+      `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes} reason=${fallbackLogReason()}`
+    );
+    return;
+  }
   console.info(
-    reason
-      ? `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes} reason=${reason}`
-      : `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes}`
+    `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes}`
   );
 }

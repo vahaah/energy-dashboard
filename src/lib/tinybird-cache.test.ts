@@ -39,7 +39,7 @@ describe("getTinybirdCachePolicy", () => {
     ).toBe("public, s-maxage=900, stale-while-revalidate=86400");
   });
 
-  it("treats latest_* pipes as live 5-minute data", () => {
+  it("treats latest_* pipes as live 30-minute data", () => {
     for (const pipeName of ["latest_snapshot", "latest_generation", "latest_prices"]) {
       expect(getTinybirdCachePolicy({ pipeName, now })).toMatchObject({
         tier: "live",
@@ -192,8 +192,9 @@ describe("tinybird cache helpers", () => {
       "public, s-maxage=86400, stale-while-revalidate=604800"
     );
     expect(tinybirdCacheControl(live)).toBe(
-      "public, s-maxage=300, stale-while-revalidate=3600"
+      "public, s-maxage=1800, stale-while-revalidate=86400"
     );
+    expect(TINYBIRD_CACHE_SECONDS.live).toBeGreaterThan(733);
   });
 
   it("omits leftover dates from cache keys when the range does not use them", () => {

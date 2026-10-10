@@ -7,6 +7,7 @@ import {
   bumpCacheEpoch,
   bumpHistoricalCacheEpoch,
   externalCacheKey,
+  fallbackLogReason,
   getRedis,
   getRedisFailureReason,
   isFreshEnvelope,
@@ -69,6 +70,12 @@ class MemoryRedis implements RedisCommands {
 describe("readThroughCache", () => {
   afterEach(() => {
     resetRedisClient();
+  });
+
+  it("always has a fallback log reason when Redis env is absent", async () => {
+    resetRedisClient();
+    expect(fallbackLogReason()).toMatch(/env-missing|unknown/);
+    expect(fallbackLogReason()).not.toMatch(/eyJ|Bearer |rediss?:\/\//);
   });
 
   it("falls back to the loader when Redis env is absent", async () => {

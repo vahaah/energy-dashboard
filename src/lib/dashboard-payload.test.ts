@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const queryPipe = vi.fn();
@@ -142,6 +144,12 @@ describe("dashboard payload", () => {
     });
     expect(granularities).toContain("hour");
     expect(granularities).toContain(undefined);
+  });
+
+  it("serves origin revalidation from Next's data cache so Tinybird is not hit every STALE", () => {
+    const source = readFileSync(resolve(import.meta.dirname, "./dashboard-payload.ts"), "utf8");
+    expect(source).toContain("unstable_cache");
+    expect(source).toContain("loadDashboardPayloadFromNextCache");
   });
 
   it("uses Tinybird for Day and skips grid pipes for Year", async () => {

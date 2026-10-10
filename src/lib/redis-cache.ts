@@ -55,6 +55,10 @@ export function getRedisFailureReason(): string | null {
   return lastRedisFailure;
 }
 
+export function fallbackLogReason(): string {
+  return lastRedisFailure ?? `unknown present=${formatKeyList(redisEnvKeyPresence().present)}`;
+}
+
 export function redisEnvPresent(): boolean {
   return resolveRedisRestConfig() != null;
 }
