@@ -87,6 +87,7 @@ export type DemandBalanceChartPoint = {
   time: string;
   demandGw: number | null;
   generationGw: number | null;
+  demandForecastGw: number | null;
   demandDailyGw: number | null;
   generationDailyGw: number | null;
   gapBaseGw: number | null;
@@ -336,6 +337,7 @@ export function buildDemandBalanceChartPoints(
         time: point.time,
         demandGw,
         generationGw,
+        demandForecastGw: null,
         demandDailyGw: null,
         generationDailyGw: null,
         gapBaseGw: null,
@@ -350,6 +352,7 @@ export function buildDemandBalanceChartPoints(
       time: point.time,
       demandGw,
       generationGw,
+      demandForecastGw: null,
       demandDailyGw: null,
       generationDailyGw: null,
       gapBaseGw,
@@ -386,6 +389,44 @@ export function prepareDemandBalanceChartData(
   return usesLongRangeSmoothing(range)
     ? applyRollingAverage(fillDailyCalendarSlots(trimmed), ROLLING_AVERAGE_DAYS)
     : trimmed;
+}
+
+export function appendDemandForecastPoints(
+  points: DemandBalanceChartPoint[],
+  forecast: Array<{ time: string; value: number }>
+): DemandBalanceChartPoint[] {
+  if (forecast.length === 0) {
+    return points;
+  }
+
+  const byTime = new Map(points.map((point) => [point.time, { ...point }]));
+  for (const row of forecast) {
+    const existing = byTime.get(row.time);
+    const demandForecastGw = row.value / 1000;
+    if (existing) {
+      existing.demandForecastGw = demandForecastGw;
+      continue;
+    }
+    byTime.set(row.time, {
+      time: row.time,
+      demandGw: null,
+      generationGw: null,
+      demandForecastGw,
+      demandDailyGw: null,
+      generationDailyGw: null,
+      gapBaseGw: null,
+      importGw: null,
+      exportGw: null,
+      embeddedMissing: [],
+    });
+  }
+
+  return clipTrailingEmptyChartPoints(
+    [...byTime.values()].sort(
+      (left, right) =>
+        parseUtcDateTime(left.time).getTime() - parseUtcDateTime(right.time).getTime()
+    )
+  );
 }
 
 export function dropLeadingIncompleteChartPoints(
@@ -425,6 +466,7 @@ export function fillDailyCalendarSlots(
       time: formatTinybirdDateTime(new Date(day)),
       demandGw: null,
       generationGw: null,
+      demandForecastGw: null,
       demandDailyGw: null,
       generationDailyGw: null,
       gapBaseGw: null,
@@ -467,7 +509,12 @@ export function clipTrailingEmptyChartPoints(
   let lastData = -1;
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index];
-    if (point && (point.demandGw != null || point.generationGw != null)) {
+    if (
+      point &&
+      (point.demandGw != null ||
+        point.generationGw != null ||
+        point.demandForecastGw != null)
+    ) {
       lastData = index;
     }
   }
@@ -502,6 +549,7 @@ export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[]
       maxGw,
       point.demandGw ?? 0,
       point.generationGw ?? 0,
+      point.demandForecastGw ?? 0,
       point.demandDailyGw ?? 0,
       point.generationDailyGw ?? 0
     );
@@ -584,7 +632,11 @@ export function demandBalanceXTicks(
   }
 }
 
-export function formatDemandBalanceTick(timestamp: string, range: TimeRange): string {
+export function formatDemandBalanceTick(
+  timestamp: string,
+  range: TimeRange,
+  options: { includeDate?: boolean } = {}
+): string {
   const date = parseUtcDateTime(timestamp);
   const parts = getLondonDateTimeParts(date);
   const month = LONDON_MONTHS[parts.month - 1];
@@ -593,6 +645,9 @@ export function formatDemandBalanceTick(timestamp: string, range: TimeRange): st
 
   switch (range) {
     case "24h":
+      if (options.includeDate) {
+        return `${parts.day} ${month} ${hour}:${minute}`;
+      }
       return `${hour}:${minute}`;
     case "7d":
       return LONDON_WEEKDAYS[new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay()];
@@ -653,7 +708,7 @@ export function demandBalanceGapLabel(point: DemandBalanceChartPoint): string | 
 
 export function lastDefinedIndex(
   points: DemandBalanceChartPoint[],
-  key: "demandGw" | "generationGw"
+  key: "demandGw" | "generationGw" | "demandForecastGw"
 ): number {
   for (let index = points.length - 1; index >= 0; index -= 1) {
     if (points[index]?.[key] != null) {

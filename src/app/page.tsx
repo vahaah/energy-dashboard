@@ -23,6 +23,8 @@ import {
 } from "@/lib/dashboard-data";
 import { getLatestFacts } from "@/lib/facts";
 import { buildHistoricFacts } from "@/lib/historic-facts";
+import type { LookAheadView } from "@/lib/forecast-model";
+import { getLookAhead } from "@/lib/forecasts";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import {
   emptyRecordsWithDocumentedCoal,
@@ -52,6 +54,7 @@ export default async function Home({
   let historicView: HistoricPeriodView | null = null;
   let transitionView: HistoricPeriodView | null = null;
   let records: GridRecords | null = null;
+  let lookAhead: LookAheadView | null = null;
   const dashboardSearchParams = await loadDashboardSearchParams(searchParams);
   const now = new Date();
   const period = selectedPeriod(dashboardSearchParams.period, dashboardSearchParams.range);
@@ -72,7 +75,7 @@ export default async function Home({
 
   try {
     const historicPeriod = period === "year" || period === "all" ? period : null;
-    const [tinybird, allHistoric, periodHistoric, gridRecords] = await Promise.all([
+    const [tinybird, allHistoric, periodHistoric, gridRecords, forecastView] = await Promise.all([
       Promise.all([
         skipGrid
           ? Promise.resolve(noSnapshots)
@@ -121,6 +124,7 @@ export default async function Home({
         ? getHistoricPeriodView("year", now).catch(() => null)
         : Promise.resolve(null),
       getGridRecords(now).catch(() => emptyRecordsWithDocumentedCoal(now)),
+      getLookAhead().catch(() => null),
     ]);
 
     [snapshots, headlineSnapshots, prices, generationHistory, headlineGeneration] = tinybird;
@@ -128,6 +132,7 @@ export default async function Home({
     historicView =
       historicPeriod === "year" ? periodHistoric : historicPeriod === "all" ? allHistoric : null;
     records = gridRecords;
+    lookAhead = forecastView;
   } catch {
     console.log(
       "Dashboard query failed (Tinybird or NESO). Rendering empty dashboard."
@@ -166,6 +171,7 @@ export default async function Home({
       transitionView={transitionView}
       period={period}
       chartRange={chartRange}
+      lookAhead={lookAhead}
     />
   );
 }

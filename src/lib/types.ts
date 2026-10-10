@@ -183,3 +183,72 @@ export type DashboardFocus =
   | "transfers"
   | "commodities"
   | "records";
+
+// ─── Look-ahead / forecast types ────────────────────────────
+
+export const WIND_FORECAST_BASIS =
+  "Transmission-connected wind only. Embedded wind is not in this forecast.";
+
+export type ForecastPoint = {
+  time: string;
+  value: number;
+};
+
+export type GreenestWindow = {
+  startUtc: string;
+  endUtc: string;
+  grams: number;
+  sentence: string;
+};
+
+export type WindLookAhead = {
+  tonightGw: number | null;
+  tomorrowEveningGw: number | null;
+  sparkline: number[];
+  sentence: string;
+  basis: typeof WIND_FORECAST_BASIS;
+};
+
+export type LookAheadView = {
+  fetchedAt: string;
+  greenest: GreenestWindow | null;
+  carbonSeries: ForecastPoint[];
+  wind: WindLookAhead | null;
+  demandSeries: ForecastPoint[];
+};
+
+export type PublicLookAhead = {
+  fetchedAt: string;
+  greenestWindow: GreenestWindow | null;
+  wind: {
+    tonightGw: number | null;
+    tomorrowEveningGw: number | null;
+    sentence: string;
+    basis: typeof WIND_FORECAST_BASIS;
+  } | null;
+  attribution: {
+    carbon: string;
+    carbonNote: string;
+    elexon: { text: string; licence: string };
+  };
+};
+
+export type WindForecastRow = {
+  startTime: string;
+  generation: number | null;
+};
+
+export type DemandForecastRow = {
+  startTime: string;
+  nationalDemand: number | null;
+  boundary: string | null;
+};
+
+export type CarbonForecastRow = CarbonIntensityResponse["data"][number];
+
+export type CachedForecastRows = {
+  fetchedAt: string;
+  carbonRows: CarbonForecastRow[] | null;
+  windRows: WindForecastRow[] | null;
+  demandRows: DemandForecastRow[] | null;
+};
