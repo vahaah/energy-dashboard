@@ -3,15 +3,9 @@
 import Link from "next/link";
 import { CalendarDays, Check, Copy } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PERIOD_OPTIONS } from "@/lib/dashboard-blocks";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
-
-const PERIODS = [
-  { value: "day", label: "Day" },
-  { value: "week", label: "Week" },
-  { value: "year", label: "Year" },
-  { value: "all", label: "All time" },
-] as const;
 
 export function SiteHeader({
   period,
@@ -130,7 +124,7 @@ function PeriodTabs({
 }) {
   return (
     <div className={`flex items-center gap-4 ${pending ? "opacity-70" : ""}`} role="tablist" aria-label="Time period">
-      {PERIODS.map((item) => {
+      {PERIOD_OPTIONS.map((item) => {
         const selected = item.value === period;
         return (
           <button

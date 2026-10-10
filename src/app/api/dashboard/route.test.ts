@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const loadDashboardPayload = vi.fn();
+const loadDashboardPayloadResult = vi.fn();
 
 vi.mock("@/lib/dashboard-payload", async () => {
   const actual = await vi.importActual<typeof import("@/lib/dashboard-payload")>(
@@ -9,7 +9,7 @@ vi.mock("@/lib/dashboard-payload", async () => {
   );
   return {
     ...actual,
-    loadDashboardPayload: (...args: unknown[]) => loadDashboardPayload(...args),
+    loadDashboardPayloadResult: (...args: unknown[]) => loadDashboardPayloadResult(...args),
   };
 });
 
@@ -17,11 +17,14 @@ import { GET } from "./route";
 
 describe("/api/dashboard", () => {
   beforeEach(() => {
-    loadDashboardPayload.mockReset();
-    loadDashboardPayload.mockResolvedValue({
-      period: "day",
-      snapshots: [],
-      prices: [],
+    loadDashboardPayloadResult.mockReset();
+    loadDashboardPayloadResult.mockResolvedValue({
+      data: {
+        period: "day",
+        snapshots: [],
+        prices: [],
+      },
+      status: "miss",
     });
   });
 
@@ -30,14 +33,19 @@ describe("/api/dashboard", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("s-maxage=300");
     expect(response.headers.get("Cache-Control")).toContain("stale-while-revalidate");
-    expect(loadDashboardPayload).toHaveBeenCalledWith(
-      expect.objectContaining({ period: "day", commodityRange: "90d" })
+    expect(response.headers.get("Vary")).toBe("Accept-Encoding");
+    expect(response.headers.get("x-grid-cache")).toBe("miss");
+    expect(loadDashboardPayloadResult).toHaveBeenCalledWith(
+      expect.objectContaining({ period: "day" })
+    );
+    expect(loadDashboardPayloadResult).toHaveBeenCalledWith(
+      expect.not.objectContaining({ commodityRange: expect.anything() })
     );
   });
 
   it("rejects an unknown period", async () => {
     const response = await GET(new NextRequest("http://localhost/api/dashboard?period=decade"));
     expect(response.status).toBe(400);
-    expect(loadDashboardPayload).not.toHaveBeenCalled();
+    expect(loadDashboardPayloadResult).not.toHaveBeenCalled();
   });
 });

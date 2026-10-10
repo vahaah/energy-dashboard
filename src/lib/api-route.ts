@@ -23,10 +23,20 @@ export function cdnCacheHeaders(cacheControl: string): Record<string, string> {
   };
 }
 
-export function cachedJson(data: unknown, policy: TinybirdCachePolicy) {
-  return NextResponse.json(data, {
-    headers: cdnCacheHeaders(tinybirdCacheControl(policy)),
+export function cachedJson(
+  data: unknown,
+  policy: TinybirdCachePolicy,
+  extraHeaders?: Record<string, string>
+) {
+  const response = NextResponse.json(data, {
+    headers: {
+      ...cdnCacheHeaders(tinybirdCacheControl(policy)),
+      Vary: "Accept-Encoding",
+      ...extraHeaders,
+    },
   });
+  response.headers.delete("Set-Cookie");
+  return response;
 }
 
 export function upstreamError(error: unknown) {

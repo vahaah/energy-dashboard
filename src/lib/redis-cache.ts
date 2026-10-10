@@ -8,6 +8,15 @@ import {
 export const CACHE_EPOCH_KEY = "grid:cache-epoch";
 export const CACHE_HIST_EPOCH_KEY = "grid:cache-hist-epoch";
 export const REDIS_LOCK_SECONDS = 30;
+export const GRID_CACHE_HEADER = "x-grid-cache";
+export const GRID_CACHE_STATUSES = ["redis-hit", "redis-stale", "miss", "fallback"] as const;
+
+export type GridCacheStatus = (typeof GRID_CACHE_STATUSES)[number];
+
+export type CacheRead<T> = {
+  data: T;
+  status: GridCacheStatus;
+};
 
 export type CacheEnvelope<T> = {
   data: T;
@@ -167,9 +176,17 @@ export async function readThroughCache<T>(
   policy: TinybirdCachePolicy,
   load: () => Promise<T>
 ): Promise<T> {
+  return (await readThroughCacheResult(logicalKey, policy, load)).data;
+}
+
+export async function readThroughCacheResult<T>(
+  logicalKey: string,
+  policy: TinybirdCachePolicy,
+  load: () => Promise<T>
+): Promise<CacheRead<T>> {
   const redis = getRedis();
   if (!redis) {
-    return load();
+    return { data: await load(), status: "fallback" };
   }
 
   let key: string;
@@ -177,17 +194,17 @@ export async function readThroughCache<T>(
     key = await redisKeyFor(logicalKey, policy.tier);
     const hit = await redis.get<CacheEnvelope<T>>(key);
     if (hit && isFreshEnvelope(hit, policy)) {
-      return hit.data;
+      return { data: hit.data, status: "redis-hit" };
     }
     if (hit && isStaleUsableEnvelope(hit, policy)) {
       scheduleRefresh(key, policy, load);
-      return hit.data;
+      return { data: hit.data, status: "redis-stale" };
     }
   } catch {
-    return load();
+    return { data: await load(), status: "fallback" };
   }
 
-  return refreshAndStore(redis, key, policy, load);
+  return { data: await refreshAndStore(redis, key, policy, load), status: "miss" };
 }
 
 async function refreshAndStore<T>(

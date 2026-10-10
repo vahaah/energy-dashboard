@@ -192,7 +192,8 @@ function populatedFacts({
       {
         unit: "MW",
         source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
-        definition: "GB generation including estimated embedded wind and solar",
+        definition:
+          "GB generation including estimated embedded wind and solar, net of pumped storage and batteries",
       },
       generationTimestamp
     ),
@@ -266,7 +267,8 @@ function blankFacts(resolution: DashboardDateResolution, empty: boolean): Latest
       periodStartUtc: null,
       periodEndUtc: null,
       source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
-      definition: "GB generation including estimated embedded wind and solar",
+      definition:
+        "GB generation including estimated embedded wind and solar, net of pumped storage and batteries",
     },
     netImportsMw: {
       value: null,

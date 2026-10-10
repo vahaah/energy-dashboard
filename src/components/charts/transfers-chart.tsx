@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { format } from "date-fns";
+import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import type { Generation5min } from "@/lib/types";
 
 interface Props {
@@ -46,7 +47,7 @@ export function TransfersChart({ data }: Props) {
   }
 
   return (
-    <div className="h-72">
+    <ResponsiveChartFrame className="h-72">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
@@ -102,6 +103,6 @@ export function TransfersChart({ data }: Props) {
           />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </ResponsiveChartFrame>
   );
 }

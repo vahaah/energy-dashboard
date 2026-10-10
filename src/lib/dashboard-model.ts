@@ -246,12 +246,6 @@ export function domesticGenerationMw(rows: Iterable<Generation5min>): number {
     if (isInterconnectorFuel(row.fuel_type)) {
       continue;
     }
-    if (isPumpedStorageFuel(row.fuel_type) && row.generation_mw < 0) {
-      continue;
-    }
-    if (isBatteryFuel(row.fuel_type) && row.generation_mw <= 0) {
-      continue;
-    }
     total += row.generation_mw;
   }
 
@@ -804,9 +798,6 @@ function domesticGenerationFromFuelMap(fuels: Map<string, number>): number | nul
 
   for (const [fuel, mw] of fuels) {
     if (isInterconnectorFuel(fuel)) {
-      continue;
-    }
-    if (isPumpedStorageFuel(fuel) && mw < 0) {
       continue;
     }
     if (!isEmbeddedFuel(fuel)) {

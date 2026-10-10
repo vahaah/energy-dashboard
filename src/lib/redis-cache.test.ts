@@ -10,6 +10,7 @@ import {
   isFreshEnvelope,
   isStaleUsableEnvelope,
   readThroughCache,
+  readThroughCacheResult,
   redisKeyFor,
   resetRedisClient,
   setRedisForTests,
@@ -69,7 +70,11 @@ describe("readThroughCache", () => {
   it("falls back to the loader when Redis env is absent", async () => {
     const load = vi.fn(async () => ["live"]);
     await expect(readThroughCache("tb:test", liveCachePolicy(), load)).resolves.toEqual(["live"]);
-    expect(load).toHaveBeenCalledOnce();
+    await expect(readThroughCacheResult("tb:test", liveCachePolicy(), load)).resolves.toEqual({
+      data: ["live"],
+      status: "fallback",
+    });
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("returns a fresh hit without calling the loader", async () => {
@@ -85,7 +90,10 @@ describe("readThroughCache", () => {
     await redis.set(key, envelope, { ex: 3_900 });
 
     const load = vi.fn(async () => ["fresh"]);
-    await expect(readThroughCache("tb:snapshots", policy, load)).resolves.toEqual(["cached"]);
+    await expect(readThroughCacheResult("tb:snapshots", policy, load)).resolves.toEqual({
+      data: ["cached"],
+      status: "redis-hit",
+    });
     expect(load).not.toHaveBeenCalled();
   });
 
@@ -102,7 +110,10 @@ describe("readThroughCache", () => {
     await redis.set(key, envelope, { ex: 3_900 });
 
     const load = vi.fn(async () => ["refreshed"]);
-    await expect(readThroughCache("tb:stale", policy, load)).resolves.toEqual(["stale"]);
+    await expect(readThroughCacheResult("tb:stale", policy, load)).resolves.toEqual({
+      data: ["stale"],
+      status: "redis-stale",
+    });
     await Promise.resolve();
     await Promise.resolve();
     expect(load).toHaveBeenCalledOnce();
@@ -124,6 +135,9 @@ describe("readThroughCache", () => {
     release(["shared"]);
     await expect(Promise.all([first, second])).resolves.toEqual([["shared"], ["shared"]]);
     expect(load).toHaveBeenCalledOnce();
+    await expect(readThroughCacheResult("tb:miss", liveCachePolicy(), async () => ["again"])).resolves.toMatchObject({
+      status: "redis-hit",
+    });
   });
 
   it("falls back to the loader when Redis get throws", async () => {
@@ -136,9 +150,10 @@ describe("readThroughCache", () => {
       incr: async () => 1,
     });
     const load = vi.fn(async () => ["fallback"]);
-    await expect(readThroughCache("tb:err", liveCachePolicy(), load)).resolves.toEqual([
-      "fallback",
-    ]);
+    await expect(readThroughCacheResult("tb:err", liveCachePolicy(), load)).resolves.toEqual({
+      data: ["fallback"],
+      status: "fallback",
+    });
   });
 
   it("bumps the live epoch so later keys miss", async () => {

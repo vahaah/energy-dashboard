@@ -172,10 +172,11 @@ describe("commodity series stay on their own units", () => {
     expect(cron).toContain("worldBankCronWindow");
   });
 
-  it("filters public commodity rows on the homepage and /api/prices", () => {
+  it("filters public commodity rows on /api/prices, not the dashboard payload", () => {
     const payload = readFileSync(resolve(process.cwd(), "src/lib/dashboard-payload.ts"), "utf8");
     const prices = readFileSync(resolve(process.cwd(), "src/app/api/prices/route.ts"), "utf8");
-    expect(payload).toContain("filterPublicCommodityPrices");
+    expect(payload).not.toContain("filterPublicCommodityPrices");
+    expect(payload).not.toContain("prices_range");
     expect(prices).toContain("filterPublicCommodityPrices");
   });
 

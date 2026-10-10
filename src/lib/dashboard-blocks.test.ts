@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
-  adjacentPeriods,
   blockPeriodParam,
   dashboardQueryKey,
   effectiveBlockPeriod,
+  PERIOD_OPTIONS,
 } from "@/lib/dashboard-blocks";
 
 describe("dashboard blocks", () => {
@@ -17,12 +19,20 @@ describe("dashboard blocks", () => {
     expect(effectiveBlockPeriod("day", "week")).toBe("week");
   });
 
-  it("prefetches neighbouring periods only", () => {
-    expect(adjacentPeriods("day")).toEqual(["week"]);
-    expect(adjacentPeriods("week")).toEqual(["day", "year"]);
-    expect(adjacentPeriods("year")).toEqual(["week", "all"]);
-    expect(adjacentPeriods("all")).toEqual(["year"]);
+  it("does not auto-prefetch Year when Week is selected", () => {
+    const dashboard = readFileSync(
+      resolve(import.meta.dirname, "../components/dashboard.tsx"),
+      "utf8"
+    );
+    expect(dashboard).not.toContain("adjacentPeriods");
     expect(dashboardQueryKey("week", null)).toBe("dashboard:week:");
     expect(dashboardQueryKey("day", "2026-05-19")).toBe("dashboard:day:2026-05-19");
+  });
+
+  it("uses the same Day/Week/Year/All options in the header and blocks", () => {
+    expect(PERIOD_OPTIONS.map((option) => option.value)).toEqual(["day", "week", "year", "all"]);
+    const header = readFileSync(resolve(import.meta.dirname, "../components/site-header.tsx"), "utf8");
+    expect(header).toContain("PERIOD_OPTIONS");
+    expect(header).not.toContain('label: "All time"');
   });
 });

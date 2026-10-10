@@ -28,6 +28,10 @@ describe("dashboard header controls", () => {
     expect(source).toContain("carbon.error && !carbonData");
     expect(source).toContain("fetchDashboardPayload(period, date)");
     expect(source).not.toContain("dashboardQueryKey(period, date, commodityRange)");
+    const client = readFileSync(resolve(import.meta.dirname, "../lib/dashboard-client.ts"), "utf8");
+    expect(client).toContain('credentials: "omit"');
+    expect(client).toContain("new URLSearchParams({ period })");
+    expect(client).not.toContain("commodityRange");
   });
 });
 
