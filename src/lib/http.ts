@@ -1,3 +1,5 @@
+import type { SnapshotIntegrityReport } from "@/lib/snapshot-integrity";
+
 type FetchOptions = RequestInit & {
   timeoutMs?: number;
 };
@@ -41,6 +43,7 @@ export type SourceStatus = {
 export type CollectionResult = {
   rows: Record<string, unknown>[];
   sources: SourceStatus[];
+  integrity?: SnapshotIntegrityReport;
 };
 
 export function sourceStatusesHaveFailure(statuses: SourceStatus[]): boolean {

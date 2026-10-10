@@ -6,6 +6,13 @@ import { sourceStatusesHaveFailure, type SourceStatus } from "@/lib/http";
 import { collectGenerationForSettlementDate } from "@/lib/ingest/collect-generation";
 import { collectSnapshotsForSettlementDate } from "@/lib/ingest/collect-grid";
 import { formatTinybirdDateTime, yesterdayLondonDate } from "@/lib/london-time";
+import {
+  integrityReportForWrittenRows,
+  integritySourceStatus,
+  recordSnapshotIntegrity,
+  shouldRecordSnapshotIntegrity,
+  type StoredSnapshotIntegrity,
+} from "@/lib/snapshot-integrity";
 import { ingestRows } from "@/lib/tinybird";
 
 /**
@@ -35,11 +42,20 @@ export async function GET(request: Request) {
   ]);
 
   const sources: SourceStatus[] = [...snapshots.sources, ...generation.sources];
+  const integrity =
+    snapshots.integrity ?? {
+      checkedAt: formatTinybirdDateTime(now),
+      settlementDate,
+      checkedTimestamps: [],
+      failing: [],
+    };
 
+  let snapshotIngestFailed = false;
   if (snapshots.rows.length > 0) {
     try {
       await ingestRows("energy_snapshots", snapshots.rows);
     } catch (error) {
+      snapshotIngestFailed = true;
       const message = error instanceof Error ? error.message : String(error);
       console.error("[cron-yesterday] snapshot ingest failed", message);
       sources.push({ source: "snapshots", ok: false, error: message });
@@ -55,6 +71,14 @@ export async function GET(request: Request) {
       sources.push({ source: "generation", ok: false, error: message });
     }
   }
+
+  let storedIntegrity: StoredSnapshotIntegrity | null = null;
+  if (shouldRecordSnapshotIntegrity(integrity, snapshots.rows, snapshotIngestFailed)) {
+    storedIntegrity = await recordSnapshotIntegrity(
+      integrityReportForWrittenRows(integrity, snapshots.rows)
+    );
+  }
+  sources.push(integritySourceStatus(integrity));
 
   const ingested = sources.some((source) => source.ok && (source.rows ?? 0) > 0);
   if (ingested) {
@@ -80,6 +104,7 @@ export async function GET(request: Request) {
       timestamp,
       settlementDate,
       sources,
+      integrity: storedIntegrity,
     },
     { status: failed ? 503 : 200 }
   );

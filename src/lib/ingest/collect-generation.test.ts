@@ -3,6 +3,7 @@ import {
   collectGenerationForSettlementDate,
   collectRecentGeneration,
   FUELINST_RECENT_LOOKBACK_MS,
+  fuelInstRowsToIngest,
   mergeSettledGeneration,
   pvLiveRowsToIngest,
 } from "@/lib/ingest/collect-generation";
@@ -35,6 +36,29 @@ describe("generation source isolation", () => {
     expect(result.rows.some((row) => row.source === "neso" || row.fuel_type === "embedded_wind")).toBe(
       false
     );
+  });
+
+  it("keeps one FUELINST row per timestamp and fuel", () => {
+    const rows = fuelInstRowsToIngest([
+      { startTime: "2025-11-18T12:30:00Z", fuelType: "CCGT", generation: 10_000 },
+      { startTime: "2025-11-18T12:30:00Z", fuelType: "CCGT", generation: 10_000 },
+      { startTime: "2025-11-18T12:30:00Z", fuelType: "WIND", generation: 12_000 },
+    ]);
+
+    expect(rows).toEqual([
+      {
+        timestamp: "2025-11-18 12:30:00",
+        fuel_type: "ccgt",
+        generation_mw: 10_000,
+        source: "fuelinst",
+      },
+      {
+        timestamp: "2025-11-18 12:30:00",
+        fuel_type: "wind",
+        generation_mw: 12_000,
+        source: "fuelinst",
+      },
+    ]);
   });
 
   it("drops PV Live readings after now", () => {

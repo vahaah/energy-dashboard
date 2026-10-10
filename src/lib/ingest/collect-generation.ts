@@ -31,7 +31,12 @@ type PvLiveResponse = {
 export function fuelInstRowsToIngest(
   rows: FuelInstRow[]
 ): Record<string, unknown>[] {
-  return rows.map((row) => ({
+  const latest = new Map<string, FuelInstRow>();
+  for (const row of rows) {
+    latest.set(`${row.startTime}\0${row.fuelType}`, row);
+  }
+
+  return Array.from(latest.values()).map((row) => ({
     timestamp: formatTinybirdDateTime(parseUtcDateTime(row.startTime)),
     fuel_type: row.fuelType.toLowerCase(),
     generation_mw: row.generation,

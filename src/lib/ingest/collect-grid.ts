@@ -9,6 +9,12 @@ import { externalCacheKey, readThroughCache } from "@/lib/redis-cache";
 import { policyForExternalWindow, policyForSettlementPrices } from "@/lib/tinybird-cache";
 import { mapElexonFuel, SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
 import { buildSnapshotRow, type CarbonPoint } from "@/lib/ingest/snapshots";
+import {
+  GB_GENERATION_MAX_MW,
+  inspectSnapshotRows,
+  snapshotRowFailsIntegrity,
+  type SnapshotIntegrityReport,
+} from "@/lib/snapshot-integrity";
 import { formatTinybirdDateTime, parseUtcDateTime } from "@/lib/london-time";
 import {
   getSettlementPeriod,
@@ -205,19 +211,16 @@ export function carbonPointFromRow(row: IntensityRow | undefined): CarbonPoint |
   };
 }
 
-/** Installed-capacity headroom above published GB records (wind ~23.9 GW, solar ~15.4 GW). */
-export const GB_GENERATION_MAX_MW: Record<string, number> = {
-  wind: 28_000,
-  solar: 18_000,
-  gas: 40_000,
-  coal: 6_000,
-  nuclear: 12_000,
-  hydro: 6_000,
-  biomass: 6_000,
-  other: 10_000,
-  oil: 4_000,
-  pumped: 4_000,
-  battery: 5_000,
+export { GB_GENERATION_MAX_MW };
+
+/** Drop combined PSR types when Elexon also published the split series. */
+const AGGREGATE_PSR_WHEN_SPLITS: Record<string, readonly string[]> = {
+  Wind: ["Wind Onshore", "Wind Offshore"],
+  Hydro: [
+    "Hydro Run-of-river and poundage",
+    "Hydro Water Reservoir",
+    "Hydro Pumped Storage",
+  ],
 };
 
 export function generationPeriodKey(row: ElexonGeneration): string {
@@ -246,6 +249,70 @@ export function generationMwWithinPlausibleMaxima(fuels: Record<string, number>)
   return true;
 }
 
+export function splitsCoverAggregate(
+  aggregateQuantity: number,
+  splitQuantities: number[],
+  expectedSplitCount: number
+): boolean {
+  if (splitQuantities.length === 0) {
+    return false;
+  }
+  if (expectedSplitCount > 0 && splitQuantities.length >= expectedSplitCount) {
+    return true;
+  }
+  return splitQuantities.reduce((sum, quantity) => sum + quantity, 0) >= aggregateQuantity;
+}
+
+export function dropAggregatePsrDuplicates(
+  latestByPeriodAndPsr: Map<string, ElexonGeneration>
+): Map<string, ElexonGeneration> {
+  const rowsByPeriod = new Map<string, Array<{ key: string; row: ElexonGeneration }>>();
+  for (const [key, row] of latestByPeriodAndPsr) {
+    const timestamp = generationPeriodKey(row);
+    const list = rowsByPeriod.get(timestamp) ?? [];
+    list.push({ key, row });
+    rowsByPeriod.set(timestamp, list);
+  }
+
+  const dropKeys = new Set<string>();
+  for (const entries of rowsByPeriod.values()) {
+    for (const { key, row } of entries) {
+      const splits = AGGREGATE_PSR_WHEN_SPLITS[row.psrType];
+      if (!splits) {
+        continue;
+      }
+      const splitEntries = entries.filter((entry) => splits.includes(entry.row.psrType));
+      if (
+        splitsCoverAggregate(
+          row.quantity,
+          splitEntries.map((entry) => entry.row.quantity),
+          splits.length
+        )
+      ) {
+        dropKeys.add(key);
+        continue;
+      }
+      if (splitEntries.length === 0) {
+        continue;
+      }
+      const aggregateFuel = mapElexonFuel(row.psrType);
+      for (const split of splitEntries) {
+        if (mapElexonFuel(split.row.psrType) === aggregateFuel) {
+          dropKeys.add(split.key);
+        }
+      }
+    }
+  }
+
+  const kept = new Map<string, ElexonGeneration>();
+  for (const [key, row] of latestByPeriodAndPsr) {
+    if (!dropKeys.has(key)) {
+      kept.set(key, row);
+    }
+  }
+  return kept;
+}
+
 export function groupGenerationMwByPeriod(rows: ElexonGeneration[]): {
   byTime: Map<string, Record<string, number>>;
   rejectedTimes: Set<string>;
@@ -262,7 +329,7 @@ export function groupGenerationMwByPeriod(rows: ElexonGeneration[]): {
   }
 
   const byTime = new Map<string, Record<string, number>>();
-  for (const row of latestByPeriodAndPsr.values()) {
+  for (const row of dropAggregatePsrDuplicates(latestByPeriodAndPsr).values()) {
     const timestamp = generationPeriodKey(row);
     const current = byTime.get(timestamp) ?? {};
     const fuel = mapElexonFuel(row.psrType);
@@ -337,6 +404,55 @@ export function midByPeriod(rows: ElexonMarketIndex[]): {
   return { priceByTime, volumeByTime };
 }
 
+function snapshotRowForPeriod(
+  period: SettlementPeriod,
+  sources: {
+    intensityByTime: Map<string, IntensityRow>;
+    mixByTime: Map<string, Record<string, number>>;
+    priceByTime: Map<string, number>;
+    midPriceByTime: Map<string, number>;
+    midVolumeByTime: Map<string, number>;
+    demandByTime: Map<string, number>;
+    genMwByTime: Map<string, Record<string, number>>;
+  }
+): Record<string, unknown> {
+  const key = hourKey(period.startUtc);
+  return buildSnapshotRow({
+    timestamp: period.startUtc,
+    carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
+    mix: sources.mixByTime.get(key) ?? null,
+    demandMw: sources.demandByTime.get(key) ?? null,
+    priceGbpMwh: sources.priceByTime.get(key) ?? null,
+    priceMidGbpMwh: sources.midPriceByTime.get(key) ?? null,
+    midVolumeMwh: sources.midVolumeByTime.get(key) ?? null,
+    genMw: sources.genMwByTime.get(key) ?? null,
+  });
+}
+
+export function inspectSnapshotsForPeriods(
+  periods: SettlementPeriod[],
+  sources: {
+    intensityByTime: Map<string, IntensityRow>;
+    mixByTime: Map<string, Record<string, number>>;
+    priceByTime: Map<string, number>;
+    midPriceByTime: Map<string, number>;
+    midVolumeByTime: Map<string, number>;
+    demandByTime: Map<string, number>;
+    genMwByTime: Map<string, Record<string, number>>;
+    rejectedGenTimes?: Set<string>;
+  },
+  options?: { settlementDate?: string; now?: Date }
+): SnapshotIntegrityReport {
+  return inspectSnapshotRows(
+    periods.map((period) => snapshotRowForPeriod(period, sources)),
+    {
+      settlementDate: options?.settlementDate,
+      now: options?.now,
+      rejectedGenTimes: sources.rejectedGenTimes,
+    }
+  );
+}
+
 export function buildSnapshotRowsForPeriods(
   periods: SettlementPeriod[],
   sources: {
@@ -355,18 +471,11 @@ export function buildSnapshotRowsForPeriods(
     if (sources.rejectedGenTimes?.has(key)) {
       return [];
     }
-    return [
-      buildSnapshotRow({
-        timestamp: period.startUtc,
-        carbon: carbonPointFromRow(sources.intensityByTime.get(key)),
-        mix: sources.mixByTime.get(key) ?? null,
-        demandMw: sources.demandByTime.get(key) ?? null,
-        priceGbpMwh: sources.priceByTime.get(key) ?? null,
-        priceMidGbpMwh: sources.midPriceByTime.get(key) ?? null,
-        midVolumeMwh: sources.midVolumeByTime.get(key) ?? null,
-        genMw: sources.genMwByTime.get(key) ?? null,
-      }),
-    ];
+    const row = snapshotRowForPeriod(period, sources);
+    if (snapshotRowFailsIntegrity(row, sources.rejectedGenTimes)) {
+      return [];
+    }
+    return [row];
   });
 }
 
@@ -448,22 +557,26 @@ export function snapshotCollectionFromSources(
     genMwByTime: Map<string, Record<string, number>>;
     rejectedGenTimes?: Set<string>;
   },
-  statuses: SourceStatus[]
+  statuses: SourceStatus[],
+  options?: { settlementDate?: string; now?: Date }
 ): CollectionResult {
-  return collectionIfSourcesOk(
-    buildSnapshotRowsForPeriods(periods, {
-      ...sources,
-      midPriceByTime: sources.midPriceByTime ?? new Map(),
-      midVolumeByTime: sources.midVolumeByTime ?? new Map(),
-    }),
-    statuses
-  );
+  const normalized = {
+    ...sources,
+    midPriceByTime: sources.midPriceByTime ?? new Map(),
+    midVolumeByTime: sources.midVolumeByTime ?? new Map(),
+  };
+  const integrity = inspectSnapshotsForPeriods(periods, normalized, options);
+  return {
+    ...collectionIfSourcesOk(buildSnapshotRowsForPeriods(periods, normalized), statuses),
+    integrity,
+  };
 }
 
 async function collectSnapshotsForPeriods(
   periods: SettlementPeriod[],
   priceDates: string[],
-  now?: Date
+  now?: Date,
+  settlementDate?: string
 ): Promise<CollectionResult> {
   const from = periods[0].startUtc;
   const to = periods[periods.length - 1].endUtc;
@@ -506,7 +619,8 @@ async function collectSnapshotsForPeriods(
       demand: demand.value ?? [],
       generation: generation.value ?? [],
     }),
-    statuses
+    statuses,
+    { now, settlementDate }
   );
 }
 
@@ -535,6 +649,7 @@ export function withSettlementDateCoverage(
   }
 
   return {
+    ...result,
     rows,
     sources: [
       ...result.sources,
@@ -553,7 +668,7 @@ export async function collectSnapshotsForSettlementDate(
   now?: Date
 ): Promise<CollectionResult> {
   const periods = listSettlementPeriods(settlementDate);
-  const result = await collectSnapshotsForPeriods(periods, [settlementDate], now);
+  const result = await collectSnapshotsForPeriods(periods, [settlementDate], now, settlementDate);
   return withSettlementDateCoverage(result, periods.length);
 }
 

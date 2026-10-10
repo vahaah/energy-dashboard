@@ -8,6 +8,7 @@ import {
   emptyRecordsWithDocumentedCoal,
   historicRecordsSql,
   historicRowToGeneration,
+  nesoIntegrityExcludeSql,
   historicWeeklySql,
   isCoalOperating,
   isSaneHistoricRow,
@@ -133,6 +134,19 @@ describe("NESO historic sanity", () => {
     const weeklyUrl = `${NESO_HISTORIC_SQL_URL}?sql=${encodeURIComponent(historicWeeklySql())}`;
     expect(weeklyUrl.length).toBeLessThan(2500);
   });
+
+  it("applies integrity exclusions in the NESO sane CTE before each LIMIT", () => {
+    const sql = historicRecordsSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
+    const exclude = nesoIntegrityExcludeSql(["2025-11-18 12:30:00", "2025-11-18T13:00:00"]);
+    expect(exclude).toContain('replace("DATETIME"::text, \'T\', \' \')');
+    expect(exclude).toContain("'2025-11-18 12:30:00'");
+    expect(exclude).toContain("'2025-11-18 13:00:00'");
+    expect(exclude).not.toContain('replace("DATETIME",');
+    expect(sql).toContain(exclude);
+    expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("ORDER BY"));
+    expect(sql.indexOf(exclude)).toBeLessThan(sql.indexOf("LIMIT 5"));
+    expect(nesoIntegrityExcludeSql(["drop table"])).toBe("");
+  });
 });
 
 describe("historic generation rows", () => {
@@ -191,6 +205,35 @@ describe("computeRecords", () => {
     );
     expect(records.lowestCarbon?.timestampUtc).not.toBe("2026-07-07T10:00:00");
   });
+
+  it("suppresses extrema computed from failing integrity periods", () => {
+    const records = computeRecords(
+      [
+        row({
+          DATETIME: "2025-11-18T12:30:00",
+          WIND: 20_000,
+          WIND_EMB: 3_000,
+          SOLAR: 16_000,
+          GENERATION: 54_900,
+          CARBON_INTENSITY: 18,
+        }),
+        row({
+          DATETIME: "2024-04-15T12:00:00",
+          WIND: 8_000,
+          WIND_EMB: 2_000,
+          SOLAR: 4_000,
+          CARBON_INTENSITY: 19,
+        }),
+      ],
+      new Date("2026-10-09T12:00:00.000Z"),
+      ["2025-11-18 12:30:00"]
+    );
+
+    expect(records.maxWind?.timestampUtc).toBe("2024-04-15T12:00:00");
+    expect(records.maxSolar?.timestampUtc).toBe("2024-04-15T12:00:00");
+    expect(records.lowestCarbon?.timestampUtc).toBe("2024-04-15T12:00:00");
+  });
+
 
   it("keeps the coal-end record on 30 Sep 2024 despite NESO residual coal after Ratcliffe", () => {
     const ratcliffe = [
