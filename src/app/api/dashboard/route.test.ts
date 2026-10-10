@@ -31,7 +31,7 @@ describe("/api/dashboard", () => {
   it("returns assembled payload with CDN cache headers", async () => {
     const response = await GET(new NextRequest("http://localhost/api/dashboard?period=day"));
     expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toContain("s-maxage=300");
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=1800");
     expect(response.headers.get("Cache-Control")).toContain("stale-while-revalidate");
     expect(response.headers.get("Vary")).toBe("Accept-Encoding");
     expect(response.headers.get("x-grid-cache")).toBe("miss");
@@ -41,6 +41,27 @@ describe("/api/dashboard", () => {
     expect(loadDashboardPayloadResult).toHaveBeenCalledWith(
       expect.not.objectContaining({ commodityRange: expect.anything() })
     );
+  });
+
+  it("logs a fallback reason even when Redis did not throw a visible error", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    loadDashboardPayloadResult.mockResolvedValue({
+      data: {
+        period: "week",
+        snapshots: [],
+        prices: [],
+      },
+      status: "fallback",
+      reason: "redis-get-failed host=example.upstash.io name=TypeError message=n.map is not a function",
+    });
+
+    const response = await GET(new NextRequest("http://localhost/api/dashboard?period=week"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-grid-cache")).toBe("fallback");
+    expect(info.mock.calls.some((call) => String(call[0]).includes("n.map is not a function"))).toBe(
+      true
+    );
+    info.mockRestore();
   });
 
   it("rejects an unknown period", async () => {

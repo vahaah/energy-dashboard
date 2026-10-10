@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
   const policy = dashboardPayloadPolicy(periodResult.value);
 
   try {
-    const { data, status } = await loadDashboardPayloadResult({
+    const { data, status, reason } = await loadDashboardPayloadResult({
       period: periodResult.value,
       date: dateResult.value,
       now,
     });
-    logDashboardCache(status, periodResult.value, dateResult.value, payloadJsonBytes(data));
+    logDashboardCache(status, periodResult.value, dateResult.value, payloadJsonBytes(data), reason);
     return cachedJson(data, policy, { [GRID_CACHE_HEADER]: status });
   } catch (error) {
     return upstreamError(error);
@@ -45,8 +45,15 @@ function logDashboardCache(
   status: GridCacheStatus,
   period: string,
   date: string | null,
-  bytes: number
+  bytes: number,
+  reason?: string
 ): void {
+  if (status === "fallback") {
+    console.info(
+      `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes} reason=${reason ?? "unknown"}`
+    );
+    return;
+  }
   console.info(
     `[dashboard] cache=${status} period=${period} date=${date ?? "latest"} bytes=${bytes}`
   );

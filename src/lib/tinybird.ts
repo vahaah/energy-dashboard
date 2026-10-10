@@ -10,7 +10,7 @@
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
-import { readThroughCache, redisEnvPresent } from "@/lib/redis-cache";
+import { readThroughCache } from "@/lib/redis-cache";
 import {
   dateForTinybirdCacheKey,
   deserializePipeParams,
@@ -166,37 +166,17 @@ export async function queryPipe<T = Record<string, unknown>>(
     revalidateSeconds: policy.revalidateSeconds,
   });
 
-  const rows = await readThroughCache(logicalKey, policy, () => {
-    if (redisEnvPresent()) {
-      return loadPipeRows<T>(pipeName, params, logicalKey);
-    }
-    return queryPipeDeduped(
+  // Always fill through Next's data cache. Redis is L2 only — if it is
+  // configured but dead, skipping unstable_cache made every edge STALE
+  // revalidation hit Tinybird.
+  const rows = await readThroughCache(logicalKey, policy, () =>
+    queryPipeDeduped(
       pipeName,
       serializePipeParams(params),
       options?.range ?? "",
       cacheDate,
       policy.revalidateSeconds
-    );
-  });
+    )
+  );
   return rows as T[];
-}
-
-async function loadPipeRows<T>(
-  pipeName: string,
-  params: Record<string, string> | undefined,
-  logicalKey: string
-): Promise<T[]> {
-  try {
-    const data = await fetchPipeRows<T>(pipeName, params);
-    setTinybirdLastGood(logicalKey, data);
-    return data;
-  } catch (error) {
-    if (error instanceof TinybirdLimitError) {
-      const lastGood = getTinybirdLastGood<T>(logicalKey);
-      if (lastGood) {
-        return lastGood;
-      }
-    }
-    throw error;
-  }
 }

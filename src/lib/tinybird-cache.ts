@@ -2,7 +2,7 @@ import { getLondonDate, getLondonDateTimeParts, parseUtcDateTime } from "@/lib/l
 import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
 export const TINYBIRD_CACHE_SECONDS = {
-  live: 300,
+  live: 1_800,
   health: 900,
   long: 1_800,
   longYear: 3_600,
@@ -220,7 +220,7 @@ export function liveCachePolicy(): TinybirdCachePolicy {
     tier: "live",
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.live,
     sMaxAge: TINYBIRD_CACHE_SECONDS.live,
-    staleWhileRevalidate: 3_600,
+    staleWhileRevalidate: 86_400,
   };
 }
 

@@ -7,13 +7,20 @@ import {
   bumpCacheEpoch,
   bumpHistoricalCacheEpoch,
   externalCacheKey,
+  fallbackLogReason,
+  getRedis,
+  getRedisFailureReason,
   isFreshEnvelope,
   isStaleUsableEnvelope,
+  parseRedisGet,
   readThroughCache,
   readThroughCacheResult,
+  redisEnvPresent,
   redisKeyFor,
   resetRedisClient,
+  resolveRedisRestConfig,
   setRedisForTests,
+  UPSTASH_REDIS_CLIENT_OPTIONS,
   type CacheEnvelope,
   type RedisCommands,
 } from "@/lib/redis-cache";
@@ -67,12 +74,19 @@ describe("readThroughCache", () => {
     resetRedisClient();
   });
 
+  it("always has a fallback log reason when Redis env is absent", async () => {
+    resetRedisClient();
+    expect(fallbackLogReason()).toMatch(/env-missing|unknown/);
+    expect(fallbackLogReason()).not.toMatch(/eyJ|Bearer |rediss?:\/\//);
+  });
+
   it("falls back to the loader when Redis env is absent", async () => {
     const load = vi.fn(async () => ["live"]);
     await expect(readThroughCache("tb:test", liveCachePolicy(), load)).resolves.toEqual(["live"]);
-    await expect(readThroughCacheResult("tb:test", liveCachePolicy(), load)).resolves.toEqual({
+    await expect(readThroughCacheResult("tb:test", liveCachePolicy(), load)).resolves.toMatchObject({
       data: ["live"],
       status: "fallback",
+      reason: expect.stringMatching(/env-missing|unknown/),
     });
     expect(load).toHaveBeenCalledTimes(2);
   });
@@ -143,7 +157,7 @@ describe("readThroughCache", () => {
   it("falls back to the loader when Redis get throws", async () => {
     setRedisForTests({
       get: async () => {
-        throw new Error("redis down");
+        throw new Error("WRONGPASS invalid token https://secret.upstash.io/path");
       },
       set: async () => "OK",
       del: async () => 0,
@@ -153,7 +167,136 @@ describe("readThroughCache", () => {
     await expect(readThroughCacheResult("tb:err", liveCachePolicy(), load)).resolves.toEqual({
       data: ["fallback"],
       status: "fallback",
+      reason: expect.stringContaining("WRONGPASS"),
     });
+    const result = await readThroughCacheResult("tb:err", liveCachePolicy(), load);
+    expect(result.reason).toContain("redis-get-failed");
+    expect(result.reason).toContain("[url]");
+    expect(result.reason).not.toContain("secret.upstash.io");
+  });
+
+  it("skips Redis for the rest of the isolate after a get failure", async () => {
+    const get = vi.fn(async () => {
+      throw new TypeError("n.map is not a function");
+    });
+    setRedisForTests({
+      get,
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    await readThroughCacheResult("tb:outer", liveCachePolicy(), async () => {
+      const nested = await readThroughCacheResult("tb:nested", liveCachePolicy(), async () => ["nested"]);
+      expect(nested.status).toBe("fallback");
+      expect(nested.reason).toContain("n.map");
+      return ["outer"];
+    });
+    expect(get).toHaveBeenCalledOnce();
+  });
+
+  it("returns the fallback reason on the cache read, not a module-global", async () => {
+    const outer = vi.fn(async () => {
+      setRedisForTests(new MemoryRedis());
+      await readThroughCacheResult("tb:inner", liveCachePolicy(), async () => ["inner"]);
+      return ["outer"];
+    });
+    setRedisForTests({
+      get: async () => {
+        throw new TypeError("n.map is not a function");
+      },
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+
+    const result = await readThroughCacheResult("tb:outer", liveCachePolicy(), outer);
+    expect(result).toMatchObject({
+      data: ["outer"],
+      status: "fallback",
+      reason: expect.stringContaining("n.map is not a function"),
+    });
+    expect(getRedisFailureReason()).toBeNull();
+  });
+
+  it("parses a JSON-string GET and does not treat objects as pipeline arrays", async () => {
+    const envelope: CacheEnvelope<string[]> = {
+      data: ["cached"],
+      cachedAt: Date.now(),
+      freshFor: liveCachePolicy().revalidateSeconds,
+    };
+    expect(parseRedisGet(JSON.stringify(envelope))).toEqual(envelope);
+    expect(parseRedisGet(envelope)).toEqual(envelope);
+    expect(parseRedisGet(null)).toBeNull();
+    expect(parseRedisGet("1")).toBe(1);
+    expect(UPSTASH_REDIS_CLIENT_OPTIONS.enableAutoPipelining).toBe(false);
+    expect(UPSTASH_REDIS_CLIENT_OPTIONS.automaticDeserialization).toBe(false);
+
+    setRedisForTests({
+      get: async () => parseRedisGet(JSON.stringify(envelope)),
+      set: async () => "OK",
+      del: async () => 0,
+      incr: async () => 1,
+    });
+    await expect(
+      readThroughCacheResult("tb:json-string", liveCachePolicy(), async () => ["fresh"])
+    ).resolves.toEqual({
+      data: ["cached"],
+      status: "redis-hit",
+    });
+  });
+
+  it("accepts Marketplace KV_REST_API_* aliases and rejects redis-protocol URLs", () => {
+    const original = {
+      UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+      KV_REST_API_URL: process.env.KV_REST_API_URL,
+      KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN,
+    };
+
+    const restore = () => {
+      for (const [key, value] of Object.entries(original)) {
+        if (value == null) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      resetRedisClient();
+    };
+
+    try {
+      delete process.env.UPSTASH_REDIS_REST_URL;
+      delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      process.env.KV_REST_API_URL = "https://example.upstash.io";
+      process.env.KV_REST_API_TOKEN = "kv-token";
+      resetRedisClient();
+
+      expect(redisEnvPresent()).toBe(true);
+      expect(resolveRedisRestConfig()).toMatchObject({
+        urlEnv: "KV_REST_API_URL",
+        tokenEnv: "KV_REST_API_TOKEN",
+        host: "example.upstash.io",
+      });
+
+      process.env.UPSTASH_REDIS_REST_URL = "https://mixed.upstash.io";
+      delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      resetRedisClient();
+      expect(resolveRedisRestConfig()).toMatchObject({
+        urlEnv: "KV_REST_API_URL",
+        tokenEnv: "KV_REST_API_TOKEN",
+        host: "example.upstash.io",
+      });
+
+      process.env.KV_REST_API_URL = "rediss://default:token@example.upstash.io:6379";
+      resetRedisClient();
+      expect(resolveRedisRestConfig()).toBeNull();
+      expect(getRedis()).toBeNull();
+      expect(getRedisFailureReason()).toContain("url-not-https");
+      expect(getRedisFailureReason()).toContain("rediss");
+    } finally {
+      restore();
+    }
   });
 
   it("bumps the live epoch so later keys miss", async () => {

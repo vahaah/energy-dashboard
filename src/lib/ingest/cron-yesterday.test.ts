@@ -39,7 +39,9 @@ describe("yesterday settlement heal", () => {
     );
 
     const tinybird = readFileSync(resolve(process.cwd(), "src/lib/tinybird.ts"), "utf8");
-    expect(tinybird).toContain("if (redisEnvPresent())");
-    expect(tinybird).toContain("return loadPipeRows<T>(pipeName, params, logicalKey)");
+    expect(tinybird).toContain("queryPipeDeduped");
+    expect(tinybird).toContain("unstable_cache");
+    expect(tinybird).not.toContain("if (redisEnvPresent())");
+    expect(tinybird).not.toContain("loadPipeRows");
   });
 });

@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import { queryPipe } from "@/lib/tinybird";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 import { readThroughCacheResult, type CacheRead } from "@/lib/redis-cache";
@@ -39,9 +41,13 @@ export {
   dashboardPayloadCacheKey,
   dashboardPayloadPolicy,
   downsampleGeneration,
+  downsampleSnapshots,
   headlineWindow,
   hydrateDashboardPayload,
+  packGeneration,
   payloadJsonBytes,
+  slimFactsForClient,
+  unpackGeneration,
 } from "@/lib/dashboard-payload-model";
 
 export type LoadDashboardPayloadInput = {
@@ -64,17 +70,37 @@ export async function loadDashboardPayloadResult(
   const tinybirdRange = tinybirdRangeForPeriod(input.period, chartRangeForPeriod(input.period, "24h"));
   const dateResolution = resolveDashboardDate(date, now, tinybirdRange);
   const cacheDate = dashboardPayloadCacheDate(dateResolution, date);
+  const policy = dashboardPayloadPolicy(input.period);
+  const cacheKey = dashboardPayloadCacheKey(input.period, cacheDate);
 
-  return readThroughCacheResult(
-    dashboardPayloadCacheKey(input.period, cacheDate),
-    dashboardPayloadPolicy(input.period),
+  return readThroughCacheResult(cacheKey, policy, () =>
+    loadDashboardPayloadFromNextCache({
+      period: input.period,
+      date,
+      now,
+      cacheKey,
+      revalidateSeconds: policy.revalidateSeconds,
+    })
+  );
+}
+
+function loadDashboardPayloadFromNextCache(input: {
+  period: DashboardPeriod;
+  date: string | null;
+  now: Date;
+  cacheKey: string;
+  revalidateSeconds: number;
+}): Promise<DashboardPayload> {
+  return unstable_cache(
     () =>
       loadDashboardPayloadUncached({
         period: input.period,
-        date,
-        now,
-      }).then(compactDashboardPayload)
-  );
+        date: input.date,
+        now: input.now,
+      }).then(compactDashboardPayload),
+    [input.cacheKey],
+    { revalidate: input.revalidateSeconds, tags: [DASHBOARD_CACHE_TAG] }
+  )();
 }
 
 export async function loadDashboardPayloadUncached(

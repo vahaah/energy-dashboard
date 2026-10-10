@@ -1,6 +1,10 @@
 import type { CommodityPrice, EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
 import type { DashboardDateResolution } from "@/lib/dashboard-search-params";
 import { isNesoPeriod, type DashboardPeriod } from "@/lib/dashboard-period";
+import {
+  EMBEDDED_ALIGN_WINDOW_MS,
+  EMBEDDED_CARRY_INTRADAY_MS,
+} from "@/lib/dashboard-model";
 import type { LatestFacts } from "@/lib/facts";
 import type { PublicLookAhead } from "@/lib/forecast-model";
 import type { GridRecords, HistoricPeriodView } from "@/lib/historic-mix";
@@ -19,6 +23,7 @@ export type DashboardPayload = {
   snapshots: EnergySnapshot[];
   headlineSnapshots: EnergySnapshot[];
   generationHistory: Generation5min[];
+  packedGeneration?: PackedGeneration | null;
   headlineGeneration: Generation5min[];
   prices: CommodityPrice[];
   records: GridRecords | null;
@@ -27,8 +32,17 @@ export type DashboardPayload = {
   lookAhead: PublicLookAhead | null;
 };
 
+export type PackedGeneration = {
+  timestamps: string[];
+  fuels: string[];
+  sources: string[];
+  rows: Array<readonly [number, number, number, number]>;
+};
+
 export const HEADLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
-export const WEEK_GENERATION_BUCKET_MS = 60 * 60 * 1000;
+export const WEEK_BUCKET_MS = 60 * 60 * 1000;
+export const WEEK_GENERATION_BUCKET_MS = WEEK_BUCKET_MS;
+export const WEEK_SNAPSHOT_BUCKET_MS = WEEK_BUCKET_MS;
 
 export function dashboardPayloadCacheKey(
   period: DashboardPeriod,
@@ -70,15 +84,36 @@ export function headlineWindow<T extends { timestamp: string }>(rows: T[]): T[] 
 
 export function compactDashboardPayload(payload: DashboardPayload): DashboardPayload {
   const historic = compactHistoricPayload(payload);
+  const generationHistory = downsampleGeneration(
+    historic.generationHistory.length > 0
+      ? historic.generationHistory
+      : historic.packedGeneration
+        ? unpackGeneration(historic.packedGeneration)
+        : [],
+    payload.period
+  );
   return {
     ...historic,
     prices: [],
-    snapshots: historic.snapshots,
-    generationHistory: downsampleGeneration(historic.generationHistory, payload.period),
-    headlineSnapshots: [],
+    facts: slimFactsForClient(historic.facts),
+    snapshots: downsampleSnapshots(historic.snapshots, payload.period),
+    generationHistory: [],
+    packedGeneration: packGeneration(generationHistory),
+    headlineSnapshots: compactHeadlineSnapshots(payload),
     headlineGeneration: [],
     transitionView: slimTransitionView(historic.transitionView),
     historicView: downsampleHistoricView(historic.historicView, payload.period),
+  };
+}
+
+export function slimFactsForClient(facts: LatestFacts): LatestFacts {
+  if (!facts.generationRows || facts.generationRows.length === 0) {
+    return facts;
+  }
+
+  return {
+    ...facts,
+    generationRows: slimGenerationRows(facts.generationRows),
   };
 }
 
@@ -92,6 +127,7 @@ export function compactHistoricPayload(payload: DashboardPayload): DashboardPayl
     snapshots: [],
     headlineSnapshots: [],
     generationHistory: [],
+    packedGeneration: null,
     headlineGeneration: [],
     transitionView: payload.period === "all" ? null : payload.transitionView,
     prices: [],
@@ -105,7 +141,9 @@ export function hydrateDashboardPayload(payload: DashboardPayload): DashboardPay
   const generationHistory =
     payload.generationHistory.length > 0
       ? payload.generationHistory
-      : (historic?.generation ?? []);
+      : payload.packedGeneration
+        ? unpackGeneration(payload.packedGeneration)
+        : (historic?.generation ?? []);
 
   return {
     ...payload,
@@ -140,6 +178,125 @@ export function downsampleGeneration(
       return exhaustive;
     }
   }
+}
+
+export function downsampleSnapshots(
+  snapshots: EnergySnapshot[],
+  period: DashboardPeriod
+): EnergySnapshot[] {
+  switch (period) {
+    case "day":
+      return snapshots;
+    case "week":
+      return bucketSnapshotsByMs(snapshots, WEEK_SNAPSHOT_BUCKET_MS);
+    case "year":
+    case "all":
+      return snapshots;
+    default: {
+      const exhaustive: never = period;
+      return exhaustive;
+    }
+  }
+}
+
+function compactHeadlineSnapshots(payload: DashboardPayload): EnergySnapshot[] {
+  switch (payload.period) {
+    case "week":
+      return payload.headlineSnapshots.length > 0
+        ? payload.headlineSnapshots
+        : headlineWindow(payload.snapshots);
+    case "day":
+    case "year":
+    case "all":
+      return [];
+    default: {
+      const exhaustive: never = payload.period;
+      return exhaustive;
+    }
+  }
+}
+
+function slimGenerationRows(rows: Generation5min[]): Generation5min[] {
+  const fuelinstTimes: number[] = [];
+  let latestFuelinst = Number.NEGATIVE_INFINITY;
+  let latestAny = Number.NEGATIVE_INFINITY;
+
+  for (const row of rows) {
+    const ms = parseUtcDateTime(row.timestamp).getTime();
+    if (ms > latestAny) {
+      latestAny = ms;
+    }
+    if (row.source === "fuelinst") {
+      fuelinstTimes.push(ms);
+      if (ms > latestFuelinst) {
+        latestFuelinst = ms;
+      }
+    }
+  }
+
+  if (!Number.isFinite(latestFuelinst)) {
+    if (!Number.isFinite(latestAny)) {
+      return [];
+    }
+    const start = latestAny - EMBEDDED_CARRY_INTRADAY_MS;
+    return rows.filter((row) => parseUtcDateTime(row.timestamp).getTime() >= start);
+  }
+
+  const minKept = latestFuelinst - EMBEDDED_CARRY_INTRADAY_MS;
+  const maxKept = latestFuelinst;
+
+  return rows.filter((row) => {
+    const ms = parseUtcDateTime(row.timestamp).getTime();
+    if (row.source === "fuelinst") {
+      return ms >= minKept && ms <= maxKept;
+    }
+    return ms <= maxKept + EMBEDDED_ALIGN_WINDOW_MS && ms >= minKept;
+  });
+}
+
+export function packGeneration(rows: Generation5min[]): PackedGeneration | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const timestamps: string[] = [];
+  const fuels: string[] = [];
+  const sources: string[] = [];
+  const timeIndex = new Map<string, number>();
+  const fuelIndex = new Map<string, number>();
+  const sourceIndex = new Map<string, number>();
+  const packed: Array<[number, number, number, number]> = [];
+
+  const intern = (value: string, list: string[], index: Map<string, number>) => {
+    const existing = index.get(value);
+    if (existing != null) {
+      return existing;
+    }
+    const next = list.length;
+    list.push(value);
+    index.set(value, next);
+    return next;
+  };
+
+  for (const row of rows) {
+    packed.push([
+      intern(row.timestamp, timestamps, timeIndex),
+      intern(row.fuel_type, fuels, fuelIndex),
+      intern(row.source, sources, sourceIndex),
+      row.generation_mw,
+    ]);
+  }
+
+  return { timestamps, fuels, sources, rows: packed };
+}
+
+export function unpackGeneration(packed: PackedGeneration): Generation5min[] {
+  return packed.rows.map(([time, fuel, source, generationMw]) => ({
+    timestamp: packed.timestamps[time] ?? "",
+    fuel_type: packed.fuels[fuel] ?? "",
+    generation_mw: generationMw,
+    source: packed.sources[source] ?? "fuelinst",
+  }));
 }
 
 export function downsampleHistoricView(
@@ -289,6 +446,34 @@ const SNAPSHOT_AVERAGE_FIELDS = [
 
 type SnapshotAverageField = (typeof SNAPSHOT_AVERAGE_FIELDS)[number];
 type SnapshotFieldCounts = Record<SnapshotAverageField, number>;
+
+function bucketSnapshotsByMs(snapshots: EnergySnapshot[], bucketMs: number): EnergySnapshot[] {
+  const groups = new Map<
+    string,
+    { sum: EnergySnapshot; counts: SnapshotFieldCounts; time: number }
+  >();
+
+  for (const snapshot of snapshots) {
+    const ms = parseUtcDateTime(snapshot.timestamp).getTime();
+    const bucket = Math.floor(ms / bucketMs) * bucketMs;
+    const key = String(bucket);
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, {
+        sum: { ...snapshot, timestamp: formatTinybirdDateTime(new Date(bucket)) },
+        counts: snapshotFieldCounts(snapshot),
+        time: bucket,
+      });
+      continue;
+    }
+    existing.sum = addSnapshots(existing.sum, snapshot);
+    existing.counts = addSnapshotFieldCounts(existing.counts, snapshot);
+  }
+
+  return [...groups.values()]
+    .sort((left, right) => left.time - right.time)
+    .map((group) => averageSnapshot(group.sum, group.counts, group.time));
+}
 
 function bucketSnapshotsByMonth(snapshots: EnergySnapshot[]): EnergySnapshot[] {
   const groups = new Map<
