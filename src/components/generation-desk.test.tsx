@@ -225,6 +225,23 @@ describe("generation desk layout", () => {
     expect(dashboardSource).toContain("stale={facts.isStale}");
     expect(dashboardSource).toContain('id="section-overview"');
     expect(dashboardSource).toMatch(/facts\.empty[\s\S]*id="section-overview"/);
+    expect(dashboardSource).toContain('from "@/components/ui/card"');
+    expect(dashboardSource).toContain("PAGE_STACK_CLASS");
+    expect(dashboardSource).toContain('id="section-generation"');
+    expect(dashboardSource).toContain("actions={");
+    expect(dashboardSource).toContain("headerRight=");
+    expect(dashboardSource).not.toContain("gap-12");
+    expect(dashboardSource).not.toContain("function EmptyState");
+    expect(dashboardSource).not.toContain("surface-card");
+    expect(readFileSync(resolve(import.meta.dirname, "./gb-gas-sap-card.tsx"), "utf8")).not.toContain(
+      "surface-card"
+    );
+    expect(readFileSync(resolve(import.meta.dirname, "./section-block.tsx"), "utf8")).toContain(
+      "headerRight"
+    );
+    expect(readFileSync(resolve(import.meta.dirname, "./section-block.tsx"), "utf8")).toContain(
+      "<Card"
+    );
   });
 
   it("subtracts exports in the demand equation", () => {

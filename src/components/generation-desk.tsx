@@ -5,6 +5,7 @@ import { MixBar } from "@/components/mix-bar";
 import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { LookAheadStrip } from "@/components/look-ahead-strip";
+import { CardEmpty, CardLoading } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower } from "@/lib/displayed-demand";
@@ -106,7 +107,7 @@ export function GenerationDesk({
           />
         </div>
         {pending ? (
-          <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+          <CardLoading />
         ) : hasChart ? (
           <DemandBalanceChart
             snapshots={snapshots}
@@ -120,9 +121,7 @@ export function GenerationDesk({
             now={lookAhead && showsDemandForecast(range, facts.isHistorical) ? now : null}
           />
         ) : (
-          <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-gray-alpha-400 text-copy-14 text-gray-900 sm:h-[280px]">
-            Data is catching up. Last update {facts.headerStamp.replace("Data as of ", "")}
-          </div>
+          <CardEmpty stamp={facts.headerStamp} />
         )}
       </div>
       {lookAhead && showsLookAheadCopy(facts) ? (
@@ -138,7 +137,7 @@ export function GenerationDeskSkeleton() {
       <EquationSkeleton />
       <Skeleton className="h-3 w-full rounded-full" />
       <SourceTableSkeleton />
-      <Skeleton className="h-[200px] w-full rounded-xl sm:h-[280px]" />
+      <CardLoading />
     </div>
   );
 }

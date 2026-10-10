@@ -27,7 +27,7 @@ export function GbGasSapCard({
   const thermDelta = sapPencePerTherm(absoluteDelta);
 
   return (
-    <div className="surface-card p-4 sm:p-6">
+    <div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1">
           <p className="text-label-13 text-gray-900">
