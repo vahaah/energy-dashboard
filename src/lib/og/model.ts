@@ -13,7 +13,7 @@ import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
 import { FOCUS_PAGE_COPY, isDashboardFocus } from "@/lib/page-metadata";
 import type { OgCacheSnapshot } from "@/lib/og/peek";
-import { SITE_ORIGIN } from "@/lib/site";
+import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL, SITE_ORIGIN } from "@/lib/site";
 
 export const OG_PAGE_IDS = [
   "records",
@@ -63,7 +63,7 @@ export const OG_EYEBROW_SEPARATOR = " · ";
 export const OG_FOOTER = new URL(SITE_ORIGIN).host;
 export const OG_GRID_SOURCES = "Elexon, NESO, Carbon Intensity, Sheffield Solar PV Live";
 export const OG_CONTEXT_SOURCES = "EIA, World Bank, National Gas";
-export const OG_TODAY_SOURCES = "Elexon, NESO, Sheffield Solar PV Live";
+export const OG_TODAY_SOURCES = OG_GRID_SOURCES;
 export const OG_PRICE_SOURCE = "Elexon BMRS";
 export const OG_CARBON_SOURCE = "NESO Carbon Intensity API";
 export const OG_COMMODITY_SOURCE = "EIA, World Bank Pink Sheet, National Gas";
@@ -281,7 +281,7 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
     ],
     mix: mixSlices(shares),
     stamp: facts.stamp,
-    source: null,
+    source: OG_GRID_SOURCES,
     cached: true,
   };
 }
@@ -479,14 +479,16 @@ function gasCard(snapshot: OgCacheSnapshot): OgCard {
       {
         label: COMMODITY_CARD_LABELS.gb_gas_sap ?? "GB gas",
         value: sap ? formatCommodityOgValue(sap) : "—",
+        hint: formatOgDayStamp(sap?.date) ?? undefined,
       },
       {
         label: COMMODITY_CARD_LABELS.henry_hub_gas ?? "Henry Hub",
         value: hub ? formatCommodityOgValue(hub) : "—",
+        hint: formatOgDayStamp(hub?.date) ?? undefined,
       },
     ],
     mix: [],
-    stamp: formatOgDayStamp(sap?.date ?? hub?.date ?? null),
+    stamp: null,
     source: OG_COMMODITY_SOURCE,
     cached: true,
   };
@@ -534,24 +536,50 @@ export function normalizeOgShares(shares: SupplyShare[]): SupplyShare[] {
     });
   }
 
-  const totalMw = [...grouped.values()].reduce((sum, row) => sum + row.mw, 0);
-  const totalPct = [...grouped.values()].reduce((sum, row) => sum + row.sharePct, 0);
-  const combined: SupplyShare[] = [];
-
-  for (const [fuel, row] of grouped) {
-    if (row.mw < 0 || (row.mw === 0 && row.sharePct <= 0)) {
-      continue;
-    }
-    combined.push({
-      fuel,
-      mw: row.mw,
-      sharePct:
-        totalMw > 0 ? (row.mw / totalMw) * 100 : totalPct > 0 ? (row.sharePct / totalPct) * 100 : 0,
-    });
-  }
+  const positive = [...grouped.entries()].filter(([, row]) => row.mw > 0 || (row.mw === 0 && row.sharePct > 0));
+  const totalMw = positive.reduce((sum, [, row]) => sum + row.mw, 0);
+  const totalPct = positive.reduce((sum, [, row]) => sum + row.sharePct, 0);
+  const combined: SupplyShare[] = positive.map(([fuel, row]) => ({
+    fuel,
+    mw: row.mw,
+    sharePct: totalMw > 0 ? (row.mw / totalMw) * 100 : totalPct > 0 ? (row.sharePct / totalPct) * 100 : 0,
+  }));
 
   combined.sort((left, right) => right.mw - left.mw || right.sharePct - left.sharePct);
   return combined;
+}
+
+export function ogCacheControl(variant: OgVariant): string {
+  switch (variant.kind) {
+    case "page":
+      return pageCacheControl(variant.page);
+    case "focus":
+      return OG_CACHE_CONTROL;
+    default: {
+      const exhaustive: never = variant;
+      return exhaustive;
+    }
+  }
+}
+
+function pageCacheControl(page: OgPageId): string {
+  switch (page) {
+    case "today":
+    case "gas":
+      return OG_HOURLY_CACHE_CONTROL;
+    case "records":
+    case "privacy":
+    case "terms":
+    case "data-sources":
+    case "price-cap":
+    case "methodology":
+    case "api":
+      return OG_CACHE_CONTROL;
+    default: {
+      const exhaustive: never = page;
+      return exhaustive;
+    }
+  }
 }
 
 function mixSlices(shares: SupplyShare[]): OgMixSlice[] {

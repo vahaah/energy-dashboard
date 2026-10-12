@@ -22,6 +22,7 @@ describe("og cache peek", () => {
     expect(peek).not.toContain("loadDashboardPayloadUncached");
     expect(peek).not.toContain("fetchPipeRows");
     expect(response).toContain("peekOgCacheSnapshot");
+    expect(response).toContain("ogCacheControl(variant)");
     expect(response).not.toContain("queryPipe");
     expect(route).toContain("renderOgImageResponse");
     expect(route).not.toContain("queryPipe");
