@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "indexnow": "tsx scripts/indexnow.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",
