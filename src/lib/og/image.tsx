@@ -1,4 +1,4 @@
-import type { OgCard, OgMetric, OgMixSlice } from "@/lib/og/model";
+import { OG_FOOTER, type OgCard, type OgMetric, type OgMixSlice } from "@/lib/og/model";
 
 const BG = "#0a0a0a";
 const FG = "#ededed";
@@ -17,7 +17,7 @@ export function OgImage({ card }: { card: OgCard }) {
         justifyContent: "space-between",
         background: BG,
         color: FG,
-        padding: "56px 64px",
+        padding: "48px 56px",
         fontFamily: "Geist",
         fontFeatureSettings: '"liga" 0, "calt" 0',
       }}
@@ -41,10 +41,10 @@ export function OgImage({ card }: { card: OgCard }) {
           </div>
           <div style={{ fontSize: 22, fontWeight: 600 }}>Grid</div>
         </div>
-        <div style={{ fontSize: 20, color: MUTED }}>{card.eyebrow}</div>
+        <div style={{ fontSize: 20, color: MUTED, flexShrink: 0 }}>{card.eyebrow}</div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 36 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 28 }}>
         {card.kicker ? (
           <div style={{ fontSize: 22, color: MUTED }}>{card.kicker}</div>
         ) : null}
@@ -62,13 +62,32 @@ export function OgImage({ card }: { card: OgCard }) {
 
       {card.mix.length > 0 ? <MixRow slices={card.mix} /> : null}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 32 }}>
-        <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-          {card.metrics.map((metric) => (
-            <Metric key={metric.label} metric={metric} />
-          ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 32 }}>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+            {card.metrics.map((metric) => (
+              <Metric key={metric.label} metric={metric} />
+            ))}
+          </div>
+          {card.stamp ? (
+            <div style={{ fontSize: 18, color: MUTED, flexShrink: 0, whiteSpace: "nowrap" }}>
+              {card.stamp}
+            </div>
+          ) : null}
         </div>
-        <div style={{ fontSize: 18, color: MUTED }}>{card.stamp ?? "grid.vahaah.com"}</div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap: 24,
+          }}
+        >
+          <div style={{ fontSize: 16, color: MUTED, maxWidth: 860 }}>
+            {card.source ?? ""}
+          </div>
+          <div style={{ fontSize: 16, color: MUTED, flexShrink: 0 }}>{OG_FOOTER}</div>
+        </div>
       </div>
     </div>
   );
@@ -82,16 +101,16 @@ function MixRow({ slices }: { slices: OgMixSlice[] }) {
           <div
             key={slice.fuel}
             style={{
-              width: `${Math.max(slice.sharePct, 1)}%`,
+              width: `${slice.sharePct}%`,
               background: slice.color,
               height: "100%",
             }}
           />
         ))}
       </div>
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {slices.slice(0, 5).map((slice) => (
-          <div key={slice.fuel} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 20 }}>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        {slices.map((slice) => (
+          <div key={slice.fuel} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18 }}>
             <div style={{ width: 10, height: 10, borderRadius: 999, background: slice.color }} />
             <span style={{ color: MUTED }}>{slice.label}</span>
             <span style={{ fontWeight: 600 }}>{slice.sharePct.toFixed(0)}%</span>

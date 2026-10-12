@@ -12,6 +12,7 @@ describe("og cache peek", () => {
   it("never imports Tinybird query or an uncached dashboard load", () => {
     const peek = readFileSync(resolve(import.meta.dirname, "./peek.ts"), "utf8");
     const response = readFileSync(resolve(import.meta.dirname, "./response.tsx"), "utf8");
+    const image = readFileSync(resolve(import.meta.dirname, "./image.tsx"), "utf8");
     const route = readFileSync(resolve(process.cwd(), "src/app/og/route.tsx"), "utf8");
 
     expect(peek).toContain("peekThroughCache");
@@ -24,6 +25,8 @@ describe("og cache peek", () => {
     expect(response).not.toContain("queryPipe");
     expect(route).toContain("renderOgImageResponse");
     expect(route).not.toContain("queryPipe");
+    expect(image).toContain("OG_FOOTER");
+    expect(image).not.toContain("slices.slice(0, 5)");
   });
 
   it("returns empty snapshot fields when Redis is absent instead of loading Tinybird", async () => {

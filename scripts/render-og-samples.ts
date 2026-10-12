@@ -4,6 +4,7 @@ import { renderOgImageResponse } from "../src/lib/og/response";
 import {
   fixtureOgSnapshot,
   ogSampleFilename,
+  realisticOgSnapshot,
   sampleOgVariants,
 } from "../src/lib/og/model";
 
@@ -19,6 +20,15 @@ async function main() {
     const file = join(outDir, ogSampleFilename(variant));
     await writeFile(file, bytes);
   }
+
+  const realistic = await renderOgImageResponse(
+    { kind: "focus", focus: "overview" },
+    realisticOgSnapshot()
+  );
+  await writeFile(
+    join(outDir, "focus-overview-realistic.png"),
+    Buffer.from(await realistic.arrayBuffer())
+  );
 }
 
 void main();
