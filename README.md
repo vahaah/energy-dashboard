@@ -191,6 +191,18 @@ If the Upstash vars are missing, Redis errors, or the lock cannot be taken, `que
 
 The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours and self-backfills EIA + World Bank history within 24h of deploy. `scripts/backfill-commodities.ts` is optional.
 
+### 8. Ping IndexNow
+
+After `public/79e85fd471ac4c8e8327acd532d0a9c9.txt` is live, submit every URL in the production sitemap:
+
+```bash
+npm run indexnow
+```
+
+`scripts/indexnow.ts` fetches `https://grid.vahaah.com/sitemap.xml`, collects unique `<loc>` values, and POSTs `{ host, key, keyLocation, urlList }` to `https://api.indexnow.org/indexnow` in batches of at most 10,000 URLs. It prints the HTTP status of each batch and exits non-zero if the sitemap fetch or any batch fails.
+
+The IndexNow key is public by design. The file contains only `79e85fd471ac4c8e8327acd532d0a9c9` and is served at `https://grid.vahaah.com/79e85fd471ac4c8e8327acd532d0a9c9.txt`. `src/proxy.ts` matches `/api/:path*` and returns that path before the rate limiter, so key verification stays on the static file.
+
 ## Public API
 
 All API endpoints are public. Rate limiting is an in-memory 60 req/min per IP **per instance** in `src/proxy.ts` (not shared across serverless isolates; resets on cold start). `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.

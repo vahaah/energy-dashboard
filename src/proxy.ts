@@ -5,6 +5,7 @@ import {
   isEdgeCacheableApi,
   withoutFlightHeaders,
 } from "@/lib/edge-cacheable-api";
+import { INDEXNOW_KEY_PATH } from "@/lib/indexnow";
 
 export { isEdgeCacheableApi } from "@/lib/edge-cacheable-api";
 
@@ -60,6 +61,11 @@ function corsHeaders(): Headers {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Public IndexNow key file. The matcher is /api only; this still skips the limiter.
+  if (pathname === INDEXNOW_KEY_PATH) {
+    return NextResponse.next();
+  }
 
   if (CRON_OR_HEALTH.has(pathname)) {
     return NextResponse.next();

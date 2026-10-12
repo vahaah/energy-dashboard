@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { API_CDN_VARY } from "@/lib/edge-cacheable-api";
-import { isEdgeCacheableApi, proxy } from "@/proxy";
+import { INDEXNOW_KEY_PATH } from "@/lib/indexnow";
+import { config, isEdgeCacheableApi, proxy } from "@/proxy";
 
 describe("edge-cacheable API proxy", () => {
   it("does not attach rate-limit headers to /api/dashboard", async () => {
@@ -66,5 +67,18 @@ describe("edge-cacheable API proxy", () => {
     expect(response.headers.get("x-middleware-override-headers")).not.toMatch(
       /(?:^|,)rsc(?:,|$)/
     );
+  });
+
+  it("does not rate-limit the public IndexNow key file", () => {
+    expect(config.matcher).toBe("/api/:path*");
+    const headers = { "x-forwarded-for": "203.0.113.79" };
+    for (let attempt = 0; attempt < 70; attempt += 1) {
+      const response = proxy(
+        new NextRequest(`http://localhost${INDEXNOW_KEY_PATH}`, { headers })
+      );
+      expect(response.status).not.toBe(429);
+      expect(response.headers.get("X-RateLimit-Limit")).toBeNull();
+      expect(response.headers.get("X-RateLimit-Remaining")).toBeNull();
+    }
   });
 });
