@@ -1,9 +1,9 @@
+import { GridMark } from "@/components/grid-mark";
 import { OG_FOOTER, type OgCard, type OgMetric, type OgMixSlice } from "@/lib/og/model";
 
 const BG = "#0a0a0a";
 const FG = "#ededed";
 const MUTED = "#a1a1a1";
-const BORDER = "rgba(255,255,255,0.1)";
 const CARD = "#111111";
 
 export function OgImage({ card }: { card: OgCard }) {
@@ -23,22 +23,8 @@ export function OgImage({ card }: { card: OgCard }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              border: `1px solid ${BORDER}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 16,
-              fontWeight: 600,
-            }}
-          >
-            G
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <GridMark size={40} color={FG} />
           <div style={{ fontSize: 22, fontWeight: 600 }}>Grid</div>
         </div>
         <div style={{ fontSize: 20, color: MUTED, flexShrink: 0 }}>{card.eyebrow}</div>
