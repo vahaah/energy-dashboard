@@ -183,7 +183,7 @@ describe("displayed demand", () => {
       "Generation",
       "Imports",
       "Exports",
-      "Pumping",
+      "Storage charging",
       "Demand",
     ]);
     expect(power.showEquals).toBe(true);

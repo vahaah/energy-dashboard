@@ -123,7 +123,8 @@ describe("homepage briefing", () => {
     expect(html).toContain("What&#x27;s powering Britain&#x27;s electricity today");
     expect(html).toContain(HOME_H1.replaceAll("'", "&#x27;"));
     expect(html.match(/<h1/g)?.length).toBe(1);
-    expect((html.match(/GW/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(html).toContain("16.0 GW");
+    expect(html).not.toContain("<dl");
     expect(html).toContain("<time");
     expect(html).toContain('dateTime="2026-10-10T12:00:00+01:00"');
     expect(html).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");

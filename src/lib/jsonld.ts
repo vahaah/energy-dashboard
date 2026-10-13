@@ -91,7 +91,7 @@ export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`):
     "@id": DATASET_ID,
     name: "Grid: Great Britain electricity data, hourly",
     description:
-      "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources.",
+      "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %, share of generation), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources. Generation mix percentages are a share of generation. Interconnector imports and exports are separate from that mix.",
     url,
     license: homepageDatasetLicenses(),
     isAccessibleForFree: true,

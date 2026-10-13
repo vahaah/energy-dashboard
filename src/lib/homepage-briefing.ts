@@ -1,10 +1,5 @@
 import { fuelLabel } from "@/lib/colors";
-import {
-  generationSharesFromRows,
-  normalizeFuelType,
-  splitLatestGenerationRows,
-  type GenerationShare,
-} from "@/lib/dashboard-model";
+import { generationMixShares } from "@/lib/generation-share";
 import {
   hydrateDashboardPayload,
   type DashboardPayload,
@@ -68,8 +63,7 @@ export function buildHomepageCite(input: {
   headlineSnapshots?: EnergySnapshot[];
 }): HomepageCite {
   const power = getDisplayedPower(input.facts, input.headlineSnapshots ?? []);
-  const alignedFrame = splitLatestGenerationRows(power.generationRows);
-  const shares = citeFuelShares(generationSharesFromRows(alignedFrame.sources));
+  const shares = generationMixShares(input.facts.generationRows, power.generationStartUtc);
   const top = [...shares].sort((left, right) => right.mw - left.mw)[0];
   const gas = shares.find((share) => share.fuel === "gas");
   const timestamp = power.generationStartUtc ?? input.facts.generationMw.periodStartUtc;
@@ -110,33 +104,3 @@ export function homepageCitePlainText(cite: HomepageCite): string {
   }
 }
 
-function citeFuelShares(shares: GenerationShare[]): GenerationShare[] {
-  const grouped = new Map<string, number>();
-  for (const share of shares) {
-    const fuel = citeFuelKey(share.fuel);
-    grouped.set(fuel, (grouped.get(fuel) ?? 0) + share.mw);
-  }
-
-  const total = [...grouped.values()].reduce((sum, mw) => sum + mw, 0);
-  if (total === 0) {
-    return [];
-  }
-
-  return [...grouped.entries()].map(([fuel, mw]) => ({
-    fuel,
-    mw,
-    sharePct: (mw / total) * 100,
-  }));
-}
-
-function citeFuelKey(fuel: string): string {
-  const normalized = normalizeFuelType(fuel);
-  switch (normalized) {
-    case "embedded_wind":
-      return "wind";
-    case "embedded_solar":
-      return "solar";
-    default:
-      return normalized;
-  }
-}

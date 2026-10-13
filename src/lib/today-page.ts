@@ -1,10 +1,10 @@
 import { INTERCONNECTOR_COUNTRIES, INTERCONNECTOR_LABELS } from "@/lib/colors";
 import {
-  generationSharesFromRows,
   isInterconnectorFuel,
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
+import { generationMixShares } from "@/lib/generation-share";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { formatHeadlineGw } from "@/lib/facts";
 import {
@@ -149,7 +149,6 @@ export function energySharesFromSnapshots(
     addEnergy(energy, "other", snapshot.gen_other_mw, hours);
     addEnergy(energy, "pumped", generatingMw(snapshot.gen_pumped_mw), hours);
     addEnergy(energy, "battery", generatingMw(snapshot.gen_battery_mw), hours);
-    addEnergy(energy, "imports", importSupplyMw(snapshot), hours);
   }
 
   const total = [...energy.values()].reduce((sum, mwh) => sum + mwh, 0);
@@ -298,7 +297,7 @@ export function todayCitePlainText(model: TodayPageModel): string {
   if (model.kind === "fallback" || !model.untilClock) {
     return `Britain's electricity mix, carbon intensity and market price, compiled hourly from Elexon BMRS and NESO. ${TODAY_CITE_SOURCES}`;
   }
-  return `So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of Britain's electricity, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index price averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
+  return `So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of Britain's generation, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index price averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
 }
 
 export function todayCitation(model: TodayPageModel, accessed: Date): string {
@@ -316,14 +315,14 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
       answer:
         model.latest.windSharePct == null || !model.latest.windGw
           ? `Grid does not yet have a complete latest half-hour. ${TODAY_CITE_SOURCES}`
-          : `In the latest half-hour Grid holds, wind was ${model.latest.windSharePct.toFixed(0)}% (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
+          : `In the latest half-hour Grid holds, wind was ${model.latest.windSharePct.toFixed(0)}% of generation (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
     },
     {
       question: "How much came from gas today?",
       answer:
         model.shares.gasPct == null
           ? `Grid does not yet have today's gas share. ${TODAY_CITE_SOURCES}`
-          : `So far today gas supplied ${pct(model.shares.gasPct)}% of electricity, averaging ${formatHeadlineGw(model.shares.gasGw)} GW (${model.shares.gasGwh == null ? "—" : model.shares.gasGwh.toFixed(1)} GWh). ${TODAY_CITE_SOURCES}`,
+          : `So far today gas supplied ${pct(model.shares.gasPct)}% of generation, averaging ${formatHeadlineGw(model.shares.gasGw)} GW (${model.shares.gasGwh == null ? "—" : model.shares.gasGwh.toFixed(1)} GWh). ${TODAY_CITE_SOURCES}`,
     },
     {
       question: "Is Britain importing electricity today?",
@@ -368,14 +367,6 @@ function generatingMw(mw: number | null | undefined): number | null {
     return null;
   }
   return mw;
-}
-
-function importSupplyMw(snapshot: EnergySnapshot): number | null {
-  if (snapshot.demand_mw == null || snapshot.gen_imports_pct == null) {
-    return null;
-  }
-  const mw = snapshot.demand_mw * (snapshot.gen_imports_pct / 100);
-  return mw > 0 ? mw : null;
 }
 
 function addEnergy(
@@ -457,16 +448,9 @@ function latestCiteFuelShare(
   rows: Generation5min[],
   fuel: string
 ): { mw: number; sharePct: number } | null {
-  const split = splitLatestGenerationRows(rows);
-  const grouped = new Map<string, number>();
-  for (const share of generationSharesFromRows([...split.sources, ...split.interconnectors])) {
-    const key = citeFuelKey(share.fuel);
-    grouped.set(key, (grouped.get(key) ?? 0) + share.mw);
-  }
-  const total = [...grouped.values()].reduce((sum, mw) => sum + mw, 0);
-  const mw = grouped.get(fuel);
-  if (mw == null || total === 0) {
+  const match = generationMixShares(rows, null).find((share) => share.fuel === citeFuelKey(fuel));
+  if (!match) {
     return null;
   }
-  return { mw, sharePct: (mw / total) * 100 };
+  return { mw: match.mw, sharePct: match.sharePct };
 }

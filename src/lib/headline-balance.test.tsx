@@ -245,7 +245,7 @@ describe("headline identity cases", () => {
       "Generation",
       "Imports",
       "Exports",
-      "Storage",
+      "Storage charging",
       "Demand",
     ]);
     expect(power.showEquals).toBe(true);
@@ -265,7 +265,7 @@ describe("headline identity cases", () => {
     expect(power.storageChargingMw).toBe(0);
     expect(power.demandMw).toBe(24_500);
     expect(identity(power)).toBe(0);
-    expect(power.terms.map((term) => term.label)).toEqual(["Generation", "Imports", "Demand"]);
+    expect(power.terms.map((term) => term.label)).toEqual(["Generation", "Imports", "Exports", "Demand"]);
     expect(power.showEquals).toBe(true);
   });
 
@@ -285,7 +285,7 @@ describe("headline identity cases", () => {
     expect(power.exportsMw).toBe(3_600);
     expect(power.demandMw).toBe(30_900);
     expect(identity(power)).toBe(0);
-    expect(power.terms.map((term) => term.label)).toEqual(["Generation", "Exports", "Demand"]);
+    expect(power.terms.map((term) => term.label)).toEqual(["Generation", "Imports", "Exports", "Demand"]);
     expect(power.showEquals).toBe(true);
   });
 
@@ -351,7 +351,7 @@ describe("headline identity cases", () => {
       "Generation",
       "Imports",
       "Exports",
-      "Storage",
+      "Storage charging",
       "Demand",
     ]);
   });

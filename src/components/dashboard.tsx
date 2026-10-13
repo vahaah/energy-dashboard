@@ -66,11 +66,8 @@ import {
 } from "@/lib/colors";
 import { PUBLIC_COMMODITIES } from "@/lib/commodity-series";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
-import {
-  generationSharesFromRows,
-  normalizeFuelType,
-  splitLatestGenerationRows,
-} from "@/lib/dashboard-model";
+import { normalizeFuelType, splitLatestGenerationRows } from "@/lib/dashboard-model";
+import { generationMixShares } from "@/lib/generation-share";
 import { getLatestFacts } from "@/lib/facts";
 import { historicalHomepageH1 } from "@/lib/homepage-briefing";
 import { shareFocusPath } from "@/lib/page-metadata";
@@ -218,14 +215,7 @@ export function Dashboard({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
-  const generationRows = power.generationRows;
-  const topShare = (() => {
-    const shares = generationSharesFromRows(generationRows);
-    if (shares.length === 0) {
-      return null;
-    }
-    return [...shares].sort((left, right) => right.mw - left.mw)[0] ?? null;
-  })();
+  const topShare = generationMixShares(facts.generationRows, power.generationStartUtc)[0] ?? null;
 
   const answer = buildAnswerSentence({
     topFuel: topShare?.fuel ?? null,
@@ -379,21 +369,7 @@ export function Dashboard({
           </section>
         ) : (
           <section id="section-overview" className="scroll-mt-28">
-            {generationPeriod !== "day" ? (
-              <p className="text-heading-24 text-gray-1000">{answer}</p>
-            ) : null}
-            <Card
-              id="section-generation"
-              className="mt-4"
-              footer={captionGeneration(neso)}
-              actions={
-                <BlockPeriodControl
-                  value={generationPeriod}
-                  onChange={(next) => setBlockPeriod("generation", next)}
-                  onIntent={prefetchBlock}
-                />
-              }
-            >
+            <Card id="section-generation" flush className="@container">
               {generation.isLoading ? (
                 <GenerationDeskSkeleton />
               ) : (
@@ -408,6 +384,15 @@ export function Dashboard({
                     pending={generation.isValidating}
                     lookAhead={lookAhead}
                     neso={neso}
+                    question="What's powering Britain?"
+                    answer={answer}
+                    actions={
+                      <BlockPeriodControl
+                        value={generationPeriod}
+                        onChange={(next) => setBlockPeriod("generation", next)}
+                        onIntent={prefetchBlock}
+                      />
+                    }
                   />
                   <div className="mt-6 border-t border-gray-alpha-400 pt-5">
                     <PeriodAveragesRow averages={averages} neso={neso} />
