@@ -77,7 +77,7 @@ export const GROUP_HELP: Record<SourceGroupId, string> = {
   renewables: "Wind, solar and conventional hydro. Pumped storage sits under Storage, not here. Source: Elexon FUELINST, NESO and Sheffield Solar PV Live.",
   other: "Nuclear, biomass and other generation that does not fit the named fuels. Source: Elexon FUELINST.",
   interconnectors: "High-voltage links to neighbouring grids. Positive is an import into Great Britain. Source: Elexon FUELINST.",
-  storage: "Pumped hydro and batteries when they are generating. Charging is not counted as demand. Source: Elexon FUELINST.",
+  storage: "Pumped hydro and batteries when they are generating. Charging is the storage term in the balance, not a share of generation. Source: Elexon FUELINST.",
 };
 
 const HELP: Record<string, string> = {
@@ -90,7 +90,7 @@ const HELP: Record<string, string> = {
   nuclear: "Nuclear power stations. Source: Elexon FUELINST.",
   biomass: "Biomass generation. Source: Elexon FUELINST.",
   other: "Other generation that does not fit the named fuels. Source: Elexon FUELINST.",
-  pumped_storage: "Pumped hydro when it is generating. Charging is not counted as demand here. Source: Elexon FUELINST.",
+  pumped_storage: "Pumped hydro when it is generating. Pumping is the storage-charging term in the balance. Source: Elexon FUELINST.",
   battery: "Battery discharge when Elexon publishes it. Charging isn’t published as a national series. Source: Elexon FUELINST.",
 };
 

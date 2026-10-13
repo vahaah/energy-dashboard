@@ -76,6 +76,9 @@ export default async function TodayPage() {
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               Demand. Generation {model.latest.generationGw} GW
+              {model.latest.importsGw && model.latest.exportsGw
+                ? `. Importing ${model.latest.importsGw} GW, exporting ${model.latest.exportsGw} GW`
+                : ""}
               {model.latest.carbon ? ` · ${model.latest.carbon} gCO₂/kWh` : ""}
               {model.latest.price ? ` · £${model.latest.price}/MWh` : ""}.
             </p>

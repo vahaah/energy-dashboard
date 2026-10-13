@@ -108,7 +108,10 @@ function LegendItem({ share }: { share: GenerationMixShare }) {
   }
   const mobileOnly = desktop && !narrow;
   return (
-    <li className={`flex min-w-0 items-center gap-1.5 text-gray-1000 ${mobileOnly ? "sm:hidden" : ""}`}>
+    <li
+      tabIndex={0}
+      className={`flex min-w-0 items-center gap-1.5 rounded-sm text-gray-1000 outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${mobileOnly ? "sm:hidden" : ""}`}
+    >
       <span
         className="size-2 shrink-0 rounded-[2px]"
         style={{ backgroundColor: share.color }}

@@ -4,6 +4,7 @@ import {
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
+import { getDisplayedPower } from "@/lib/displayed-demand";
 import { generationMixShares } from "@/lib/generation-share";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { formatHeadlineGw } from "@/lib/facts";
@@ -70,6 +71,8 @@ export type TodayPageModel = {
     price: string | null;
     netImportsMw: number | null;
     netImportsGw: string;
+    importsGw: string | null;
+    exportsGw: string | null;
     windSharePct: number | null;
     windGw: string | null;
   };
@@ -254,6 +257,7 @@ export function buildTodayPageModel(input: {
       ? interconnectors.reduce((sum, row) => sum + row.mw, 0)
       : (day?.facts.netImportsMw.value ?? null);
   const latestWind = latestCiteFuelShare(generationRows, "wind");
+  const power = day ? getDisplayedPower(day.facts, day.headlineSnapshots) : null;
   const hasNumbers =
     todaySnapshots.length > 0 &&
     shares.windPct != null &&
@@ -272,8 +276,10 @@ export function buildTodayPageModel(input: {
     carbonAverage: mean(todaySnapshots.map((row) => row.carbon_intensity)),
     priceAverage: mean(todaySnapshots.map((row) => row.price_mid_gbp_mwh)),
     latest: {
-      demandGw: formatHeadlineGw(day?.facts.demand.value ?? null),
-      generationGw: formatHeadlineGw(day?.facts.generationMw.value ?? null),
+      demandGw: formatHeadlineGw(power?.demandMw ?? day?.facts.demand.value ?? null),
+      generationGw: formatHeadlineGw(power?.generationMw ?? day?.facts.generationMw.value ?? null),
+      importsGw: power?.balanceClosed ? formatHeadlineGw(power.importsMw) : null,
+      exportsGw: power?.balanceClosed ? formatHeadlineGw(power.exportsMw) : null,
       carbon: day?.facts.carbon.value == null ? null : day.facts.carbon.value.toFixed(0),
       price: day?.facts.price.value == null ? null : day.facts.price.value.toFixed(2),
       netImportsMw: netImports,
@@ -308,7 +314,6 @@ export function todayCitation(model: TodayPageModel, accessed: Date): string {
 }
 
 export function todayFaqs(model: TodayPageModel): Array<{ question: string; answer: string }> {
-  const importMw = model.latest.netImportsMw;
   return [
     {
       question: "How much of Britain's electricity is wind right now?",
@@ -326,14 +331,7 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
     },
     {
       question: "Is Britain importing electricity today?",
-      answer:
-        importMw == null
-          ? `Interconnector flows for today are not in yet. ${TODAY_CITE_SOURCES}`
-          : importMw > 25
-            ? `Yes. The latest half-hour was a net import of ${formatHeadlineGw(importMw)} GW. ${TODAY_CITE_SOURCES}`
-            : importMw < -25
-              ? `The latest half-hour was a net export of ${formatHeadlineGw(Math.abs(importMw))} GW. ${TODAY_CITE_SOURCES}`
-              : `Cross-border flows were broadly balanced in the latest half-hour. ${TODAY_CITE_SOURCES}`,
+      answer: todayTransferAnswer(model),
     },
     {
       question: "How clean is the grid today?",
@@ -350,6 +348,23 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
           : `The market index (APXMIDP) has averaged £${avg(model.priceAverage, 0)}/MWh so far today${model.cheapest && model.dearest ? `, from £${model.cheapest.value.toFixed(2)} to £${model.dearest.value.toFixed(2)}/MWh` : ""}. ${TODAY_CITE_SOURCES}`,
     },
   ];
+}
+
+function todayTransferAnswer(model: TodayPageModel): string {
+  const { importsGw, exportsGw, netImportsMw } = model.latest;
+  if (importsGw && exportsGw) {
+    return `The latest half-hour was importing ${importsGw} GW and exporting ${exportsGw} GW. ${TODAY_CITE_SOURCES}`;
+  }
+  if (netImportsMw == null) {
+    return `Interconnector flows for today are not in yet. ${TODAY_CITE_SOURCES}`;
+  }
+  if (netImportsMw > 25) {
+    return `Yes. The latest half-hour was a net import of ${formatHeadlineGw(netImportsMw)} GW. ${TODAY_CITE_SOURCES}`;
+  }
+  if (netImportsMw < -25) {
+    return `The latest half-hour was a net export of ${formatHeadlineGw(Math.abs(netImportsMw))} GW. ${TODAY_CITE_SOURCES}`;
+  }
+  return `Cross-border flows were broadly balanced in the latest half-hour. ${TODAY_CITE_SOURCES}`;
 }
 
 function snapshotIntervalHours(

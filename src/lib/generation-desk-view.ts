@@ -167,8 +167,8 @@ export function generationSourceCopy(
   if (showingLatestLive) {
     return {
       title: "Powering Britain now",
-      subtitle: "Now, by source · sorted by size · share of supply",
-      tooltip: `GB generation from the latest Elexon FUELINST frame, with embedded wind and solar ${carry}. Net imports are their own slice of total supply.`,
+      subtitle: "Now, by source · sorted by size · share of generation",
+      tooltip: `GB generation from the latest Elexon FUELINST frame, with embedded wind and solar ${carry}. Imports and exports are in the balance, not in this mix.`,
       tooltipLabel: "What is Powering Britain now?",
     };
   }
@@ -181,16 +181,16 @@ export function generationSourceCopy(
   if (!when) {
     return {
       title,
-      subtitle: "By source · sorted by size · share of supply",
-      tooltip: `No Elexon FUELINST frame is available for ${formatLondonDayMonthYear(facts.requestedDate)}. Net imports are their own slice of total supply.`,
+      subtitle: "By source · sorted by size · share of generation",
+      tooltip: `No Elexon FUELINST frame is available for ${formatLondonDayMonthYear(facts.requestedDate)}. Imports and exports are in the balance, not in this mix.`,
       tooltipLabel: `What is ${title}?`,
     };
   }
 
   return {
     title,
-    subtitle: "By source · sorted by size · share of supply",
-    tooltip: `GB generation from the Elexon FUELINST frame at ${when}, with embedded wind and solar ${carry}. Net imports are their own slice of total supply.`,
+    subtitle: "By source · sorted by size · share of generation",
+    tooltip: `GB generation from the Elexon FUELINST frame at ${when}, with embedded wind and solar ${carry}. Imports and exports are in the balance, not in this mix.`,
     tooltipLabel: `What is ${title}?`,
   };
 }

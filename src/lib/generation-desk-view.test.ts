@@ -476,7 +476,7 @@ describe("generation source copy", () => {
     );
 
     expect(historical.title).toBe("Powering Britain at 23:30 BST on 20 Sep 2026");
-    expect(historical.subtitle).toBe("By source · sorted by size · share of supply");
+    expect(historical.subtitle).toBe("By source · sorted by size · share of generation");
     expect(historical.tooltip).toContain("Elexon FUELINST frame at 23:30 BST on 20 Sep 2026");
     expect(historical.tooltip).toContain("joined at or within one hour");
     expect(historical.tooltip).not.toContain("latest");
@@ -532,7 +532,7 @@ describe("generation source copy", () => {
 
     expect(copy.title).toBe("Powering Britain on 20 Sep 2026");
     expect(copy.tooltip).toBe(
-      "No Elexon FUELINST frame is available for 20 Sep 2026. Net imports are their own slice of total supply."
+      "No Elexon FUELINST frame is available for 20 Sep 2026. Imports and exports are in the balance, not in this mix."
     );
     expect(copy.tooltip).not.toContain("23:30");
     expect(copy.tooltip).not.toContain("frame at");
@@ -555,7 +555,7 @@ describe("generation source copy", () => {
 
     expect(copy.title).toBe("Powering Britain on 28 Sep 2026");
     expect(copy.tooltip).toBe(
-      "No Elexon FUELINST frame is available for 28 Sep 2026. Net imports are their own slice of total supply."
+      "No Elexon FUELINST frame is available for 28 Sep 2026. Imports and exports are in the balance, not in this mix."
     );
     expect(copy.tooltip).not.toContain("latest");
     expect(copy.subtitle).not.toContain("Now");
