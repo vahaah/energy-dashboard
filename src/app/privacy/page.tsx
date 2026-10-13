@@ -47,6 +47,10 @@ export default function PrivacyPage() {
             Optional theme preference in <code>localStorage</code> on your device. That is not a
             cookie and is not sent to our servers.
           </li>
+          <li>
+            Cookieless Plausible analytics on the production site: page URL, referrer, browser,
+            operating system, device type, and approximate location. See Analytics below.
+          </li>
         </ul>
       </LegalSection>
 
@@ -63,11 +67,35 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="Analytics">
+        <p>
+          The production site measures visits with cookieless Plausible analytics. Plausible does
+          not use cookies and does not collect personal data. It records the page URL, referrer,
+          browser, operating system, device type, and an approximate location derived from the IP
+          address. The IP address and the raw user agent are not stored. A salt that rotates every
+          day turns them into a visitor count for that day only, on this site only.
+        </p>
+        <p>
+          Plausible is EU-hosted. Visitor data is processed and stored in the EU on European-owned
+          infrastructure and does not leave the EU. The browser sends the measurement to this site,
+          and Grid forwards it to Plausible without a cookie. See{" "}
+          <a
+            href="https://plausible.io/data-policy"
+            className="text-blue-700 underline-offset-2 hover:underline"
+          >
+            Plausible&apos;s data policy
+          </a>
+          .
+        </p>
+      </LegalSection>
+
       <LegalSection title="Lawful basis and retention">
         <p>
           We process this information under UK GDPR legitimate interests: keeping a public
-          electricity dashboard available, preventing abuse of the public API, and diagnosing
-          outages. Logs follow Vercel&apos;s retention. Rate-limit counters last about 60 seconds.
+          electricity dashboard available, preventing abuse of the public API, diagnosing outages,
+          and understanding which pages are used. Logs follow Vercel&apos;s retention. Rate-limit
+          counters last about 60 seconds. Plausible keeps aggregate analytics under its own
+          retention, described in its data policy.
         </p>
       </LegalSection>
 
@@ -83,7 +111,8 @@ export default function PrivacyPage() {
       <LegalSection title="International transfers">
         <p>
           The site is hosted on Vercel. Request logs may be processed outside the UK under
-          Vercel&apos;s transfer mechanisms. We do not sell personal data.
+          Vercel&apos;s transfer mechanisms. Plausible analytics data stays in the EU. We do not
+          sell personal data.
         </p>
       </LegalSection>
     </LegalPage>

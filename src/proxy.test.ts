@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { API_CDN_VARY } from "@/lib/edge-cacheable-api";
 import { INDEXNOW_KEY_PATH } from "@/lib/indexnow";
+import { PLAUSIBLE_EVENT_PATH } from "@/lib/plausible";
 import { config, isEdgeCacheableApi, proxy } from "@/proxy";
 
 describe("edge-cacheable API proxy", () => {
@@ -67,6 +68,30 @@ describe("edge-cacheable API proxy", () => {
     expect(response.headers.get("x-middleware-override-headers")).not.toMatch(
       /(?:^|,)rsc(?:,|$)/
     );
+  });
+
+  it("does not rate-limit Plausible events and strips cookies before the rewrite", () => {
+    const headers = { "x-forwarded-for": "203.0.113.50", cookie: "session=secret" };
+    for (let attempt = 0; attempt < 70; attempt += 1) {
+      const response = proxy(
+        new NextRequest(`http://localhost${PLAUSIBLE_EVENT_PATH}`, {
+          method: "POST",
+          headers,
+        }),
+      );
+      expect(response.status).not.toBe(429);
+      expect(response.headers.get("X-RateLimit-Limit")).toBeNull();
+      expect(response.headers.get("X-RateLimit-Remaining")).toBeNull();
+    }
+
+    const response = proxy(
+      new NextRequest(`http://localhost${PLAUSIBLE_EVENT_PATH}`, {
+        method: "POST",
+        headers,
+      }),
+    );
+    expect(response.headers.get("x-middleware-override-headers")).toContain("cookie");
+    expect(response.headers.get("x-middleware-request-cookie")).toBe("");
   });
 
   it("does not rate-limit the public IndexNow key file", () => {

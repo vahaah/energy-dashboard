@@ -203,7 +203,7 @@ export function privacyPageMetadata(): Metadata {
   return buildPageMetadata({
     title: "Privacy — Grid",
     description:
-      "What Grid collects: Vercel logs and an in-memory API rate limiter. No accounts, no non-essential cookies. UK GDPR. Controller: Comonad Ltd.",
+      "What Grid collects: Vercel logs, a one-minute rate limiter, and cookieless Plausible analytics. No accounts, no cookies. UK GDPR. Controller: Comonad Ltd.",
     path: "/privacy",
     imagePath: "/privacy/opengraph-image",
     imageAlt: "Privacy — Grid",

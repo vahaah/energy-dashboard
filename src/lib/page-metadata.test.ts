@@ -19,7 +19,13 @@ import {
   termsPageMetadata,
   todayPageMetadata,
 } from "@/lib/page-metadata";
-import { HOME_TITLE, RECORDS_TITLE, SITE_OG_IMAGE } from "@/lib/site";
+import {
+  DESCRIPTION_MAX_CHARS,
+  HOME_TITLE,
+  RECORDS_TITLE,
+  SITE_OG_IMAGE,
+  pageDescriptionLength,
+} from "@/lib/site";
 
 describe("page metadata", () => {
   it("sets openGraph, twitter summary_large_image, and a canonical path", () => {
@@ -86,6 +92,11 @@ describe("page metadata", () => {
     expect(recordsPageMetadata().title).toBe(RECORDS_TITLE);
     expect(recordsPageMetadata().alternates?.canonical).toBe("/records");
     expect(privacyPageMetadata().alternates?.canonical).toBe("/privacy");
+    const privacyDescription = privacyPageMetadata().description;
+    expect(privacyDescription).toContain("cookieless Plausible");
+    expect(pageDescriptionLength(String(privacyDescription))).toBeLessThanOrEqual(
+      DESCRIPTION_MAX_CHARS,
+    );
     expect(termsPageMetadata().alternates?.canonical).toBe("/terms");
     expect(dataSourcesPageMetadata().alternates?.canonical).toBe("/data-sources");
     expect(todayPageMetadata().alternates?.canonical).toBe("/today");

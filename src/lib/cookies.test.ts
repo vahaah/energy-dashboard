@@ -15,8 +15,11 @@ describe("cookies", () => {
     expect(api).toContain('response.headers.delete("Set-Cookie")');
     expect(proxy).not.toContain("Set-Cookie");
     expect(packageJson).not.toContain("@vercel/analytics");
+    expect(packageJson).not.toContain("plausible");
     expect(privacy).toContain("does not show a cookie banner");
     expect(privacy).toContain("does not set first-party cookies");
+    expect(privacy).toContain("does not collect personal data");
+    expect(privacy).toContain("https://plausible.io/data-policy");
     expect(proxy).toContain("store.delete");
     expect(proxy).toContain("PRUNE_INTERVAL_MS");
     expect(proxy).toContain("lastPruneAt");
