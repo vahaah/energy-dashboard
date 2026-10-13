@@ -50,4 +50,29 @@ describe("mix favicon", () => {
     expect(svg).toContain("#f97316");
     expect(svg).not.toContain("tinybird");
   });
+
+  it("draws a full ring when only one fuel percentage is positive", () => {
+    const svg = renderMixFaviconSvg(
+      snapshot({
+        gen_gas_pct: 100,
+        gen_coal_pct: null,
+        gen_nuclear_pct: null,
+        gen_wind_pct: null,
+        gen_solar_pct: null,
+        gen_hydro_pct: null,
+        gen_biomass_pct: null,
+        gen_imports_pct: null,
+        gen_other_pct: null,
+      })
+    );
+
+    expect(svg).toContain('fill="#f97316"');
+    const paths = [...svg.matchAll(/<path d="([^"]+)"/g)].map((match) => match[1]);
+    expect(paths).toHaveLength(2);
+    for (const path of paths) {
+      const outer = path.match(/A 15 15 0 \d \d ([\d.]+) ([\d.]+)/);
+      expect(outer).not.toBeNull();
+      expect(path.startsWith(`M ${outer?.[1]} ${outer?.[2]}`)).toBe(false);
+    }
+  });
 });

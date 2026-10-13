@@ -97,9 +97,19 @@ function pieSlices(segments: MixFaviconSegment[]): Array<{ d: string; color: str
   let angle = -Math.PI / 2;
   for (const segment of segments) {
     const sweep = (segment.pct / total) * Math.PI * 2;
-    const next = angle + sweep;
-    slices.push({ d: donutSlice(16, 16, 15, 7, angle, next), color: segment.color });
-    angle = next;
+    // A single 2π arc starts and ends on the same point, so SVG draws nothing.
+    if (sweep >= Math.PI * 2 - 1e-9) {
+      slices.push(
+        { d: donutSlice(16, 16, 15, 7, angle, angle + Math.PI), color: segment.color },
+        {
+          d: donutSlice(16, 16, 15, 7, angle + Math.PI, angle + Math.PI * 2),
+          color: segment.color,
+        }
+      );
+    } else {
+      slices.push({ d: donutSlice(16, 16, 15, 7, angle, angle + sweep), color: segment.color });
+    }
+    angle += sweep;
   }
   return slices;
 }

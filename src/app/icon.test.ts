@@ -22,11 +22,15 @@ describe("live mix favicon route", () => {
       "src/app/favicon.ico",
       "src/app/icon.svg",
       "src/app/icon.png",
-      "src/app/apple-icon.png",
       "public/favicon.ico",
-      "public/apple-touch-icon.png",
     ]) {
       expect(existsSync(resolve(root, file)), file).toBe(false);
     }
+  });
+
+  it("keeps the 180 apple touch icon", () => {
+    const png = readFileSync(resolve(process.cwd(), "src/app/apple-icon.png"));
+    expect(png.readUInt32BE(16)).toBe(180);
+    expect(png.readUInt32BE(20)).toBe(180);
   });
 });
