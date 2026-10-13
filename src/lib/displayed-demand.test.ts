@@ -102,7 +102,7 @@ describe("displayed demand", () => {
     expect(power.demandMw).toBe(25717);
     expect(power.transmissionDemandMw).toBe(24000);
     expect(power.demandMw).not.toBe(power.transmissionDemandMw);
-    expect(power.generationMw).toBe(13026);
+    expect(power.generationMw).toBe(19298);
   });
 
   it("keeps each equation term on its own settlement timestamp", () => {

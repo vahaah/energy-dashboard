@@ -91,7 +91,11 @@ describe("og model", () => {
     const overview = buildOgCard({ kind: "focus", focus: "overview" }, balanced);
     expect(overview.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
     expect(overview.metrics.find((metric) => metric.label === "Demand")?.hint).toBe("Half-hour balance");
+    expect(overview.title).toContain("Gas is supplying most");
     expect(overview.title).toContain("exporting 3.0 GW");
+    expect(overview.mix[0]?.fuel).toBe("gas");
+    expect(overview.mix.find((slice) => slice.fuel === "wind")?.sharePct).toBeCloseTo((10_000 / 30_000) * 100, 5);
+    expect(overview.mix.map((slice) => slice.fuel)).not.toContain("imports");
 
     const transfers = buildOgCard({ kind: "focus", focus: "transfers" }, balanced);
     expect(transfers.title).toBe("Exporting 3.0 GW");
@@ -104,6 +108,11 @@ describe("og model", () => {
     expect(price.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
     const carbon = buildOgCard({ kind: "focus", focus: "carbon" }, balanced);
     expect(carbon.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
+    expect(carbon.metrics.find((metric) => metric.label === "Largest source")?.value).toBe("Gas");
+    expect(carbon.mix[0]?.fuel).toBe("gas");
+    const todayMix = today.mix.map((slice) => slice.fuel);
+    expect(todayMix[0]).toBe("gas");
+    expect(todayMix).toContain("wind");
   });
 
   it("normalises a realistic Redis payload so wind, solar and imports appear and sort", () => {

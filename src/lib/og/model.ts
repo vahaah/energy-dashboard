@@ -1,9 +1,10 @@
 import { DASHBOARD_FOCUSES } from "@/lib/dashboard-search-params";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
-import { getDisplayedPower } from "@/lib/displayed-demand";
+import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
 import { formatHeadlineGw, type LatestFacts, type SupplyShare } from "@/lib/facts";
 import { FUEL_COLORS, fuelLabel, COMMODITY_CARD_LABELS } from "@/lib/colors";
 import {
+  generationSharesFromRows,
   isInterconnectorFuel,
   mapGenerationFuelToStackKey,
   normalizeFuelType,
@@ -251,7 +252,7 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
   }
 
   const power = getDisplayedPower(facts);
-  const shares = normalizeOgShares(facts.shares);
+  const shares = headlineShares(facts, power);
   const top = shares[0] ?? null;
   const title = buildAnswerSentence({
     topFuel: top?.fuel ?? null,
@@ -376,7 +377,7 @@ function carbonCard(facts: LatestFacts | null): OgCard {
   }
 
   const power = getDisplayedPower(facts);
-  const shares = normalizeOgShares(facts.shares);
+  const shares = headlineShares(facts, power);
   const top = shares[0] ?? null;
 
   return {
@@ -442,7 +443,7 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
   }
 
   const power = getDisplayedPower(facts);
-  const shares = normalizeOgShares(facts.shares);
+  const shares = headlineShares(facts, power);
   return {
     eyebrow: gridEyebrow("Today"),
     title: "Britain's electricity today",
@@ -529,6 +530,13 @@ export function ogFuelKey(fuel: string): string {
     default:
       return mapGenerationFuelToStackKey(normalized);
   }
+}
+
+function headlineShares(facts: LatestFacts, power: DisplayedPower): SupplyShare[] {
+  if (power.balanceClosed && power.generationRows.length > 0) {
+    return normalizeOgShares(generationSharesFromRows(power.generationRows));
+  }
+  return normalizeOgShares(facts.shares);
 }
 
 export function normalizeOgShares(shares: SupplyShare[]): SupplyShare[] {

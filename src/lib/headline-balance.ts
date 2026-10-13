@@ -19,7 +19,12 @@ export const HEADLINE_DISPLAY_TOLERANCE_GW = 0.1;
 
 export type BalanceFuel = {
   fuel: string;
+  /** Net half-hour average. Source rows keep this signed value. */
   mw: number;
+  /** Mean of the positive samples across the whole half-hour, not only the positive ones. */
+  positiveMw: number;
+  /** Mean of the absolute negative samples across the whole half-hour. */
+  negativeMw: number;
   samples: number;
   source: string;
 };
@@ -82,7 +87,10 @@ export function buildSettlementBalance(
   const periodEndMs = period.endUtc.getTime();
   const fuels = averageFuelsInPeriod(rows, periodStartMs);
   const totals = sumFuels(fuels);
-  const bookComplete = totals.hasSupply && connectorBookComplete(rows, periodStartMs, periodEndMs);
+  const bookComplete =
+    totals.hasSupply &&
+    domesticBookComplete(rows, periodStartMs, periodEndMs) &&
+    connectorBookComplete(rows, periodStartMs, periodEndMs);
 
   return {
     periodStartUtc: period.startUtc.toISOString(),
@@ -127,7 +135,10 @@ function emptyBalance(periodStartUtc: string | null): SettlementBalance {
 }
 
 function averageFuelsInPeriod(rows: Generation5min[], periodStartMs: number): BalanceFuel[] {
-  const buckets = new Map<string, { sum: number; samples: number; source: string; at: string }>();
+  const buckets = new Map<
+    string,
+    { sum: number; positiveSum: number; negativeSum: number; samples: number; source: string; at: string }
+  >();
 
   for (const row of rows) {
     if (settlementStartMs(row.timestamp) !== periodStartMs) {
@@ -138,6 +149,8 @@ function averageFuelsInPeriod(rows: Generation5min[], periodStartMs: number): Ba
     if (!existing) {
       buckets.set(fuel, {
         sum: row.generation_mw,
+        positiveSum: Math.max(0, row.generation_mw),
+        negativeSum: Math.max(0, -row.generation_mw),
         samples: 1,
         source: row.source,
         at: row.timestamp,
@@ -145,6 +158,11 @@ function averageFuelsInPeriod(rows: Generation5min[], periodStartMs: number): Ba
       continue;
     }
     existing.sum += row.generation_mw;
+    if (row.generation_mw > 0) {
+      existing.positiveSum += row.generation_mw;
+    } else if (row.generation_mw < 0) {
+      existing.negativeSum += -row.generation_mw;
+    }
     existing.samples += 1;
     if (row.timestamp >= existing.at) {
       existing.source = row.source;
@@ -157,6 +175,8 @@ function averageFuelsInPeriod(rows: Generation5min[], periodStartMs: number): Ba
     fuels.push({
       fuel,
       mw: bucket.sum / bucket.samples,
+      positiveMw: bucket.positiveSum / bucket.samples,
+      negativeMw: bucket.negativeSum / bucket.samples,
       samples: bucket.samples,
       source: bucket.source,
     });
@@ -185,11 +205,8 @@ function sumFuels(fuels: BalanceFuel[]): {
 
   for (const fuel of fuels) {
     if (isInterconnectorFuel(fuel.fuel)) {
-      if (fuel.mw > 0) {
-        importsMw += fuel.mw;
-      } else if (fuel.mw < 0) {
-        exportsMw += -fuel.mw;
-      }
+      importsMw += fuel.positiveMw;
+      exportsMw += fuel.negativeMw;
       continue;
     }
 
@@ -200,19 +217,13 @@ function sumFuels(fuels: BalanceFuel[]): {
       continue;
     }
     if (isPumpedStorageFuel(fuel.fuel)) {
-      if (fuel.mw >= 0) {
-        generationMw += fuel.mw;
-      } else {
-        pumpingMw += -fuel.mw;
-      }
+      generationMw += fuel.positiveMw;
+      pumpingMw += fuel.negativeMw;
       continue;
     }
     if (isBatteryFuel(fuel.fuel)) {
-      if (fuel.mw > 0) {
-        generationMw += fuel.mw;
-      } else if (fuel.mw < 0) {
-        batteryChargingMw += -fuel.mw;
-      }
+      generationMw += fuel.positiveMw;
+      batteryChargingMw += fuel.negativeMw;
       continue;
     }
     generationMw += fuel.mw;
@@ -230,21 +241,38 @@ function sumFuels(fuels: BalanceFuel[]): {
   };
 }
 
+function domesticBookComplete(
+  rows: Generation5min[],
+  periodStartMs: number,
+  periodEndMs: number
+): boolean {
+  return seriesBookComplete(rows, periodStartMs, periodEndMs, (fuel) => !isInterconnectorFuel(fuel));
+}
+
 function connectorBookComplete(
   rows: Generation5min[],
   periodStartMs: number,
   periodEndMs: number
 ): boolean {
+  return seriesBookComplete(rows, periodStartMs, periodEndMs, isInterconnectorFuel);
+}
+
+function seriesBookComplete(
+  rows: Generation5min[],
+  periodStartMs: number,
+  periodEndMs: number,
+  include: (fuel: string) => boolean
+): boolean {
   const latest = new Map<string, Generation5min>();
 
   for (const row of rows) {
-    if (!isInterconnectorFuel(row.fuel_type)) {
+    const fuel = normalizeFuelType(row.fuel_type);
+    if (!include(fuel)) {
       continue;
     }
     if (parseUtcDateTime(row.timestamp).getTime() >= periodEndMs) {
       continue;
     }
-    const fuel = normalizeFuelType(row.fuel_type);
     const existing = latest.get(fuel);
     if (!existing || row.timestamp > existing.timestamp) {
       latest.set(fuel, row);

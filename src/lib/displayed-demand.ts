@@ -57,10 +57,10 @@ export function getDisplayedPower(
   const balance = buildSettlementBalance(facts.generationRows, periodStartUtc);
   const itsdo = itsdoMw(facts, headlineSnapshots, balance.bookComplete ? balance.periodStartUtc : periodStartUtc);
   const closed = balance.bookComplete && balance.hasSupply;
-  const generationMw = balance.hasSupply ? balance.generationMw : aligned.generationMw.value;
+  const generationMw = closed ? balance.generationMw : aligned.generationMw.value;
   const demandMw = closed ? balance.demandMw : aligned.demand.value;
   const transfersMw = closed ? balance.netTransfersMw : aligned.netImportsMw.value;
-  const generationSource = balance.hasSupply
+  const generationSource = closed
     ? generationSourceFrom(balance.fuels.map((fuel) => fuel.fuel))
     : aligned.generationMw.source;
   const demandSource = closed ? generationSource : aligned.demand.source;

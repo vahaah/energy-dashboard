@@ -304,6 +304,58 @@ describe("headline identity cases", () => {
     expect(identity(power)).toBe(0);
   });
 
+  it("stays open when wind or nuclear is still on an older settlement period", () => {
+    const rows = [
+      row("2026-10-13 07:00:00", "wind", 14_000),
+      row("2026-10-13 07:00:00", "nuclear", 4_000),
+      row("2026-10-13 07:30:00", "ccgt", 6_000),
+      row("2026-10-13 07:00:00", "intfr", 400),
+      row("2026-10-13 07:30:00", "intfr", 500),
+    ];
+    const balance = buildSettlementBalance(rows, "2026-10-13T07:30:00.000Z");
+    const power = getDisplayedPower(facts(rows), [snapshot("2026-10-13 07:30:00", 20_000)]);
+
+    expect(balance.hasSupply).toBe(true);
+    expect(balance.bookComplete).toBe(false);
+    expect(power.balanceClosed).toBe(false);
+    expect(power.showEquals).toBe(false);
+    expect(power.generationMw).not.toBe(6_000);
+    expect(power.demandMw).not.toBe(6_500);
+  });
+
+  it("keeps a reversal inside the half-hour as gross import, export, and storage", () => {
+    const rows = [
+      row("2026-10-13 07:30:00", "ccgt", 10_000),
+      row("2026-10-13 07:45:00", "ccgt", 10_000),
+      row("2026-10-13 07:30:00", "intfr", 1_000),
+      row("2026-10-13 07:45:00", "intfr", -1_000),
+      row("2026-10-13 07:30:00", "ps", 1_000),
+      row("2026-10-13 07:45:00", "ps", -1_000),
+      row("2026-10-13 07:30:00", "bess", 200),
+      row("2026-10-13 07:45:00", "bess", -200),
+    ];
+    const power = getDisplayedPower(facts(rows), [snapshot("2026-10-13 07:30:00", 12_000)]);
+
+    expect(power.balanceClosed).toBe(true);
+    expect(power.importsMw).toBe(500);
+    expect(power.exportsMw).toBe(500);
+    expect(power.generationMw).toBe(10_600);
+    expect(power.storageChargingMw).toBe(600);
+    expect(power.demandMw).toBe(10_000);
+    expect(identity(power)).toBe(0);
+    expect(headlineBalanceHolds(power)).toBe(true);
+    expect(formatHeadlineGw(power.importsMw)).toBe("0.5");
+    expect(formatHeadlineGw(power.exportsMw)).toBe("0.5");
+    expect(power.showEquals).toBe(true);
+    expect(power.terms.map((term) => term.label)).toEqual([
+      "Generation",
+      "Imports",
+      "Exports",
+      "Storage",
+      "Demand",
+    ]);
+  });
+
   it("does not close the equation on a partial interconnector book", () => {
     const rows = [
       row("2026-10-13 07:30:00", "ccgt", 10_000),
