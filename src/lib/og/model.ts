@@ -1,8 +1,10 @@
 import { DASHBOARD_FOCUSES } from "@/lib/dashboard-search-params";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
+import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
 import { formatHeadlineGw, type LatestFacts, type SupplyShare } from "@/lib/facts";
 import { FUEL_COLORS, fuelLabel, COMMODITY_CARD_LABELS } from "@/lib/colors";
 import {
+  generationSharesFromRows,
   isInterconnectorFuel,
   mapGenerationFuelToStackKey,
   normalizeFuelType,
@@ -249,13 +251,14 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
     return branded(copy.title.replace(" — Grid", ""), copy.description, false);
   }
 
-  const shares = normalizeOgShares(facts.shares);
+  const power = getDisplayedPower(facts);
+  const shares = headlineShares(facts, power);
   const top = shares[0] ?? null;
   const title = buildAnswerSentence({
     topFuel: top?.fuel ?? null,
     topMw: top?.mw ?? null,
     topSharePct: top?.sharePct ?? null,
-    transfersMw: facts.netImportsMw.value,
+    transfersMw: power.transfersMw ?? facts.netImportsMw.value,
     empty: facts.empty,
   });
 
@@ -266,8 +269,8 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
     metrics: [
       {
         label: "Demand",
-        value: `${formatHeadlineGw(facts.demand.value)} GW`,
-        hint: "ITSDO + embedded",
+        value: `${formatHeadlineGw(power.demandMw)} GW`,
+        hint: power.showEquals ? "Half-hour balance" : "ITSDO + embedded",
       },
       {
         label: "Carbon",
@@ -291,6 +294,7 @@ function priceCard(facts: LatestFacts | null): OgCard {
     return branded("What does power cost?", "Short-term wholesale market price from Elexon.", false);
   }
 
+  const power = getDisplayedPower(facts);
   return {
     eyebrow: gridEyebrow("Price"),
     title: formatPrice(facts.price.value),
@@ -299,7 +303,7 @@ function priceCard(facts: LatestFacts | null): OgCard {
       { label: "System", value: formatPrice(facts.systemPrice.value), hint: "Imbalance" },
       {
         label: "Demand",
-        value: `${formatHeadlineGw(facts.demand.value)} GW`,
+        value: `${formatHeadlineGw(power.demandMw)} GW`,
       },
     ],
     mix: [],
@@ -310,19 +314,20 @@ function priceCard(facts: LatestFacts | null): OgCard {
 }
 
 function transfersCard(facts: LatestFacts | null): OgCard {
-  if (!facts || facts.netImportsMw.value == null) {
+  const power = facts ? getDisplayedPower(facts) : null;
+  const mw = power?.transfersMw ?? facts?.netImportsMw.value ?? null;
+  if (!facts || mw == null) {
     return branded("Where is power flowing?", "Metered interconnector flows from Elexon FUELINST.", false);
   }
 
-  const mw = facts.netImportsMw.value;
   const importing = mw >= 0;
   return {
     eyebrow: gridEyebrow("Transfers"),
     title: `${importing ? "Importing" : "Exporting"} ${formatHeadlineGw(Math.abs(mw))} GW`,
     kicker: "Net interconnector flow",
     metrics: [
-      { label: "Generation", value: `${formatHeadlineGw(facts.generationMw.value)} GW` },
-      { label: "Demand", value: `${formatHeadlineGw(facts.demand.value)} GW` },
+      { label: "Generation", value: `${formatHeadlineGw(power?.generationMw ?? facts.generationMw.value)} GW` },
+      { label: "Demand", value: `${formatHeadlineGw(power?.demandMw ?? facts.demand.value)} GW` },
     ],
     mix: [],
     stamp: facts.stamp,
@@ -371,7 +376,8 @@ function carbonCard(facts: LatestFacts | null): OgCard {
     return branded("How clean is it?", "National carbon intensity from the NESO Carbon Intensity API.", false);
   }
 
-  const shares = normalizeOgShares(facts.shares);
+  const power = getDisplayedPower(facts);
+  const shares = headlineShares(facts, power);
   const top = shares[0] ?? null;
 
   return {
@@ -379,7 +385,7 @@ function carbonCard(facts: LatestFacts | null): OgCard {
     title: `${facts.carbon.value.toFixed(0)} gCO₂/kWh`,
     kicker: facts.carbon.index ? `Index: ${facts.carbon.index}` : "National carbon intensity",
     metrics: [
-      { label: "Demand", value: `${formatHeadlineGw(facts.demand.value)} GW` },
+      { label: "Demand", value: `${formatHeadlineGw(power.demandMw)} GW` },
       {
         label: "Largest source",
         value: top ? fuelLabel(top.fuel) : "—",
@@ -436,7 +442,8 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
     return { ...LEGAL_CARDS.today, cached: true };
   }
 
-  const shares = normalizeOgShares(facts.shares);
+  const power = getDisplayedPower(facts);
+  const shares = headlineShares(facts, power);
   return {
     eyebrow: gridEyebrow("Today"),
     title: "Britain's electricity today",
@@ -444,7 +451,7 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
     metrics: [
       {
         label: "Demand",
-        value: `${formatHeadlineGw(facts.demand.value)} GW`,
+        value: `${formatHeadlineGw(power.demandMw)} GW`,
       },
       {
         label: "Carbon",
@@ -523,6 +530,13 @@ export function ogFuelKey(fuel: string): string {
     default:
       return mapGenerationFuelToStackKey(normalized);
   }
+}
+
+function headlineShares(facts: LatestFacts, power: DisplayedPower): SupplyShare[] {
+  if (power.balanceClosed && power.generationRows.length > 0) {
+    return normalizeOgShares(generationSharesFromRows(power.generationRows));
+  }
+  return normalizeOgShares(facts.shares);
 }
 
 export function normalizeOgShares(shares: SupplyShare[]): SupplyShare[] {

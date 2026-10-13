@@ -93,7 +93,7 @@ const HELP: Record<string, string> = {
 };
 
 export const MIX_BAR_HELP =
-  "Each segment is that source’s share of demand, including estimated embedded wind and solar. Segments can add up to more than 100% when Britain is exporting.";
+  "Each segment is that source’s share of headline demand. Segments can add up to more than 100% when Britain is exporting or storage is charging.";
 
 const COUNTRY_HELP = "Metered flow on the interconnectors to this country. Positive is an import into Great Britain. Source: Elexon FUELINST.";
 

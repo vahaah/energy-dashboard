@@ -97,6 +97,8 @@ describe("displayed demand", () => {
     );
 
     expect(DISPLAYED_DEMAND_STAT).toBe("demand");
+    expect(power.balanceClosed).toBe(false);
+    expect(power.showEquals).toBe(false);
     expect(power.demandMw).toBe(25717);
     expect(power.transmissionDemandMw).toBe(24000);
     expect(power.demandMw).not.toBe(power.transmissionDemandMw);
@@ -164,10 +166,27 @@ describe("displayed demand", () => {
     });
     const power = getDisplayedPower(facts, [snapshot(timestamp, itsdo)]);
 
-    expect(power.demandMw).toBe(itsdo + 3_000);
-    expect(power.generationMw).toBe(29_000);
+    expect(power.balanceClosed).toBe(true);
+    expect(power.generationMw).toBe(31_000);
+    expect(power.importsMw).toBe(2_000);
+    expect(power.exportsMw).toBe(800);
+    expect(power.storageChargingMw).toBe(2_000);
     expect(power.transfersMw).toBe(1_200);
-    expect(power.demandMw).toBe((power.generationMw ?? 0) + (power.transfersMw ?? 0));
+    expect(power.demandMw).toBe(30_200);
+    expect(power.demandMw).toBe(
+      (power.generationMw ?? 0) +
+        (power.importsMw ?? 0) -
+        (power.exportsMw ?? 0) -
+        (power.storageChargingMw ?? 0)
+    );
+    expect(power.terms.map((term) => term.label)).toEqual([
+      "Generation",
+      "Imports",
+      "Exports",
+      "Pumping",
+      "Demand",
+    ]);
+    expect(power.showEquals).toBe(true);
     expect(headlineBalanceResidualMw(power)).toBe(0);
     expect(headlineBalanceHolds(power)).toBe(true);
   });
@@ -177,13 +196,15 @@ describe("displayed demand", () => {
     const desk = readFileSync(resolve(import.meta.dirname, "../components/generation-desk.tsx"), "utf8");
     const equation = readFileSync(resolve(import.meta.dirname, "../components/equation-row.tsx"), "utf8");
 
+    const og = readFileSync(resolve(import.meta.dirname, "./og/model.ts"), "utf8");
+
     expect(dashboard).toContain("getDisplayedPower");
     expect(desk).toContain("getDisplayedPower");
     expect(desk).toContain("power.demandMw");
-    expect(equation).toContain("DISPLAYED_DEMAND_STAT");
-    expect(equation).toContain("data-stat={stat}");
-    expect(equation).toContain("${demandDefinition}.${transmissionNote}");
-    expect(equation).not.toContain("${demandDefinition}, including estimated embedded wind and solar.");
+    expect(equation).toContain("data-stat={term.id}");
+    expect(equation).toContain("data-balanced");
+    expect(equation).toContain("power.terms");
+    expect(og).toContain("getDisplayedPower");
     expect(dashboard).not.toContain("facts.demand.value");
     expect(desk).not.toContain("facts.demand.value");
   });

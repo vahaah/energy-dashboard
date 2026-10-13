@@ -123,11 +123,12 @@ describe("generation desk layout", () => {
     );
 
     expect(html).toContain(`data-stat="${DISPLAYED_DEMAND_STAT}"`);
-    expect(html).toContain('data-stat="generating"');
-    expect(html).toContain('data-stat="net_imports"');
+    expect(html).toContain('data-stat="generation"');
+    expect(html).toContain('data-stat="imports"');
+    expect(html).toContain('data-balanced="true"');
     expect(html).toContain("Demand");
     expect(html).toContain("Generation");
-    expect(html).toContain("Importing");
+    expect(html).toContain("Imports");
     expect(html).toContain("Share of demand by source");
     expect(html).toContain("Fossil fuels");
     expect(html).toContain("Renewables");
@@ -135,7 +136,8 @@ describe("generation desk layout", () => {
     expect(html).toContain("Interconnectors");
     expect(html).toContain("Storage");
     expect(html).toContain("Demand and generation, including embedded");
-    expect(html).toContain("24.9");
+    expect(html).toContain(">20.6<");
+    expect(html).not.toContain(">24.9<");
     expect(html).not.toContain(">24.0<");
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
@@ -268,9 +270,13 @@ describe("generation desk layout", () => {
       />
     );
 
-    expect(html).toContain("Exporting");
+    expect(html).toContain("Exports");
     expect(html).toContain("−");
-    expect(html).not.toMatch(/>\+</);
+    expect(html).toContain('data-balanced="true"');
+    expect(html).toContain(
+      'aria-label="Generation 20.2 GW, minus Exports 1.8 GW, equals Demand 18.4 GW"'
+    );
+    expect(html).not.toContain(">Imports<");
   });
 
   it("labels a historical day by settlement time instead of now", () => {
@@ -452,7 +458,11 @@ describe("generation desk layout", () => {
 
     expect(html).toContain("Data delayed: last Elexon update 04:00 BST");
     expect(html).toContain("Demand for 04:00–04:30 BST is not in yet. Figures are 03:30–04:00 BST.");
-    expect(html.match(/03:30–04:00 BST/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(html).toContain('data-balanced="true"');
+    expect(html).toContain(
+      'aria-label="Generation 19.0 GW, minus Exports 0.8 GW, equals Demand 18.2 GW"'
+    );
+    expect(html.match(/<time[^>]*>03:30–04:00 BST<\/time>/g)?.length).toBe(1);
     expect(html).not.toContain("04:00–04:30 BST</time>");
   });
 });
