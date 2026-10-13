@@ -67,19 +67,7 @@ export function GenerationDesk({
       {pending ? (
         <EquationSkeleton />
       ) : (
-        <EquationRow
-          demandMw={power.demandMw}
-          generationMw={power.generationMw}
-          transfersMw={power.transfersMw}
-          demandSource={power.demandSource}
-          generationSource={power.generationSource}
-          transfersSource={power.transfersSource}
-          demandDefinition={power.demandDefinition}
-          transmissionDemandMw={power.transmissionDemandMw}
-          demandStartUtc={power.demandStartUtc}
-          generationStartUtc={power.generationStartUtc}
-          transfersStartUtc={power.transfersStartUtc}
-        />
+        <EquationRow power={power} />
       )}
       {statusNote ? (
         <p className="text-label-12 text-gray-900" aria-live="polite">
@@ -105,7 +93,7 @@ export function GenerationDesk({
         <div className="mb-3 flex items-center gap-2">
           <h3 className="text-heading-16 text-gray-1000">Demand and generation, including embedded</h3>
           <InfoTooltip
-            text="Demand is transmission demand plus estimated embedded wind and solar. Generation is GB plant plus the same embedded series. The gap is imports when demand is higher and exports when generation is higher."
+            text="The lines are transmission demand plus estimated embedded wind and solar, and GB generation including that embedded output. The headline above is the half-hour supply balance."
             label="What is Demand and generation, including embedded?"
           />
         </div>
@@ -153,8 +141,8 @@ export function GenerationDeskSkeleton() {
 
 function EquationSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-4">
-      {Array.from({ length: 3 }).map((_, index) => (
+    <div className="flex flex-wrap gap-4">
+      {Array.from({ length: 4 }).map((_, index) => (
         <div key={`eq-${index}`} className="space-y-2">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-10 w-24" />

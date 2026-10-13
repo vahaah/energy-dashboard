@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
+import type { Generation5min } from "@/lib/types";
 import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL } from "@/lib/site";
 import {
   OG_CARBON_SOURCE,
@@ -51,6 +52,58 @@ describe("og model", () => {
     });
     expect(empty.cached).toBe(false);
     expect(empty.stamp).toBe("Cached figures unavailable");
+  });
+
+  it("puts OG demand, generation and transfers on the closed half-hour balance", () => {
+    const row = (
+      fuelType: string,
+      generationMw: number,
+      source = "fuelinst"
+    ): Generation5min => ({
+      timestamp: "2026-10-10 11:00:00",
+      fuel_type: fuelType,
+      generation_mw: generationMw,
+      source,
+    });
+    const facts = snapshot.facts;
+    if (!facts) {
+      throw new Error("fixture facts missing");
+    }
+    const balanced = {
+      ...snapshot,
+      facts: {
+        ...facts,
+        demand: { ...facts.demand, value: 40_000 },
+        generationMw: { ...facts.generationMw, value: 99_000 },
+        netImportsMw: { ...facts.netImportsMw, value: 9_000 },
+        generationRows: [
+          row("ccgt", 20_000),
+          row("wind", 8_000),
+          row("embedded_wind", 2_000, "neso"),
+          row("ps", -1_000),
+          row("intfr", 1_500),
+          row("intned", -4_500),
+        ],
+      },
+    };
+
+    const demand = "26.0 GW";
+    const overview = buildOgCard({ kind: "focus", focus: "overview" }, balanced);
+    expect(overview.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
+    expect(overview.metrics.find((metric) => metric.label === "Demand")?.hint).toBe("Half-hour balance");
+    expect(overview.title).toContain("exporting 3.0 GW");
+
+    const transfers = buildOgCard({ kind: "focus", focus: "transfers" }, balanced);
+    expect(transfers.title).toBe("Exporting 3.0 GW");
+    expect(transfers.metrics.find((metric) => metric.label === "Generation")?.value).toBe("30.0 GW");
+    expect(transfers.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
+
+    const today = buildOgCard({ kind: "page", page: "today" }, balanced);
+    expect(today.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
+    const price = buildOgCard({ kind: "focus", focus: "price" }, balanced);
+    expect(price.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
+    const carbon = buildOgCard({ kind: "focus", focus: "carbon" }, balanced);
+    expect(carbon.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
   });
 
   it("normalises a realistic Redis payload so wind, solar and imports appear and sort", () => {
