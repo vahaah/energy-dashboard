@@ -23,7 +23,8 @@ const ENDPOINTS = [
   {
     path: "/api/generation?range=24h",
     name: "Generation",
-    fields: "FUELINST plus NESO embedded wind and Sheffield Solar PV Live, by fuel.",
+    fields:
+      "FUELINST plus NESO embedded wind and Sheffield Solar PV Live, by fuel. Mix percentages elsewhere on Grid are a share of generation, not of demand.",
   },
   {
     path: "/api/interconnectors?range=24h",
@@ -60,8 +61,9 @@ export default async function ApiDocsPage() {
         cite={
           <p data-cite>
             Grid publishes JSON for GB carbon intensity, generation mix, demand, interconnectors,
-            market prices and commodities. No API key. 60 requests a minute. Derived data is CC BY
-            4.0 with upstream attributions.
+            market prices and commodities. Generation mix percentages are a share of generation.
+            Interconnectors are separate and are not part of that mix. No API key. 60 requests a
+            minute. Derived data is CC BY 4.0 with upstream attributions.
           </p>
         }
         citation={`Grid, "Free GB electricity data API", grid.vahaah.com/api, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}

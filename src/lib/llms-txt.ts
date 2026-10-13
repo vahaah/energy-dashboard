@@ -7,7 +7,7 @@ export function buildLlmsTxt(payload: DashboardPayload | null): string {
   const cite = homepageCiteFromPayload(payload);
   const latest =
     cite.kind === "numbers"
-      ? `Latest: At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel.toLowerCase()} supplied ${cite.topSharePct}% of GB electricity, gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh. Source: Elexon BMRS, NESO.`
+      ? `Latest: At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel.toLowerCase()} supplied ${cite.topSharePct}% of GB generation, gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh. Source: Elexon BMRS, NESO.`
       : "Latest: Grid updates hourly from public data when the latest snapshot is in cache.";
 
   return `# Grid

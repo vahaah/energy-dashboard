@@ -5,6 +5,9 @@ export const revalidate = 86_400;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  // `p` versions the social cache for one settlement period. It is not a
+  // historical lookup: the image still reads the latest Redis snapshot.
+  void url.searchParams.get("p");
   return renderOgImageResponse(
     parseOgVariant({
       focus: url.searchParams.get("focus"),

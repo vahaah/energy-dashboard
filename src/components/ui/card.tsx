@@ -20,6 +20,7 @@ export type CardProps = {
   size?: CardSize;
   as?: "section" | "article" | "div";
   className?: string;
+  flush?: boolean;
 };
 
 function titleClass(size: CardSize): string {
@@ -46,9 +47,32 @@ export function Card({
   size = "default",
   as = "section",
   className = "",
+  flush = false,
 }: CardProps) {
   const Tag = as;
   const hasHeader = Boolean(title || tooltip || actions);
+  if (flush) {
+    return (
+      <Tag
+        id={id}
+        data-slot="card"
+        data-size={size}
+        className={`surface-card flex min-w-0 flex-col scroll-mt-28 ${
+          active ? "border-gray-alpha-600" : ""
+        } ${className}`.trim()}
+      >
+        {children}
+        {footer ? (
+          <div
+            data-slot="card-footer"
+            className="border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6"
+          >
+            {footer}
+          </div>
+        ) : null}
+      </Tag>
+    );
+  }
 
   return (
     <Tag

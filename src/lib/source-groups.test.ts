@@ -51,7 +51,10 @@ describe("grouped source table", () => {
     expect(battery?.missingNote).toBe("discharge only; charging isn’t published");
     expect(wind?.mw).toBe(4663);
     expect(france?.mw).toBe(396);
-    expect(table.mix.some((segment) => segment.hatched && segment.label === "France")).toBe(true);
+    expect(france?.gwLabel).toBe("0.4");
+    expect(france?.shareLabel).toBe("net import");
+    expect(table.mix.some((segment) => segment.label === "France")).toBe(false);
+    expect(table.mix.reduce((sum, segment) => sum + segment.pct, 0)).toBeCloseTo(100, 5);
   });
 
   it("shows published battery discharge and keeps it out of renewables", () => {
@@ -68,10 +71,12 @@ describe("grouped source table", () => {
     expect(renewables?.rows.find((row) => row.id === "hydro")?.mw).toBe(571);
   });
 
-  it("reports share of the one demand figure", () => {
+  it("reports share of generation, not demand", () => {
     const table = buildGroupedSourceTable(rows, 25000);
     const gas = table.groups[0]?.rows.find((row) => row.id === "gas");
-    expect(gas?.shareLabel).toBe("30.3%");
+    const generation = 7563 + 4663 + 4015 + 2948 + 571 + 231 + 224 + 800;
+    expect(gas?.shareLabel).toBe(`${Math.round((7563 / generation) * 100)}%`);
+    expect(gas?.shareLabel).not.toBe("30.3%");
     expect(gas?.sparkline.length).toBeGreaterThan(1);
   });
 
@@ -104,10 +109,11 @@ describe("grouped source table", () => {
     expect(renewables?.rows.every((row) => row.mw == null)).toBe(true);
   });
 
-  it("omits the mix bar when demand is unavailable", () => {
+  it("keeps the mix as a share of generation when demand is unavailable", () => {
     const table = buildGroupedSourceTable(rows, null);
-    expect(table.mix).toEqual([]);
-    expect(table.groups[0]?.shareLabel).toBe("—");
+    expect(table.mix.length).toBeGreaterThan(0);
+    expect(table.mix.reduce((sum, segment) => sum + segment.pct, 0)).toBeCloseTo(100, 5);
+    expect(table.groups[0]?.shareLabel).not.toBe("—");
   });
 
   it("averages repeated 5-minute readings inside a sparkline bucket", () => {
@@ -125,12 +131,14 @@ describe("grouped source table", () => {
     expect(gas?.sparkline).toEqual([7000]);
   });
 
-  it("keeps mix-bar percentages as share of demand when Britain is exporting", () => {
+  it("keeps mix-bar percentages as share of generation when Britain is exporting", () => {
     const table = buildGroupedSourceTable(rows, 12_000);
     const gas = table.mix.find((segment) => segment.label === "Gas");
+    const generation = 7563 + 4663 + 4015 + 2948 + 571 + 231 + 224 + 800;
     const mixShare = table.mix.reduce((sum, segment) => sum + segment.pct, 0);
 
-    expect(gas?.pct).toBeCloseTo((7563 / 12_000) * 100, 5);
-    expect(mixShare).toBeGreaterThan(100);
+    expect(gas?.pct).toBeCloseTo((7563 / generation) * 100, 5);
+    expect(mixShare).toBeCloseTo(100, 5);
+    expect(table.mix.some((segment) => segment.hatched)).toBe(false);
   });
 });

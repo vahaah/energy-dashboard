@@ -12,6 +12,7 @@ describe("legal nav", () => {
     ]);
 
     const dashboard = readFileSync(resolve(import.meta.dirname, "./dashboard.tsx"), "utf8");
+    const generationDesk = readFileSync(resolve(import.meta.dirname, "./generation-desk.tsx"), "utf8");
     const records = readFileSync(resolve(process.cwd(), "src/app/records/page.tsx"), "utf8");
     const config = readFileSync(resolve(process.cwd(), "next.config.ts"), "utf8");
 
@@ -20,7 +21,7 @@ describe("legal nav", () => {
     expect(dashboard).toContain('href="/methodology"');
     expect(dashboard).not.toContain("history.replaceState");
     expect(dashboard).not.toContain("URL state is canonical");
-    expect(dashboard).toContain("captionGeneration(neso)");
+    expect(generationDesk).toContain("captionGeneration(neso)");
     expect(dashboard).toContain("captionGeneration(isNesoPeriod(mixPeriod))");
     expect(dashboard).toContain("shareFocusPath(focus)");
     expect(dashboard).not.toContain("window.location.href");

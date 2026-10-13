@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  BALANCE_ROUNDING_NOTE,
   DISPLAYED_DEMAND_STAT,
+  balanceEquationSentence,
   getDisplayedPower,
   headlineBalanceHolds,
   headlineBalanceResidualMw,
@@ -183,12 +185,35 @@ describe("displayed demand", () => {
       "Generation",
       "Imports",
       "Exports",
-      "Pumping",
+      "Storage charging",
       "Demand",
     ]);
     expect(power.showEquals).toBe(true);
     expect(headlineBalanceResidualMw(power)).toBe(0);
     expect(headlineBalanceHolds(power)).toBe(true);
+  });
+
+  it("keeps the equals sign and speaks the rounding note when rounded gigawatts miss", () => {
+    const timestamp = "2026-10-13 08:00:00";
+    const rows = [
+      generation(timestamp, "ccgt", 249),
+      generation(timestamp, "ps", -251),
+      generation(timestamp, "intfr", 498),
+      generation("2026-10-13 08:15:00", "intfr", -502),
+    ];
+    const now = new Date("2026-10-13T08:40:00.000Z");
+    const latest = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, 1000)],
+      generation: rows,
+      now,
+    });
+    const power = getDisplayedPower(latest, [snapshot(timestamp, 1000)]);
+
+    expect(power.balanceClosed).toBe(true);
+    expect(power.showEquals).toBe(false);
+    expect(power.terms.find((term) => term.id === "demand")?.operator).toBe("=");
+    expect(balanceEquationSentence(power)).toContain(`equals Demand 0.0 GW. ${BALANCE_ROUNDING_NOTE}`);
   });
 
   it("is the only demand figure wired into the page", () => {

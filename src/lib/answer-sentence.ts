@@ -22,13 +22,24 @@ export function buildAnswerSentence(input: AnswerSentenceInput): string {
   }
 
   const lead = leadClause(input);
-  const transfer = transferClause(input);
-
-  if (!transfer) {
-    return `${lead}.`;
+  const magnitude = magnitudeClause(input);
+  if (input.horizon !== "year" && input.horizon !== "all") {
+    return `${lead}${magnitude}.`;
   }
 
-  return `${lead}, ${transfer}`;
+  const transfer = transferClause(input);
+  if (!transfer) {
+    return `${lead}${magnitude}.`;
+  }
+
+  return `${lead}${magnitude}, ${transfer}`;
+}
+
+function magnitudeClause(input: AnswerSentenceInput): string {
+  if (input.topMw == null || input.topSharePct == null) {
+    return "";
+  }
+  return ` at ${formatHeadlineGw(input.topMw)} GW (${Math.round(input.topSharePct)}%)`;
 }
 
 function leadClause(input: AnswerSentenceInput): string {

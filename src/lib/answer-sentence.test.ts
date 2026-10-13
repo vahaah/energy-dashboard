@@ -7,10 +7,11 @@ describe("buildAnswerSentence", () => {
       buildAnswerSentence({
         topFuel: "wind",
         topMw: 12400,
+        topSharePct: 40,
         transfersMw: 2100,
         empty: false,
       })
-    ).toBe("Wind is the largest source of Britain’s electricity, and the country is importing 2.1 GW.");
+    ).toBe("Wind is the largest source of Britain’s electricity at 12.4 GW (40%).");
 
     expect(
       buildAnswerSentence({
@@ -20,29 +21,40 @@ describe("buildAnswerSentence", () => {
         transfersMw: 0,
         empty: false,
       })
-    ).toBe("Wind is supplying most of Britain’s electricity, with cross-border flows broadly balanced.");
+    ).toBe("Wind is supplying most of Britain’s electricity at 18.0 GW (56%).");
   });
 
-  it("names an export without jargon", () => {
+  it("names the fuel in gigawatts and percent, without a net export", () => {
     expect(
       buildAnswerSentence({
         topFuel: "gas",
         topMw: 15000,
+        topSharePct: 44,
         transfersMw: -1800,
         empty: false,
       })
-    ).toBe("Gas is the largest source of Britain’s electricity, and the country is exporting 1.8 GW.");
+    ).toBe("Gas is the largest source of Britain’s electricity at 15.0 GW (44%).");
+    expect(
+      buildAnswerSentence({
+        topFuel: "gas",
+        topMw: 15000,
+        topSharePct: 44,
+        transfersMw: -1800,
+        empty: false,
+      })
+    ).not.toContain("exporting");
   });
 
-  it("keeps a balanced transfer as a clause, not a stance", () => {
+  it("keeps a live sentence on the fuel when transfers are balanced", () => {
     expect(
       buildAnswerSentence({
         topFuel: "nuclear",
         topMw: 5000,
+        topSharePct: 22,
         transfersMw: 10,
         empty: false,
       })
-    ).toBe("Nuclear is the largest source of Britain’s electricity, with cross-border flows broadly balanced.");
+    ).toBe("Nuclear is the largest source of Britain’s electricity at 5.0 GW (22%).");
   });
 
   it("frames Year and All time as averages", () => {

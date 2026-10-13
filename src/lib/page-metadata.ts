@@ -3,6 +3,8 @@ import {
   DASHBOARD_FOCUSES,
   type DashboardSearchParams,
 } from "@/lib/dashboard-search-params";
+import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
+import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-demand";
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
@@ -150,6 +152,31 @@ export function sharePageMetadata(focus: DashboardSearchParams["focus"]): Metada
     imagePath: ogFocusImagePath(focus),
     imageAlt: copy.title,
   });
+}
+
+export function ogPeriodImagePath(periodStartUtc: string): string {
+  const stamp = `${new Date(periodStartUtc).toISOString().slice(0, 16)}Z`;
+  return `/og?p=${stamp}`;
+}
+
+export function homepageOgImage(payload: DashboardPayload | null): {
+  url: string;
+  width: number;
+  height: number;
+  alt: string;
+} {
+  if (!payload) {
+    return SITE_OG_IMAGE;
+  }
+  const hydrated = hydrateDashboardPayload(payload);
+  const power = getDisplayedPower(hydrated.facts, hydrated.headlineSnapshots);
+  const start = power.generationStartUtc ?? power.demandStartUtc;
+  return {
+    url: start ? ogPeriodImagePath(start) : SITE_OG_IMAGE.url,
+    width: OG_IMAGE_WIDTH,
+    height: OG_IMAGE_HEIGHT,
+    alt: power.terms.length > 0 ? balanceEquationSentence(power) : HOME_TITLE,
+  };
 }
 
 export function homePageMetadata(): Metadata {

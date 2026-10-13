@@ -1,91 +1,119 @@
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { balanceEquationSentence, type DisplayedPower, type HeadlineTerm } from "@/lib/displayed-demand";
 import { formatHeadlineGw } from "@/lib/facts";
-import { formatPlainSettlementWindow } from "@/lib/generation-desk-view";
-import type { DisplayedPower, HeadlineTerm } from "@/lib/displayed-demand";
+
+const PERIOD_ID = "balance-period";
 
 export function EquationRow({ power }: { power: DisplayedPower }) {
-  const datetime = power.generationStartUtc ?? power.demandStartUtc;
-  const timeLabel = datetime ? formatPlainSettlementWindow(datetime) : null;
+  const sentence = balanceEquationSentence(power);
+  const wideFigures = power.terms.length >= 5;
 
   return (
     <div>
-      <div
-        data-balanced={power.showEquals ? "true" : "false"}
-        className="flex flex-wrap items-start gap-x-1 gap-y-4 sm:gap-x-2"
-        role="group"
-        aria-label={equationAria(power.terms, power.showEquals)}
+      <p className="sr-only">{sentence}</p>
+      <dl
+        data-balanced={power.balanceClosed ? "true" : "false"}
+        aria-hidden="true"
+        className={equationGridClass(power.balanceClosed, wideFigures)}
       >
         {power.terms.map((term) => (
-          <EquationTerm key={term.id} term={term} />
+          <EquationTerm key={term.id} term={term} wide={wideFigures} />
+        ))}
+      </dl>
+      <div className="px-4 sm:hidden" aria-hidden="true">
+        {power.terms.map((term) => (
+          <LedgerRow key={term.id} term={term} />
         ))}
       </div>
-      {datetime && timeLabel ? (
-        <p className="mt-2 text-label-12 text-gray-900">
-          <time className="text-mono-12" dateTime={datetime}>
-            {timeLabel}
-          </time>
-        </p>
-      ) : null}
     </div>
   );
 }
 
-function EquationTerm({ term }: { term: HeadlineTerm }) {
+function equationGridClass(closed: boolean, wide: boolean): string {
+  const base = "hidden items-end gap-x-0 px-6 pt-8 pb-7 sm:grid";
+  if (!closed) {
+    return `${base} grid-cols-3`;
+  }
+  if (wide) {
+    return `${base} grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]`;
+  }
+  return `${base} grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]`;
+}
+
+export function balancePeriodId(): string {
+  return PERIOD_ID;
+}
+
+function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
+  const demand = term.id === "demand";
+  const figure =
+    wide
+      ? "text-[2.5rem] @min-[1102px]:text-[3rem]"
+      : "text-[2.5rem] @min-[1100px]:text-[3rem]";
+
   return (
-    <div data-stat={term.id} className="grid min-w-[6.5rem] grid-cols-[auto_minmax(6.5rem,1fr)] sm:min-w-[7.5rem]">
-      <div className="col-start-2 row-start-1 flex items-center gap-1">
-        <p className="text-label-13 text-gray-900">{term.label}</p>
-        <InfoTooltip text={term.help} label={`What is ${term.label}?`} />
-      </div>
+    <>
       {term.operator ? (
         <span
-          className="col-start-1 row-start-2 flex w-6 items-center justify-center self-center text-xl font-light text-gray-700 sm:w-8 sm:text-4xl"
+          className="self-end pb-[0.35rem] text-center text-[2rem] font-normal text-gray-700"
           aria-hidden="true"
         >
           {term.operator}
         </span>
       ) : null}
-      <p className="col-start-2 row-start-2 font-sans text-[1.75rem] leading-9 font-semibold tracking-[-0.04em] tabular-nums text-gray-1000 sm:text-display sm:leading-[3.25rem]">
-        <span>{formatHeadlineGw(displayMw(term))}</span>
-        <span className="text-gray-700">GW</span>
-      </p>
-      <p className="col-start-2 row-start-3 hidden max-w-36 text-pretty text-label-12 text-gray-900 sm:block">
-        <span data-source={term.source}>{term.source}</span>
-      </p>
+      <div data-stat={term.id} className={demand ? "border-l border-gray-alpha-400 pl-6" : ""}>
+        <dt className="flex items-center gap-1 text-label-13 font-medium text-gray-900">
+          <span>{term.label}</span>
+          <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
+        </dt>
+        <dd
+          className={`mt-3 font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
+          title={term.roundingNote ?? undefined}
+          aria-describedby={demand ? PERIOD_ID : undefined}
+        >
+          <span>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+          <span className="ml-1 text-xl font-medium tracking-normal text-gray-700">GW</span>
+        </dd>
+        <p className="mt-2 truncate text-label-12 text-gray-900">{term.role}</p>
+      </div>
+    </>
+  );
+}
+
+function LedgerRow({ term }: { term: HeadlineTerm }) {
+  const demand = term.id === "demand";
+  const generation = term.id === "generation";
+  const figure = demand || generation ? "text-[2rem]" : "text-2xl";
+
+  return (
+    <div
+      data-stat={term.id}
+      className={`grid grid-cols-[1.25rem_1fr_auto] items-baseline py-1.5 ${
+        demand ? "mt-1.5 border-t border-gray-700 pt-3" : ""
+      }`}
+    >
+      <span className="text-xl font-normal text-gray-700" aria-hidden="true">
+        {term.operator ?? ""}
+      </span>
+      <span className={`flex items-center gap-1 text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}>
+        <span>{term.label}</span>
+        <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
+      </span>
+      <span className={`font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}>
+        <span>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+        <span className="ml-1 text-sm font-medium tracking-normal text-gray-700">GW</span>
+      </span>
     </div>
   );
 }
 
-function displayMw(term: HeadlineTerm): number | null {
-  if (term.mw == null) {
-    return null;
-  }
-  if (term.operator === "+" || term.operator === "−") {
-    return Math.abs(term.mw);
-  }
-  return term.mw;
+function popoverText(term: HeadlineTerm): string {
+  return `${term.help} Source: ${term.source}.`;
 }
 
-function equationAria(terms: HeadlineTerm[], showEquals: boolean): string {
-  const parts = terms.map((term) => {
-    const value = `${formatHeadlineGw(displayMw(term))} GW`;
-    switch (term.operator) {
-      case "+":
-        return `plus ${term.label} ${value}`;
-      case "−":
-        return `minus ${term.label} ${value}`;
-      case "=":
-        return `equals ${term.label} ${value}`;
-      case null:
-        return `${term.label} ${value}`;
-      default: {
-        const exhaustive: never = term.operator;
-        return exhaustive;
-      }
-    }
-  });
-  if (!showEquals) {
-    return `${parts.join(", ")}. Not a closed equation.`;
+function unsignedMw(mw: number | null): number | null {
+  if (mw == null) {
+    return null;
   }
-  return parts.join(", ");
+  return Math.abs(mw);
 }

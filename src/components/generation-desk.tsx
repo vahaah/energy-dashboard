@@ -1,24 +1,34 @@
 "use client";
 
-import { EquationRow } from "@/components/equation-row";
-import { MixBar } from "@/components/mix-bar";
+import type { ReactNode } from "react";
+import { balancePeriodId, EquationRow } from "@/components/equation-row";
+import { ShareBar } from "@/components/share-bar";
 import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { LookAheadStrip } from "@/components/look-ahead-strip";
 import { CardEmpty, CardLoading } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { getDisplayedPower } from "@/lib/displayed-demand";
+import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
 import {
   showsDemandForecast,
   showsLookAheadCopy,
   type LookAheadView,
 } from "@/lib/forecast-model";
-import { fuelinstDelayNote } from "@/lib/generation-desk-view";
-import { MIX_BAR_HELP, buildGroupedSourceTable } from "@/lib/source-groups";
+import { formatPlainSettlementWindow, fuelinstDelayNote } from "@/lib/generation-desk-view";
+import { generationMixShares } from "@/lib/generation-share";
+import { buildGroupedSourceTable } from "@/lib/source-groups";
 import { captionGeneration } from "@/lib/attribution";
+import { parseUtcDateTime } from "@/lib/london-time";
+import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min, TimeRange } from "@/lib/types";
+
+const BALANCE_SOURCES = [
+  { label: "Elexon BMRS", href: "/methodology#elexon-bmrs" },
+  { label: "NESO", href: "/methodology#neso-open-data" },
+  { label: "Sheffield Solar PV Live", href: "/methodology#sheffield-pv-live" },
+] as const;
 
 interface Props {
   facts: LatestFacts;
@@ -31,6 +41,9 @@ interface Props {
   now?: Date;
   lookAhead?: LookAheadView | null;
   neso?: boolean;
+  question?: string;
+  answer?: string;
+  actions?: ReactNode;
 }
 
 export function GenerationDesk({
@@ -44,44 +57,57 @@ export function GenerationDesk({
   now = new Date(),
   lookAhead = null,
   neso = false,
+  question = "What's powering Britain?",
+  answer = "",
+  actions = null,
 }: Props) {
   const power = getDisplayedPower(facts, headlineSnapshots);
+  const shares = generationMixShares(facts.generationRows, power.generationStartUtc);
   const table = buildGroupedSourceTable(
-    power.generationRows,
+    facts.generationRows,
     power.demandMw,
-    headlineGeneration.length > 0 ? headlineGeneration : generation
+    headlineGeneration.length > 0 ? headlineGeneration : generation,
+    power.generationStartUtc
   );
   const hasChart = snapshots.length > 0 || generation.length > 0;
-  const notes: string[] = [];
   const delayNote = facts.isHistorical ? null : fuelinstDelayNote(facts.generationRows, now);
-  if (delayNote) {
-    notes.push(delayNote);
-  }
-  if (power.alignmentNote) {
-    notes.push(power.alignmentNote);
-  }
-  const statusNote = notes.join(" · ");
+  const periodStart = power.generationStartUtc ?? power.demandStartUtc;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col">
+      <header className="flex flex-col px-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:pt-6">
+        <div className="min-w-0">
+          <h2 className="text-heading-16 font-semibold text-gray-1000">{question}</h2>
+          {answer ? <p className="mt-1 max-w-prose text-copy-14 text-gray-900">{answer}</p> : null}
+        </div>
+        {actions ? <div className="mt-3 shrink-0 sm:mt-0">{actions}</div> : null}
+      </header>
       {pending ? (
         <EquationSkeleton />
       ) : (
         <EquationRow power={power} />
       )}
-      {statusNote ? (
-        <p className="text-label-12 text-gray-900" aria-live="polite">
-          {statusNote}
-        </p>
-      ) : null}
-
-      <div>
-        <div className="mb-2 flex items-center gap-2">
-          <p className="text-label-13 text-gray-900">Share of demand</p>
-          <InfoTooltip text={MIX_BAR_HELP} label="What is Share of demand?" />
+      {pending ? (
+        <div className="px-4 pb-6 sm:px-6">
+          <Skeleton className="h-3 w-full rounded-sm" />
         </div>
-        {pending ? <Skeleton className="h-3 w-full rounded-full" /> : <MixBar table={table} />}
-      </div>
+      ) : (
+        <ShareBar
+          shares={shares}
+          generationMw={power.generationMw}
+          carbon={facts.carbon.value}
+          carbonHelp={facts.carbon.definition}
+        />
+      )}
+      <BalanceFooter
+        periodStart={periodStart}
+        status={balanceFooterStatus(power)}
+        batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
+      />
+      {delayNote ? (
+        <p className="px-4 pt-3 text-label-12 text-gray-900 sm:px-6">{delayNote}</p>
+      ) : null}
+      <div className="flex flex-col gap-5 px-4 pt-5 pb-4 sm:px-6 sm:pb-6">
 
       {pending ? (
         <SourceTableSkeleton />
@@ -124,8 +150,87 @@ export function GenerationDesk({
       {lookAhead && showsLookAheadCopy(facts) ? (
         <LookAheadStrip lookAhead={lookAhead} />
       ) : null}
+      </div>
     </div>
   );
+}
+
+type BalanceFooterStatus = "stale" | "incomplete" | null;
+
+function balanceFooterStatus(power: DisplayedPower): BalanceFooterStatus {
+  if (power.alignmentNote != null) {
+    return "stale";
+  }
+  const period = power.generationStartUtc ?? power.demandStartUtc;
+  if (!power.balanceClosed && period != null) {
+    return "incomplete";
+  }
+  return null;
+}
+
+function balanceStatusCopy(status: BalanceFooterStatus): string | null {
+  switch (status) {
+    case "stale":
+      return "Latest settlement period is not in yet";
+    case "incomplete":
+      return "Half-hour balance is incomplete.";
+    case null:
+      return null;
+    default: {
+      const exhaustive: never = status;
+      return exhaustive;
+    }
+  }
+}
+
+function BalanceFooter({
+  periodStart,
+  status,
+  batteryFootnote,
+}: {
+  periodStart: string | null;
+  status: BalanceFooterStatus;
+  batteryFootnote: boolean;
+}) {
+  const windowLabel = periodStart ? formatPlainSettlementWindow(periodStart) : null;
+  const dateTime = periodStart ? settlementInterval(periodStart) : null;
+  const statusCopy = balanceStatusCopy(status);
+
+  return (
+    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6">
+      {windowLabel && dateTime ? (
+        <p className="w-full sm:w-auto">
+          <time id={balancePeriodId()} dateTime={dateTime} className="text-mono-12">
+            {windowLabel}
+          </time>{" "}
+          settlement period
+        </p>
+      ) : null}
+      {statusCopy ? (
+        <p role="status" className="flex w-full items-center gap-1.5 text-amber-700 sm:w-auto">
+          <span className="size-1.5 rounded-full bg-amber-700" aria-hidden="true" />
+          {statusCopy}
+        </p>
+      ) : null}
+      <p className="w-full sm:ml-auto sm:w-auto">
+        {BALANCE_SOURCES.map((source, index) => (
+          <span key={source.href}>
+            {index > 0 ? " · " : null}
+            <a href={source.href} className="underline-offset-2 hover:text-gray-1000 hover:underline">
+              {source.label}
+            </a>
+          </span>
+        ))}
+      </p>
+      {batteryFootnote ? <p className="w-full text-gray-900">Battery charging isn’t published.</p> : null}
+    </footer>
+  );
+}
+
+function settlementInterval(startUtc: string): string {
+  const period = getSettlementPeriod(parseUtcDateTime(startUtc));
+  const compact = (date: Date) => `${date.toISOString().slice(0, 16)}Z`;
+  return `${compact(period.startUtc)}/${compact(period.endUtc)}`;
 }
 
 export function GenerationDeskSkeleton() {

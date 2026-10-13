@@ -81,7 +81,7 @@ export default function MethodologyPage() {
                 </thead>
                 <tbody>
                   {sources.map((source) => (
-                    <tr key={source.id} className="border-t border-gray-alpha-200 align-top">
+                    <tr id={source.id} key={source.id} className="border-t border-gray-alpha-200 align-top">
                       <th scope="row" className="py-2 font-medium">
                         <a
                           href={source.url}

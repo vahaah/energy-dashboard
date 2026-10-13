@@ -45,7 +45,7 @@ export default async function TodayPage() {
             <p data-cite>
               So far today ({model.dateLabel}, to{" "}
               <time dateTime={model.untilDatetime}>{model.untilClock}</time>), wind supplied{" "}
-              {Math.round(model.shares.windPct ?? 0)}% of Britain&apos;s electricity, gas{" "}
+              {Math.round(model.shares.windPct ?? 0)}% of Britain&apos;s generation, gas{" "}
               {Math.round(model.shares.gasPct ?? 0)}%, nuclear {Math.round(model.shares.nuclearPct ?? 0)}%
               and solar {Math.round(model.shares.solarPct ?? 0)}%. Carbon intensity averaged{" "}
               {model.carbonAverage?.toFixed(0) ?? "—"} gCO₂/kWh and the market index price averaged £
@@ -76,6 +76,9 @@ export default async function TodayPage() {
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               Demand. Generation {model.latest.generationGw} GW
+              {model.latest.importsGw && model.latest.exportsGw
+                ? `. Importing ${model.latest.importsGw} GW, exporting ${model.latest.exportsGw} GW`
+                : ""}
               {model.latest.carbon ? ` · ${model.latest.carbon} gCO₂/kWh` : ""}
               {model.latest.price ? ` · £${model.latest.price}/MWh` : ""}.
             </p>

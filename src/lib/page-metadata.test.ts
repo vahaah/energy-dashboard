@@ -11,6 +11,7 @@ import {
   methodologyPageMetadata,
   priceCapPageMetadata,
   ogFocusImagePath,
+  ogPeriodImagePath,
   privacyPageMetadata,
   recordsPageMetadata,
   shareFocusPath,
@@ -51,6 +52,11 @@ describe("page metadata", () => {
     expect(overview.openGraph?.images).toEqual([SITE_OG_IMAGE]);
     expect(SITE_OG_IMAGE.url).toBe("/og");
     expect(JSON.stringify(overview.twitter)).toContain("summary_large_image");
+  });
+
+  it("versions the homepage OG url with an unencoded settlement period", () => {
+    expect(ogPeriodImagePath("2026-10-13T08:00:00.000Z")).toBe("/og?p=2026-10-13T08:00Z");
+    expect(ogPeriodImagePath("2026-10-13T08:00:00.000Z")).not.toContain("%");
   });
 
   it("keeps per-section cards on /og?focus= and off homepage metadata", () => {

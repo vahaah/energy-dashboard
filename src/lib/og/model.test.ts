@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
 import type { Generation5min } from "@/lib/types";
-import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL } from "@/lib/site";
+import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL, OG_SETTLEMENT_CACHE_CONTROL } from "@/lib/site";
 import {
   OG_CARBON_SOURCE,
   OG_COMMODITY_SOURCE,
@@ -92,13 +92,23 @@ describe("og model", () => {
     expect(overview.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
     expect(overview.metrics.find((metric) => metric.label === "Demand")?.hint).toBe("Half-hour balance");
     expect(overview.title).toContain("Gas is supplying most");
-    expect(overview.title).toContain("exporting 3.0 GW");
+    expect(overview.title).toContain("at 20.0 GW (67%)");
+    expect(overview.title).not.toContain("exporting");
+    expect(overview.balance?.terms.map((term) => term.label)).toEqual([
+      "Generation",
+      "Imports",
+      "Exports",
+      "Storage charging",
+      "Demand",
+    ]);
+    expect(overview.balance?.figurePx).toBe(60);
+    expect(overview.balance?.alt).toContain("equals Demand");
     expect(overview.mix[0]?.fuel).toBe("gas");
     expect(overview.mix.find((slice) => slice.fuel === "wind")?.sharePct).toBeCloseTo((10_000 / 30_000) * 100, 5);
     expect(overview.mix.map((slice) => slice.fuel)).not.toContain("imports");
 
     const transfers = buildOgCard({ kind: "focus", focus: "transfers" }, balanced);
-    expect(transfers.title).toBe("Exporting 3.0 GW");
+    expect(transfers.title).toBe("Importing 1.5 GW, exporting 4.5 GW");
     expect(transfers.metrics.find((metric) => metric.label === "Generation")?.value).toBe("30.0 GW");
     expect(transfers.metrics.find((metric) => metric.label === "Demand")?.value).toBe(demand);
 
@@ -120,10 +130,10 @@ describe("og model", () => {
     const shares = normalizeOgShares(live.facts?.shares ?? []);
     expect(shares[0]?.fuel).toBe("wind");
     expect(shares.map((share) => share.fuel)).toEqual(
-      expect.arrayContaining(["wind", "gas", "imports", "solar", "biomass"])
+      expect.arrayContaining(["wind", "gas", "solar", "biomass"])
     );
+    expect(shares.map((share) => share.fuel)).not.toContain("imports");
     expect(shares.find((share) => share.fuel === "wind")?.mw).toBe(13_000);
-    expect(shares.find((share) => share.fuel === "imports")?.mw).toBe(6_100);
     expect(shares.find((share) => share.fuel === "solar")?.mw).toBe(1_300);
     expect(shares.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
     expect(shares.every((share, index) => index === 0 || shares[index - 1]!.sharePct >= share.sharePct)).toBe(
@@ -134,7 +144,9 @@ describe("og model", () => {
     expect(overview.source).toBe(OG_GRID_SOURCES);
     expect(overview.title).toContain("Wind is the largest source");
     expect(overview.title).not.toContain("Biomass is the largest source");
-    expect(overview.title).toContain("importing 6.1 GW");
+    expect(overview.title).toContain("at 13.0 GW");
+    expect(overview.title).not.toContain("importing");
+    expect(overview.balance?.periodStamp).toContain("·");
     expect(overview.mix.map((slice) => slice.fuel)).toEqual(shares.map((share) => share.fuel));
     expect(overview.mix.every((slice) => slice.label.length > 0 && slice.label !== slice.fuel)).toBe(true);
     expect(overview.mix.map((slice) => slice.fuel)).toContain("hydro");
@@ -279,7 +291,8 @@ describe("og model", () => {
       { fuel: "INTFR", mw: 4_000, sharePct: 16 },
       { fuel: "INTNED", mw: -1_000, sharePct: -4 },
     ]);
-    expect(importing.find((share) => share.fuel === "imports")?.mw).toBe(3_000);
+    expect(importing.find((share) => share.fuel === "imports")).toBeUndefined();
+    expect(importing.find((share) => share.fuel === "wind")?.sharePct).toBeCloseTo(100, 5);
     expect(importing.reduce((sum, share) => sum + share.sharePct, 0)).toBeCloseTo(100, 5);
   });
 
@@ -287,7 +300,10 @@ describe("og model", () => {
     expect(ogCacheControl({ kind: "page", page: "today" })).toBe(OG_HOURLY_CACHE_CONTROL);
     expect(ogCacheControl({ kind: "page", page: "gas" })).toBe(OG_HOURLY_CACHE_CONTROL);
     expect(ogCacheControl({ kind: "page", page: "privacy" })).toBe(OG_CACHE_CONTROL);
-    expect(ogCacheControl({ kind: "focus", focus: "overview" })).toBe(OG_CACHE_CONTROL);
+    expect(ogCacheControl({ kind: "focus", focus: "overview" })).toBe(OG_SETTLEMENT_CACHE_CONTROL);
+    expect(ogCacheControl({ kind: "focus", focus: "generation" })).toBe(OG_SETTLEMENT_CACHE_CONTROL);
+    expect(ogCacheControl({ kind: "focus", focus: "carbon" })).toBe(OG_CACHE_CONTROL);
+    expect(OG_SETTLEMENT_CACHE_CONTROL).toContain("s-maxage=1800");
     expect(OG_HOURLY_CACHE_CONTROL).toContain("s-maxage=3600");
     expect(OG_CACHE_CONTROL).toContain("s-maxage=86400");
   });

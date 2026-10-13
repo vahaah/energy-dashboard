@@ -14,7 +14,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
               {group.gwLabel}
               {group.mw != null ? <span className="text-gray-700"> GW</span> : null}
             </p>
-            <p className="w-12 shrink-0 text-right font-sans text-copy-14 tabular-nums text-gray-900">{group.shareLabel}</p>
+            <p className="w-20 shrink-0 text-right font-sans text-copy-14 tabular-nums text-gray-900">{group.shareLabel}</p>
             <span className="w-16 shrink-0" />
             <InfoTooltip text={group.help} label={`What is ${group.label}?`} align="end" />
           </div>
@@ -32,7 +32,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
                 {row.gwLabel}
                 {row.mw != null ? <span className="text-gray-700"> GW</span> : null}
               </p>
-              <p className="w-12 text-right font-sans text-copy-14 tabular-nums text-gray-900">{row.shareLabel}</p>
+              <p className="w-20 text-right font-sans text-copy-14 tabular-nums text-gray-900">{row.shareLabel}</p>
               <Sparkline values={row.sparkline} color={row.color} label={`${row.label} over 24 hours`} />
               <InfoTooltip text={row.help} label={`What is ${row.label}?`} align="end" />
             </div>

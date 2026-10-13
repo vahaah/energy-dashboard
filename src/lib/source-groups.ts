@@ -11,6 +11,8 @@ import {
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
 import { formatHeadlineGw } from "@/lib/facts";
+import { buildSettlementBalance } from "@/lib/headline-balance";
+import { formatSharePercent } from "@/lib/generation-share";
 import { parseUtcDateTime } from "@/lib/london-time";
 import type { Generation5min } from "@/lib/types";
 
@@ -75,7 +77,7 @@ export const GROUP_HELP: Record<SourceGroupId, string> = {
   renewables: "Wind, solar and conventional hydro. Pumped storage sits under Storage, not here. Source: Elexon FUELINST, NESO and Sheffield Solar PV Live.",
   other: "Nuclear, biomass and other generation that does not fit the named fuels. Source: Elexon FUELINST.",
   interconnectors: "High-voltage links to neighbouring grids. Positive is an import into Great Britain. Source: Elexon FUELINST.",
-  storage: "Pumped hydro and batteries when they are generating. Charging is not counted as demand. Source: Elexon FUELINST.",
+  storage: "Pumped hydro and batteries when they are generating. Charging is the storage term in the balance, not a share of generation. Source: Elexon FUELINST.",
 };
 
 const HELP: Record<string, string> = {
@@ -88,12 +90,12 @@ const HELP: Record<string, string> = {
   nuclear: "Nuclear power stations. Source: Elexon FUELINST.",
   biomass: "Biomass generation. Source: Elexon FUELINST.",
   other: "Other generation that does not fit the named fuels. Source: Elexon FUELINST.",
-  pumped_storage: "Pumped hydro when it is generating. Charging is not counted as demand here. Source: Elexon FUELINST.",
+  pumped_storage: "Pumped hydro when it is generating. Pumping is the storage-charging term in the balance. Source: Elexon FUELINST.",
   battery: "Battery discharge when Elexon publishes it. Charging isn’t published as a national series. Source: Elexon FUELINST.",
 };
 
 export const MIX_BAR_HELP =
-  "Each segment is that source’s share of headline demand. Segments can add up to more than 100% when Britain is exporting or storage is charging.";
+  "Each segment is that fuel’s share of GB generation. Imports and exports stay in the balance equation, so the bar adds up to 100%.";
 
 const COUNTRY_HELP = "Metered flow on the interconnectors to this country. Positive is an import into Great Britain. Source: Elexon FUELINST.";
 
@@ -103,10 +105,11 @@ type Accumulator = { mw: number; fuels: string[] };
 
 export function buildGroupedSourceTable(
   generationRows: Generation5min[],
-  demandMw: number | null,
-  sparklineRows: Generation5min[] = generationRows
+  _demandMw: number | null,
+  sparklineRows: Generation5min[] = generationRows,
+  periodStartUtc: string | null = null
 ): GroupedSourceTable {
-  const split = splitLatestGenerationRows(generationRows);
+  const split = splitLatestGenerationRows(periodRows(generationRows, periodStartUtc));
   const latest = latestByFuel(split.sources, split.interconnectors);
   const buckets = new Map<string, Accumulator>();
 
@@ -131,38 +134,40 @@ export function buildGroupedSourceTable(
     countryMw.set(country, (countryMw.get(country) ?? 0) + row.generation_mw);
   }
 
+  const generationMw = domesticGenerationMw(buckets);
   const groups = SOURCE_GROUP_ORDER.map((id) => {
-    const rows = rowsForGroup(id, buckets, countryMw, demandMw, sparklineRows);
+    const rows = rowsForGroup(id, buckets, countryMw, generationMw, sparklineRows);
     const present = rows.filter((row) => row.mw != null);
     const mw = present.length === 0 ? null : present.reduce((sum, row) => sum + (row.mw ?? 0), 0);
+    const interconnector = id === "interconnectors";
     return {
       id,
       label: GROUP_LABELS[id],
       color: GROUP_COLORS[id],
       help: GROUP_HELP[id],
       mw,
-      gwLabel: formatHeadlineGw(mw),
-      sharePct: mw == null ? null : sharePct(mw, demandMw),
-      shareLabel: mw == null ? "—" : shareLabel(mw, demandMw),
+      gwLabel: mw == null ? "—" : formatHeadlineGw(interconnector ? Math.abs(mw) : mw),
+      sharePct: mw == null || interconnector ? null : sharePct(mw, generationMw),
+      shareLabel: mw == null ? "—" : interconnector ? directionWord(mw) : shareLabel(mw, generationMw),
       rows,
     };
   });
 
   const mix =
-    demandMw == null || demandMw <= 0
+    generationMw <= 0
       ? []
       : groups
           .flatMap((group) => group.rows)
-          .filter((row) => row.mw != null && row.mw > 0)
+          .filter((row) => row.mw != null && row.mw > 0 && !row.id.startsWith("int-"))
           .map((row) => {
             const mw = row.mw ?? 0;
             return {
               id: row.id,
               label: row.label,
               mw,
-              pct: sharePct(mw, demandMw),
+              pct: sharePct(mw, generationMw),
               color: row.color,
-              hatched: groupOf(row.id) === "interconnectors",
+              hatched: false,
             };
           });
 
@@ -173,17 +178,17 @@ function rowsForGroup(
   group: SourceGroupId,
   buckets: Map<string, Accumulator>,
   countryMw: Map<string, number>,
-  demandMw: number | null,
+  generationMw: number,
   sparklineRows: Generation5min[]
 ): SourceRowView[] {
   switch (group) {
     case "fossil":
-      return ["gas", "coal", "oil"].map((id) => sourceRow(id, buckets.get(id), demandMw, sparklineRows));
+      return ["gas", "coal", "oil"].map((id) => sourceRow(id, buckets.get(id), generationMw, sparklineRows));
     case "renewables":
-      return ["solar", "wind", "hydro"].map((id) => sourceRow(id, buckets.get(id), demandMw, sparklineRows));
+      return ["solar", "wind", "hydro"].map((id) => sourceRow(id, buckets.get(id), generationMw, sparklineRows));
     case "other":
       return ["nuclear", "biomass", "other"].map((id) =>
-        sourceRow(id, buckets.get(id), demandMw, sparklineRows)
+        sourceRow(id, buckets.get(id), generationMw, sparklineRows)
       );
     case "interconnectors":
       return Array.from(countryMw.entries())
@@ -196,14 +201,15 @@ function rowsForGroup(
             color: fuelColor("imports"),
             help: COUNTRY_HELP,
             sparkline: sparklineForCountries(sparklineRows, country),
-            demandMw,
+            generationMw,
             missingNote: null,
+            interconnector: true,
           })
         );
     case "storage":
       return [
-        sourceRow("pumped_storage", buckets.get("pumped_storage"), demandMw, sparklineRows),
-        batteryRow(buckets.get("battery"), demandMw, sparklineRows),
+        sourceRow("pumped_storage", buckets.get("pumped_storage"), generationMw, sparklineRows),
+        batteryRow(buckets.get("battery"), generationMw, sparklineRows),
       ];
     default: {
       const exhaustive: never = group;
@@ -215,7 +221,7 @@ function rowsForGroup(
 function sourceRow(
   id: string,
   bucket: Accumulator | undefined,
-  demandMw: number | null,
+  generationMw: number,
   sparklineRows: Generation5min[]
 ): SourceRowView {
   return rowView({
@@ -225,14 +231,15 @@ function sourceRow(
     color: fuelColor(id),
     help: HELP[id] ?? "",
     sparkline: sparklineForFuels(sparklineRows, bucket?.fuels ?? fuelsFor(id)),
-    demandMw,
+    generationMw,
     missingNote: bucket ? null : "no data",
+    interconnector: false,
   });
 }
 
 function batteryRow(
   bucket: Accumulator | undefined,
-  demandMw: number | null,
+  generationMw: number,
   sparklineRows: Generation5min[]
 ): SourceRowView {
   const discharging = bucket != null && bucket.mw > 0;
@@ -243,8 +250,9 @@ function batteryRow(
     color: fuelColor("battery"),
     help: HELP.battery ?? "",
     sparkline: discharging ? sparklineForFuels(sparklineRows, bucket.fuels) : [],
-    demandMw,
+    generationMw,
     missingNote: "discharge only; charging isn’t published",
+    interconnector: false,
   });
 }
 
@@ -255,21 +263,70 @@ function rowView(input: {
   color: string;
   help: string;
   sparkline: number[];
-  demandMw: number | null;
+  generationMw: number;
   missingNote: string | null;
+  interconnector: boolean;
 }): SourceRowView {
+  const interconnector = input.interconnector;
   return {
     id: input.id,
     label: input.label,
     mw: input.mw,
-    gwLabel: formatHeadlineGw(input.mw),
-    sharePct: input.mw == null ? null : sharePct(input.mw, input.demandMw),
-    shareLabel: input.mw == null ? "—" : shareLabel(input.mw, input.demandMw),
+    gwLabel:
+      input.mw == null ? "—" : formatHeadlineGw(interconnector ? Math.abs(input.mw) : input.mw),
+    sharePct: input.mw == null || interconnector ? null : sharePct(input.mw, input.generationMw),
+    shareLabel:
+      input.mw == null
+        ? "—"
+        : interconnector
+          ? directionWord(input.mw)
+          : shareLabel(input.mw, input.generationMw),
     sparkline: input.sparkline,
     color: input.color,
     help: input.help,
     missingNote: input.missingNote,
   };
+}
+
+function periodRows(rows: Generation5min[], periodStartUtc: string | null): Generation5min[] {
+  if (!periodStartUtc) {
+    return rows;
+  }
+  const balance = buildSettlementBalance(rows, periodStartUtc);
+  if (balance.fuels.length === 0) {
+    return rows;
+  }
+  const timestamp = periodStartUtc.includes("T") ? periodStartUtc.replace("T", " ").slice(0, 19) : periodStartUtc;
+  return balance.fuels.map((fuel) => ({
+    timestamp,
+    fuel_type: fuel.fuel,
+    generation_mw: isInterconnectorFuel(fuel.fuel)
+      ? fuel.positiveMw - fuel.negativeMw
+      : isPumpedStorageFuel(fuel.fuel) || isBatteryFuel(fuel.fuel)
+        ? fuel.positiveMw
+        : fuel.mw,
+    source: fuel.source,
+  }));
+}
+
+function domesticGenerationMw(buckets: Map<string, Accumulator>): number {
+  let total = 0;
+  for (const bucket of buckets.values()) {
+    if (bucket.mw > 0) {
+      total += bucket.mw;
+    }
+  }
+  return total;
+}
+
+function directionWord(mw: number): string {
+  if (mw > 25) {
+    return "net import";
+  }
+  if (mw < -25) {
+    return "net export";
+  }
+  return "balanced";
 }
 
 function latestByFuel(
@@ -359,31 +416,6 @@ function labelFor(id: string): string {
   }
 }
 
-function groupOf(id: string): SourceGroupId {
-  if (id.startsWith("int-")) {
-    return "interconnectors";
-  }
-  switch (id) {
-    case "gas":
-    case "coal":
-    case "oil":
-      return "fossil";
-    case "solar":
-    case "wind":
-    case "hydro":
-      return "renewables";
-    case "pumped_storage":
-    case "battery":
-      return "storage";
-    case "nuclear":
-    case "biomass":
-    case "other":
-      return "other";
-    default:
-      return "other";
-  }
-}
-
 export function sparklineForFuels(rows: Generation5min[], fuels: string[]): number[] {
   const wanted = new Set(fuels.map((fuel) => normalizeFuelType(fuel)));
   return sparklineSeries(rows, (row) => wanted.has(normalizeFuelType(row.fuel_type)));
@@ -428,16 +460,16 @@ function sparklineSeries(
     );
 }
 
-function sharePct(mw: number, demandMw: number | null): number {
-  if (demandMw == null || demandMw <= 0) {
+function sharePct(mw: number, generationMw: number): number {
+  if (generationMw <= 0) {
     return 0;
   }
-  return (mw / demandMw) * 100;
+  return (mw / generationMw) * 100;
 }
 
-function shareLabel(mw: number, demandMw: number | null): string {
-  if (demandMw == null || demandMw <= 0) {
+function shareLabel(mw: number, generationMw: number): string {
+  if (generationMw <= 0) {
     return "—";
   }
-  return `${((mw / demandMw) * 100).toFixed(1)}%`;
+  return `${formatSharePercent((mw / generationMw) * 100)}%`;
 }

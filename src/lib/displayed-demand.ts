@@ -1,9 +1,9 @@
 import { isEmbeddedFuel, splitLatestGenerationRows } from "@/lib/dashboard-model";
 import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import { alignAnswerPeriod } from "@/lib/generation-desk-view";
+import { STORAGE_CHARGING_MIN_MW } from "@/lib/generation-share";
 import {
   buildSettlementBalance,
-  headlineGw,
   headlineTermsClose,
   type StorageChargingKind,
 } from "@/lib/headline-balance";
@@ -20,10 +20,12 @@ export type HeadlineOperator = "+" | "−" | "=";
 export type HeadlineTerm = {
   id: HeadlineTermId;
   label: string;
+  role: string;
   mw: number | null;
   operator: HeadlineOperator | null;
   help: string;
   source: string;
+  roundingNote: string | null;
 };
 
 export type DisplayedPower = {
@@ -45,6 +47,7 @@ export type DisplayedPower = {
   alignmentNote: string | null;
   balanceClosed: boolean;
   showEquals: boolean;
+  publishesBatteryCharging: boolean;
   terms: HeadlineTerm[];
 };
 
@@ -100,6 +103,8 @@ export function getDisplayedPower(
     alignmentNote: aligned.alignmentNote,
     balanceClosed: closed,
     showEquals,
+    publishesBatteryCharging:
+      closed && (balance.storageKind === "battery" || balance.storageKind === "both"),
     terms: [],
   };
   power.terms = headlineTerms(power, balance.storageKind);
@@ -132,6 +137,43 @@ export function headlineBalanceHolds(power: DisplayedPower): boolean {
   return residual != null && Math.abs(residual) < 1e-6;
 }
 
+export const BALANCE_ROUNDING_NOTE = "Rounded to 0.1 GW from unrounded megawatts.";
+
+export function balanceEquationSentence(power: DisplayedPower): string {
+  const parts = power.terms.map((term) => {
+    const value = `${formatHeadlineGw(unsignedMw(term.mw))} GW`;
+    switch (term.operator) {
+      case "+":
+        return `plus ${term.label} ${value}`;
+      case "−":
+        return `minus ${term.label} ${value}`;
+      case "=":
+        return `equals ${term.label} ${value}`;
+      case null:
+        return `${term.label} ${value}`;
+      default: {
+        const exhaustive: never = term.operator;
+        return exhaustive;
+      }
+    }
+  });
+  const note = power.terms.find((term) => term.roundingNote)?.roundingNote ?? null;
+  if (!power.balanceClosed) {
+    return `${parts.join(", ")}. Not a closed equation.`;
+  }
+  if (note) {
+    return `${parts.join(", ")}. ${note}`;
+  }
+  return `${parts.join(", ")}.`;
+}
+
+function unsignedMw(mw: number | null): number | null {
+  if (mw == null) {
+    return null;
+  }
+  return Math.abs(mw);
+}
+
 function headlineTerms(
   power: DisplayedPower,
   storageKind: StorageChargingKind | null
@@ -140,40 +182,43 @@ function headlineTerms(
     return openTerms(power);
   }
 
+  const roundingNote = power.showEquals ? null : BALANCE_ROUNDING_NOTE;
   const terms: HeadlineTerm[] = [
     {
       id: "generation",
       label: "Generation",
+      role: "Plant and embedded wind and solar",
       mw: power.generationMw,
       operator: null,
-      help: "GB generation in this half-hour, including estimated embedded wind and solar. Pumped storage and batteries count here when they are discharging. Half-hour average of Elexon FUELINST.",
+      help: "GB generation in this half-hour, including estimated embedded wind and solar. Generation includes storage discharge. Half-hour average of Elexon FUELINST.",
       source: power.generationSource,
+      roundingNote: null,
     },
-  ];
-
-  if (power.importsMw != null && headlineGw(power.importsMw) !== 0) {
-    terms.push({
+    {
       id: "imports",
       label: "Imports",
+      role: "Power flowing into Britain",
       mw: power.importsMw,
       operator: "+",
       help: "Power flowing into Great Britain on the interconnectors. Positive Elexon flow is an import. Half-hour average of FUELINST.",
       source: power.transfersSource,
-    });
-  }
-  if (power.exportsMw != null && headlineGw(power.exportsMw) !== 0) {
-    terms.push({
+      roundingNote: null,
+    },
+    {
       id: "exports",
       label: "Exports",
+      role: "Power flowing out of Britain",
       mw: power.exportsMw,
       operator: "−",
       help: "Power flowing out of Great Britain. Shown as a positive number and subtracted. Half-hour average of FUELINST.",
       source: power.transfersSource,
-    });
-  }
+      roundingNote: null,
+    },
+  ];
+
   if (
     power.storageChargingMw != null &&
-    headlineGw(power.storageChargingMw) !== 0 &&
+    power.storageChargingMw >= STORAGE_CHARGING_MIN_MW &&
     storageKind
   ) {
     terms.push(storageTerm(power.storageChargingMw, storageKind, power.transfersSource));
@@ -181,10 +226,12 @@ function headlineTerms(
   terms.push({
     id: "demand",
     label: "Demand",
+    role: "Electricity use this half-hour",
     mw: power.demandMw,
-    operator: power.showEquals ? "=" : null,
-    help: power.demandDefinition,
+    operator: "=",
+    help: roundingNote ? `${power.demandDefinition} ${roundingNote}` : power.demandDefinition,
     source: power.demandSource,
+    roundingNote,
   });
   return terms;
 }
@@ -194,58 +241,63 @@ function openTerms(power: DisplayedPower): HeadlineTerm[] {
     {
       id: "generation",
       label: "Generation",
+      role: "Plant and embedded wind and solar",
       mw: power.generationMw,
       operator: null,
       help: "GB generation including estimated embedded wind and solar. Interconnector flows for this half-hour are incomplete, so this is not closed against demand.",
       source: power.generationSource,
+      roundingNote: null,
     },
     {
       id: "imports",
       label: "Transfers",
+      role: "Interconnector net flow",
       mw: power.transfersMw,
       operator: null,
       help: "Metered interconnector net flow. A partial interconnector book is not a national total.",
       source: power.transfersSource,
+      roundingNote: null,
     },
     {
       id: "demand",
       label: "Demand",
+      role: "Electricity use this half-hour",
       mw: power.demandMw,
       operator: null,
       help: power.demandDefinition,
       source: power.demandSource,
+      roundingNote: null,
     },
   ];
 }
 
 function storageTerm(mw: number, kind: StorageChargingKind, source: string): HeadlineTerm {
+  const base = {
+    id: "storage_charging" as const,
+    label: "Storage charging",
+    mw,
+    operator: "−" as const,
+    source,
+    roundingNote: null,
+  };
   switch (kind) {
     case "pumping":
       return {
-        id: "storage_charging",
-        label: "Pumping",
-        mw,
-        operator: "−",
+        ...base,
+        role: "Pumped storage pumping",
         help: "Pumped storage demand while the stations are pumping. Subtracted here, and not included in generation.",
-        source,
       };
     case "battery":
       return {
-        id: "storage_charging",
-        label: "Charging",
-        mw,
-        operator: "−",
+        ...base,
+        role: "Battery charging",
         help: "Battery charging. Subtracted here, and not included in generation.",
-        source,
       };
     case "both":
       return {
-        id: "storage_charging",
-        label: "Storage",
-        mw,
-        operator: "−",
+        ...base,
+        role: "Pumped storage and batteries",
         help: "Pumped storage pumping and battery charging. Subtracted here, and not included in generation.",
-        source,
       };
     default: {
       const exhaustive: never = kind;

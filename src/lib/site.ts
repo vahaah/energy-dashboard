@@ -49,6 +49,7 @@ export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
 export const OG_CACHE_CONTROL = "public, s-maxage=86400, stale-while-revalidate=604800";
 export const OG_HOURLY_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400";
+export const OG_SETTLEMENT_CACHE_CONTROL = "public, s-maxage=1800, stale-while-revalidate=86400";
 export const OG_REVALIDATE_SECONDS = 86_400;
 
 export const SITE_OG_IMAGE = {

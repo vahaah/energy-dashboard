@@ -1,21 +1,22 @@
 import { DASHBOARD_FOCUSES } from "@/lib/dashboard-search-params";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
-import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
+import { balanceEquationSentence, getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
 import { formatHeadlineGw, type LatestFacts, type SupplyShare } from "@/lib/facts";
 import { FUEL_COLORS, fuelLabel, COMMODITY_CARD_LABELS } from "@/lib/colors";
 import {
-  generationSharesFromRows,
   isInterconnectorFuel,
   mapGenerationFuelToStackKey,
   normalizeFuelType,
 } from "@/lib/dashboard-model";
+import { generationMixFromSupplyShares, generationMixShares } from "@/lib/generation-share";
+import { formatPlainSettlementWindow } from "@/lib/generation-desk-view";
 import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
 import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
 import { FOCUS_PAGE_COPY, isDashboardFocus } from "@/lib/page-metadata";
 import type { OgCacheSnapshot } from "@/lib/og/peek";
-import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL, SITE_ORIGIN } from "@/lib/site";
+import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL, OG_SETTLEMENT_CACHE_CONTROL, SITE_ORIGIN } from "@/lib/site";
 
 export const OG_PAGE_IDS = [
   "records",
@@ -47,7 +48,22 @@ export type OgMixSlice = {
   fuel: string;
   label: string;
   sharePct: number;
+  mw: number;
   color: string;
+};
+
+export type OgBalanceTerm = {
+  label: string;
+  gw: string;
+  operator: "+" | "−" | "=" | null;
+};
+
+export type OgBalance = {
+  terms: OgBalanceTerm[];
+  periodStamp: string;
+  sources: string;
+  figurePx: 72 | 60;
+  alt: string;
 };
 
 export type OgCard = {
@@ -59,6 +75,7 @@ export type OgCard = {
   stamp: string | null;
   source: string | null;
   cached: boolean;
+  balance?: OgBalance | null;
 };
 
 export const OG_EYEBROW_SEPARATOR = " · ";
@@ -286,6 +303,7 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
     stamp: facts.stamp,
     source: OG_GRID_SOURCES,
     cached: true,
+    balance: balanceFromPower(power),
   };
 }
 
@@ -320,11 +338,15 @@ function transfersCard(facts: LatestFacts | null): OgCard {
     return branded("Where is power flowing?", "Metered interconnector flows from Elexon FUELINST.", false);
   }
 
+  const gross =
+    power?.balanceClosed && power.importsMw != null && power.exportsMw != null
+      ? `Importing ${formatHeadlineGw(power.importsMw)} GW, exporting ${formatHeadlineGw(power.exportsMw)} GW`
+      : null;
   const importing = mw >= 0;
   return {
     eyebrow: gridEyebrow("Transfers"),
-    title: `${importing ? "Importing" : "Exporting"} ${formatHeadlineGw(Math.abs(mw))} GW`,
-    kicker: "Net interconnector flow",
+    title: gross ?? `${importing ? "Importing" : "Exporting"} ${formatHeadlineGw(Math.abs(mw))} GW`,
+    kicker: gross ? "Interconnector flows" : "Net interconnector flow",
     metrics: [
       { label: "Generation", value: `${formatHeadlineGw(power?.generationMw ?? facts.generationMw.value)} GW` },
       { label: "Demand", value: `${formatHeadlineGw(power?.demandMw ?? facts.demand.value)} GW` },
@@ -533,34 +555,42 @@ export function ogFuelKey(fuel: string): string {
 }
 
 function headlineShares(facts: LatestFacts, power: DisplayedPower): SupplyShare[] {
-  if (power.balanceClosed && power.generationRows.length > 0) {
-    return normalizeOgShares(generationSharesFromRows(power.generationRows));
+  const period = power.generationStartUtc ?? facts.generationMw.periodStartUtc;
+  if (facts.generationRows.length > 0) {
+    return toSupplyShares(generationMixShares(facts.generationRows, period));
   }
   return normalizeOgShares(facts.shares);
 }
 
 export function normalizeOgShares(shares: SupplyShare[]): SupplyShare[] {
-  const grouped = new Map<string, { mw: number; sharePct: number }>();
-  for (const share of shares) {
-    const fuel = ogFuelKey(share.fuel);
-    const existing = grouped.get(fuel);
-    grouped.set(fuel, {
-      mw: (existing?.mw ?? 0) + share.mw,
-      sharePct: (existing?.sharePct ?? 0) + share.sharePct,
-    });
-  }
+  return toSupplyShares(generationMixFromSupplyShares(shares));
+}
 
-  const positive = [...grouped.entries()].filter(([, row]) => row.mw > 0 || (row.mw === 0 && row.sharePct > 0));
-  const totalMw = positive.reduce((sum, [, row]) => sum + row.mw, 0);
-  const totalPct = positive.reduce((sum, [, row]) => sum + row.sharePct, 0);
-  const combined: SupplyShare[] = positive.map(([fuel, row]) => ({
-    fuel,
-    mw: row.mw,
-    sharePct: totalMw > 0 ? (row.mw / totalMw) * 100 : totalPct > 0 ? (row.sharePct / totalPct) * 100 : 0,
+function toSupplyShares(shares: Array<{ fuel: string; mw: number; sharePct: number }>): SupplyShare[] {
+  return shares.map((share) => ({
+    fuel: share.fuel,
+    mw: share.mw,
+    sharePct: share.sharePct,
   }));
+}
 
-  combined.sort((left, right) => right.mw - left.mw || right.sharePct - left.sharePct);
-  return combined;
+function balanceFromPower(power: DisplayedPower): OgBalance | null {
+  const start = power.generationStartUtc ?? power.demandStartUtc;
+  if (!start || power.terms.length === 0) {
+    return null;
+  }
+  const hasStorage = power.terms.some((term) => term.id === "storage_charging");
+  return {
+    terms: power.terms.map((term) => ({
+      label: term.label,
+      gw: formatHeadlineGw(term.mw == null ? null : Math.abs(term.mw)),
+      operator: term.operator,
+    })),
+    periodStamp: `${formatLondonCiteDate(parseUtcDateTime(start))} · ${formatPlainSettlementWindow(start)}`,
+    sources: "Elexon BMRS · NESO · Sheffield Solar PV Live",
+    figurePx: hasStorage ? 60 : 72,
+    alt: balanceEquationSentence(power),
+  };
 }
 
 export function ogCacheControl(variant: OgVariant): string {
@@ -568,9 +598,27 @@ export function ogCacheControl(variant: OgVariant): string {
     case "page":
       return pageCacheControl(variant.page);
     case "focus":
-      return OG_CACHE_CONTROL;
+      return focusCacheControl(variant.focus);
     default: {
       const exhaustive: never = variant;
+      return exhaustive;
+    }
+  }
+}
+
+function focusCacheControl(focus: OgFocus): string {
+  switch (focus) {
+    case "overview":
+    case "generation":
+      return OG_SETTLEMENT_CACHE_CONTROL;
+    case "price":
+    case "transfers":
+    case "commodities":
+    case "records":
+    case "carbon":
+      return OG_CACHE_CONTROL;
+    default: {
+      const exhaustive: never = focus;
       return exhaustive;
     }
   }
@@ -603,6 +651,7 @@ function mixSlices(shares: SupplyShare[]): OgMixSlice[] {
       fuel,
       label: fuelLabel(fuel),
       sharePct: share.sharePct,
+      mw: share.mw,
       color: FUEL_COLORS[fuel] ?? FUEL_COLORS.other ?? "#9ca3af",
     };
   });

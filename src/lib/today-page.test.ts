@@ -196,19 +196,22 @@ describe("today page model", () => {
     expect(shares.gasGwh).toBeCloseTo((6000 + 8000) * 0.5 / 1000, 5);
   });
 
-  it("includes imports and generating storage in the daily share denominator", () => {
+  it("counts generating storage in the daily share and leaves imports out", () => {
     const domesticOnly = energySharesFromSnapshots([snapshot()]);
-    const withSupply = energySharesFromSnapshots([
+    const withImports = energySharesFromSnapshots([
       snapshot({
         gen_imports_pct: 10,
+      }),
+    ]);
+    const withStorage = energySharesFromSnapshots([
+      snapshot({
         gen_pumped_mw: 2000,
         gen_battery_mw: 500,
       }),
     ]);
-    expect(domesticOnly.windPct).not.toBeNull();
-    expect(withSupply.windPct).not.toBeNull();
-    expect(withSupply.windPct ?? 0).toBeLessThan(domesticOnly.windPct ?? 0);
-    expect(withSupply.gasPct ?? 0).toBeLessThan(domesticOnly.gasPct ?? 0);
+    expect(withImports.windPct).toBeCloseTo(domesticOnly.windPct ?? 0, 5);
+    expect(withStorage.windPct ?? 0).toBeLessThan(domesticOnly.windPct ?? 0);
+    expect(withStorage.gasPct ?? 0).toBeLessThan(domesticOnly.gasPct ?? 0);
   });
 
   it("uses market index only for extrema and skips imbalance-only gaps", () => {
