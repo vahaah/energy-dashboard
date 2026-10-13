@@ -6,6 +6,7 @@ import {
   withoutFlightHeaders,
 } from "@/lib/edge-cacheable-api";
 import { INDEXNOW_KEY_PATH } from "@/lib/indexnow";
+import { PLAUSIBLE_EVENT_PATH } from "@/lib/plausible";
 
 export { isEdgeCacheableApi } from "@/lib/edge-cacheable-api";
 
@@ -65,6 +66,16 @@ export function proxy(request: NextRequest) {
   // Public IndexNow key file. The matcher is /api only; this still skips the limiter.
   if (pathname === INDEXNOW_KEY_PATH) {
     return NextResponse.next();
+  }
+
+  // Plausible beacon. Do not count it against the public API budget, and do
+  // not forward cookies to plausible.io. The rewrite lives in next.config.ts.
+  if (pathname === PLAUSIBLE_EVENT_PATH) {
+    const headers = new Headers(request.headers);
+    // Override headers only replace names that are still present. An empty
+    // Cookie is what actually drops the inbound cookie before the rewrite.
+    headers.set("cookie", "");
+    return NextResponse.next({ request: { headers } });
   }
 
   if (CRON_OR_HEALTH.has(pathname)) {

@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 import { API_CDN_VARY, EDGE_CACHEABLE_API_PATHS } from "./src/lib/edge-cacheable-api";
+import {
+  PLAUSIBLE_EVENT_PATH,
+  PLAUSIBLE_SCRIPT_PATH,
+  PLAUSIBLE_UPSTREAM_EVENT,
+  PLAUSIBLE_UPSTREAM_SCRIPT,
+} from "./src/lib/plausible";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -7,6 +13,14 @@ const nextConfig: NextConfig = {
       source,
       headers: [{ key: "Vary", value: API_CDN_VARY }],
     }));
+  },
+  // First-party Plausible proxy. No CSP is configured; these paths stay on
+  // this origin so a future script-src / connect-src 'self' still works.
+  async rewrites() {
+    return [
+      { source: PLAUSIBLE_SCRIPT_PATH, destination: PLAUSIBLE_UPSTREAM_SCRIPT },
+      { source: PLAUSIBLE_EVENT_PATH, destination: PLAUSIBLE_UPSTREAM_EVENT },
+    ];
   },
   async redirects() {
     return [
