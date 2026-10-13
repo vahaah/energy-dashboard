@@ -157,8 +157,12 @@ export function balanceEquationSentence(power: DisplayedPower): string {
       }
     }
   });
+  const note = power.terms.find((term) => term.roundingNote)?.roundingNote ?? null;
   if (!power.balanceClosed) {
     return `${parts.join(", ")}. Not a closed equation.`;
+  }
+  if (note) {
+    return `${parts.join(", ")}. ${note}`;
   }
   return `${parts.join(", ")}.`;
 }

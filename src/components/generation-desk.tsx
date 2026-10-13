@@ -9,7 +9,7 @@ import { LookAheadStrip } from "@/components/look-ahead-strip";
 import { CardEmpty, CardLoading } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { getDisplayedPower } from "@/lib/displayed-demand";
+import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
 import {
   showsDemandForecast,
   showsLookAheadCopy,
@@ -101,7 +101,7 @@ export function GenerationDesk({
       )}
       <BalanceFooter
         periodStart={periodStart}
-        stale={power.alignmentNote != null}
+        status={balanceFooterStatus(power)}
         batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
       />
       {delayNote ? (
@@ -155,17 +155,46 @@ export function GenerationDesk({
   );
 }
 
+type BalanceFooterStatus = "stale" | "incomplete" | null;
+
+function balanceFooterStatus(power: DisplayedPower): BalanceFooterStatus {
+  if (power.alignmentNote != null) {
+    return "stale";
+  }
+  const period = power.generationStartUtc ?? power.demandStartUtc;
+  if (!power.balanceClosed && period != null) {
+    return "incomplete";
+  }
+  return null;
+}
+
+function balanceStatusCopy(status: BalanceFooterStatus): string | null {
+  switch (status) {
+    case "stale":
+      return "Latest settlement period is not in yet";
+    case "incomplete":
+      return "Half-hour balance is incomplete.";
+    case null:
+      return null;
+    default: {
+      const exhaustive: never = status;
+      return exhaustive;
+    }
+  }
+}
+
 function BalanceFooter({
   periodStart,
-  stale,
+  status,
   batteryFootnote,
 }: {
   periodStart: string | null;
-  stale: boolean;
+  status: BalanceFooterStatus;
   batteryFootnote: boolean;
 }) {
   const windowLabel = periodStart ? formatPlainSettlementWindow(periodStart) : null;
   const dateTime = periodStart ? settlementInterval(periodStart) : null;
+  const statusCopy = balanceStatusCopy(status);
 
   return (
     <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6">
@@ -177,10 +206,10 @@ function BalanceFooter({
           settlement period
         </p>
       ) : null}
-      {stale ? (
+      {statusCopy ? (
         <p role="status" className="flex w-full items-center gap-1.5 text-amber-700 sm:w-auto">
           <span className="size-1.5 rounded-full bg-amber-700" aria-hidden="true" />
-          Latest settlement period is not in yet
+          {statusCopy}
         </p>
       ) : null}
       <p className="w-full sm:ml-auto sm:w-auto">

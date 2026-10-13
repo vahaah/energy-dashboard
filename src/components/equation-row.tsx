@@ -13,24 +13,31 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
       <p className="sr-only">{sentence}</p>
       <dl
         data-balanced={power.balanceClosed ? "true" : "false"}
-        aria-label={sentence}
-        className={`hidden items-end gap-x-0 px-6 pt-8 pb-7 sm:grid ${
-          wideFigures
-            ? "grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]"
-            : "grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]"
-        }`}
+        aria-hidden="true"
+        className={equationGridClass(power.balanceClosed, wideFigures)}
       >
         {power.terms.map((term) => (
           <EquationTerm key={term.id} term={term} wide={wideFigures} />
         ))}
       </dl>
-      <div className="px-4 sm:hidden">
+      <div className="px-4 sm:hidden" aria-hidden="true">
         {power.terms.map((term) => (
           <LedgerRow key={term.id} term={term} />
         ))}
       </div>
     </div>
   );
+}
+
+function equationGridClass(closed: boolean, wide: boolean): string {
+  const base = "hidden items-end gap-x-0 px-6 pt-8 pb-7 sm:grid";
+  if (!closed) {
+    return `${base} grid-cols-3`;
+  }
+  if (wide) {
+    return `${base} grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]`;
+  }
+  return `${base} grid-cols-[minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)_2.5rem_minmax(0,1fr)]`;
 }
 
 export function balancePeriodId(): string {
@@ -88,8 +95,9 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
       <span className="text-xl font-normal text-gray-700" aria-hidden="true">
         {term.operator ?? ""}
       </span>
-      <span className={`text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}>
-        {term.label}
+      <span className={`flex items-center gap-1 text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}>
+        <span>{term.label}</span>
+        <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
       </span>
       <span className={`font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}>
         <span>{formatHeadlineGw(unsignedMw(term.mw))}</span>

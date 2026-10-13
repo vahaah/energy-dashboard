@@ -276,8 +276,12 @@ describe("generation desk layout", () => {
     expect(html).toContain("−");
     expect(html).toContain('data-balanced="true"');
     expect(html).toContain(
-      'aria-label="Generation 20.2 GW, plus Imports 0.0 GW, minus Exports 1.8 GW, equals Demand 18.4 GW."'
+      "Generation 20.2 GW, plus Imports 0.0 GW, minus Exports 1.8 GW, equals Demand 18.4 GW."
     );
+    expect(html).not.toContain('aria-label="Generation 20.2 GW');
+    expect(html).toContain("grid-cols-[minmax(0,1fr)_2.5rem");
+    expect(html).not.toContain("grid-cols-3");
+    expect(html.match(/What is Exports\?/g)?.length).toBe(2);
     expect(html).toContain(">Imports<");
   });
 
@@ -326,6 +330,9 @@ describe("generation desk layout", () => {
     );
 
     expect(html).toContain("23:30–00:00 BST");
+    expect(html).toContain("grid-cols-3");
+    expect(html).toContain("Half-hour balance is incomplete.");
+    expect(html).not.toContain("Latest settlement period is not in yet");
     expect(html).not.toContain("Powering Britain now");
     expect(html).not.toContain("Now, by source");
     expect(html).not.toContain("SP ");
@@ -460,10 +467,11 @@ describe("generation desk layout", () => {
 
     expect(html).toContain("Data delayed: last Elexon update 04:00 BST");
     expect(html).toContain("Latest settlement period is not in yet");
+    expect(html).not.toContain("Half-hour balance is incomplete.");
     expect(html).not.toContain("Demand for 04:00–04:30 BST is not in yet");
     expect(html).toContain('data-balanced="true"');
     expect(html).toContain(
-      'aria-label="Generation 19.0 GW, plus Imports 0.0 GW, minus Exports 0.8 GW, equals Demand 18.2 GW."'
+      "Generation 19.0 GW, plus Imports 0.0 GW, minus Exports 0.8 GW, equals Demand 18.2 GW."
     );
     expect(html.match(/<time[^>]*>03:30–04:00 BST<\/time>/g)?.length).toBe(1);
     expect(html).not.toContain("04:00–04:30 BST</time>");

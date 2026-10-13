@@ -26,15 +26,21 @@ export type GenerationMixShare = {
 };
 
 /**
- * Share of generation for one settlement period. Interconnectors are not
- * segments. Storage discharge is included; charging is not. Sorted largest first.
+ * Share of generation. A complete settlement book uses that half-hour.
+ * An incomplete book falls back to the latest frame, same base as the open
+ * equation, so a fuel that has not arrived yet cannot become 100%.
+ * Interconnectors are not segments. Storage discharge is included; charging
+ * is not. Sorted largest first.
  */
 export function generationMixShares(
   rows: Generation5min[],
   periodStartUtc: string | null
 ): GenerationMixShare[] {
   if (periodStartUtc) {
-    return sharesFromBalance(buildSettlementBalance(rows, periodStartUtc));
+    const balance = buildSettlementBalance(rows, periodStartUtc);
+    if (balance.bookComplete) {
+      return sharesFromBalance(balance);
+    }
   }
   return generationMixFromSupplyShares(partsFromLatestFrame(rows));
 }

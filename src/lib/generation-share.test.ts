@@ -83,6 +83,7 @@ describe("generation mix shares", () => {
         row(PERIOD, "ps", 800),
         row(PERIOD, "ps", -2_000),
         row(PERIOD, "bess", -400),
+        row(PERIOD, "intfr", 100),
       ],
       "2026-10-13T08:00:00.000Z"
     );
@@ -91,6 +92,24 @@ describe("generation mix shares", () => {
     expect(shares.find((share) => share.fuel === "battery")).toBeUndefined();
     expect(sharesSumWithinTolerance(shares)).toBe(true);
     expect(STORAGE_CHARGING_MIN_MW).toBe(50);
+  });
+
+  it("keeps the previous fuels when the requested period is incomplete", () => {
+    const older = "2026-10-13 07:30:00";
+    const shares = generationMixShares(
+      [
+        row(older, "wind", 10_000),
+        row(older, "ccgt", 5_000),
+        row(older, "intfr", 1_000),
+        row(PERIOD, "ccgt", 8_000),
+      ],
+      "2026-10-13T08:00:00.000Z"
+    );
+
+    expect(shares.find((share) => share.fuel === "wind")?.mw).toBe(10_000);
+    expect(shares.find((share) => share.fuel === "gas")?.mw).toBe(8_000);
+    expect(shares.find((share) => share.fuel === "gas")?.sharePct).not.toBeCloseTo(100, 0);
+    expect(sharesSumWithinTolerance(shares)).toBe(true);
   });
 
   it("sizes the bar with flex-grow so the track cannot exceed 100%", () => {
