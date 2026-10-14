@@ -11,6 +11,7 @@ import {
 } from "@/lib/displayed-demand";
 import { getLatestFacts } from "@/lib/facts";
 import { resolveDashboardDate } from "@/lib/dashboard-search-params";
+import { homepageDemandFigureInputs } from "@/lib/metrics";
 import type { LatestFacts } from "@/lib/facts";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -175,6 +176,11 @@ describe("displayed demand", () => {
     expect(power.storageChargingMw).toBe(2_000);
     expect(power.transfersMw).toBe(1_200);
     expect(power.demandMw).toBe(30_200);
+    expect(power.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
+    expect(power.terms.find((term) => term.id === "demand")?.source).toBe(
+      "Elexon BMRS, NESO, Sheffield Solar PV Live"
+    );
+    expect(facts.demand.definition).toContain("ITSDO");
     expect(power.demandMw).toBe(
       (power.generationMw ?? 0) +
         (power.importsMw ?? 0) -
@@ -191,6 +197,75 @@ describe("displayed demand", () => {
     expect(power.showEquals).toBe(true);
     expect(headlineBalanceResidualMw(power)).toBe(0);
     expect(headlineBalanceHolds(power)).toBe(true);
+  });
+
+  it("leaves NESO historic demand on its own source", () => {
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const timestamp = "2026-10-10 11:00:00";
+    const rows: Generation5min[] = [
+      generation(timestamp, "ccgt", 15_000),
+      generation(timestamp, "wind", 8_000),
+      generation(timestamp, "nuclear", 5_000),
+      generation(timestamp, "ps", -2_000),
+      generation(timestamp, "embedded_wind", 2_000, "neso"),
+      generation(timestamp, "embedded_solar", 1_000, "pvlive"),
+      generation(timestamp, "intfr", 1_500),
+      generation(timestamp, "intned", 500),
+      generation(timestamp, "intirl", -800),
+    ];
+    const itsdo = 15_000 + 8_000 + 5_000 - 2_000 + 1_500 + 500 - 800;
+    const live = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, itsdo)],
+      generation: rows,
+      now,
+    });
+    const neso = {
+      ...live,
+      demand: {
+        ...live.demand,
+        source: "NESO historic generation mix",
+        definition: "NESO historic generation, treated as demand (generation plus imports and storage)",
+      },
+    };
+    const power = getDisplayedPower(neso, [snapshot(timestamp, itsdo)]);
+
+    expect(power.demandMw).toBe(30_200);
+    expect(power.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
+    expect(power.demandSource).not.toBe(homepageDemandFigureInputs().source);
+  });
+
+  it("uses Elexon BMRS only when the displayed demand is pure ITSDO", () => {
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const timestamp = "2026-10-10 11:00:00";
+    const pure = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, 23_000)],
+      generation: [generation(timestamp, "ccgt", 15_000), generation(timestamp, "wind", 8_000)],
+      now,
+    });
+    const purePower = getDisplayedPower(pure, [snapshot(timestamp, 23_000)]);
+
+    expect(pure.demand.definition).toContain("ITSDO");
+    expect(purePower.balanceClosed).toBe(false);
+    expect(purePower.demandSource).toBe(homepageDemandFigureInputs().source);
+
+    const withEmbedded = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, 23_000)],
+      generation: [
+        generation(timestamp, "ccgt", 15_000),
+        generation(timestamp, "wind", 8_000),
+        generation(timestamp, "embedded_wind", 2_000, "neso"),
+        generation(timestamp, "embedded_solar", 1_000, "pvlive"),
+      ],
+      now,
+    });
+    const embeddedPower = getDisplayedPower(withEmbedded, [snapshot(timestamp, 23_000)]);
+
+    expect(embeddedPower.balanceClosed).toBe(false);
+    expect(embeddedPower.demandMw).toBe(26_000);
+    expect(embeddedPower.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
   });
 
   it("keeps the equals sign and speaks the rounding note when rounded gigawatts miss", () => {
@@ -226,6 +301,7 @@ describe("displayed demand", () => {
     expect(dashboard).toContain("getDisplayedPower");
     expect(desk).toContain("getDisplayedPower");
     expect(desk).toContain("power.demandMw");
+    expect(equation).toContain("homepageDemandFigureInputs");
     expect(equation).toContain("data-stat={term.id}");
     expect(equation).toContain("data-balanced");
     expect(equation).toContain("power.terms");

@@ -7,6 +7,7 @@ import {
 } from "@/lib/dashboard-model";
 import type { DashboardDateResolution } from "@/lib/dashboard-search-params";
 import { HOURLY_CRON_STALE_MS } from "@/lib/health";
+import { homepageDemandFigureInputs } from "@/lib/metrics";
 import {
   formatLondonDateTimeStamp,
   formatLondonDayMonthYear,
@@ -72,6 +73,7 @@ export type GetLatestFactsInput = {
 
 const NO_DATA_STAMP = "No data yet. Grid refreshes every hour.";
 const MISSING_FACT = "—";
+const DEMAND_FIGURE = homepageDemandFigureInputs();
 
 export function formatHeadlineGw(value: number | null, digits = 1): string {
   if (value == null) {
@@ -172,8 +174,8 @@ function populatedFacts({
       index: carbonRow?.carbon_index ?? null,
     },
     demand: snapshotFact(demandRow, "demand_mw", {
-      unit: "MW",
-      source: "Elexon BMRS",
+      unit: DEMAND_FIGURE.unit,
+      source: DEMAND_FIGURE.source,
       definition: "Initial Transmission System Demand Outturn (ITSDO)",
     }),
     price: snapshotFact(midRow, "price_mid_gbp_mwh", {
@@ -239,10 +241,10 @@ function blankFacts(resolution: DashboardDateResolution, empty: boolean): Latest
     },
     demand: {
       value: null,
-      unit: "MW",
+      unit: DEMAND_FIGURE.unit,
       periodStartUtc: null,
       periodEndUtc: null,
-      source: "Elexon BMRS",
+      source: DEMAND_FIGURE.source,
       definition: "Initial Transmission System Demand Outturn (ITSDO)",
     },
     price: {

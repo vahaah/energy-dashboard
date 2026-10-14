@@ -1,3 +1,72 @@
+import type { DataSourceId } from "@/lib/attribution";
+
+// ─── Metric registry ────────────────────────────────────────
+
+export type QuantityKind =
+  | "instantaneous_rate"
+  | "interval_total"
+  | "cumulative"
+  | "stock"
+  | "index"
+  | "share";
+
+export type Aggregation = "mean" | "sum" | "last" | "ratio";
+
+export type IntervalConvention =
+  | "uk_settlement_period_half_open"
+  | "calendar_day_utc_half_open"
+  | "calendar_month_utc_half_open"
+  | "gas_day_half_open";
+
+export type SignConvention =
+  | "positive_demand"
+  | "positive_generation"
+  | "positive_import_to_gb"
+  | "positive_export_from_gb"
+  | "positive_storage_charging"
+  | "positive_intensity"
+  | "positive_price"
+  | "share_of_denominator";
+
+export type MetricSourceId = DataSourceId | readonly DataSourceId[];
+
+export type MetricDefinition = {
+  metric_id: string;
+  metric_definition_version: number;
+  unit: string;
+  quantity_kind: QuantityKind;
+  geography_id: string;
+  interval_convention: IntervalConvention;
+  sign_convention: SignConvention;
+  aggregation: Aggregation;
+  /** Required for every share or percent. Null otherwise. */
+  denominator: string | null;
+  source_id: MetricSourceId;
+  dataset_id: string;
+  coverage: string;
+  expected_cadence: string;
+};
+
+/**
+ * UTC half-open interval. `value` is null when the period was not observed.
+ * No runtime constructor: nothing writes these yet.
+ */
+export type Observation = {
+  interval_start: string;
+  interval_end: string;
+  period_label: string | null;
+  time_basis: string;
+  value: number | null;
+  observation_kind: string;
+  publication_status: string;
+  forecast_issued_at: string | null;
+  published_at: string | null;
+  retrieved_at: string | null;
+  source_release_id: string | null;
+  source_record_key: string | null;
+  quality_flags: readonly string[];
+};
+
 // ─── Tinybird row types ─────────────────────────────────────
 
 export type NullableNumber = number | null;

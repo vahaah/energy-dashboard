@@ -65,6 +65,14 @@ export function streamFreshness(
   };
 }
 
+/** Older of the two embedded feeds. A missing feed has no timestamp, so the caller flags it. */
+export function olderEmbeddedTimestamp(wind: string | null, solar: string | null): string | null {
+  if (!wind || !solar) {
+    return null;
+  }
+  return parseUtcDateTime(wind).getTime() <= parseUtcDateTime(solar).getTime() ? wind : solar;
+}
+
 export function latestObservedTimestamp(
   values: Array<string | null | undefined>,
   now: Date
