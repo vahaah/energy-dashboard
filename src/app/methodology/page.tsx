@@ -4,7 +4,7 @@ import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
 import { Card } from "@/components/ui/card";
-import { dataSources } from "@/lib/catalogue/page-sources";
+import { dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
 import { methodologyJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { methodologyPageMetadata } from "@/lib/page-metadata";
@@ -103,13 +103,7 @@ export default function MethodologyPage() {
                           source.licence
                         )}
                       </td>
-                      <td className="py-2">
-                        {source.id === "eia" ||
-                        source.id === "world-bank-pink-sheet" ||
-                        source.id === "national-gas"
-                          ? "Every 6 hours"
-                          : "Hourly"}
-                      </td>
+                      <td className="py-2">{sourceRefreshLabel(source.id)}</td>
                     </tr>
                   ))}
                 </tbody>

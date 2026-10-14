@@ -143,16 +143,23 @@ Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (inge
 
 `/data-sources` reads `sources.json` through `cataloguePageSources()` in `src/lib/catalogue/page-sources.ts`. Keep that page's layout and sentences. The National Gas attribution in the catalogue is `Data sourced from the National Gas Transmission Data Portal.` Series captions elsewhere still use `NATIONAL_GAS_ATTRIBUTION`. The Elexon row stores the copyright year in the file. `dataSources(year)` in that same module restamps that one credit for callers that pass a year. Do not import the catalogue module from client components; `src/lib/attribution.ts` stays free of it so chart bundles do not pull the JSON or Zod. `/` stays `force-static`. This catalogue is not wired into Tinybird.
 
-### P1A.1 REPD / DUKES imports
+### P1A.1 REPD / DUKES asset register
 
-REPD (Renewable Energy Planning Database) and DUKES (Digest of UK Energy Statistics) are not in the seed. A future import writes releases like this:
+Checked-in plant register. No database, no Tinybird, no homepage change. `/` stays `force-static`.
 
-1. Add the source slug to `DATA_SOURCE_IDS` and `CATALOGUE_SOURCE_IDS`, then add the `sources.json` and `datasets.json` rows. New National Gas datasets, if any, use the real publication id.
-2. Hash the extract (`sha256` of the bytes, or of the canonical JSON snapshot stored on `content`). Do not hash the dataset's catalogue key, cadence, or metric list. Build `source_release_id` from `dataset_id` plus `published_at`, or plus the content hash when the publisher has no timestamp.
-3. If that id is already a line in `source_releases.ndjson`, the new line must be byte-for-byte the same, including key order. `publish-check` fails a changed line. Append a new line for a new id. Do not edit or delete an old line.
-4. Append one `ingestion_runs.ndjson` line for the run (`ingestion_run_id`, `dataset_id`, `source_release_id`, `started_at`, `finished_at`, `status`). `source_release_id` must be a release of that same `dataset_id`.
+`npm run catalogue:assets` downloads the latest gov.uk releases (Open Government Licence v3.0). `--offline` reads `data/catalogue/raw/`, which is gitignored. It rewrites the compact register and appends releases:
 
-Do not commit the large extract or geometry. A later change will put those objects in Vercel Blob and record the blob URL on the release. This schema has no blob field yet. Do not add Blob, the extracts, or the geometry in the catalogue PR.
+- `assets.ndjson` (`ast_`), `projects.ndjson` (`prj_`), `capacity_records.ndjson` (`cap_`), `source_entity_mappings.ndjson` (`REPD_REF`, `DUKES_NAME`), `asset_matches.ndjson`
+- `asset_match_overrides.json` is hand-edited. Links and unlinks are applied before the automatic rules.
+- `asset_summary.json` is regenerated. `publish-check` rejects a summary that disagrees with the register.
+
+Operational REPD renewables, including pumped storage and excluding batteries and other storage, plus every DUKES 5.11 station. OSGB36 easting/northing becomes WGS84 via proj4. A row with no coordinates stays in the list with null latitude and longitude. The register never stores (0, 0). There is no geocoding.
+
+The same site must not count twice. `src/lib/catalogue/assets/match.ts` matches on coordinates, then a distinctive name, then a name group. Renewables count the REPD megawatts. Gas, oil, nuclear, and pumped storage count DUKES. The other side is `counts: false`.
+
+Each import appends one immutable `source_releases.ndjson` line and one `ingestion_runs.ndjson` line. `content` is the edition, publication time, download URL, byte length, and `extract_sha256` of the official file, plus the DUKES 5.11.A headline MW. `content_hash` is the canonical JSON of that descriptor, not of the station list. Do not edit a committed release line. A later quarter appends a new release and new capacity rows.
+
+`publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. The raw extracts stay out of git. Publishing the register to Blob is P1A.2. Do not add Blob in this change.
 
 ## Environment Variables
 

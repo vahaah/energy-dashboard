@@ -1,0 +1,121 @@
+{
+  "catalogue_schema_version": 1,
+  "repd_source_release_id": "desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z",
+  "dukes_source_release_id": "desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z",
+  "assets": 3321,
+  "projects": 4315,
+  "capacity_records": 4294,
+  "mappings": 4315,
+  "counted_mw": 98410.191,
+  "by_technology": {
+    "advanced_conversion": {
+      "assets": 20,
+      "counted_mw": 229.1
+    },
+    "anaerobic_digestion": {
+      "assets": 151,
+      "counted_mw": 336.3
+    },
+    "biomass": {
+      "assets": 85,
+      "counted_mw": 4163.19
+    },
+    "ccgt": {
+      "assets": 34,
+      "counted_mw": 30752
+    },
+    "energy_from_waste": {
+      "assets": 62,
+      "counted_mw": 1614.2
+    },
+    "geothermal": {
+      "assets": 2,
+      "counted_mw": 3
+    },
+    "hydro": {
+      "assets": 180,
+      "counted_mw": 1722.983
+    },
+    "hydrogen": {
+      "assets": 3,
+      "counted_mw": 2.7
+    },
+    "landfill_gas": {
+      "assets": 270,
+      "counted_mw": 754.7
+    },
+    "nuclear": {
+      "assets": 5,
+      "counted_mw": 5883
+    },
+    "ocgt": {
+      "assets": 17,
+      "counted_mw": 2804
+    },
+    "offshore_wind": {
+      "assets": 51,
+      "counted_mw": 16887
+    },
+    "oil": {
+      "assets": 17,
+      "counted_mw": 1044.2
+    },
+    "onshore_wind": {
+      "assets": 836,
+      "counted_mw": 16478.89
+    },
+    "pumped_storage": {
+      "assets": 4,
+      "counted_mw": 2900
+    },
+    "sewage_gas": {
+      "assets": 12,
+      "counted_mw": 50.2
+    },
+    "solar_pv": {
+      "assets": 1564,
+      "counted_mw": 12628.828
+    },
+    "steam": {
+      "assets": 1,
+      "counted_mw": 120
+    },
+    "tidal": {
+      "assets": 5,
+      "counted_mw": 11.9
+    },
+    "wave": {
+      "assets": 2,
+      "counted_mw": 24
+    }
+  },
+  "by_status": {
+    "operational": {
+      "assets": 3321,
+      "counted_mw": 98410.191
+    }
+  },
+  "coordinates": {
+    "mapped": 3319,
+    "list_only": 2
+  },
+  "dedupe": {
+    "matches": 986,
+    "high": 932,
+    "medium": 45,
+    "manual": 9,
+    "suppressed_mw": 39931.638
+  },
+  "dukes_headline_mw": {
+    "major_power_producers": 85099.5387,
+    "all_generators": 113858.14
+  },
+  "files": {
+    "asset_match_overrides.json": 1624,
+    "asset_matches.ndjson": 235050,
+    "assets.ndjson": 587665,
+    "capacity_records.ndjson": 1016387,
+    "projects.ndjson": 648325,
+    "source_entity_mappings.ndjson": 368584
+  }
+}

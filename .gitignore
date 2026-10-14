@@ -51,5 +51,8 @@ next-env.d.ts
 .env.local
 .env
 .tinyb
+
+# REPD / DUKES extracts downloaded by scripts/catalogue. The register is committed; the raw files are not.
+/data/catalogue/raw/
 .claude/settings.local.json
 /.swc

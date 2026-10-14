@@ -24,3 +24,9 @@ export function sha256Prefixed(value: unknown): string {
   const hex = createHash("sha256").update(canonicalJson(value)).digest("hex");
   return `sha256:${hex}`;
 }
+
+/** Hash of the downloaded extract bytes, stored inside a release `content` object. */
+export function sha256Bytes(bytes: Uint8Array): string {
+  const hex = createHash("sha256").update(bytes).digest("hex");
+  return `sha256:${hex}`;
+}

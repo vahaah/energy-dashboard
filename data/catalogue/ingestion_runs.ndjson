@@ -1,1 +1,2 @@
-
+{"catalogue_schema_version":1,"ingestion_run_id":"run:desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z","dataset_id":"desnz-repd:repd-quarterly","source_release_id":"desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z","started_at":"2026-08-03T09:00:03.000Z","finished_at":"2026-08-03T09:00:03.000Z","status":"succeeded"}
+{"catalogue_schema_version":1,"ingestion_run_id":"run:desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z","dataset_id":"desnz-dukes:dukes-5.11","source_release_id":"desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z","started_at":"2026-07-30T00:00:00.000Z","finished_at":"2026-07-30T00:00:00.000Z","status":"succeeded"}
