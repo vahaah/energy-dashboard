@@ -91,7 +91,7 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
             {figureMeta?.displayUnit ?? "GW"}
           </span>
         </dd>
-        <p className="mt-2 truncate text-label-12 text-gray-900">{term.role}</p>
+        <p className="mt-2 max-w-full text-pretty text-label-12 text-gray-900">{term.role}</p>
       </div>
     </>
   );
