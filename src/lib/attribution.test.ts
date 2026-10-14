@@ -7,7 +7,6 @@ import {
   DATA_SOURCE_IDS,
   captionCarbon,
   captionGeneration,
-  dataSources,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
@@ -20,6 +19,7 @@ import {
   PV_LIVE_ATTRIBUTION,
   WORLD_BANK_PINK_SHEET_ATTRIBUTION,
 } from "@/lib/attribution";
+import { dataSources } from "@/lib/catalogue/page-sources";
 
 describe("Elexon BMRS attribution", () => {
   it("uses the exact BMRS credit and licence URL", () => {
@@ -77,5 +77,8 @@ describe("Elexon BMRS attribution", () => {
     expect(EIA_ATTRIBUTION).toContain("Energy Information Administration");
     expect(WORLD_BANK_PINK_SHEET_ATTRIBUTION).toContain("CC BY 4.0");
     expect(NATIONAL_GAS_ATTRIBUTION).toContain("PUBOB603");
+    expect(sources.find((source) => source.id === "national-gas")?.attribution).toBe(
+      "Data sourced from the National Gas Transmission Data Portal.",
+    );
   });
 });

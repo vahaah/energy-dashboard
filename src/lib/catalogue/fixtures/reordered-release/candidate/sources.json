@@ -1,0 +1,13 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "national-gas",
+    "name": "National Gas",
+    "url": "https://data.nationalgas.com",
+    "used_for": "Great Britain System Average Price (PUBOB603) in p/kWh.",
+    "licence": "Published as open operational data under the National Gas System Operator licence.",
+    "licence_url": "https://data.nationalgas.com",
+    "attribution": "Data sourced from the National Gas Transmission Data Portal.",
+    "cadence": "PT6H"
+  }
+]

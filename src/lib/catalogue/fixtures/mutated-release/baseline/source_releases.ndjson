@@ -1,0 +1,1 @@
+{"catalogue_schema_version":1,"source_release_id":"national-gas:PUBOB603:2026-01-15T00:00:00.000Z","dataset_id":"national-gas:PUBOB603","published_at":"2026-01-15T00:00:00.000Z","content_hash":"sha256:b0b6d54d2e8535eedfcc6acc847086656d2f7a49530b0da2f5aa0deaf788ad70","content":{"catalogue_key":"PUBOB603","cadence":"P1D","metric_ids":["commodity.gb_gas_sap.price"]}}

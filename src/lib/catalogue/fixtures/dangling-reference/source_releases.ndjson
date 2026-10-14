@@ -1,0 +1,1 @@
+{"catalogue_schema_version":1,"source_release_id":"elexon-bmrs:ITSDO:sha256:65eba264777a531b3bcc559f505ec55c1d0978c1d0ec655519a65a1ee25a7bd5","dataset_id":"elexon-bmrs:ITSDO","published_at":null,"content_hash":"sha256:65eba264777a531b3bcc559f505ec55c1d0978c1d0ec655519a65a1ee25a7bd5","content":{"catalogue_key":"ITSDO","cadence":"PT30M","metric_ids":["elec.gb.demand.itsdo"]}}

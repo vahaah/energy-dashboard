@@ -1,0 +1,12 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "elexon-bmrs:ITSDO",
+    "source_id": "elexon-bmrs",
+    "catalogue_key": "ITSDO",
+    "cadence": "PT30M",
+    "metric_ids": [
+      "elec.gb.demand.itsdo"
+    ]
+  }
+]

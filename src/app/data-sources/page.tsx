@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
+import { cataloguePageSources } from "@/lib/catalogue/page-sources";
 import { dataSourcesPageMetadata } from "@/lib/page-metadata";
-import { dataSources } from "@/lib/attribution";
 
 export const revalidate = 86_400;
 export const dynamic = "force-static";
 export const metadata: Metadata = dataSourcesPageMetadata();
 
 export default function DataSourcesPage() {
-  const sources = dataSources();
+  const sources = cataloguePageSources();
 
   return (
     <LegalPage

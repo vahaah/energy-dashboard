@@ -1,0 +1,12 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB603",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB603",
+    "cadence": "PT1H",
+    "metric_ids": [
+      "commodity.gb_gas_sap.price"
+    ]
+  }
+]

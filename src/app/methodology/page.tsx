@@ -4,7 +4,7 @@ import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
 import { Card } from "@/components/ui/card";
-import { dataSources } from "@/lib/attribution";
+import { dataSources } from "@/lib/catalogue/page-sources";
 import { methodologyJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { methodologyPageMetadata } from "@/lib/page-metadata";
