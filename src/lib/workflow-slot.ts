@@ -65,5 +65,7 @@ export async function takeWorkflowSlot(
     return;
   }
 
+  // /api/cron and /api/cron-warm both start this slot. The loser stops here.
+  console.warn(`[workflow] slot held: ${job}`);
   throw new FatalError(`workflow slot held: ${job}`);
 }

@@ -162,6 +162,8 @@ describe("workflow budget", () => {
   it("lets the owner re-enter a slot and rejects a second start", async () => {
     setRedisForTests(new MemoryRedis());
     const fetchPipeRows = vi.spyOn(tinybird, "fetchPipeRows");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const slot = halfHourSlot(new Date("2026-10-14T12:07:00.000Z"));
     expect(slot).toBe("2026-10-14T12:00:00.000Z");
 
@@ -170,7 +172,11 @@ describe("workflow budget", () => {
     await expect(takeWorkflowSlot("electricity", slot, "owner-b")).rejects.toBeInstanceOf(
       FatalError
     );
+    expect(warn).toHaveBeenCalledWith("[workflow] slot held: electricity");
+    expect(error).not.toHaveBeenCalled();
     expect(fetchPipeRows).not.toHaveBeenCalled();
+    warn.mockRestore();
+    error.mockRestore();
   });
 
   it("is fatal once the daily counter is already 450", async () => {

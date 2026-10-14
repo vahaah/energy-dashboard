@@ -2,6 +2,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CARD_PAD_X } from "@/components/ui/card";
 import { balanceEquationSentence, type DisplayedPower, type HeadlineTerm } from "@/lib/displayed-demand";
 import { formatHeadlineGw } from "@/lib/facts";
+import { homepageDemandFigureInputs } from "@/lib/metrics";
 
 const PERIOD_ID = "balance-period";
 
@@ -47,6 +48,7 @@ export function balancePeriodId(): string {
 
 function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
   const demand = term.id === "demand";
+  const figureMeta = demand ? homepageDemandFigureInputs() : null;
   const figure =
     wide
       ? "text-[2.5rem] @min-[1102px]:text-[3rem]"
@@ -62,7 +64,13 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
           {term.operator}
         </span>
       ) : null}
-      <div data-stat={term.id} className={demand ? "min-w-0 border-l border-gray-alpha-400 pl-6" : "min-w-0"}>
+      <div
+        data-stat={term.id}
+        data-geography={figureMeta?.geography_id}
+        data-source={demand ? term.source : undefined}
+        data-registry-unit={figureMeta?.unit}
+        className={demand ? "min-w-0 border-l border-gray-alpha-400 pl-6" : "min-w-0"}
+      >
         <dt className="flex items-center gap-1 text-label-13 font-medium text-gray-900">
           <span>{term.label}</span>
           <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
@@ -75,7 +83,7 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
         >
           <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
           <span data-unit className="ml-1 align-baseline text-xl font-medium tracking-normal text-gray-700">
-            GW
+            {figureMeta?.displayUnit ?? "GW"}
           </span>
         </dd>
         <p className="mt-2 truncate text-label-12 text-gray-900">{term.role}</p>
@@ -87,11 +95,15 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
 function LedgerRow({ term }: { term: HeadlineTerm }) {
   const demand = term.id === "demand";
   const generation = term.id === "generation";
+  const figureMeta = demand ? homepageDemandFigureInputs() : null;
   const figure = demand || generation ? "text-[2rem]" : "text-2xl";
 
   return (
     <div
       data-stat={term.id}
+      data-geography={figureMeta?.geography_id}
+      data-source={demand ? term.source : undefined}
+      data-registry-unit={figureMeta?.unit}
       className={`grid grid-cols-[1.25rem_1fr_auto] items-baseline py-1.5 ${
         demand ? "mt-1.5 border-t border-gray-700 pt-3" : ""
       }`}
@@ -109,7 +121,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
       >
         <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
         <span data-unit className="ml-1 align-baseline text-sm font-medium tracking-normal text-gray-700">
-          GW
+          {figureMeta?.displayUnit ?? "GW"}
         </span>
       </span>
     </div>

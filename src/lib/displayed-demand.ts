@@ -8,6 +8,7 @@ import {
   type StorageChargingKind,
 } from "@/lib/headline-balance";
 import { parseUtcDateTime } from "@/lib/london-time";
+import { homepageDemandFigureInputs } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
@@ -66,10 +67,15 @@ export function getDisplayedPower(
   const generationSource = closed
     ? generationSourceFrom(balance.fuels.map((fuel) => fuel.fuel))
     : aligned.generationMw.source;
-  const demandSource = closed ? generationSource : aligned.demand.source;
   const demandDefinition = closed
     ? demandDefinitionFrom(itsdo, balance.embeddedMw, balance.demandMw)
     : aligned.demand.definition;
+  // Year/All demand is the NESO historic series. Only the ITSDO fact takes the registry source.
+  const demandSource = facts.demand.definition.includes("ITSDO")
+    ? homepageDemandFigureInputs().source
+    : closed
+      ? generationSource
+      : aligned.demand.source;
   const showEquals =
     closed &&
     demandMw != null &&
