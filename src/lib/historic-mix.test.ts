@@ -100,6 +100,19 @@ describe("NESO historic sanity", () => {
     const solarSpike = row({ DATETIME: "2026-01-01T00:00:00", SOLAR: 21000, RENEWABLE_perc: 39 });
     expect(isSaneHistoricRow(windSpike)).toBe(true);
     expect(historicQuarantineRule(windSpike)?.id).toBe("wind-above-30gw");
+    const oneSided = row({ DATETIME: "2026-01-01T00:00:00", WIND: 40000, WIND_EMB: null, RENEWABLE_perc: 39 });
+    expect(oneSided.WIND).toBe(40000);
+    expect(oneSided.WIND_EMB).toBeNull();
+    expect(historicQuarantineRule(oneSided)?.id).toBe("wind-above-30gw");
+    expect(
+      historicQuarantineRule(row({ DATETIME: "2026-01-01T00:00:00", WIND: 20000, WIND_EMB: null }))
+    ).toBeNull();
+    expect(historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!)).toContain(
+      '("WIND" IS NULL OR "WIND" <= 30000)'
+    );
+    expect(historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!)).toContain(
+      '("WIND_EMB" IS NULL OR "WIND_EMB" <= 30000)'
+    );
     expect(windSpike.WIND).toBe(25000);
     expect(windSpike.WIND_EMB).toBe(6000);
     expect(windSpike.RENEWABLE_perc).toBe(39);

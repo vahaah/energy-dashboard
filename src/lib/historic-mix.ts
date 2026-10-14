@@ -361,12 +361,16 @@ export function publishedHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[
   return saneHistoricRows(rows).filter((row) => historicQuarantineRule(row) == null);
 }
 
-function quarantineMetricSql(metric: HistoricQuarantineMetric): { present: string; value: string } {
+/**
+ * Publication predicate matching `quarantineMetricMw`: a missing component is 0.
+ * A one-sided wind reading above the cap is quarantined. Raw columns stay in the SELECT list.
+ */
+function quarantineWithinSql(metric: HistoricQuarantineMetric, aboveMw: number): string {
   switch (metric) {
     case "wind":
-      return { present: '"WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL', value: '("WIND" + "WIND_EMB")' };
+      return `("WIND" IS NULL OR "WIND" <= ${aboveMw}) AND ("WIND_EMB" IS NULL OR "WIND_EMB" <= ${aboveMw}) AND ("WIND" IS NULL OR "WIND_EMB" IS NULL OR ("WIND" + "WIND_EMB") <= ${aboveMw})`;
     case "solar":
-      return { present: '"SOLAR" IS NOT NULL', value: '"SOLAR"' };
+      return `("SOLAR" IS NULL OR "SOLAR" <= ${aboveMw})`;
     default: {
       const exhaustive: never = metric;
       return exhaustive;
@@ -374,10 +378,8 @@ function quarantineMetricSql(metric: HistoricQuarantineMetric): { present: strin
   }
 }
 
-/** NULL-safe publication predicate. Raw columns stay in the SELECT list. */
 export function historicQuarantineSql(rule: HistoricQuarantineRule): string {
-  const metric = quarantineMetricSql(rule.metric);
-  return `(NOT (${metric.present}) OR ${metric.value} <= ${rule.aboveMw} OR "DATETIME" < '${rule.from}' OR "DATETIME" >= '${rule.until}')`;
+  return `(${quarantineWithinSql(rule.metric, rule.aboveMw)} OR "DATETIME" < '${rule.from}' OR "DATETIME" >= '${rule.until}')`;
 }
 
 function historicQuarantineWhereSql(): string {
