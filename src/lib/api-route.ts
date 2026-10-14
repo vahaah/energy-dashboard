@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
 import { API_CDN_VARY } from "@/lib/edge-cacheable-api";
+import { WarmedEnvelopeMissing } from "@/lib/tinybird";
 import {
   TinybirdLimitError,
   tinybirdCacheControl,
@@ -41,12 +42,14 @@ export function cachedJson(
 }
 
 export function upstreamError(error: unknown) {
-  if (error instanceof TinybirdLimitError) {
+  if (error instanceof WarmedEnvelopeMissing || error instanceof TinybirdLimitError) {
+    const retryAfter =
+      error instanceof WarmedEnvelopeMissing ? error.retryAfterSeconds : error.retryAfterSeconds;
     return NextResponse.json(
       { error: "Upstream temporarily unavailable", detail: error.message },
       {
         status: 503,
-        headers: { "Retry-After": String(error.retryAfterSeconds) },
+        headers: { "Retry-After": String(retryAfter) },
       }
     );
   }

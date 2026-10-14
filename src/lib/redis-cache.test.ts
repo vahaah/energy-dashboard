@@ -68,6 +68,15 @@ class MemoryRedis implements RedisCommands {
     await this.set(key, current, { ex: 86_400 });
     return current;
   }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    const hit = this.store.get(key);
+    if (!hit || hit.expiresAt <= Date.now()) {
+      return 0;
+    }
+    hit.expiresAt = Date.now() + seconds * 1000;
+    return 1;
+  }
 }
 
 describe("readThroughCache", () => {
@@ -143,6 +152,7 @@ describe("readThroughCache", () => {
       set: async () => "OK",
       del: async () => 0,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     await expect(peekThroughCache("tb:og-err", liveCachePolicy())).resolves.toBeNull();
@@ -201,6 +211,7 @@ describe("readThroughCache", () => {
       set: async () => "OK",
       del: async () => 0,
       incr: async () => 1,
+      expire: async () => 1,
     });
     const load = vi.fn(async () => ["fallback"]);
     await expect(readThroughCacheResult("tb:err", liveCachePolicy(), load)).resolves.toEqual({
@@ -223,6 +234,7 @@ describe("readThroughCache", () => {
       set: async () => "OK",
       del: async () => 0,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     await readThroughCacheResult("tb:outer", liveCachePolicy(), async () => {
@@ -247,6 +259,7 @@ describe("readThroughCache", () => {
       set: async () => "OK",
       del: async () => 0,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     const result = await readThroughCacheResult("tb:outer", liveCachePolicy(), outer);
@@ -276,6 +289,7 @@ describe("readThroughCache", () => {
       set: async () => "OK",
       del: async () => 0,
       incr: async () => 1,
+      expire: async () => 1,
     });
     await expect(
       readThroughCacheResult("tb:json-string", liveCachePolicy(), async () => ["fresh"])

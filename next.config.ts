@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 import { API_CDN_VARY, EDGE_CACHEABLE_API_PATHS } from "./src/lib/edge-cacheable-api";
 import {
   PLAUSIBLE_EVENT_PATH,
@@ -33,4 +34,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withWorkflow(nextConfig);

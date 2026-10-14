@@ -1,30 +1,15 @@
 import { NextResponse } from "next/server";
+import { start } from "workflow/api";
 import { unauthorized } from "@/lib/api-route";
-import { invalidateAndWarm } from "@/lib/cache-warm";
 import { isCronAuthorized } from "@/lib/cron-auth";
-import { sourceStatusesHaveFailure, type SourceStatus } from "@/lib/http";
-import { collectGenerationForSettlementDate } from "@/lib/ingest/collect-generation";
-import { collectSnapshotsForSettlementDate } from "@/lib/ingest/collect-grid";
-import { formatTinybirdDateTime, yesterdayLondonDate } from "@/lib/london-time";
-import {
-  integrityReportForWrittenRows,
-  integritySourceStatus,
-  logSoftIntegrityFindings,
-  recordSnapshotIntegrity,
-  shouldRecordSnapshotIntegrity,
-  type StoredSnapshotIntegrity,
-} from "@/lib/snapshot-integrity";
-import { ingestRows } from "@/lib/tinybird";
+import { yesterdaySlot } from "@/lib/workflow-slot";
+import { yesterdayHeal } from "@/workflows/yesterday";
 
 /**
  * GET /api/cron-yesterday
  *
- * Daily Vercel Cron (`30 9 * * *` UTC in vercel.json). Re-collects
- * yesterday's UK settlement date for energy_snapshots and generation_5min
- * so outages longer than the hourly look-back do not leave permanent holes.
- * 09:30 UTC is after the full 6h Elexon publish lag for both GMT (day ends
- * 00:00 UTC) and BST (day ends 23:00 UTC), so a truncated first pass is not
- * needed. ReplacingMergeTree keys make the rewrite idempotent.
+ * Pro cron `30 9 * * *`. Starts the settlement-date heal. The route does
+ * not collect or ingest.
  */
 
 export const maxDuration = 60;
@@ -36,78 +21,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const settlementDate = yesterdayLondonDate(now);
-  const [snapshots, generation] = await Promise.all([
-    collectSnapshotsForSettlementDate(settlementDate, now),
-    collectGenerationForSettlementDate(settlementDate, now),
-  ]);
-
-  const sources: SourceStatus[] = [...snapshots.sources, ...generation.sources];
-  const integrity =
-    snapshots.integrity ?? {
-      checkedAt: formatTinybirdDateTime(now),
-      settlementDate,
-      checkedTimestamps: [],
-      failing: [],
-    };
-
-  let snapshotIngestFailed = false;
-  if (snapshots.rows.length > 0) {
-    try {
-      await ingestRows("energy_snapshots", snapshots.rows);
-    } catch (error) {
-      snapshotIngestFailed = true;
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[cron-yesterday] snapshot ingest failed", message);
-      sources.push({ source: "snapshots", ok: false, error: message });
-    }
-  }
-
-  if (generation.rows.length > 0) {
-    try {
-      await ingestRows("generation_5min", generation.rows);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[cron-yesterday] generation ingest failed", message);
-      sources.push({ source: "generation", ok: false, error: message });
-    }
-  }
-
-  let storedIntegrity: StoredSnapshotIntegrity | null = null;
-  if (shouldRecordSnapshotIntegrity(integrity, snapshots.rows, snapshotIngestFailed)) {
-    storedIntegrity = await recordSnapshotIntegrity(
-      integrityReportForWrittenRows(integrity, snapshots.rows)
-    );
-  }
-  logSoftIntegrityFindings(integrity, "cron-yesterday");
-  sources.push(integritySourceStatus(integrity));
-
-  const ingested = sources.some((source) => source.ok && (source.rows ?? 0) > 0);
-  if (ingested) {
-    await invalidateAndWarm(now, { historical: true });
-  }
-
-  const failed = sourceStatusesHaveFailure(sources);
-  const timestamp = formatTinybirdDateTime(now);
-
-  if (failed) {
-    console.error("[cron-yesterday] one or more sources failed", {
-      timestamp,
-      settlementDate,
-      sources,
-    });
-  } else {
-    console.info("[cron-yesterday] completed", { timestamp, settlementDate, sources });
-  }
-
-  return NextResponse.json(
-    {
-      ok: !failed,
-      timestamp,
-      settlementDate,
-      sources,
-      integrity: storedIntegrity,
-    },
-    { status: failed ? 503 : 200 }
-  );
+  const run = await start(yesterdayHeal, [yesterdaySlot(now), crypto.randomUUID(), now.toISOString()]);
+  console.info("[cron-yesterday] started", { runId: run.runId });
+  return NextResponse.json({ ok: true, runId: run.runId }, { status: 202 });
 }

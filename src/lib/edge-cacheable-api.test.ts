@@ -8,7 +8,8 @@ import {
 
 describe("edge-cacheable API Vary", () => {
   it("pins next.config headers to Accept-Encoding for every cacheable API", async () => {
-    const headers = nextConfig.headers;
+    const resolved = await nextConfig("phase-production-build", { defaultConfig: {} });
+    const headers = resolved.headers;
     expect(headers).toBeTypeOf("function");
     const rules = headers ? await headers() : [];
     expect(rules.map((rule) => rule.source)).toEqual([...EDGE_CACHEABLE_API_PATHS]);

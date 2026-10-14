@@ -95,7 +95,7 @@ describe("edge-cacheable API proxy", () => {
   });
 
   it("does not rate-limit the public IndexNow key file", () => {
-    expect(config.matcher).toBe("/api/:path*");
+    expect(config.matcher).toEqual(["/api/:path*", "/.well-known/workflow/:path*"]);
     const headers = { "x-forwarded-for": "203.0.113.79" };
     for (let attempt = 0; attempt < 70; attempt += 1) {
       const response = proxy(
@@ -104,6 +104,20 @@ describe("edge-cacheable API proxy", () => {
       expect(response.status).not.toBe(429);
       expect(response.headers.get("X-RateLimit-Limit")).toBeNull();
       expect(response.headers.get("X-RateLimit-Remaining")).toBeNull();
+    }
+  });
+
+  it("does not rate-limit the workflow callback", () => {
+    const headers = { "x-forwarded-for": "203.0.113.80" };
+    for (let attempt = 0; attempt < 70; attempt += 1) {
+      const response = proxy(
+        new NextRequest("http://localhost/.well-known/workflow/v1/flow", {
+          method: "POST",
+          headers,
+        })
+      );
+      expect(response.status).not.toBe(429);
+      expect(response.headers.get("X-RateLimit-Limit")).toBeNull();
     }
   });
 });

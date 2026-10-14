@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cdnCacheHeaders } from "@/lib/api-route";
+import { getHeadlineSnapshotsQueryParams } from "@/lib/dashboard-data";
 import {
   healthHttpStatus,
   latestObservedTimestamp,
@@ -7,36 +8,29 @@ import {
   streamFreshness,
   unprobedStream,
 } from "@/lib/health";
-import {
-  TinybirdLimitError,
-  getTinybirdCachePolicy,
-  tinybirdCacheControl,
-} from "@/lib/tinybird-cache";
-import { queryPipe } from "@/lib/tinybird";
 import type { EnergySnapshot } from "@/lib/types";
+import { peekWarmedPipe } from "@/lib/warm-envelope";
 
 /**
  * GET /api/health
  *
- * Cheap freshness probe for uptime monitors. One `latest_snapshot` pipe call,
- * cached 15 minutes. 503 when that critical grid snapshot is stale.
- * Generation / embedded / prices stay in the payload as non-critical
- * unprobed streams so existing monitors keep the same shape.
+ * Cheap freshness probe. Reads the warmed 24h snapshots envelope. A missing
+ * envelope is a stale critical stream, not a Tinybird query. Generation,
+ * embedded, and prices stay unprobed so monitors keep the same shape.
+ * CDN only: 300s, which matches the homepage ISR.
  */
+const HEALTH_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
+
 export async function GET() {
   const now = new Date();
-  const cacheOptions = { purpose: "health" as const, now };
-  const policy = getTinybirdCachePolicy({
-    pipeName: "latest_snapshot",
-    ...cacheOptions,
-  });
 
   try {
-    const snapshots = await queryPipe<EnergySnapshot>(
-      "latest_snapshot",
-      undefined,
-      cacheOptions
-    );
+    const snapshots =
+      (await peekWarmedPipe<EnergySnapshot>(
+        "snapshots_range",
+        getHeadlineSnapshotsQueryParams(now),
+        { range: "24h", now }
+      )) ?? [];
 
     const latestSnapshot = latestObservedTimestamp(
       snapshots.map((row) => row.timestamp),
@@ -59,23 +53,18 @@ export async function GET() {
       },
       {
         status,
-        headers: cdnCacheHeaders(tinybirdCacheControl(policy)),
+        headers: cdnCacheHeaders(HEALTH_CACHE_CONTROL),
       }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const retryAfter =
-      error instanceof TinybirdLimitError ? error.retryAfterSeconds : undefined;
     return NextResponse.json(
       {
         ok: false,
         checkedAt: now.toISOString(),
         error: message,
       },
-      {
-        status: 503,
-        headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined,
-      }
+      { status: 503 }
     );
   }
 }

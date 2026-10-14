@@ -10,16 +10,13 @@
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
-import { readThroughCache } from "@/lib/redis-cache";
+import { peekThroughCache } from "@/lib/redis-cache";
 import {
   dateForTinybirdCacheKey,
-  deserializePipeParams,
   getTinybirdCachePolicy,
   getTinybirdLastGood,
   isTinybirdLimitError,
-  serializePipeParams,
   setTinybirdLastGood,
-  TinybirdLimitError,
   tinybirdLogicalCacheKey,
   type TinybirdCacheInput,
 } from "@/lib/tinybird-cache";
@@ -62,7 +59,7 @@ export async function ingestRows(datasource: string, rows: Record<string, unknow
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Tinybird ingest error (${res.status}): ${body}`);
+    throw new TinybirdHttpError(res.status, body, res.headers.get("retry-after"));
   }
 
   return res.json();
@@ -72,7 +69,31 @@ export type QueryPipeOptions = Pick<TinybirdCacheInput, "range" | "date" | "now"
 
 type PipeJson<T> = { data: T[] };
 
-async function fetchPipeRows<T>(
+export class TinybirdHttpError extends Error {
+  readonly status: number;
+  readonly body: string;
+  readonly retryAfter: string | null;
+
+  constructor(status: number, body: string, retryAfter: string | null) {
+    super(`Tinybird query error (${status}): ${body}`);
+    this.name = "TinybirdHttpError";
+    this.status = status;
+    this.body = body;
+    this.retryAfter = retryAfter;
+  }
+}
+
+/** Thrown when a public read has no warmed Redis envelope. Never triggers a pipe call. */
+export class WarmedEnvelopeMissing extends Error {
+  readonly retryAfterSeconds = 60;
+
+  constructor(logicalKey: string) {
+    super(`warmed envelope missing: ${logicalKey}`);
+    this.name = "WarmedEnvelopeMissing";
+  }
+}
+
+export async function fetchPipeRows<T>(
   pipeName: string,
   params: Record<string, string> | undefined
 ): Promise<T[]> {
@@ -90,64 +111,75 @@ async function fetchPipeRows<T>(
 
   if (!res.ok) {
     const body = await res.text();
+    const retryAfter = res.headers.get("retry-after");
     if (isTinybirdLimitError(res.status, body)) {
-      throw new TinybirdLimitError(`Tinybird query error (${res.status}): ${body}`);
+      throw new TinybirdHttpError(res.status, body, retryAfter);
     }
-    throw new Error(`Tinybird query error (${res.status}): ${body}`);
+    throw new TinybirdHttpError(res.status, body, retryAfter);
   }
 
   const json: PipeJson<T> = await res.json();
   return json.data;
 }
 
-const queryPipeDeduped = cache(
-  async (
-    pipeName: string,
-    paramsKey: string,
-    range: string,
-    date: string,
-    revalidateSeconds: number
-  ) => {
-    const params = deserializePipeParams(paramsKey);
-    const logicalKey = tinybirdLogicalCacheKey({
-      pipeName,
-      range,
-      date,
-      params,
-      revalidateSeconds,
-    });
-
-    const cached = unstable_cache(
-      async () => {
-        const data = await fetchPipeRows(pipeName, params);
-        setTinybirdLastGood(logicalKey, data);
-        return data;
-      },
-      [logicalKey],
-      { revalidate: revalidateSeconds, tags: [DASHBOARD_CACHE_TAG, `pipe:${pipeName}`] }
-    );
-
-    try {
-      return await cached();
-    } catch (error) {
-      if (error instanceof TinybirdLimitError) {
-        const lastGood = getTinybirdLastGood(logicalKey);
-        if (lastGood) {
-          return lastGood;
-        }
+async function queryPipeDeduped<T>(
+  pipeName: string,
+  logicalKey: string,
+  policyRevalidateSeconds: number,
+  policy: TinybirdCacheInput & { revalidateSeconds?: number }
+): Promise<T[]> {
+  const cachePolicy = getTinybirdCachePolicy({
+    pipeName,
+    params: policy.params,
+    range: policy.range,
+    date: policy.date,
+    now: policy.now,
+    purpose: policy.purpose,
+  });
+  const cached = unstable_cache(
+    async () => {
+      const data = await peekThroughCache<T[]>(logicalKey, {
+        ...cachePolicy,
+        revalidateSeconds: policyRevalidateSeconds,
+      });
+      if (data == null) {
+        throw new WarmedEnvelopeMissing(logicalKey);
       }
-      throw error;
+      setTinybirdLastGood(logicalKey, data);
+      return data;
+    },
+    [logicalKey],
+    {
+      revalidate: policyRevalidateSeconds,
+      tags: [DASHBOARD_CACHE_TAG, `pipe:${pipeName}`],
     }
+  );
+
+  try {
+    return await cached();
+  } catch (error) {
+    if (error instanceof WarmedEnvelopeMissing) {
+      const lastGood = getTinybirdLastGood<T>(logicalKey);
+      if (lastGood) {
+        return lastGood;
+      }
+    }
+    throw error;
   }
-);
+}
+
+const queryPipePerRequest = cache(queryPipeDeduped);
 
 // ─── Query (Pipe endpoints) ─────────────────────────────────
 
-export async function queryPipe<T = Record<string, unknown>>(
+export function pipeCacheIdentity(
   pipeName: string,
-  params?: Record<string, string>,
+  params: Record<string, string> | undefined,
   options?: QueryPipeOptions
-): Promise<T[]> {
+): {
+  logicalKey: string;
+  policy: ReturnType<typeof getTinybirdCachePolicy>;
+} {
   const cacheDate = dateForTinybirdCacheKey(options?.range, options?.date);
   const policy = getTinybirdCachePolicy({
     pipeName,
@@ -157,7 +189,6 @@ export async function queryPipe<T = Record<string, unknown>>(
     now: options?.now,
     purpose: options?.purpose,
   });
-
   const logicalKey = tinybirdLogicalCacheKey({
     pipeName,
     range: options?.range,
@@ -165,18 +196,26 @@ export async function queryPipe<T = Record<string, unknown>>(
     params,
     revalidateSeconds: policy.revalidateSeconds,
   });
+  return { logicalKey, policy };
+}
 
-  // Always fill through Next's data cache. Redis is L2 only — if it is
-  // configured but dead, skipping unstable_cache made every edge STALE
-  // revalidation hit Tinybird.
-  const rows = await readThroughCache(logicalKey, policy, () =>
-    queryPipeDeduped(
-      pipeName,
-      serializePipeParams(params),
-      options?.range ?? "",
-      cacheDate,
-      policy.revalidateSeconds
-    )
-  );
-  return rows as T[];
+export async function queryPipe<T = Record<string, unknown>>(
+  pipeName: string,
+  params?: Record<string, string>,
+  options?: QueryPipeOptions
+): Promise<T[]> {
+  const { logicalKey, policy } = pipeCacheIdentity(pipeName, params, options);
+  const cacheDate = dateForTinybirdCacheKey(options?.range, options?.date);
+
+  // Request path reads the warmed Redis envelope through Next's data cache.
+  // A miss must not call Tinybird — the workflow is the only reader.
+  const rows = await queryPipePerRequest<T>(pipeName, logicalKey, policy.revalidateSeconds, {
+    pipeName,
+    params,
+    range: options?.range,
+    date: cacheDate === "" ? undefined : cacheDate,
+    now: options?.now,
+    purpose: options?.purpose,
+  });
+  return rows;
 }

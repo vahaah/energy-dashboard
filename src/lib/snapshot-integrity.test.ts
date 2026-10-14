@@ -201,6 +201,7 @@ describe("snapshot integrity", () => {
       },
       del: async () => 1,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     const report = inspectSnapshotRows([nov18Doubled()]);
@@ -219,6 +220,7 @@ describe("snapshot integrity", () => {
       },
       del: async () => 1,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     const report = inspectSnapshotRows([nov18Doubled()]);
@@ -240,6 +242,7 @@ describe("snapshot integrity", () => {
       },
       del: async () => 1,
       incr: async () => 1,
+      expire: async () => 1,
     });
 
     const report = inspectSnapshotRows([nov18Doubled()]);

@@ -5,6 +5,7 @@ import { getGenerationQueryParams } from "@/lib/dashboard-data";
 import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { Generation5min } from "@/lib/types";
+import { sliceLondonDay, unwarmedDateError } from "@/lib/warm-window";
 
 /**
  * GET /api/generation?range=24h|7d|30d|90d|1y&date=YYYY-MM-DD
@@ -24,8 +25,13 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const params = getGenerationQueryParams(rangeResult.value, now, dateResult.value);
-  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const dateError = unwarmedDateError(dateResult.value, rangeResult.value, now);
+  if (dateError) {
+    return badRequest(dateError);
+  }
+
+  const params = getGenerationQueryParams(rangeResult.value, now);
+  const cacheOptions = { range: rangeResult.value, now };
   const policy = getTinybirdCachePolicy({
     pipeName: "generation_5min_range",
     params,
@@ -33,7 +39,8 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const data = await queryPipe<Generation5min>("generation_5min_range", params, cacheOptions);
+    const rows = await queryPipe<Generation5min>("generation_5min_range", params, cacheOptions);
+    const data = sliceLondonDay(rows, dateResult.value, now);
     return cachedJson(
       {
         data,

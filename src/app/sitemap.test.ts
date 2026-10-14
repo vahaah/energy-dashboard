@@ -46,8 +46,9 @@ describe("sitemap", () => {
 
   it("peeks Redis only and does not query Tinybird", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./sitemap.ts"), "utf8");
-    expect(source).toContain("peekThroughCache");
+    expect(source).toContain("peekWarmedPipe");
     expect(source).toContain("peekLatestPrices");
+    expect(source).not.toContain("peekThroughCache");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("loadDashboardPayload");
     expect(source).not.toContain("loadCachedPublicPrices");
