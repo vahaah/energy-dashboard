@@ -22,6 +22,7 @@ import {
   residualCoalAfterPowerEnded,
   transitionSentences,
   yearlyAverages,
+  windMw,
   type NesoHistoricRow,
 } from "@/lib/historic-mix";
 
@@ -100,19 +101,6 @@ describe("NESO historic sanity", () => {
     const solarSpike = row({ DATETIME: "2026-01-01T00:00:00", SOLAR: 21000, RENEWABLE_perc: 39 });
     expect(isSaneHistoricRow(windSpike)).toBe(true);
     expect(historicQuarantineRule(windSpike)?.id).toBe("wind-above-30gw");
-    const oneSided = row({ DATETIME: "2026-01-01T00:00:00", WIND: 40000, WIND_EMB: null, RENEWABLE_perc: 39 });
-    expect(oneSided.WIND).toBe(40000);
-    expect(oneSided.WIND_EMB).toBeNull();
-    expect(historicQuarantineRule(oneSided)?.id).toBe("wind-above-30gw");
-    expect(
-      historicQuarantineRule(row({ DATETIME: "2026-01-01T00:00:00", WIND: 20000, WIND_EMB: null }))
-    ).toBeNull();
-    expect(historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!)).toContain(
-      '("WIND" IS NULL OR "WIND" <= 30000)'
-    );
-    expect(historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!)).toContain(
-      '("WIND_EMB" IS NULL OR "WIND_EMB" <= 30000)'
-    );
     expect(windSpike.WIND).toBe(25000);
     expect(windSpike.WIND_EMB).toBe(6000);
     expect(windSpike.RENEWABLE_perc).toBe(39);
@@ -144,6 +132,57 @@ describe("NESO historic sanity", () => {
         })
       )
     ).toBe(false);
+  });
+
+  it("does not sum a missing wind component as zero", () => {
+    const missingEmbedded = row({
+      DATETIME: "2026-01-01T00:00:00",
+      WIND: 40000,
+      WIND_EMB: null,
+      RENEWABLE_perc: 39,
+      CARBON_INTENSITY: 40,
+    });
+    const missingTransmission = row({
+      DATETIME: "2026-01-01T00:30:00",
+      WIND: null,
+      WIND_EMB: 40000,
+      RENEWABLE_perc: 39,
+      CARBON_INTENSITY: 41,
+    });
+    const complete = row({
+      DATETIME: "2026-01-01T01:00:00",
+      WIND: 10000,
+      WIND_EMB: 2000,
+      RENEWABLE_perc: 20,
+      CARBON_INTENSITY: 90,
+    });
+
+    expect(missingEmbedded.WIND).toBe(40000);
+    expect(missingEmbedded.WIND_EMB).toBeNull();
+    expect(windMw(missingEmbedded)).toBeNull();
+    expect(windMw(missingTransmission)).toBeNull();
+    expect(windMw(complete)).toBe(12000);
+    expect(historicQuarantineRule(missingEmbedded)).toBeNull();
+    expect(historicQuarantineRule(missingTransmission)).toBeNull();
+    expect(publishedHistoricRows([missingEmbedded, missingTransmission, complete])).toEqual([
+      missingEmbedded,
+      missingTransmission,
+      complete,
+    ]);
+
+    const records = computeRecords([missingEmbedded, missingTransmission, complete]);
+    expect(records.maxWind?.value).toBe(12000);
+    expect(records.lowestCarbon?.value).toBe(40);
+
+    const windRule = historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!);
+    expect(windRule).toContain('NOT ("WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL)');
+    expect(windRule).toContain('("WIND" + "WIND_EMB") <= 30000');
+    expect(windRule).not.toContain('"WIND" <= 30000');
+    expect(historicWeeklySql()).toContain(windRule);
+    expect(historicRecordsSql()).toContain(windRule);
+    expect(historicRecordsSql()).toContain(
+      '"WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL ORDER BY ("WIND" + "WIND_EMB") DESC'
+    );
   });
 
   it("keeps a normal half-hour", () => {

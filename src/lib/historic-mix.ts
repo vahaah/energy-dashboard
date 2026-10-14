@@ -257,8 +257,12 @@ export function parseNesoHistoricRow(raw: Record<string, unknown>): NesoHistoric
   };
 }
 
-export function windMw(row: NesoHistoricRow): number {
-  return (row.WIND ?? 0) + (row.WIND_EMB ?? 0);
+/** Transmission plus embedded. A missing component is unknown, not zero. */
+export function windMw(row: NesoHistoricRow): number | null {
+  if (row.WIND == null || row.WIND_EMB == null) {
+    return null;
+  }
+  return row.WIND + row.WIND_EMB;
 }
 
 export function solarMw(row: NesoHistoricRow): number {
@@ -276,8 +280,11 @@ export function zeroCarbonSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  const zeroCarbonMw =
-    windMw(row) + solarMw(row) + (row.HYDRO ?? 0) + (row.NUCLEAR ?? 0);
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  const zeroCarbonMw = wind + solarMw(row) + (row.HYDRO ?? 0) + (row.NUCLEAR ?? 0);
   return (zeroCarbonMw / row.GENERATION) * 100;
 }
 
@@ -288,7 +295,11 @@ export function renewableSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  const renewableMw = windMw(row) + solarMw(row) + (row.HYDRO ?? 0);
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  const renewableMw = wind + solarMw(row) + (row.HYDRO ?? 0);
   return (renewableMw / row.GENERATION) * 100;
 }
 
@@ -329,12 +340,12 @@ export function saneHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[] {
   return rows.filter((row) => isSaneHistoricRow(row));
 }
 
-function quarantineMetricMw(metric: HistoricQuarantineMetric, row: NesoHistoricRow): number {
+function quarantineMetricMw(metric: HistoricQuarantineMetric, row: NesoHistoricRow): number | null {
   switch (metric) {
     case "wind":
       return windMw(row);
     case "solar":
-      return solarMw(row);
+      return row.SOLAR;
     default: {
       const exhaustive: never = metric;
       return exhaustive;
@@ -349,7 +360,8 @@ export function historicQuarantineRule(row: NesoHistoricRow): HistoricQuarantine
     if (date < rule.from || date >= rule.until) {
       continue;
     }
-    if (quarantineMetricMw(rule.metric, row) > rule.aboveMw) {
+    const mw = quarantineMetricMw(rule.metric, row);
+    if (mw != null && mw > rule.aboveMw) {
       return rule;
     }
   }
@@ -362,15 +374,15 @@ export function publishedHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[
 }
 
 /**
- * Publication predicate matching `quarantineMetricMw`: a missing component is 0.
- * A one-sided wind reading above the cap is quarantined. Raw columns stay in the SELECT list.
+ * Publication predicate matching `windMw`: a missing component is not zero.
+ * The ceiling applies only to a complete sum. Raw columns stay in the SELECT list.
  */
 function quarantineWithinSql(metric: HistoricQuarantineMetric, aboveMw: number): string {
   switch (metric) {
     case "wind":
-      return `("WIND" IS NULL OR "WIND" <= ${aboveMw}) AND ("WIND_EMB" IS NULL OR "WIND_EMB" <= ${aboveMw}) AND ("WIND" IS NULL OR "WIND_EMB" IS NULL OR ("WIND" + "WIND_EMB") <= ${aboveMw})`;
+      return `NOT ("WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL) OR ("WIND" + "WIND_EMB") <= ${aboveMw}`;
     case "solar":
-      return `("SOLAR" IS NULL OR "SOLAR" <= ${aboveMw})`;
+      return `"SOLAR" IS NULL OR "SOLAR" <= ${aboveMw}`;
     default: {
       const exhaustive: never = metric;
       return exhaustive;
@@ -444,7 +456,7 @@ export function computeRecords(
 
   for (const row of sane) {
     const wind = windMw(row);
-    if (maxWind == null || wind > maxWind.value) {
+    if (wind != null && (maxWind == null || wind > maxWind.value)) {
       maxWind = recordPoint(wind, row.DATETIME, WIND_RECORD_BASIS);
     }
 
@@ -480,11 +492,13 @@ export function computeRecords(
       );
     }
 
-    const windGw = Math.floor(wind / 1000);
-    for (let gw = WIND_MILESTONE_START_GW; gw <= windGw; gw += 1) {
-      const existing = firstAboveGw.get(gw);
-      if (!existing || row.DATETIME < existing) {
-        firstAboveGw.set(gw, row.DATETIME);
+    if (wind != null) {
+      const windGw = Math.floor(wind / 1000);
+      for (let gw = WIND_MILESTONE_START_GW; gw <= windGw; gw += 1) {
+        const existing = firstAboveGw.get(gw);
+        if (!existing || row.DATETIME < existing) {
+          firstAboveGw.set(gw, row.DATETIME);
+        }
       }
     }
   }
@@ -573,7 +587,11 @@ function windSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  return (windMw(row) / row.GENERATION) * 100;
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  return (wind / row.GENERATION) * 100;
 }
 
 function formatGrams(value: number): string {
