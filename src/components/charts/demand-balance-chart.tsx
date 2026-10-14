@@ -44,7 +44,7 @@ import {
 } from "@/lib/dashboard-model";
 import {
   appendDemandForecastPoints,
-  demandBalanceGapLabel,
+  displayedDemandBalance,
   demandBalanceYTicks,
   demandChartMargin,
   demandChartTimeTicks,
@@ -108,7 +108,11 @@ export function DemandBalanceTooltip({
 
   const point = payload.at(0)?.payload;
   const note = point ? formatEmbeddedMissingNote(point.embeddedMissing) : null;
-  const gap = point ? demandBalanceGapLabel(point) : null;
+  const figures =
+    point?.demandGw != null && point.generationGw != null
+      ? displayedDemandBalance(point.demandGw, point.generationGw)
+      : null;
+  const gap = figures?.gapLabel ?? null;
   const series = payload.filter((entry) => {
     const key = String(entry.dataKey ?? entry.name ?? "");
     return key === "demandGw" || key === "generationGw" || key === "demandForecastGw";
@@ -128,16 +132,18 @@ export function DemandBalanceTooltip({
         } else if (key === "generationGw") {
           daily = point?.generationDailyGw ?? null;
         }
+        const shown =
+          key === "demandGw" && figures
+            ? figures.demand
+            : key === "generationGw" && figures
+              ? figures.generation
+              : Number(entry.value).toFixed(1);
         return (
           <ChartTooltipRow
             key={key}
             color={SERIES_COLORS[key] ?? "var(--gray-1000)"}
             label={SERIES_LABELS[key] ?? key}
-            value={
-              daily == null
-                ? `${Number(entry.value).toFixed(1)} GW`
-                : `${Number(entry.value).toFixed(1)} GW · daily ${daily.toFixed(1)} GW`
-            }
+            value={daily == null ? `${shown} GW` : `${shown} GW · daily ${daily.toFixed(1)} GW`}
           />
         );
       })}

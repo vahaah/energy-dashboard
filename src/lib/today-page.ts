@@ -4,9 +4,9 @@ import {
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
-import { getDisplayedPower } from "@/lib/displayed-demand";
-import { generationMixShares } from "@/lib/generation-share";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
+import { getDisplayedPower, termDisplayGw } from "@/lib/displayed-demand";
+import { generationMixShares } from "@/lib/generation-share";
 import { formatHeadlineGw } from "@/lib/facts";
 import {
   addUtcDays,
@@ -276,10 +276,14 @@ export function buildTodayPageModel(input: {
     carbonAverage: mean(todaySnapshots.map((row) => row.carbon_intensity)),
     priceAverage: mean(todaySnapshots.map((row) => row.price_mid_gbp_mwh)),
     latest: {
-      demandGw: formatHeadlineGw(power?.demandMw ?? day?.facts.demand.value ?? null),
-      generationGw: formatHeadlineGw(power?.generationMw ?? day?.facts.generationMw.value ?? null),
-      importsGw: power?.balanceClosed ? formatHeadlineGw(power.importsMw) : null,
-      exportsGw: power?.balanceClosed ? formatHeadlineGw(power.exportsMw) : null,
+      demandGw:
+        (power ? termDisplayGw(power, "demand") : null) ??
+        formatHeadlineGw(power?.demandMw ?? day?.facts.demand.value ?? null),
+      generationGw:
+        (power ? termDisplayGw(power, "generation") : null) ??
+        formatHeadlineGw(power?.generationMw ?? day?.facts.generationMw.value ?? null),
+      importsGw: power?.balanceClosed ? termDisplayGw(power, "imports") : null,
+      exportsGw: power?.balanceClosed ? termDisplayGw(power, "exports") : null,
       carbon: day?.facts.carbon.value == null ? null : day.facts.carbon.value.toFixed(0),
       price: day?.facts.price.value == null ? null : day.facts.price.value.toFixed(2),
       netImportsMw: netImports,

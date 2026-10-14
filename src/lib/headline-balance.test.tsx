@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EquationRow } from "@/components/equation-row";
-import { getDisplayedPower, headlineBalanceHolds } from "@/lib/displayed-demand";
+import { balanceEquationSentence, getDisplayedPower, headlineBalanceHolds } from "@/lib/displayed-demand";
 import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
-import { buildSettlementBalance, headlineTermsClose } from "@/lib/headline-balance";
+import { buildSettlementBalance } from "@/lib/headline-balance";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 const SP18_TIMES = [
@@ -208,9 +208,13 @@ describe("13 Oct 2026 08:30–09:00 BST headline balance", () => {
     const html = renderToStaticMarkup(<EquationRow power={power} />);
     expect(html).toContain('data-balanced="true"');
     expect(html).toContain(">33.2<");
-    expect(html).toContain(">1.6<");
+    expect(html).toContain(">1.5<");
+    expect(html).not.toContain(">1.6<");
     expect(html).toContain(">3.3<");
     expect(html).toContain(">31.4<");
+    expect(balanceEquationSentence(power)).toBe(
+      "Generation 33.2 GW, plus Imports 1.5 GW, minus Exports 3.3 GW, equals Demand 31.4 GW."
+    );
     expect(html).not.toContain(">33.3<");
     expect(html).not.toContain(">34.8<");
     expect(html).toContain("Imports");
@@ -370,24 +374,31 @@ describe("headline identity cases", () => {
     expect(headlineBalanceHolds(power)).toBe(false);
   });
 
-  it("withholds the equals sign when rounded gigawatts miss by more than 0.1", () => {
-    expect(
-      headlineTermsClose({
-        generationMw: 249,
-        importsMw: 249,
-        exportsMw: 251,
-        storageChargingMw: 251,
-        demandMw: -4,
-      })
-    ).toBe(false);
-    expect(
-      headlineTermsClose({
-        generationMw: 33_173.237,
-        importsMw: 1_570.333,
-        exportsMw: 3_313.667,
-        storageChargingMw: 0,
-        demandMw: 31_429.904,
-      })
-    ).toBe(true);
+  it("prints gigawatts that add up to the printed demand", () => {
+    const timestamp = "2026-10-14 16:00:00";
+    const rows = [
+      row(timestamp, "ccgt", 36_884.473),
+      row(timestamp, "intnsl", 1_745),
+      row(timestamp, "intned", -2_754),
+    ];
+    const input = facts(rows, 33_301);
+    const period = "2026-10-14T16:00:00.000Z";
+    input.demand.periodStartUtc = period;
+    input.demand.periodEndUtc = period;
+    input.generationMw.periodStartUtc = period;
+    input.generationMw.periodEndUtc = period;
+    input.netImportsMw.periodStartUtc = period;
+    input.referenceTimestamp = period;
+    const shown = getDisplayedPower(input, [snapshot(timestamp, 33_301)]);
+    const sentence = balanceEquationSentence(shown);
+
+    expect(shown.balanceClosed).toBe(true);
+    expect(shown.showEquals).toBe(true);
+    expect(shown.storageChargingMw).toBe(0);
+    expect(shown.terms.map((term) => term.label)).toEqual(["Generation", "Imports", "Exports", "Demand"]);
+    expect(sentence).toBe(
+      "Generation 36.9 GW, plus Imports 1.7 GW, minus Exports 2.7 GW, equals Demand 35.9 GW."
+    );
+    expect(formatHeadlineGw(shown.exportsMw)).toBe("2.8");
   });
 });

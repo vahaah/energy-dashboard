@@ -48,6 +48,7 @@ describe("generation mix shares", () => {
     expect(formatSharePercent(shares[0]?.sharePct ?? 0)).toBe(
       formatSharePercent((18_800 / (18_800 + 6_200 + 4_100 + 2_500 + 1_100 + 1_000 + 600 + 300)) * 100)
     );
+    expect(shares.reduce((total, share) => total + share.displayPct, 0)).toBe(100);
   });
 
   it("uses the same percentages from fuel totals and from settlement rows", () => {
@@ -114,10 +115,10 @@ describe("generation mix shares", () => {
 
   it("sizes the bar with flex-grow so the track cannot exceed 100%", () => {
     const shares = generationMixShares(rows, "2026-10-13T08:00:00.000Z");
-    const styles = shares.map((share) => shareBarSegmentStyle(share.sharePct));
+    const styles = shares.map((share) => shareBarSegmentStyle(share.displayPct));
     const grown = styles.reduce((sum, style) => sum + style.flexGrow, 0);
 
-    expect(grown).toBeCloseTo(100, 5);
+    expect(grown).toBe(100);
     expect(styles.every((style) => style.flexBasis === 0 && style.minWidth === 0)).toBe(true);
     expect(styles.every((style) => !("width" in style))).toBe(true);
     expect(showsInlineShareLabel(54, false)).toBe(true);

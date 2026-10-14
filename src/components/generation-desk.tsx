@@ -99,7 +99,11 @@ export function GenerationDesk({
       ) : (
         <ShareBar
           shares={shares}
-          generationMw={power.generationMw}
+          generationGw={
+            power.generationMw == null
+              ? null
+              : (power.terms.find((term) => term.id === "generation")?.displayGw ?? null)
+          }
           carbon={facts.carbon.value}
           carbonHelp={facts.carbon.definition}
         />

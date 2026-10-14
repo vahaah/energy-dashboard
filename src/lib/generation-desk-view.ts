@@ -11,6 +11,7 @@ import {
   type DemandBalancePoint,
   type GenerationStackFuel,
 } from "@/lib/dashboard-model";
+import { formatDisplay, reconcileSignedDisplay } from "@/lib/display-rounding";
 import { formatHeadlineGw, type Fact, type LatestFacts } from "@/lib/facts";
 import {
   chartTimeDomain,
@@ -792,17 +793,45 @@ export function formatDemandBalanceTooltipLabel(
   }
 }
 
+const DEMAND_TOOLTIP_QUANTUM = 0.1;
+
+export function displayedDemandBalance(
+  demandGw: number,
+  generationGw: number
+): { demand: string; generation: string; gap: string; gapLabel: string } {
+  const gap = demandGw - generationGw;
+  const importing = gap > 0;
+  const reconciled = reconcileSignedDisplay(
+    [
+      { value: generationGw, sign: 1 },
+      { value: Math.abs(gap), sign: importing ? 1 : -1 },
+    ],
+    demandGw,
+    DEMAND_TOOLTIP_QUANTUM
+  );
+  const generation = formatDisplay(reconciled.parts[0] ?? 0, DEMAND_TOOLTIP_QUANTUM);
+  const gapText = formatDisplay(reconciled.parts[1] ?? 0, DEMAND_TOOLTIP_QUANTUM);
+  const demand = formatDisplay(reconciled.total, DEMAND_TOOLTIP_QUANTUM);
+  const gapShown = Number(gapText) > 0;
+  let gapLabel = "Gap: 0.0 GW";
+  if (gapShown && importing) {
+    gapLabel = `Imports (demand above generation): ${gapText} GW`;
+  } else if (gapShown) {
+    gapLabel = `Exports (generation above demand): ${gapText} GW`;
+  }
+  return { demand, generation, gap: gapText, gapLabel };
+}
+
 export function demandBalanceGapLabel(point: DemandBalanceChartPoint): string | null {
-  if (point.importGw == null || point.exportGw == null) {
+  if (
+    point.importGw == null ||
+    point.exportGw == null ||
+    point.demandGw == null ||
+    point.generationGw == null
+  ) {
     return null;
   }
-  if (point.importGw > 0) {
-    return `Imports (demand above generation): ${point.importGw.toFixed(1)} GW`;
-  }
-  if (point.exportGw > 0) {
-    return `Exports (generation above demand): ${point.exportGw.toFixed(1)} GW`;
-  }
-  return "Gap: 0.0 GW";
+  return displayedDemandBalance(point.demandGw, point.generationGw).gapLabel;
 }
 
 export function lastDefinedIndex(

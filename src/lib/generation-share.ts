@@ -7,6 +7,7 @@ import {
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
+import { displayedPercents } from "@/lib/display-rounding";
 import { buildSettlementBalance, type BalanceFuel, type SettlementBalance } from "@/lib/headline-balance";
 import type { Generation5min } from "@/lib/types";
 
@@ -21,7 +22,10 @@ export type GenerationMixShare = {
   fuel: string;
   label: string;
   mw: number;
+  /** Exact share of generation. */
   sharePct: number;
+  /** Integer percent. The list totals 100. */
+  displayPct: number;
   color: string;
 };
 
@@ -151,7 +155,11 @@ function toShares(grouped: Map<string, number>, total: number): GenerationMixSha
     }));
 
   shares.sort((left, right) => right.mw - left.mw || left.label.localeCompare(right.label));
-  return shares;
+  const display = displayedPercents(shares.map((share) => share.sharePct));
+  return shares.map((share, index) => ({
+    ...share,
+    displayPct: display[index] ?? 0,
+  }));
 }
 
 function partsFromLatestFrame(rows: Generation5min[]): Array<{ fuel: string; mw: number }> {

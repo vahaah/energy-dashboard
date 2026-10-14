@@ -1,7 +1,6 @@
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CARD_PAD_X } from "@/components/ui/card";
 import { balanceEquationSentence, type DisplayedPower, type HeadlineTerm } from "@/lib/displayed-demand";
-import { formatHeadlineGw } from "@/lib/facts";
 import { homepageDemandFigureInputs } from "@/lib/metrics";
 
 const PERIOD_ID = "balance-period";
@@ -78,10 +77,9 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
         <dd
           data-figure
           className={`mt-3 font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
-          title={term.roundingNote ?? undefined}
           aria-describedby={demand ? PERIOD_ID : undefined}
         >
-          <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+          <span data-value>{term.displayGw}</span>
           <span data-unit className="ml-1 align-baseline text-xl font-medium tracking-normal text-gray-700">
             {figureMeta?.displayUnit ?? "GW"}
           </span>
@@ -119,7 +117,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         data-figure
         className={`font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
       >
-        <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+        <span data-value>{term.displayGw}</span>
         <span data-unit className="ml-1 align-baseline text-sm font-medium tracking-normal text-gray-700">
           {figureMeta?.displayUnit ?? "GW"}
         </span>
@@ -130,11 +128,4 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
 
 function popoverText(term: HeadlineTerm): string {
   return `${term.help} Source: ${term.source}.`;
-}
-
-function unsignedMw(mw: number | null): number | null {
-  if (mw == null) {
-    return null;
-  }
-  return Math.abs(mw);
 }

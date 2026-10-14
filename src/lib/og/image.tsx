@@ -218,16 +218,16 @@ function BalanceMix({ slices }: { slices: OgMixSlice[] }) {
             key={slice.fuel}
             style={{
               display: "flex",
-              flexGrow: slice.sharePct,
+              flexGrow: slice.displayPct,
               flexBasis: 0,
               minWidth: 0,
               overflow: "hidden",
             }}
           >
-            {showsInlineShareLabel(slice.sharePct, false) ? (
+            {showsInlineShareLabel(slice.displayPct, false) ? (
               <div style={{ display: "flex", fontSize: 18, fontFeatureSettings: "tnum" }}>
                 <span style={{ fontWeight: 600 }}>{slice.label}</span>
-                <span style={{ color: MUTED, marginLeft: 8 }}>{formatSharePercent(slice.sharePct)}%</span>
+                <span style={{ color: MUTED, marginLeft: 8 }}>{formatSharePercent(slice.displayPct)}%</span>
               </div>
             ) : null}
           </div>
@@ -238,7 +238,7 @@ function BalanceMix({ slices }: { slices: OgMixSlice[] }) {
           <div
             key={slice.fuel}
             style={{
-              flexGrow: slice.sharePct,
+              flexGrow: slice.displayPct,
               flexBasis: 0,
               minWidth: 0,
               height: "100%",
@@ -249,13 +249,13 @@ function BalanceMix({ slices }: { slices: OgMixSlice[] }) {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12 }}>
         {slices
-          .filter((slice) => !showsInlineShareLabel(slice.sharePct, false))
+          .filter((slice) => !showsInlineShareLabel(slice.displayPct, false))
           .map((slice) => (
             <div key={slice.fuel} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 20 }}>
               <div style={{ width: 8, height: 8, borderRadius: 2, background: slice.color }} />
               <span>{slice.label}</span>
               <span style={{ color: MUTED, fontFeatureSettings: "tnum" }}>
-                {formatHeadlineGw(slice.mw)} GW · {formatSharePercent(slice.sharePct)}%
+                {formatHeadlineGw(slice.mw)} GW · {formatSharePercent(slice.displayPct)}%
               </span>
             </div>
           ))}
@@ -272,7 +272,7 @@ function MixRow({ slices }: { slices: OgMixSlice[] }) {
           <div
             key={slice.fuel}
             style={{
-              flexGrow: slice.sharePct,
+              flexGrow: slice.displayPct,
               flexBasis: 0,
               background: slice.color,
               height: "100%",
@@ -285,7 +285,7 @@ function MixRow({ slices }: { slices: OgMixSlice[] }) {
           <div key={slice.fuel} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18 }}>
             <div style={{ width: 10, height: 10, borderRadius: 999, background: slice.color }} />
             <span style={{ color: MUTED }}>{slice.label}</span>
-            <span style={{ fontWeight: 600, fontFeatureSettings: "tnum" }}>{slice.sharePct.toFixed(0)}%</span>
+            <span style={{ fontWeight: 600, fontFeatureSettings: "tnum" }}>{formatSharePercent(slice.displayPct)}%</span>
           </div>
         ))}
       </div>

@@ -34,7 +34,7 @@ function power(demandSource: string): DisplayedPower {
         operator: null,
         help: "GB generation.",
         source: "Elexon BMRS, NESO, Sheffield Solar PV Live",
-        roundingNote: null,
+        displayGw: "30.0",
       },
       {
         id: "demand",
@@ -44,7 +44,7 @@ function power(demandSource: string): DisplayedPower {
         operator: null,
         help: "GB electricity use in this half-hour.",
         source: demandSource,
-        roundingNote: null,
+        displayGw: "31.4",
       },
     ],
   };

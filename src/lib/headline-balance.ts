@@ -15,8 +15,6 @@ import type { Generation5min } from "@/lib/types";
  * ITSDO + embedded is not generation + net transfers. Headline demand is
  * derived: generation + imports − exports − storage charging.
  */
-export const HEADLINE_DISPLAY_TOLERANCE_GW = 0.1;
-
 export type BalanceFuel = {
   fuel: string;
   /** Net half-hour average. Source rows keep this signed value. */
@@ -49,29 +47,6 @@ export type SettlementBalance = {
   fuels: BalanceFuel[];
   rows: Generation5min[];
 };
-
-export function headlineGw(mw: number): number {
-  return Number((Math.abs(mw) / 1000).toFixed(1));
-}
-
-export function headlineTermsClose(input: {
-  generationMw: number;
-  importsMw: number;
-  exportsMw: number;
-  storageChargingMw: number;
-  demandMw: number;
-}): boolean {
-  const shown = (mw: number) => {
-    const gw = headlineGw(mw);
-    return gw === 0 ? 0 : gw;
-  };
-  const lhs =
-    shown(input.generationMw) +
-    shown(input.importsMw) -
-    shown(input.exportsMw) -
-    shown(input.storageChargingMw);
-  return Math.abs(lhs - shown(input.demandMw)) <= HEADLINE_DISPLAY_TOLERANCE_GW + 1e-9;
-}
 
 export function buildSettlementBalance(
   rows: Generation5min[],
