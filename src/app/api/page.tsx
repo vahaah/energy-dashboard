@@ -50,7 +50,7 @@ const ENDPOINTS = [
     path: "/api/v1/data-health",
     name: "Data health",
     fields:
-      "Published time from the source and when Grid retrieved it, per metric, with the expected cadence. Read from warmed envelopes.",
+      "Published time from the source and when Grid retrieved it, per metric, with the expected cadence and publication lag. Read from warmed envelopes.",
   },
 ] as const;
 

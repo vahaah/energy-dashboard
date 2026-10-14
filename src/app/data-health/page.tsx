@@ -24,8 +24,8 @@ export default async function DataHealthPage() {
       cite={
         <p data-cite>
           Published is the source time on the warmed row. Retrieved is when Grid stored that
-          envelope. A series is stale once the published time is older than its expected cadence.
-          A missing value stays —.
+          envelope. A series is stale once that source time is older than its expected cadence
+          plus its publication lag. A missing value stays —.
         </p>
       }
       citation={`Grid, "Data health", grid.vahaah.com/data-health, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}

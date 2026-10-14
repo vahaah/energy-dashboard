@@ -90,6 +90,7 @@ const GB_MW = {
   aggregation: "mean",
   denominator: null,
   expected_cadence: "PT30M",
+  publication_lag: "PT0S",
 } as const;
 
 const HEADLINE_SOURCES = ["elexon-bmrs", "neso-open-data", "sheffield-pv-live"] as const;
@@ -249,6 +250,7 @@ export const METRICS = {
     dataset_id: "intensity-actual",
     coverage: "Actual half-hour carbon intensity. Not the forecast series.",
     expected_cadence: "PT30M",
+    publication_lag: "PT0S",
   },
   "elec.gb.share.wind_solar_hydro": {
     metric_id: "elec.gb.share.wind_solar_hydro",
@@ -265,6 +267,7 @@ export const METRICS = {
     coverage:
       "Transmission wind + embedded wind + PV Live solar + conventional hydro, over the generation side of the headline balance for the same settlement period. Excludes biomass, pumped storage, battery and imports.",
     expected_cadence: "PT30M",
+    publication_lag: "PT0S",
   },
   "elec.gb.price.market_index": {
     metric_id: "elec.gb.price.market_index",
@@ -281,6 +284,7 @@ export const METRICS = {
     coverage:
       "Short-term wholesale Market Index. The homepage field is price_mid_gbp_mwh. Not the day-ahead auction.",
     expected_cadence: "PT30M",
+    publication_lag: "PT0S",
   },
   "elec.gb.price.imbalance": {
     metric_id: "elec.gb.price.imbalance",
@@ -297,6 +301,7 @@ export const METRICS = {
     coverage:
       "System buy price, the imbalance cash-out. The homepage field is price_gbp_mwh. The published price can be negative.",
     expected_cadence: "PT30M",
+    publication_lag: "PT0S",
   },
   "commodity.brent.spot": {
     metric_id: "commodity.brent.spot",
@@ -311,8 +316,9 @@ export const METRICS = {
     source_id: "eia",
     dataset_id: "PET.RBRTE.D",
     coverage:
-      "EIA Europe Brent spot price FOB (PET.RBRTE.D), a global marker. Stored ingest unit is $/BBL.",
+      "EIA Europe Brent spot price FOB (PET.RBRTE.D), a global marker. Stored ingest unit is $/BBL. EIA releases the daily series weekly, usually Wednesday, through the prior Tuesday. A US holiday can move that release to Thursday.",
     expected_cadence: "P1D",
+    publication_lag: "P8D",
   },
   "commodity.wti.spot": {
     metric_id: "commodity.wti.spot",
@@ -326,8 +332,10 @@ export const METRICS = {
     denominator: null,
     source_id: "eia",
     dataset_id: "PET.RWTC.D",
-    coverage: "Cushing, OK WTI spot price FOB. Stored ingest unit is $/BBL.",
+    coverage:
+      "Cushing, OK WTI spot price FOB. Stored ingest unit is $/BBL. Same weekly Wednesday EIA spot release as Brent.",
     expected_cadence: "P1D",
+    publication_lag: "P8D",
   },
   "commodity.henry_hub.spot": {
     metric_id: "commodity.henry_hub.spot",
@@ -341,8 +349,10 @@ export const METRICS = {
     denominator: null,
     source_id: "eia",
     dataset_id: "NG.RNGWHHD.D",
-    coverage: "Henry Hub spot gas, Louisiana. Stored ingest unit is $/MMBTU.",
+    coverage:
+      "Henry Hub spot gas, Louisiana. Stored ingest unit is $/MMBTU. EIA releases this daily series weekly with the petroleum spots, usually Wednesday through the prior Tuesday.",
     expected_cadence: "P1D",
+    publication_lag: "P8D",
   },
   "commodity.eu_natural_gas.spot": {
     metric_id: "commodity.eu_natural_gas.spot",
@@ -356,8 +366,10 @@ export const METRICS = {
     denominator: null,
     source_id: "world-bank-pink-sheet",
     dataset_id: "Natural gas, Europe",
-    coverage: "World Bank Pink Sheet monthly Northwest Europe natural gas.",
+    coverage:
+      "World Bank Pink Sheet monthly Northwest Europe natural gas. The prior month is published in early month+1.",
     expected_cadence: "P1M",
+    publication_lag: "P1M",
   },
   "commodity.lng_asia.spot": {
     metric_id: "commodity.lng_asia.spot",
@@ -371,8 +383,10 @@ export const METRICS = {
     denominator: null,
     source_id: "world-bank-pink-sheet",
     dataset_id: "Liquefied natural gas, Japan",
-    coverage: "World Bank Pink Sheet monthly Japan LNG import price.",
+    coverage:
+      "World Bank Pink Sheet monthly Japan LNG import price. The prior month is published in early month+1.",
     expected_cadence: "P1M",
+    publication_lag: "P1M",
   },
   "commodity.gb_gas_sap.price": {
     metric_id: "commodity.gb_gas_sap.price",
@@ -386,8 +400,10 @@ export const METRICS = {
     denominator: null,
     source_id: "national-gas",
     dataset_id: "PUBOB603",
-    coverage: "National Gas System Average Price for the GB transmission system, pence per kWh.",
+    coverage:
+      "National Gas System Average Price for the GB transmission system, pence per kWh. Gas day D is published on D+1.",
     expected_cadence: "P1D",
+    publication_lag: "P1D",
   },
 } satisfies Record<string, MetricDefinition>;
 

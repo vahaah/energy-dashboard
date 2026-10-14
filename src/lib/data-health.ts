@@ -15,9 +15,9 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { METRICS, metricSourceIds, metricSourceLabel, type MetricId } from "@/lib/metrics";
+import { METRICS, metricSourceLabel, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
-import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
+import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
 
 export type DataHealthReading = {
@@ -27,6 +27,9 @@ export type DataHealthReading = {
   source: string;
   dataset_id: string;
   expected_cadence: string;
+  publication_lag: string;
+  /** Null when the series has no extra wait after one cadence interval. */
+  publication_lag_label: string | null;
   value: number | null;
   value_label: string;
   published_at: string | null;
@@ -40,6 +43,7 @@ export type DataHealthReading = {
 export type HealthMetric = {
   metric_id: string;
   expected_cadence: string;
+  publication_lag: string;
   published_at: string | null;
   retrieved_at: string | null;
   stale: boolean;
@@ -52,6 +56,75 @@ export type FeaturedMetricId = (typeof FEATURED_METRIC_IDS)[number];
 
 export function featuredMetricIds(): readonly FeaturedMetricId[] {
   return FEATURED_METRIC_IDS;
+}
+
+type LagUnit = "D" | "W" | "M";
+
+/** Human line for a non-zero publication lag. Zero lag stays null. */
+export function publicationLagLabel(
+  publicationLag: string,
+  interval: IntervalConvention
+): string | null {
+  const wait = humanLag(publicationLag);
+  if (!wait) {
+    return null;
+  }
+  return `Published about ${wait} after ${lagAnchor(interval)}`;
+}
+
+function humanLag(publicationLag: string): string | null {
+  const match = /^P(\d+)([DWM])$/.exec(publicationLag);
+  if (!match || !isLagUnit(match[2])) {
+    return null;
+  }
+  const count = Number(match[1]);
+  if (!Number.isFinite(count) || count <= 0) {
+    return null;
+  }
+  return lagUnitPhrase(count, match[2]);
+}
+
+function isLagUnit(value: string): value is LagUnit {
+  switch (value) {
+    case "D":
+    case "W":
+    case "M":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function lagUnitPhrase(count: number, unit: LagUnit): string {
+  switch (unit) {
+    case "D":
+      return count === 1 ? "1 day" : `${count} days`;
+    case "W":
+      return count === 1 ? "1 week" : `${count} weeks`;
+    case "M":
+      return count === 1 ? "1 month" : `${count} months`;
+    default: {
+      const exhaustive: never = unit;
+      return exhaustive;
+    }
+  }
+}
+
+function lagAnchor(interval: IntervalConvention): string {
+  switch (interval) {
+    case "gas_day_half_open":
+      return "the gas day";
+    case "calendar_month_utc_half_open":
+      return "the month";
+    case "calendar_day_utc_half_open":
+      return "the trading day";
+    case "uk_settlement_period_half_open":
+      return "the settlement period";
+    default: {
+      const exhaustive: never = interval;
+      return exhaustive;
+    }
+  }
 }
 
 export function metricLabel(id: MetricId): string {
@@ -135,6 +208,7 @@ export function buildReading(input: {
     publicationStatus: input.publicationStatus,
     formatValue: (value) => formatReadingValue(value, metric.unit),
     schedule: stalenessSchedule(metric),
+    publicationLag: metric.publication_lag,
   });
   return {
     metric_id: input.metricId,
@@ -143,6 +217,8 @@ export function buildReading(input: {
     source: metricSourceLabel(metric),
     dataset_id: metric.dataset_id,
     expected_cadence: metric.expected_cadence,
+    publication_lag: metric.publication_lag,
+    publication_lag_label: publicationLagLabel(metric.publication_lag, metric.interval_convention),
     value: input.value != null && Number.isFinite(input.value) ? input.value : null,
     value_label: assessed.valueLabel,
     published_at: input.publishedAt,
@@ -158,6 +234,7 @@ export function healthMetrics(readings: DataHealthReading[]): HealthMetric[] {
   return readings.map((reading) => ({
     metric_id: reading.metric_id,
     expected_cadence: reading.expected_cadence,
+    publication_lag: reading.publication_lag,
     published_at: reading.published_at,
     retrieved_at: reading.retrieved_at,
     stale: reading.stale,
@@ -364,9 +441,6 @@ function includedObservations(
 function stalenessSchedule(metric: (typeof METRICS)[MetricId]): StalenessSchedule {
   if (metric.interval_convention === "uk_settlement_period_half_open") {
     return "settlement";
-  }
-  if (metricSourceIds(metric).includes("eia") && /^P\d+D$/.test(metric.expected_cadence)) {
-    return "business_day";
   }
   return "calendar";
 }

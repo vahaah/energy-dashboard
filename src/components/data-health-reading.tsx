@@ -54,6 +54,9 @@ export function DataHealthReading({
           {reading.retrieved_label}
         </time>
       </p>
+      {reading.publication_lag_label ? (
+        <p className="text-label-12 text-gray-900">{reading.publication_lag_label}</p>
+      ) : null}
     </div>
   );
 }
