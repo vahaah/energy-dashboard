@@ -5,6 +5,8 @@ import { getInterconnectorQueryParams } from "@/lib/dashboard-data";
 import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import type { InterconnectorFlow } from "@/lib/types";
+import { getLondonDate } from "@/lib/london-time";
+import { sliceLondonDay, futureDateError } from "@/lib/warm-window";
 
 /**
  * GET /api/interconnectors?range=24h|7d&date=YYYY-MM-DD
@@ -24,8 +26,19 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const params = getInterconnectorQueryParams(rangeResult.value, now, dateResult.value);
-  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const dateError = futureDateError(dateResult.value, now);
+  if (dateError) {
+    return badRequest(dateError);
+  }
+
+  const pastDate =
+    dateResult.value && dateResult.value !== getLondonDate(now) ? dateResult.value : null;
+  const params = getInterconnectorQueryParams(rangeResult.value, now);
+  const cacheOptions = {
+    range: rangeResult.value,
+    now,
+    ...(pastDate ? { date: pastDate } : {}),
+  };
   const policy = getTinybirdCachePolicy({
     pipeName: "interconnector_flows",
     params,
@@ -33,7 +46,8 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const data = await queryPipe<InterconnectorFlow>("interconnector_flows", params, cacheOptions);
+    const rows = await queryPipe<InterconnectorFlow>("interconnector_flows", params, cacheOptions);
+    const data = sliceLondonDay(rows, dateResult.value, now);
     return cachedJson(
       {
         data,

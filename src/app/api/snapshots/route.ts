@@ -6,6 +6,8 @@ import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
 import { queryPipe } from "@/lib/tinybird";
 import { elexonBmrsAttributionBlock } from "@/lib/attribution";
 import type { EnergySnapshot } from "@/lib/types";
+import { getLondonDate } from "@/lib/london-time";
+import { sliceLondonDay, futureDateError } from "@/lib/warm-window";
 
 /**
  * GET /api/snapshots?range=24h|7d|30d|90d|1y&date=YYYY-MM-DD
@@ -27,8 +29,19 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
-  const params = getSnapshotsQueryParams(rangeResult.value, now, dateResult.value);
-  const cacheOptions = { range: rangeResult.value, date: dateResult.value, now };
+  const dateError = futureDateError(dateResult.value, now);
+  if (dateError) {
+    return badRequest(dateError);
+  }
+
+  const pastDate =
+    dateResult.value && dateResult.value !== getLondonDate(now) ? dateResult.value : null;
+  const params = getSnapshotsQueryParams(rangeResult.value, now);
+  const cacheOptions = {
+    range: rangeResult.value,
+    now,
+    ...(pastDate ? { date: pastDate } : {}),
+  };
   const policy = getTinybirdCachePolicy({
     pipeName: "snapshots_range",
     params,
@@ -36,7 +49,8 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const data = await queryPipe<EnergySnapshot>("snapshots_range", params, cacheOptions);
+    const rows = await queryPipe<EnergySnapshot>("snapshots_range", params, cacheOptions);
+    const data = sliceLondonDay(rows, dateResult.value, now);
     return cachedJson(
       {
         data,

@@ -1,15 +1,12 @@
 import type { MetadataRoute } from "next";
-import {
-  dashboardPayloadCacheKey,
-  dashboardPayloadPolicy,
-  type DashboardPayload,
-} from "@/lib/dashboard-payload-model";
+import { getHeadlineSnapshotsQueryParams } from "@/lib/dashboard-data";
+import { latestObservedTimestamp } from "@/lib/health";
 import { parseUtcDateTime } from "@/lib/london-time";
 import { peekLatestPrices } from "@/lib/og/peek";
-import { peekThroughCache } from "@/lib/redis-cache";
 import { SITE_URL } from "@/lib/site";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
-import type { CommodityPrice } from "@/lib/types";
+import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
+import { peekWarmedPipe } from "@/lib/warm-envelope";
 
 const GRID_LASTMOD_PATHS = new Set(["", "/today", "/llms.txt"]);
 const GAS_LASTMOD_PATHS = new Set(["/prices/gas"]);
@@ -62,23 +59,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 }
 
 async function sitemapStamps(): Promise<SitemapStamps> {
-  const [payload, prices] = await Promise.all([
-    peekThroughCache<DashboardPayload>(
-      dashboardPayloadCacheKey("day", null),
-      dashboardPayloadPolicy("day")
-    ),
+  const now = new Date();
+  const [snapshots, prices] = await Promise.all([
+    peekWarmedPipe<EnergySnapshot>("snapshots_range", getHeadlineSnapshotsQueryParams(now), {
+      range: "24h",
+      now,
+    }),
     peekLatestPrices(),
   ]);
   return {
-    grid: gridTimestamp(payload),
+    grid: gridTimestamp(snapshots, now),
     gas: latestCommodityTimestamp(prices),
   };
 }
 
-function gridTimestamp(payload: DashboardPayload | null): Date | undefined {
-  if (!payload?.facts.referenceTimestamp) {
+function gridTimestamp(rows: EnergySnapshot[] | null, now: Date): Date | undefined {
+  const latest = latestObservedTimestamp(
+    (rows ?? []).map((row) => row.timestamp),
+    now
+  );
+  if (!latest) {
     return undefined;
   }
-  const date = parseUtcDateTime(payload.facts.referenceTimestamp);
+  const date = parseUtcDateTime(latest);
   return Number.isNaN(date.getTime()) ? undefined : date;
 }

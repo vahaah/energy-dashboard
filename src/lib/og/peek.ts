@@ -1,11 +1,17 @@
-import { getPricesQueryParams } from "@/lib/dashboard-data";
+import {
+  getHeadlineGenerationQueryParams,
+  getHeadlineSnapshotsQueryParams,
+  getPricesQueryParams,
+} from "@/lib/dashboard-data";
 import { dashboardPayloadCacheKey, dashboardPayloadPolicy } from "@/lib/dashboard-payload-model";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
+import { resolveDashboardDate } from "@/lib/dashboard-search-params";
 import { externalCacheKey, peekThroughCache } from "@/lib/redis-cache";
 import { historicalCachePolicy, getTinybirdCachePolicy, tinybirdLogicalCacheKey } from "@/lib/tinybird-cache";
 import { computeRecords, type GridRecords, type NesoHistoricRow } from "@/lib/historic-mix";
-import type { LatestFacts } from "@/lib/facts";
-import type { CommodityPrice } from "@/lib/types";
+import { getLatestFacts, type LatestFacts } from "@/lib/facts";
+import { peekWarmedPipe } from "@/lib/warm-envelope";
+import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 
 export type OgCacheSnapshot = {
   facts: LatestFacts | null;
@@ -51,15 +57,42 @@ export async function peekCachedGridRecords(now = new Date()): Promise<GridRecor
   return computeRecords(rows, now);
 }
 
+async function factsFromWarmedEnvelopes(now: Date): Promise<LatestFacts | null> {
+  const range = "24h" as const;
+  const [snapshots, generation] = await Promise.all([
+    peekWarmedPipe<EnergySnapshot>("snapshots_range", getHeadlineSnapshotsQueryParams(now), {
+      range,
+      now,
+    }),
+    peekWarmedPipe<Generation5min>(
+      "generation_5min_range",
+      getHeadlineGenerationQueryParams(now),
+      { range, now }
+    ),
+  ]);
+  if (!snapshots || snapshots.length === 0) {
+    return null;
+  }
+  const facts = getLatestFacts({
+    resolution: resolveDashboardDate(null, now, range),
+    snapshots,
+    generation: generation ?? [],
+    now,
+  });
+  return facts.empty ? null : facts;
+}
+
 export async function peekOgCacheSnapshot(now = new Date()): Promise<OgCacheSnapshot> {
-  const [dashboard, prices, nesoRecords] = await Promise.all([
+  const [dashboard, prices, nesoRecords, envelopeFacts] = await Promise.all([
     peekLatestDashboardPayload(),
     peekLatestPrices(now),
     peekCachedGridRecords(now),
+    factsFromWarmedEnvelopes(now),
   ]);
+  const composed = dashboard?.facts && !dashboard.facts.empty ? dashboard.facts : null;
 
   return {
-    facts: dashboard?.facts ?? null,
+    facts: composed ?? envelopeFacts,
     records: dashboard?.records ?? nesoRecords,
     prices,
   };

@@ -19,31 +19,51 @@ describe("yesterday settlement heal", () => {
 
     expect(vercel).toContain('"/api/cron-yesterday"');
     expect(vercel).toContain("30 9 * * *");
+    expect(vercel).toContain('"/api/cron"');
+    expect(vercel).toContain('"/api/cron-warm"');
+    expect(vercel).toContain("*/30 * * * *");
+    expect(vercel).toContain("30 */6 * * *");
     expect(proxy).toContain('"/api/cron-yesterday"');
-    expect(route).toContain("collectSnapshotsForSettlementDate(settlementDate, now)");
-    expect(route).toContain("collectGenerationForSettlementDate(settlementDate, now)");
-    expect(route).toContain("yesterdayLondonDate");
-    expect(route).toContain("sourceStatusesHaveFailure");
-    expect(route).toContain("recordSnapshotIntegrity");
-    expect(route).toContain("shouldRecordSnapshotIntegrity");
-    expect(route).toContain("integrityReportForWrittenRows");
-    expect(route).toContain("integritySourceStatus");
-    expect(route.indexOf('await ingestRows("energy_snapshots"')).toBeLessThan(
-      route.lastIndexOf("recordSnapshotIntegrity")
+    expect(proxy).toContain('"/api/cron-warm"');
+    expect(proxy).toContain("/.well-known/workflow/");
+    expect(route).toContain("start(yesterdayHeal");
+    expect(route).toContain("isCronAuthorized");
+    expect(route).not.toContain("ingestRows");
+    expect(route).not.toContain("collectSnapshotsForSettlementDate");
+    expect(route).not.toContain('revalidateTag(DASHBOARD_CACHE_TAG, "max")');
+
+    const heal = readFileSync(
+      resolve(process.cwd(), "src/workflows/steps/yesterday.ts"),
+      "utf8"
     );
-    expect(route.indexOf('await ingestRows("generation_5min"')).toBeLessThan(
-      route.lastIndexOf("recordSnapshotIntegrity")
+    expect(heal).toContain("collectSnapshotsForSettlementDate(settlementDate, now)");
+    expect(heal).toContain("collectGenerationForSettlementDate(settlementDate, now)");
+    expect(heal).toContain("yesterdayLondonDate");
+    expect(heal).toContain("sourceStatusesHaveFailure");
+    expect(heal).toContain("recordSnapshotIntegrity");
+    expect(heal).toContain("shouldRecordSnapshotIntegrity");
+    expect(heal).toContain("integrityReportForWrittenRows");
+    expect(heal).toContain("integritySourceStatus");
+    expect(heal).toContain("logSoftIntegrityFindings");
+    const snapshotPost = heal.slice(
+      heal.indexOf("export async function postYesterdaySnapshotsStep"),
+      heal.indexOf("export async function postYesterdayGenerationStep")
     );
-    expect(route).toContain("status: failed ? 503 : 200");
+    expect(snapshotPost.indexOf('postTinybirdRows("energy_snapshots"')).toBeLessThan(
+      snapshotPost.indexOf("recordSnapshotIntegrity")
+    );
+    expect(snapshotPost).toContain("snapshotIngestFailed");
 
     const hourly = readFileSync(resolve(process.cwd(), "src/app/api/cron/route.ts"), "utf8");
-    expect(hourly).toContain("integritySourceStatus");
-    expect(hourly).toContain("logSoftIntegrityFindings");
-    expect(route).toContain("logSoftIntegrityFindings");
-    expect(hourly).toContain("emptyIntegrityReport");
-    expect(hourly).toContain("status: failed ? 503 : 200");
-    expect(route).toContain("invalidateAndWarm(now, { historical: true })");
-    expect(route).not.toContain('revalidateTag(DASHBOARD_CACHE_TAG, "max")');
+    expect(hourly).toContain("start(electricitySlot");
+    expect(hourly).not.toContain("ingestRows");
+    const electricityPost = readFileSync(
+      resolve(process.cwd(), "src/workflows/steps/electricity-post.ts"),
+      "utf8"
+    );
+    expect(electricityPost).toContain("integritySourceStatus");
+    expect(electricityPost).toContain("logSoftIntegrityFindings");
+    expect(electricityPost).toContain("emptyIntegrityReport");
 
     const warmer = readFileSync(resolve(process.cwd(), "src/lib/cache-warm.ts"), "utf8");
     expect(warmer).toContain("revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 })");
@@ -54,11 +74,10 @@ describe("yesterday settlement heal", () => {
     expect(warmer).toContain('revalidatePath("/llms.txt")');
     expect(warmer).toContain("NESO_HISTORIC_CACHE_TAG");
     expect(warmer).toContain("dangerouslyDeleteByTag(DASHBOARD_CACHE_TAG)");
-    expect(warmer).toContain("scheduleBackground");
-    expect(warmer.indexOf("revalidateTag")).toBeLessThan(warmer.indexOf("bumpHistoricalCacheEpoch"));
-    expect(warmer.indexOf("bumpHistoricalCacheEpoch")).toBeLessThan(
-      warmer.indexOf("warmHotDashboardKeys")
-    );
+    expect(warmer).not.toContain("scheduleBackground");
+    expect(warmer).not.toContain("bumpCacheEpoch");
+    expect(warmer).not.toContain("bumpHistoricalCacheEpoch");
+    expect(warmer).not.toContain("warmHotDashboardKeys");
 
     const tinybird = readFileSync(resolve(process.cwd(), "src/lib/tinybird.ts"), "utf8");
     expect(tinybird).toContain("queryPipeDeduped");

@@ -16,8 +16,11 @@ const PRUNE_INTERVAL_MS = 30_000;
 const store = new Map<string, { count: number; resetAt: number }>();
 let lastPruneAt = 0;
 
+const WORKFLOW_WELL_KNOWN = "/.well-known/workflow/";
+
 const CRON_OR_HEALTH = new Set([
   "/api/cron",
+  "/api/cron-warm",
   "/api/cron-prices",
   "/api/cron-yesterday",
   "/api/health",
@@ -63,7 +66,12 @@ function corsHeaders(): Headers {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public IndexNow key file. The matcher is /api only; this still skips the limiter.
+  // Workflow runtime posts here. Never rate-limit it, even if the matcher widens.
+  if (pathname.startsWith(WORKFLOW_WELL_KNOWN)) {
+    return NextResponse.next();
+  }
+
+  // Public IndexNow key file. The matcher covers /api and the workflow callback.
   if (pathname === INDEXNOW_KEY_PATH) {
     return NextResponse.next();
   }
@@ -127,5 +135,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/api/:path*", "/.well-known/workflow/:path*"],
 };

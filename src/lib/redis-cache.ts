@@ -39,6 +39,7 @@ export type RedisCommands = {
   ) => Promise<"OK" | null>;
   del: (...keys: string[]) => Promise<number>;
   incr: (key: string) => Promise<number>;
+  expire: (key: string, seconds: number) => Promise<number>;
 };
 
 const REDIS_REST_PAIRS = [
@@ -161,6 +162,7 @@ export function getRedis(): RedisCommands | null {
       },
       del: (...keys) => redis.del(...keys),
       incr: (key) => redis.incr(key),
+      expire: (key, seconds) => redis.expire(key, seconds),
     };
     return cachedRedis;
   } catch (error) {

@@ -57,7 +57,8 @@ describe("Plausible", () => {
   });
 
   it("rewrites /js/script.js and /api/event to Plausible and leaves the homepage static", async () => {
-    const rewrites = nextConfig.rewrites ? await nextConfig.rewrites() : [];
+    const resolved = await nextConfig("phase-production-build", { defaultConfig: {} });
+    const rewrites = resolved.rewrites ? await resolved.rewrites() : [];
     expect(rewrites).toEqual([
       { source: PLAUSIBLE_SCRIPT_PATH, destination: PLAUSIBLE_UPSTREAM_SCRIPT },
       { source: PLAUSIBLE_EVENT_PATH, destination: PLAUSIBLE_UPSTREAM_EVENT },

@@ -160,16 +160,21 @@ describe("commodity series stay on their own units", () => {
 
   it("does not request OilPriceAPI or FRED from cron-prices", () => {
     const cron = readFileSync(resolve(process.cwd(), "src/app/api/cron-prices/route.ts"), "utf8");
-    expect(cron).not.toContain("fetchOilPriceLatest");
-    expect(cron).not.toContain("fetchFredLatest");
-    expect(cron).not.toContain("oilpriceapi");
-    expect(cron).not.toContain("OIL_PRICE_API_KEY");
-    expect(cron).not.toContain("FRED_API_KEY");
-    expect(cron).not.toMatch(/OilPriceAPI|FRED/);
-    expect(cron).toContain("fetchEiaRange");
-    expect(cron).toContain("fetchWorldBankMonthly");
-    expect(cron).toContain("eiaCronWindow");
-    expect(cron).toContain("worldBankCronWindow");
+    const step = readFileSync(resolve(process.cwd(), "src/workflows/steps/prices.ts"), "utf8");
+    for (const source of [cron, step]) {
+      expect(source).not.toContain("fetchOilPriceLatest");
+      expect(source).not.toContain("fetchFredLatest");
+      expect(source).not.toContain("oilpriceapi");
+      expect(source).not.toContain("OIL_PRICE_API_KEY");
+      expect(source).not.toContain("FRED_API_KEY");
+      expect(source).not.toMatch(/OilPriceAPI|FRED/);
+    }
+    expect(step).toContain("fetchEiaRange");
+    expect(step).toContain("fetchWorldBankMonthly");
+    expect(step).toContain("eiaCronWindow");
+    expect(step).toContain("worldBankCronWindow");
+    expect(cron).toContain("start(pricesWorkflow");
+    expect(cron).not.toContain("fetchEiaRange");
   });
 
   it("filters public commodity rows on /api/prices, not the dashboard payload", () => {

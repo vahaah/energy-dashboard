@@ -158,12 +158,33 @@ async function settleSource<T>(
   }
 }
 
-export async function collectRecentGeneration(now: Date): Promise<CollectionResult> {
+export type SettledGeneration = {
+  source: string;
+  rows?: Record<string, unknown>[];
+  error?: string;
+};
+
+export async function fetchRecentFuelinst(now: Date): Promise<SettledGeneration> {
   const from = new Date(now.getTime() - FUELINST_RECENT_LOOKBACK_MS);
+  return settleSource(
+    "fuelinst",
+    () =>
+      readThroughCache(
+        externalCacheKey("elexon-fuelinst", [from.toISOString(), now.toISOString()]),
+        liveCachePolicy(),
+        () =>
+          fetchJson<FuelInstRow[]>(
+            `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
+          )
+      ),
+    (rows) => fuelInstRowsToIngest(rows ?? [])
+  );
+}
+
+export async function fetchRecentEmbedded(now: Date): Promise<SettledGeneration[]> {
   const today = getLondonDate(now);
   const yesterday = addUtcDays(today, -1);
   const pvFrom = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-
   const nesoSql = [
     'SELECT "SETTLEMENT_DATE","SETTLEMENT_PERIOD","FORECAST_ACTUAL_INDICATOR",',
     '"EMBEDDED_SOLAR_GENERATION","EMBEDDED_WIND_GENERATION"',
@@ -172,20 +193,7 @@ export async function collectRecentGeneration(now: Date): Promise<CollectionResu
     'ORDER BY "SETTLEMENT_DATE","SETTLEMENT_PERIOD"',
   ].join(" ");
 
-  const parts = await Promise.all([
-    settleSource(
-      "fuelinst",
-      () =>
-        readThroughCache(
-          externalCacheKey("elexon-fuelinst", [from.toISOString(), now.toISOString()]),
-          liveCachePolicy(),
-          () =>
-            fetchJson<FuelInstRow[]>(
-              `https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELINST/stream?publishDateTimeFrom=${from.toISOString()}&publishDateTimeTo=${now.toISOString()}`
-            )
-        ),
-      (rows) => fuelInstRowsToIngest(rows ?? [])
-    ),
+  return Promise.all([
     settleSource(
       "neso",
       () =>
@@ -213,8 +221,14 @@ export async function collectRecentGeneration(now: Date): Promise<CollectionResu
       (json) => pvLiveRowsToIngest(json.data ?? [], now)
     ),
   ]);
+}
 
-  return mergeSettledGeneration(parts);
+export async function collectRecentGeneration(now: Date): Promise<CollectionResult> {
+  const [fuelinst, embedded] = await Promise.all([
+    fetchRecentFuelinst(now),
+    fetchRecentEmbedded(now),
+  ]);
+  return mergeSettledGeneration([fuelinst, ...embedded]);
 }
 
 export async function collectGenerationForSettlementDate(

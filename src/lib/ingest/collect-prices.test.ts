@@ -226,11 +226,14 @@ describe("commodity price ingest helpers", () => {
 
   it("wires the script helper and cron to overwrite stored World Bank keys", () => {
     const script = readFileSync(resolve(process.cwd(), "scripts/backfill-commodities.ts"), "utf8");
-    const cron = readFileSync(resolve(process.cwd(), "src/app/api/cron-prices/route.ts"), "utf8");
+    const cron = readFileSync(resolve(process.cwd(), "src/workflows/steps/prices.ts"), "utf8");
+    const route = readFileSync(resolve(process.cwd(), "src/app/api/cron-prices/route.ts"), "utf8");
 
     expect(script).toContain("selectPriceRowsForIngest");
     expect(script).not.toContain("rejectStoredPriceRows");
     expect(cron).toContain("selectCronWorldBankRows");
     expect(cron).not.toContain("rejectStoredPriceRows");
+    expect(route).not.toContain("rejectStoredPriceRows");
+    expect(route).not.toContain("selectCronWorldBankRows");
   });
 });

@@ -487,7 +487,7 @@ export function buildSnapshotRowsForPeriods(
   });
 }
 
-type SettledFetch<T> = { source: string; value?: T; error?: string };
+export type SettledFetch<T> = { source: string; value?: T; error?: string };
 
 async function settleFetch<T>(source: string, work: () => Promise<T>): Promise<SettledFetch<T>> {
   try {
@@ -580,56 +580,125 @@ export function snapshotCollectionFromSources(
   };
 }
 
+export type SnapshotHttpWindow = {
+  priceDates: string[];
+  carbonFrom: string;
+  carbonTo: string;
+  publishFrom: string;
+  publishTo: string;
+};
+
+export type CarbonSnapshotParts = {
+  intensity: SettledFetch<IntensityRow[]>;
+  mix: SettledFetch<MixRow[]>;
+};
+
+export type ElexonSnapshotParts = {
+  prices: SettledFetch<ElexonSystemPrice[]>;
+  marketIndex: SettledFetch<ElexonMarketIndex[]>;
+  demand: SettledFetch<ElexonDemand[]>;
+  generation: SettledFetch<ElexonGeneration[]>;
+};
+
+const RECENT_SNAPSHOT_LOOKBACK_MS = 2.5 * 60 * 60 * 1000;
+
+export function recentSnapshotWindow(now: Date): {
+  periods: SettlementPeriod[];
+  http: SnapshotHttpWindow;
+} | null {
+  const periods = listRecentSettlementPeriods(now, RECENT_SNAPSHOT_LOOKBACK_MS);
+  if (periods.length === 0) {
+    return null;
+  }
+  return { periods, http: snapshotHttpWindow(periods, now) };
+}
+
+export function snapshotHttpWindow(periods: SettlementPeriod[], now?: Date): SnapshotHttpWindow {
+  const from = periods[0].startUtc;
+  const to = periods[periods.length - 1].endUtc;
+  const publish = elexonPublishWindow(from, to, now);
+  return {
+    priceDates: [...new Set(periods.map((period) => period.settlementDate))],
+    carbonFrom: from.toISOString().replace(".000", ""),
+    carbonTo: to.toISOString().replace(".000", ""),
+    publishFrom: publish.fromIso,
+    publishTo: publish.toIso,
+  };
+}
+
+export async function fetchCarbonSnapshotParts(
+  window: SnapshotHttpWindow
+): Promise<CarbonSnapshotParts> {
+  const [intensity, mix] = await Promise.all([
+    settleFetch("carbon_intensity", () => fetchCarbonIntensity(window.carbonFrom, window.carbonTo)),
+    settleFetch("carbon_mix", () => fetchCarbonMix(window.carbonFrom, window.carbonTo)),
+  ]);
+  return { intensity, mix };
+}
+
+export async function fetchElexonSnapshotParts(
+  window: SnapshotHttpWindow,
+  now?: Date
+): Promise<ElexonSnapshotParts> {
+  const [prices, marketIndex, demand, generation] = await Promise.all([
+    settleFetch("prices", async () => {
+      const sets = await Promise.all(window.priceDates.map((date) => fetchSystemPrices(date, now)));
+      return sets.flat();
+    }),
+    settleFetch("market_index", () => fetchMarketIndex(window.carbonFrom, window.carbonTo)),
+    settleFetch("demand", () =>
+      fetchElexonWindow<ElexonDemand>("ITSDO", window.publishFrom, window.publishTo)
+    ),
+    settleFetch("generation_mw", () =>
+      fetchElexonWindow<ElexonGeneration>("AGPT", window.publishFrom, window.publishTo)
+    ),
+  ]);
+  return { prices, marketIndex, demand, generation };
+}
+
+export function assembleSnapshotParts(
+  periods: SettlementPeriod[],
+  carbon: CarbonSnapshotParts,
+  elexon: ElexonSnapshotParts,
+  options?: { settlementDate?: string; now?: Date }
+): CollectionResult {
+  const statuses = [
+    statusFromFetch(carbon.intensity, (rows) => rows.length),
+    statusFromFetch(carbon.mix, (rows) => rows.length),
+    statusFromFetch(elexon.prices, (rows) => rows.length),
+    requireFetchedRows(statusFromFetch(elexon.marketIndex, (rows) => rows.length)),
+    statusFromFetch(elexon.demand, (rows) => rows.length),
+    statusFromFetch(elexon.generation, (rows) => rows.length),
+  ];
+
+  return snapshotCollectionFromSources(
+    periods,
+    snapshotMapsFromFetches({
+      intensity: carbon.intensity.value ?? [],
+      mix: carbon.mix.value ?? [],
+      prices: elexon.prices.value ?? [],
+      marketIndex: elexon.marketIndex.value ?? [],
+      demand: elexon.demand.value ?? [],
+      generation: elexon.generation.value ?? [],
+    }),
+    statuses,
+    options
+  );
+}
+
 async function collectSnapshotsForPeriods(
   periods: SettlementPeriod[],
   priceDates: string[],
   now?: Date,
   settlementDate?: string
 ): Promise<CollectionResult> {
-  const from = periods[0].startUtc;
-  const to = periods[periods.length - 1].endUtc;
-  const carbonFrom = from.toISOString().replace(".000", "");
-  const carbonTo = to.toISOString().replace(".000", "");
-  const publish = elexonPublishWindow(from, to, now);
-
-  const [intensity, mix, prices, marketIndex, demand, generation] = await Promise.all([
-    settleFetch("carbon_intensity", () => fetchCarbonIntensity(carbonFrom, carbonTo)),
-    settleFetch("carbon_mix", () => fetchCarbonMix(carbonFrom, carbonTo)),
-    settleFetch("prices", async () => {
-      const sets = await Promise.all(priceDates.map((date) => fetchSystemPrices(date, now)));
-      return sets.flat();
-    }),
-    settleFetch("market_index", () => fetchMarketIndex(carbonFrom, carbonTo)),
-    settleFetch("demand", () =>
-      fetchElexonWindow<ElexonDemand>("ITSDO", publish.fromIso, publish.toIso)
-    ),
-    settleFetch("generation_mw", () =>
-      fetchElexonWindow<ElexonGeneration>("AGPT", publish.fromIso, publish.toIso)
-    ),
+  const http = snapshotHttpWindow(periods, now);
+  http.priceDates = priceDates;
+  const [carbon, elexon] = await Promise.all([
+    fetchCarbonSnapshotParts(http),
+    fetchElexonSnapshotParts(http, now),
   ]);
-
-  const statuses = [
-    statusFromFetch(intensity, (rows) => rows.length),
-    statusFromFetch(mix, (rows) => rows.length),
-    statusFromFetch(prices, (rows) => rows.length),
-    requireFetchedRows(statusFromFetch(marketIndex, (rows) => rows.length)),
-    statusFromFetch(demand, (rows) => rows.length),
-    statusFromFetch(generation, (rows) => rows.length),
-  ];
-
-  return snapshotCollectionFromSources(
-    periods,
-    snapshotMapsFromFetches({
-      intensity: intensity.value ?? [],
-      mix: mix.value ?? [],
-      prices: prices.value ?? [],
-      marketIndex: marketIndex.value ?? [],
-      demand: demand.value ?? [],
-      generation: generation.value ?? [],
-    }),
-    statuses,
-    { now, settlementDate }
-  );
+  return assembleSnapshotParts(periods, carbon, elexon, { now, settlementDate });
 }
 
 export async function collectRecentSnapshots(now: Date): Promise<CollectionResult> {
