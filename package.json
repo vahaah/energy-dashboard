@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:layout": "playwright test",
+    "publish-check": "tsx scripts/publish-check.ts",
     "indexnow": "tsx scripts/indexnow.ts"
   },
   "dependencies": {
@@ -28,7 +29,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.0",
-    "workflow": "^4.8.13"
+    "workflow": "^4.8.13",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

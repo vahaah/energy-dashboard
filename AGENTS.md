@@ -119,6 +119,41 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | None | EU natural gas + Japan LNG (CC BY 4.0) |
 | National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh** |
 
+## File catalogue
+
+There is no catalogue database. Do not add Neon, Postgres, or another store for this. The catalogue is versioned JSON in git:
+
+```
+data/catalogue/
+├── sources.json              # one object per source_id
+├── datasets.json             # one object per dataset_id
+├── source_releases.ndjson    # append-only releases
+└── ingestion_runs.ndjson     # append-only runs (empty until an import records one)
+```
+
+Zod schemas live in `src/lib/catalogue/schema.ts` (`catalogue_schema_version` 1). `npm run publish-check` validates them. CI runs that script. On a pull request it also compares `source_releases.ndjson` to `GITHUB_BASE_REF` and fails if an existing release id was edited or removed.
+
+Identifiers:
+
+- `source_id` is a slug from `DATA_SOURCE_IDS` in `src/lib/attribution.ts` (`elexon-bmrs`, `neso-open-data`, `carbon-intensity`, `sheffield-pv-live`, `eia`, `world-bank-pink-sheet`, `national-gas`).
+- `dataset_id` is `{source_id}:{catalogue_key}`. The catalogue key is the `dataset_id` already stored on each metric in `src/lib/metrics.ts`. National Gas keys are the portal publication id (`PUBOB603` for the System Average Price). Do not invent a slug.
+- `source_release_id` is `{dataset_id}:{published_at}` when the publisher timestamps the extract, otherwise `{dataset_id}:{content_hash}`. `content_hash` is `sha256:` plus the hex digest of the canonical JSON `content`. The id is immutable.
+
+Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (ingest schedule: `PT1H` or `PT6H`). Each dataset row has the metric cadence (`expected_cadence` from the registry) and the `metric_ids` that read it. Derived headline balance is registered on `elexon-bmrs` because that source is one of the metric's sources and FUELINST is the spine. The key stays `headline-balance`.
+
+`/data-sources` reads `sources.json` through `cataloguePageSources()` in `src/lib/catalogue/page-sources.ts`. Keep that page's layout and sentences. The National Gas attribution in the catalogue is `Data sourced from the National Gas Transmission Data Portal.` Series captions elsewhere still use `NATIONAL_GAS_ATTRIBUTION`. The Elexon row stores the copyright year in the file. `dataSources(year)` in that same module restamps that one credit for callers that pass a year. Do not import the catalogue module from client components; `src/lib/attribution.ts` stays free of it so chart bundles do not pull the JSON or Zod. `/` stays `force-static`. This catalogue is not wired into Tinybird.
+
+### P1A.1 REPD / DUKES imports
+
+REPD (Renewable Energy Planning Database) and DUKES (Digest of UK Energy Statistics) are not in the seed. A future import writes releases like this:
+
+1. Add the source slug to `DATA_SOURCE_IDS` and `CATALOGUE_SOURCE_IDS`, then add the `sources.json` and `datasets.json` rows. New National Gas datasets, if any, use the real publication id.
+2. Hash the extract (`sha256` of the bytes, or of the canonical JSON snapshot stored on the release). Build `source_release_id` from `dataset_id` plus `published_at`, or plus the content hash when the publisher has no timestamp.
+3. If that id is already a line in `source_releases.ndjson`, the new record must be byte-for-byte the same. `publish-check` fails a changed body. Append a new line for a new id. Do not edit or delete an old line.
+4. Append one `ingestion_runs.ndjson` line for the run (`ingestion_run_id`, `dataset_id`, `source_release_id`, `started_at`, `finished_at`, `status`).
+
+Do not commit the large extract or geometry. A later change will put those objects in Vercel Blob and record the blob URL on the release. This schema has no blob field yet. Do not add Blob, the extracts, or the geometry in the catalogue PR.
+
 ## Environment Variables
 
 ```env
@@ -187,12 +222,13 @@ When neither pair is set (local `next dev`, or a deploy without Upstash):
 ## Common Tasks
 
 ### Add a new data source
-1. Add TypeScript types in `src/lib/types.ts`
-2. Add fetch logic in `src/app/api/cron/route.ts`
-3. Create or update Tinybird datasource in `tinybird/datasources/`
-4. Create a Tinybird pipe in `tinybird/pipes/`
-5. Add a chart component in `src/components/charts/`
-6. Wire into `dashboard.tsx`
+1. Add the source, dataset, and a new immutable release under `data/catalogue/`, then run `npm run publish-check`
+2. Add TypeScript types in `src/lib/types.ts`
+3. Add fetch logic in `src/app/api/cron/route.ts`
+4. Create or update Tinybird datasource in `tinybird/datasources/`
+5. Create a Tinybird pipe in `tinybird/pipes/`
+6. Add a chart component in `src/components/charts/`
+7. Wire into `dashboard.tsx`
 
 ### Add a new chart
 1. Create component in `src/components/charts/` with `"use client"` directive

@@ -1,0 +1,79 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "elexon-bmrs",
+    "name": "Elexon BMRS / Insights",
+    "url": "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
+    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF.",
+    "licence": "Elexon BMRS Data Licence",
+    "licence_url": "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
+    "attribution": "Contains BMRS data © Elexon Limited copyright and database right 2026.",
+    "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "neso-open-data",
+    "name": "NESO Data Portal",
+    "url": "https://www.neso.energy/data-portal",
+    "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records.",
+    "licence": "NESO Open Data Licence",
+    "licence_url": "https://www.neso.energy/data-portal/neso-open-data-licence",
+    "attribution": "Supported by National Energy SO Open Data",
+    "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "carbon-intensity",
+    "name": "Carbon Intensity API",
+    "url": "https://carbonintensity.org.uk/",
+    "used_for": "National carbon intensity (actual half-hours) and a derived cleanest-window look-ahead.",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "National carbon intensity from the NESO Carbon Intensity API (CC BY 4.0). Developed by NESO with the University of Oxford, Environmental Defense Fund Europe and WWF.",
+    "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "sheffield-pv-live",
+    "name": "Sheffield Solar PV_Live",
+    "url": "https://www.solar.sheffield.ac.uk/pvlive/",
+    "used_for": "National GB solar including estimated embedded / rooftop generation.",
+    "licence": "Open access. UKERC records that PV Live data may be freely used for any purpose.",
+    "licence_url": "https://www.solar.sheffield.ac.uk/pvlive/",
+    "attribution": "GB solar estimates from Sheffield Solar PV_Live, University of Sheffield, developed with NESO.",
+    "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "eia",
+    "name": "U.S. Energy Information Administration",
+    "url": "https://www.eia.gov/",
+    "used_for": "Daily Brent, WTI, and Henry Hub prices.",
+    "licence": "U.S. government work. Public domain; attribution requested.",
+    "licence_url": "https://www.eia.gov/",
+    "attribution": "Source: U.S. Energy Information Administration.",
+    "cadence": "PT6H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "world-bank-pink-sheet",
+    "name": "World Bank Pink Sheet",
+    "url": "https://www.worldbank.org/en/research/commodity-markets",
+    "used_for": "Monthly Europe natural gas and Japan LNG prices.",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Source: World Bank Commodity Price Data (The Pink Sheet), CC BY 4.0.",
+    "cadence": "PT6H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "national-gas",
+    "name": "National Gas",
+    "url": "https://data.nationalgas.com",
+    "used_for": "Great Britain System Average Price (PUBOB603) in p/kWh.",
+    "licence": "Published as open operational data under the National Gas System Operator licence.",
+    "licence_url": "https://data.nationalgas.com",
+    "attribution": "Data sourced from the National Gas Transmission Data Portal.",
+    "cadence": "PT6H"
+  }
+]

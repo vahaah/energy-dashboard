@@ -33,7 +33,8 @@ describe("legal pages", () => {
   it("lists every attribution catalogue source on /data-sources", () => {
     const source = readFileSync(resolve(process.cwd(), "src/app/data-sources/page.tsx"), "utf8");
     expect(source).toContain("dataSourcesPageMetadata");
-    expect(source).toContain("dataSources()");
+    expect(source).toContain("cataloguePageSources()");
+    expect(source).toContain('export const dynamic = "force-static"');
     expect(source).toContain("/attributions redirects here");
   });
 });
