@@ -191,6 +191,11 @@ export function externalCacheKey(source: string, parts: readonly string[]): stri
 }
 
 export function redisTtlSeconds(policy: TinybirdCachePolicy): number {
+  const retain = Math.max(policy.staleWhileRevalidate, policy.errorFallbackSeconds ?? 0);
+  return policy.revalidateSeconds + retain;
+}
+
+function staleServeSeconds(policy: TinybirdCachePolicy): number {
   return policy.revalidateSeconds + policy.staleWhileRevalidate;
 }
 
@@ -211,7 +216,19 @@ export function isStaleUsableEnvelope(
   policy: TinybirdCachePolicy,
   now = Date.now()
 ): boolean {
-  return envelopeAgeMs(envelope, now) < redisTtlSeconds(policy) * 1000;
+  return envelopeAgeMs(envelope, now) < staleServeSeconds(policy) * 1000;
+}
+
+export function isErrorFallbackEnvelope(
+  envelope: CacheEnvelope<unknown>,
+  policy: TinybirdCachePolicy,
+  now = Date.now()
+): boolean {
+  const retain = policy.errorFallbackSeconds ?? 0;
+  if (retain <= 0) {
+    return false;
+  }
+  return envelopeAgeMs(envelope, now) < (policy.revalidateSeconds + retain) * 1000;
 }
 
 export async function currentCacheEpoch(): Promise<string> {
@@ -326,6 +343,7 @@ export async function readThroughCacheResult<T>(
   }
 
   let key: string;
+  let retained: CacheEnvelope<T> | null = null;
   try {
     key = await redisKeyFor(logicalKey, policy.tier);
     const hit = await redis.get<CacheEnvelope<T>>(key);
@@ -336,6 +354,9 @@ export async function readThroughCacheResult<T>(
       scheduleRefresh(key, policy, load);
       return { data: hit.data, status: "redis-stale" };
     }
+    if (hit && isErrorFallbackEnvelope(hit, policy)) {
+      retained = hit;
+    }
   } catch (error) {
     const reason = markRedisUnusable("get", error);
     return {
@@ -345,7 +366,14 @@ export async function readThroughCacheResult<T>(
     };
   }
 
-  return { data: await refreshAndStore(redis, key, policy, load), status: "miss" };
+  try {
+    return { data: await refreshAndStore(redis, key, policy, load), status: "miss" };
+  } catch (error) {
+    if (retained) {
+      return { data: retained.data, status: "redis-stale" };
+    }
+    throw error;
+  }
 }
 
 export function parseRedisGet<T>(value: unknown): T | null {

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { getLondonDate } from "@/lib/london-time";
+import { listSettlementPeriods } from "@/lib/settlement-period";
 import {
   TINYBIRD_CACHE_SECONDS,
   TINYBIRD_LIMIT_RETRY_AFTER_SECONDS,
@@ -160,6 +162,23 @@ describe("getTinybirdCachePolicy", () => {
       staleWhileRevalidate: 0,
     });
     expect(policyForExternalWindow("2026-10-02T12:00:00.000Z", now)).toMatchObject({
+      tier: "live",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
+      staleWhileRevalidate: 0,
+    });
+  });
+
+  it("classifies an exclusive midnight by the last covered London day", () => {
+    const now = new Date("2026-10-14T15:00:00.000Z");
+    const olderEnd = listSettlementPeriods("2026-10-12").at(-1)?.endUtc;
+    const yesterdayEnd = listSettlementPeriods("2026-10-13").at(-1)?.endUtc;
+    if (!olderEnd || !yesterdayEnd) {
+      throw new Error("missing settlement period end");
+    }
+
+    expect(getLondonDate(olderEnd)).toBe("2026-10-13");
+    expect(policyForExternalWindow(olderEnd.toISOString(), now).tier).toBe("historical");
+    expect(policyForExternalWindow(yesterdayEnd.toISOString(), now)).toMatchObject({
       tier: "live",
       revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
       staleWhileRevalidate: 0,

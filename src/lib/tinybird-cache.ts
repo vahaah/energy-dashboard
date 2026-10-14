@@ -5,6 +5,8 @@ export const TINYBIRD_CACHE_SECONDS = {
   live: 1_800,
   /** Shorter than the half-hour ingest. No stale-while-revalidate. */
   recentExternal: 240,
+  /** Keep the previous external body this long, and serve it only if the refetch throws. */
+  recentExternalFallback: 86_400,
   health: 900,
   long: 1_800,
   longYear: 3_600,
@@ -26,6 +28,11 @@ export type TinybirdCachePolicy = {
   revalidateSeconds: number;
   sMaxAge: number;
   staleWhileRevalidate: number;
+  /**
+   * Extra seconds to keep a body after it stops being fresh. Used only when a
+   * synchronous refetch throws. Not a stale-while-revalidate serve.
+   */
+  errorFallbackSeconds?: number;
 };
 
 export type TinybirdCacheInput = {
@@ -226,13 +233,18 @@ export function liveCachePolicy(): TinybirdCachePolicy {
   };
 }
 
-/** Today and yesterday. A 30-minute ingest must not reuse the previous run. */
+/**
+ * Today and yesterday. Refetch once the body is 240s old so the half-hour
+ * ingest cannot reuse the previous run. If that refetch throws, the retained
+ * body is the fallback and the snapshot batch still lands.
+ */
 export function recentExternalCachePolicy(): TinybirdCachePolicy {
   return {
     tier: "live",
     revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
     sMaxAge: TINYBIRD_CACHE_SECONDS.recentExternal,
     staleWhileRevalidate: 0,
+    errorFallbackSeconds: TINYBIRD_CACHE_SECONDS.recentExternalFallback,
   };
 }
 
@@ -269,7 +281,10 @@ export function policyForExternalWindow(endIso: string, now = new Date()): Tinyb
     return liveCachePolicy();
   }
 
-  return isRecentLondonDate(getLondonDate(end), now)
+  // Settlement windows are half-open. Midnight endIso is the next London day,
+  // which the window does not cover.
+  const covered = new Date(end.getTime() - 1);
+  return isRecentLondonDate(getLondonDate(covered), now)
     ? recentExternalCachePolicy()
     : historicalCachePolicy();
 }
