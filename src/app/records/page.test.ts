@@ -34,6 +34,14 @@ describe("records page", () => {
     expect(source).not.toContain("100 MW or 0.5%");
     expect(source).not.toContain("live dashboard");
     expect(source).toContain("SiteLegalNav");
+    expect(source).toContain("RECORD_METRICS");
+    expect(source).toContain("metricProvenance");
+    expect(source).toContain("SitePageHeader");
+    const metrics = readFileSync(resolve(import.meta.dirname, "../../lib/metrics.ts"), "utf8");
+    expect(metrics).toContain("startDate");
+    expect(metrics).toContain("interval");
+    expect(metrics).toContain("method");
+    expect(metrics).toContain("source");
     expect(source).toContain("PAGE_STACK_CLASS");
     expect(source).toContain("CARD_GRID_CLASS");
     expect(source).toContain("<Card");

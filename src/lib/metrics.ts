@@ -1,4 +1,14 @@
 import type { DataSourceId } from "@/lib/attribution";
+import {
+  CARBON_RECORD_BASIS,
+  COAL_POWER_ENDED,
+  COAL_RECORD_BASIS,
+  NESO_HISTORIC_SOURCE,
+  NESO_HISTORIC_START_YEAR,
+  SOLAR_RECORD_BASIS,
+  WIND_RECORD_BASIS,
+} from "@/lib/historic-mix";
+import { formatLondonDayMonthYear } from "@/lib/london-time";
 import type {
   Aggregation,
   IntervalConvention,
@@ -403,4 +413,72 @@ export function homepageDemandFigureInputs(): {
     geography_id: metric.geography_id,
     source: metricSourceLabel(metric),
   };
+}
+
+export type RecordMetricId =
+  | "wind"
+  | "solar"
+  | "carbon"
+  | "renewable_share"
+  | "zero_carbon_share"
+  | "coal_end";
+
+export type RecordMetric = {
+  id: RecordMetricId;
+  source: string;
+  /** Inclusive ISO date the published series starts. */
+  startDate: string;
+  interval: string;
+  method: string;
+};
+
+const HISTORIC_START = `${NESO_HISTORIC_START_YEAR}-01-01`;
+
+export const RECORD_METRICS: Record<RecordMetricId, RecordMetric> = {
+  wind: {
+    id: "wind",
+    source: NESO_HISTORIC_SOURCE,
+    startDate: HISTORIC_START,
+    interval: "Half-hour",
+    method: WIND_RECORD_BASIS,
+  },
+  solar: {
+    id: "solar",
+    source: NESO_HISTORIC_SOURCE,
+    startDate: HISTORIC_START,
+    interval: "Half-hour",
+    method: SOLAR_RECORD_BASIS,
+  },
+  carbon: {
+    id: "carbon",
+    source: NESO_HISTORIC_SOURCE,
+    startDate: HISTORIC_START,
+    interval: "Half-hour",
+    method: CARBON_RECORD_BASIS,
+  },
+  renewable_share: {
+    id: "renewable_share",
+    source: NESO_HISTORIC_SOURCE,
+    startDate: HISTORIC_START,
+    interval: "Half-hour",
+    method: "Renewable share of NESO historic generation (wind, solar and hydro).",
+  },
+  zero_carbon_share: {
+    id: "zero_carbon_share",
+    source: NESO_HISTORIC_SOURCE,
+    startDate: HISTORIC_START,
+    interval: "Half-hour",
+    method: "Zero-carbon share computed as wind + solar + hydro + nuclear, divided by NESO generation.",
+  },
+  coal_end: {
+    id: "coal_end",
+    source: "Uniper, Ratcliffe-on-Soar",
+    startDate: COAL_POWER_ENDED,
+    interval: "Day",
+    method: COAL_RECORD_BASIS,
+  },
+};
+
+export function metricProvenance(metric: RecordMetric): string {
+  return `${metric.source}. From ${formatLondonDayMonthYear(metric.startDate)}. ${metric.interval}. ${metric.method}`;
 }

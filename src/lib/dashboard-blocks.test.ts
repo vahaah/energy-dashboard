@@ -31,8 +31,11 @@ describe("dashboard blocks", () => {
 
   it("uses the same Day/Week/Year/All options in the header and blocks", () => {
     expect(PERIOD_OPTIONS.map((option) => option.value)).toEqual(["day", "week", "year", "all"]);
-    const header = readFileSync(resolve(import.meta.dirname, "../components/site-header.tsx"), "utf8");
+    const header = readFileSync(resolve(import.meta.dirname, "../components/period-tabs.tsx"), "utf8");
+    const blocks = readFileSync(resolve(import.meta.dirname, "../components/dashboard.tsx"), "utf8");
     expect(header).toContain("PERIOD_OPTIONS");
+    expect(blocks).toContain("PERIOD_OPTIONS");
+    expect(blocks).toContain("<PeriodTabs");
     expect(header).not.toContain('label: "All time"');
   });
 });

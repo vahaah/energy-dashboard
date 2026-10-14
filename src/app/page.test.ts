@@ -14,7 +14,8 @@ describe("homepage", () => {
     expect(source).toContain("SITE_OG_IMAGE");
     expect(source).toContain("SITE_OG_TYPE");
     expect(source).toContain("SITE_TWITTER_CARD");
-    expect(source).toContain("{briefing}</Dashboard>");
+    expect(source).toContain("{briefing}");
+    expect(source).toContain("cite={cite}");
     expect(source).toContain("generateMetadata");
     expect(source).toContain("homepageOgImage");
     expect(source).not.toContain("searchParams");

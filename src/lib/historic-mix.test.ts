@@ -6,12 +6,16 @@ import {
   computeRecords,
   daysSinceCoalPowerEnded,
   emptyRecordsWithDocumentedCoal,
+  historicQuarantineRule,
+  historicQuarantineSql,
   historicRecordsSql,
   historicRowToGeneration,
+  HISTORIC_QUARANTINE_RULES,
   nesoIntegrityExcludeSql,
   historicWeeklySql,
   isCoalOperating,
   isSaneHistoricRow,
+  publishedHistoricRows,
   NESO_HISTORIC_SQL_URL,
   parseNesoHistoricRow,
   periodAverages,
@@ -91,11 +95,23 @@ describe("NESO historic sanity", () => {
     expect(isSaneHistoricRow(parsed as NesoHistoricRow)).toBe(false);
   });
 
-  it("rejects shares outside 0-100 and wind/solar above GB maxima", () => {
-    expect(isSaneHistoricRow(row({ DATETIME: "2026-01-01T00:00:00", WIND: 25000, WIND_EMB: 6000 }))).toBe(
-      false
-    );
-    expect(isSaneHistoricRow(row({ DATETIME: "2026-01-01T00:00:00", SOLAR: 21000 }))).toBe(false);
+  it("rejects shares outside 0-100 and quarantines wind/solar above the dated ceilings", () => {
+    const windSpike = row({ DATETIME: "2026-01-01T00:00:00", WIND: 25000, WIND_EMB: 6000, RENEWABLE_perc: 39 });
+    const solarSpike = row({ DATETIME: "2026-01-01T00:00:00", SOLAR: 21000, RENEWABLE_perc: 39 });
+    expect(isSaneHistoricRow(windSpike)).toBe(true);
+    expect(historicQuarantineRule(windSpike)?.id).toBe("wind-above-30gw");
+    expect(windSpike.WIND).toBe(25000);
+    expect(windSpike.WIND_EMB).toBe(6000);
+    expect(windSpike.RENEWABLE_perc).toBe(39);
+    expect(publishedHistoricRows([windSpike])).toEqual([]);
+    expect(isSaneHistoricRow(solarSpike)).toBe(true);
+    expect(historicQuarantineRule(solarSpike)?.id).toBe("solar-above-20gw");
+    expect(solarSpike.SOLAR).toBe(21000);
+    expect(publishedHistoricRows([solarSpike])).toEqual([]);
+    expect(
+      historicQuarantineRule(row({ DATETIME: "2027-04-01T00:00:00", WIND: 25000, WIND_EMB: 6000 }))
+    ).toBeNull();
+    expect(historicQuarantineRule(row({ DATETIME: "2028-04-01T00:00:00", SOLAR: 21000 }))).toBeNull();
     expect(isSaneHistoricRow(row({ DATETIME: "2026-01-01T00:00:00", GAS_perc: -1 }))).toBe(false);
     expect(
       isSaneHistoricRow(
@@ -128,6 +144,11 @@ describe("NESO historic sanity", () => {
     expect(historicRecordsSql()).toContain('ORDER BY "ZERO_CARBON_perc" DESC');
     expect(historicRecordsSql()).toContain('("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR")');
     expect(historicRecordsSql()).toContain("WITH sane AS");
+    expect(historicRecordsSql()).toContain('"WIND"');
+    expect(historicRecordsSql()).toContain(historicQuarantineSql(HISTORIC_QUARANTINE_RULES[0]!));
+    expect(historicRecordsSql()).toContain("2027-04-01");
+    expect(historicRecordsSql()).not.toContain('("WIND" + "WIND_EMB") <= 30000 ORDER BY');
+    expect(historicWeeklySql()).toContain("2028-04-01");
     expect(historicRecordsSql()).not.toContain("LIMIT 24");
     expect(historicRecordsSql()).not.toContain(`"COAL" >= ${COAL_ENDED_MW}`);
     expect(historicRecordsSql()).not.toContain(`"COAL_perc" >= ${COAL_ENDED_SHARE_PCT}`);
@@ -204,6 +225,25 @@ describe("computeRecords", () => {
       "2026-03-25T13:30:00"
     );
     expect(records.lowestCarbon?.timestampUtc).not.toBe("2026-07-07T10:00:00");
+    expect(records.highestRenewableShare?.value).toBe(39);
+  });
+
+  it("keeps a quarantined wind spike out of the record and leaves the fixture renewable share", () => {
+    const spike = row({
+      DATETIME: "2026-08-01T12:00:00",
+      WIND: 40_000,
+      WIND_EMB: 0,
+      RENEWABLE_perc: 99,
+    });
+    const records = computeRecords(
+      [row({ DATETIME: "2024-04-15T12:00:00", RENEWABLE_perc: 39 }), spike],
+      new Date("2026-10-09T12:00:00.000Z")
+    );
+    expect(historicQuarantineRule(spike)?.aboveMw).toBe(30_000);
+    expect(spike.WIND).toBe(40_000);
+    expect(spike.RENEWABLE_perc).toBe(99);
+    expect(records.maxWind?.value).not.toBe(40_000);
+    expect(records.highestRenewableShare?.value).toBe(39);
   });
 
   it("suppresses extrema computed from failing integrity periods", () => {
@@ -386,6 +426,60 @@ describe("yearly averages and copy", () => {
     expect(years[0]?.year).toBe(2009);
     expect(years[0]?.carbon).toBe(445);
     expect(years[1]?.windPct).toBe(38);
+    expect(years[1]?.renewablePct).toBe(40);
+    const withQuarantine = yearlyAverages([
+      row({
+        DATETIME: "2009-06-01T12:00:00",
+        COAL_perc: 28,
+        GAS_perc: 45,
+        NUCLEAR_perc: 18,
+        WIND_perc: 2,
+        WIND_EMB_perc: 0,
+        HYDRO_perc: 1,
+        IMPORTS_perc: 2,
+        BIOMASS_perc: 2,
+        OTHER_perc: 2,
+        SOLAR_perc: 0,
+        STORAGE_perc: 0,
+        CARBON_INTENSITY: 445,
+        RENEWABLE_perc: 3,
+      }),
+      row({
+        DATETIME: "2026-03-01T12:00:00",
+        COAL_perc: 0,
+        GAS_perc: 25,
+        NUCLEAR_perc: 12,
+        WIND_perc: 30,
+        WIND_EMB_perc: 8,
+        HYDRO_perc: 2,
+        IMPORTS_perc: 10,
+        BIOMASS_perc: 5,
+        OTHER_perc: 3,
+        SOLAR_perc: 5,
+        STORAGE_perc: 0,
+        CARBON_INTENSITY: 142,
+        RENEWABLE_perc: 40,
+      }),
+      row({
+        DATETIME: "2026-06-01T12:00:00",
+        COAL_perc: 0,
+        GAS_perc: 25,
+        NUCLEAR_perc: 12,
+        WIND_perc: 30,
+        WIND_EMB_perc: 8,
+        HYDRO_perc: 2,
+        IMPORTS_perc: 10,
+        BIOMASS_perc: 5,
+        OTHER_perc: 3,
+        SOLAR_perc: 5,
+        STORAGE_perc: 0,
+        CARBON_INTENSITY: 142,
+        WIND: 40_000,
+        WIND_EMB: 0,
+        RENEWABLE_perc: 99,
+      }),
+    ]);
+    expect(withQuarantine.find((year) => year.year === 2026)?.renewablePct).toBe(40);
     const sentences = transitionSentences(years);
     expect(sentences?.[0]).not.toContain("2008");
     expect(sentences?.[0]).toContain("2009");

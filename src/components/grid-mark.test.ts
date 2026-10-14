@@ -15,16 +15,23 @@ describe("GridMark", () => {
     expect(mark).toContain('color = "currentColor"');
     expect(mark).toContain('size == null ? "size-6"');
 
+    const topBar = source("src/components/site-top-bar.tsx");
+    expect(topBar).toContain("<GridMark />");
+    expect(topBar).not.toContain("text-[11px]");
+
     for (const file of [
       "src/components/site-header.tsx",
       "src/components/site-page-header.tsx",
       "src/app/page.tsx",
-      "src/app/records/page.tsx",
     ]) {
       const text = source(file);
-      expect(text).toContain("<GridMark />");
+      expect(text).toContain("<SiteTopBar");
       expect(text).not.toContain("text-[11px]");
     }
+
+    const records = source("src/app/records/page.tsx");
+    expect(records).toContain("<SitePageHeader");
+    expect(records).not.toContain("text-[11px]");
 
     const og = source("src/lib/og/image.tsx");
     expect(og).toContain("<GridMark size={40} color={FG} />");

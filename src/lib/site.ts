@@ -35,7 +35,7 @@ export const API_DOCS_DESCRIPTION =
   "JSON endpoints for GB carbon intensity, generation mix, demand, prices and commodities. No key, 60 requests a minute, CC BY 4.0 derived data.";
 export const API_DOCS_H1 = "Free GB electricity data API";
 
-export const HOME_H1 = "What's powering Britain's electricity today";
+export const HOME_H1 = "What's powering Britain?";
 export const RECORDS_H1 = "GB electricity records";
 export const RECORDS_SUBLINE =
   "Highest and lowest half-hours since Grid's records began (NESO historic data from 2009), shown next to NESO's official records.";

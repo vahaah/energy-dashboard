@@ -1,18 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { CalendarDays, Check, Copy } from "lucide-react";
-import { GridMark } from "@/components/grid-mark";
+import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CARD_PAD_X } from "@/components/ui/card";
-import { PERIOD_OPTIONS } from "@/lib/dashboard-blocks";
-import type { DashboardPeriod } from "@/lib/dashboard-period";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
 
 export function SiteHeader({
-  period,
-  onPeriodChange,
-  onPeriodIntent,
   activeDate,
   minDate,
   maxDate,
@@ -20,13 +14,9 @@ export function SiteHeader({
   showDate,
   stamp,
   stale = false,
-  pending,
   copied,
   onShare,
 }: {
-  period: DashboardPeriod | null;
-  onPeriodChange: (period: DashboardPeriod) => void;
-  onPeriodIntent?: (period: DashboardPeriod) => void;
   activeDate: string;
   minDate: string;
   maxDate: string;
@@ -34,31 +24,14 @@ export function SiteHeader({
   showDate: boolean;
   stamp: string;
   stale?: boolean;
-  pending: boolean;
   copied: boolean;
   onShare: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-      <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
-        <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
-          <GridMark />
-          <span className="text-heading-16">Grid</span>
-        </Link>
-
-        <nav
-          className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
-          aria-label="Time period"
-        >
-          <PeriodTabs
-            period={period}
-            onPeriodChange={onPeriodChange}
-            onPeriodIntent={onPeriodIntent}
-            pending={pending}
-          />
-        </nav>
-
-        <div className="ml-auto flex items-center gap-2">
+    <SiteTopBar
+      idPrefix="dashboard"
+      trailing={
+        <>
           {showDate ? (
             <label className="relative inline-flex h-8 min-h-11 items-center gap-2 rounded-md border border-gray-alpha-400 bg-background-100 px-2 sm:min-h-8">
               <CalendarDays className="size-4 text-gray-1000" aria-hidden="true" />
@@ -83,68 +56,20 @@ export function SiteHeader({
             {copied ? "Copied" : "Share"}
           </button>
           <ThemeToggle />
-        </div>
-      </div>
-
-      <div className="border-t border-gray-alpha-400 md:hidden">
-        <div className={`mx-auto flex h-10 max-w-[1200px] items-center overflow-x-auto ${CARD_PAD_X}`}>
-          <PeriodTabs
-            period={period}
-            onPeriodChange={onPeriodChange}
-            onPeriodIntent={onPeriodIntent}
-            pending={pending}
-          />
-        </div>
-      </div>
-
-      <p
-        className={
-          stale
-            ? `border-t border-gray-alpha-400 ${CARD_PAD_X} py-1.5 text-center text-label-12 text-gray-900`
-            : "sr-only"
-        }
-        aria-live={stale ? "polite" : undefined}
-      >
-        {stamp}
-      </p>
-    </header>
-  );
-}
-
-function PeriodTabs({
-  period,
-  onPeriodChange,
-  onPeriodIntent,
-  pending,
-}: {
-  period: DashboardPeriod | null;
-  onPeriodChange: (next: DashboardPeriod) => void;
-  onPeriodIntent?: (next: DashboardPeriod) => void;
-  pending: boolean;
-}) {
-  return (
-    <div className={`flex items-center gap-4 ${pending ? "opacity-70" : ""}`} role="tablist" aria-label="Time period">
-      {PERIOD_OPTIONS.map((item) => {
-        const selected = item.value === period;
-        return (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onMouseEnter={() => onPeriodIntent?.(item.value)}
-            onFocus={() => onPeriodIntent?.(item.value)}
-            onClick={() => onPeriodChange(item.value)}
-            className={`shrink-0 border-b-2 pb-1 text-label-13 ${
-              selected
-                ? "border-blue-700 text-gray-1000"
-                : "border-transparent text-gray-900 hover:text-gray-1000"
-            }`}
-          >
-            {item.label}
-          </button>
-        );
-      })}
-    </div>
+        </>
+      }
+      footer={
+        <p
+          className={
+            stale
+              ? `border-t border-gray-alpha-400 ${CARD_PAD_X} py-1.5 text-center text-label-12 text-gray-900`
+              : "sr-only"
+          }
+          aria-live={stale ? "polite" : undefined}
+        >
+          {stamp}
+        </p>
+      }
+    />
   );
 }

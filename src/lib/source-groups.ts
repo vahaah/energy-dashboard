@@ -12,7 +12,7 @@ import {
 } from "@/lib/dashboard-model";
 import { displayedPercents } from "@/lib/display-rounding";
 import { formatHeadlineGw } from "@/lib/facts";
-import { buildSettlementBalance } from "@/lib/headline-balance";
+import { BATTERY_CHARGING_SENTENCE, buildSettlementBalance } from "@/lib/headline-balance";
 import { formatSharePercent } from "@/lib/generation-share";
 import { parseUtcDateTime } from "@/lib/london-time";
 import type { Generation5min } from "@/lib/types";
@@ -59,7 +59,7 @@ export type GroupedSourceTable = {
 
 const GROUP_LABELS: Record<SourceGroupId, string> = {
   fossil: "Fossil fuels",
-  renewables: "Renewables",
+  renewables: "Wind, solar and hydro",
   other: "Other sources",
   interconnectors: "Interconnectors",
   storage: "Storage",
@@ -92,7 +92,7 @@ const HELP: Record<string, string> = {
   biomass: "Biomass generation. Source: Elexon FUELINST.",
   other: "Other generation that does not fit the named fuels. Source: Elexon FUELINST.",
   pumped_storage: "Pumped hydro when it is generating. Pumping is the storage-charging term in the balance. Source: Elexon FUELINST.",
-  battery: "Battery discharge when Elexon publishes it. Charging isn’t published as a national series. Source: Elexon FUELINST.",
+  battery: `Battery discharge when Elexon publishes it. ${BATTERY_CHARGING_SENTENCE} Source: Elexon FUELINST.`,
 };
 
 export const MIX_BAR_HELP =
@@ -277,7 +277,7 @@ function batteryRow(
     help: HELP.battery ?? "",
     sparkline: discharging ? sparklineForFuels(sparklineRows, bucket.fuels) : [],
     generationMw,
-    missingNote: "discharge only; charging isn’t published",
+    missingNote: "discharge only; charging is a balance term",
     interconnector: false,
   });
 }

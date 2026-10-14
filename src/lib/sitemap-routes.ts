@@ -1,4 +1,6 @@
-export const SITEMAP_PATHS = [
+import { isIndexablePath } from "@/lib/site-nav";
+
+const SITEMAP_CANDIDATES = [
   { path: "", changeFrequency: "hourly" as const, priority: 1 },
   { path: "/today", changeFrequency: "hourly" as const, priority: 0.9 },
   { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },
@@ -11,3 +13,5 @@ export const SITEMAP_PATHS = [
   { path: "/terms", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/data-sources", changeFrequency: "monthly" as const, priority: 0.4 },
 ];
+
+export const SITEMAP_PATHS = SITEMAP_CANDIDATES.filter((entry) => isIndexablePath(entry.path));

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GridMark } from "@/components/grid-mark";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { EnergyTransition } from "@/components/energy-transition";
 import { JsonLd } from "@/components/json-ld";
 import { SiteLegalNav } from "@/components/site-legal-nav";
+import { SitePageHeader } from "@/components/site-page-header";
 import { SitePublicNav } from "@/components/site-public-nav";
-import { CARD_GRID_CLASS, CARD_PAD_X, Card, PAGE_STACK_CLASS } from "@/components/ui/card";
+import { CARD_GRID_CLASS, Card, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
@@ -18,6 +17,7 @@ import {
   NESO_OFFICIAL_RECORDS,
 } from "@/data/neso-official-records";
 import { formatHeadlineGw } from "@/lib/facts";
+import { metricProvenance, RECORD_METRICS, type RecordMetric } from "@/lib/metrics";
 import {
   buildHistoricPeriodView,
   COAL_POWER_ENDED,
@@ -79,18 +79,7 @@ export default async function RecordsPage() {
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
       <JsonLd data={recordsJsonLd({ faqs, records })} />
-      <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-        <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
-          <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
-            <GridMark />
-            <span className="text-heading-16">Grid</span>
-          </Link>
-          <p className="text-label-13 text-gray-900">Records</p>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <SitePageHeader section="Records" />
 
       <main className={PAGE_STACK_CLASS}>
         <nav aria-label="Breadcrumb" className="text-label-13 text-gray-900">
@@ -118,6 +107,7 @@ export default async function RecordsPage() {
             title="Highest wind since Grid's records began"
             value={`${formatHeadlineGw(records.maxWind?.value ?? null)} GW`}
             record={records.maxWind}
+            metric={RECORD_METRICS.wind}
             nesoLine={formatNesoOfficialLine(NESO_OFFICIAL_RECORDS.wind)}
           />
           {HIDE_SOLAR_RECORD ? null : (
@@ -125,6 +115,7 @@ export default async function RecordsPage() {
               title="Highest solar since Grid's records began"
               value={`${formatHeadlineGw(records.maxSolar?.value ?? null)} GW`}
               record={records.maxSolar}
+              metric={RECORD_METRICS.solar}
               nesoLine={formatNesoOfficialLine(NESO_OFFICIAL_RECORDS.solar)}
             />
           )}
@@ -132,6 +123,7 @@ export default async function RecordsPage() {
             title="Lowest carbon since Grid's records began"
             value={records.lowestCarbon ? `${records.lowestCarbon.value.toFixed(0)} gCO₂/kWh` : "—"}
             record={records.lowestCarbon}
+            metric={RECORD_METRICS.carbon}
             nesoLine={formatNesoOfficialLine(
               NESO_OFFICIAL_RECORDS.lowest_carbon,
               historicLine(records.lowestCarbon, (value) => `${value.toFixed(0)} gCO₂/kWh`)
@@ -145,6 +137,7 @@ export default async function RecordsPage() {
                 : "—"
             }
             record={records.highestRenewableShare}
+            metric={RECORD_METRICS.renewable_share}
             nesoLine={formatNesoOfficialLine(
               NESO_OFFICIAL_RECORDS.renewable_share,
               historicLine(records.highestRenewableShare, (value) => `${value.toFixed(1)}%`)
@@ -158,12 +151,14 @@ export default async function RecordsPage() {
                 : "—"
             }
             record={records.highestZeroCarbonShare}
+            metric={RECORD_METRICS.zero_carbon_share}
             nesoLine={formatNesoOfficialLine(NESO_OFFICIAL_RECORDS.zero_carbon)}
           />
           <RecordBlock
             title="Days since coal power ended"
             value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
+            metric={RECORD_METRICS.coal_end}
             whenLabel={records.lastCoal ? formatLondonDayMonthYear(COAL_POWER_ENDED) : undefined}
             nesoLine="NESO official record: Britain stopped using coal for electricity in 2024 (source: NESO)"
           />
@@ -282,6 +277,7 @@ function RecordBlock({
   title,
   value,
   record,
+  metric,
   extra,
   whenLabel,
   nesoLine,
@@ -289,6 +285,7 @@ function RecordBlock({
   title: string;
   value: string;
   record: HistoricRecordPoint | null;
+  metric: RecordMetric;
   extra?: string;
   whenLabel?: string;
   nesoLine?: string;
@@ -302,7 +299,7 @@ function RecordBlock({
         <span data-value>{value}</span>
       </p>
       {stamp ? <p className="mt-2 text-mono-12 text-gray-900">{stamp}</p> : null}
-      {record ? <p className="mt-2 text-copy-14 text-gray-900">{record.basis}</p> : null}
+      <p className="mt-2 text-copy-14 text-gray-900">{metricProvenance(metric)}</p>
       {nesoLine ? <p className="mt-2 text-copy-14 text-gray-900">{nesoLine}</p> : null}
       {extra ? <p className="mt-2 text-copy-14 text-gray-900">{extra}</p> : null}
     </Card>

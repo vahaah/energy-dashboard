@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { CommodityPrice, CommodityRange, EnergySnapshot, Generation5min } from "@/lib/types";
@@ -69,7 +69,9 @@ import { GB_GAS_SAP_COMMODITY } from "@/lib/gb-gas-sap";
 import { normalizeFuelType, splitLatestGenerationRows } from "@/lib/dashboard-model";
 import { generationMixShares } from "@/lib/generation-share";
 import { getLatestFacts } from "@/lib/facts";
-import { historicalHomepageH1 } from "@/lib/homepage-briefing";
+import { HomepageBriefing } from "@/components/homepage-briefing";
+import { HOME_H1, historicalHomepageH1, type HomepageCite } from "@/lib/homepage-briefing";
+import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
@@ -125,10 +127,10 @@ function queryDateForPeriod(period: DashboardPeriod, date: string | null, today:
 
 export function Dashboard({
   initialPayload = null,
-  children,
+  cite,
 }: {
   initialPayload?: DashboardPayload | null;
-  children?: ReactNode;
+  cite: HomepageCite;
 }) {
   const [copied, setCopied] = useState(false);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
@@ -310,28 +312,15 @@ export function Dashboard({
         Skip to content
       </a>
       <SiteHeader
-        period={period}
-        onPeriodChange={(nextPeriod) => {
-          void setUrlState({
-            ...searchStateForPeriod(nextPeriod),
-            generationPeriod: urlState.generationPeriod === nextPeriod ? null : urlState.generationPeriod,
-            pricePeriod: urlState.pricePeriod === nextPeriod ? null : urlState.pricePeriod,
-            transfersPeriod: urlState.transfersPeriod === nextPeriod ? null : urlState.transfersPeriod,
-            mixPeriod: urlState.mixPeriod === nextPeriod ? null : urlState.mixPeriod,
-            carbonPeriod: urlState.carbonPeriod === nextPeriod ? null : urlState.carbonPeriod,
-          });
-        }}
-        onPeriodIntent={prefetchBlock}
         activeDate={activeDate}
         minDate={getDashboardCoverageStart(now)}
         maxDate={todayDate}
         onDateChange={(date) => {
           void setUrlState({ date: date || todayDate });
         }}
-        showDate={period === "day" || (period == null && range === "24h")}
+        showDate={period === "day"}
         stamp={facts.headerStamp}
         stale={facts.isStale}
-        pending={isPending}
         copied={copied}
         onShare={async () => {
           await navigator.clipboard.writeText(
@@ -342,13 +331,30 @@ export function Dashboard({
         }}
       />
 
-      {dayQueryDate === null ? (
-        children ? <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{children}</div> : null
-      ) : (
-        <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>
-          <h1 className="text-heading-32 text-gray-1000">{historicalHomepageH1(dayQueryDate)}</h1>
-        </div>
-      )}
+      <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>
+        <HomepageBriefing
+          cite={cite}
+          title={dayQueryDate ? historicalHomepageH1(dayQueryDate) : HOME_H1}
+          showCite={dayQueryDate === null}
+          controls={
+            <PeriodTabs
+              period={period}
+              pending={isPending}
+              onPeriodIntent={prefetchBlock}
+              onPeriodChange={(nextPeriod) => {
+                void setUrlState({
+                  ...searchStateForPeriod(nextPeriod),
+                  generationPeriod: urlState.generationPeriod === nextPeriod ? null : urlState.generationPeriod,
+                  pricePeriod: urlState.pricePeriod === nextPeriod ? null : urlState.pricePeriod,
+                  transfersPeriod: urlState.transfersPeriod === nextPeriod ? null : urlState.transfersPeriod,
+                  mixPeriod: urlState.mixPeriod === nextPeriod ? null : urlState.mixPeriod,
+                  carbonPeriod: urlState.carbonPeriod === nextPeriod ? null : urlState.carbonPeriod,
+                });
+              }}
+            />
+          }
+        />
+      </div>
 
       <main className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (
