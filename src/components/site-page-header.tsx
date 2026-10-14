@@ -1,36 +1,6 @@
-import Link from "next/link";
-import { GridMark } from "@/components/grid-mark";
-import { SITE_NAV_LINKS } from "@/components/site-public-nav";
+import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { CARD_PAD_X } from "@/components/ui/card";
 
 export function SitePageHeader({ section }: { section: string }) {
-  return (
-    <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-      <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
-        <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
-          <GridMark />
-          <span className="text-heading-16">Grid</span>
-        </Link>
-        <p className="text-label-13 text-gray-900">{section}</p>
-        <nav
-          aria-label="Site"
-          className="ml-4 hidden min-w-0 flex-1 items-center gap-4 overflow-x-auto md:flex"
-        >
-          {SITE_NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="shrink-0 text-label-13 text-gray-900 underline-offset-2 hover:text-gray-1000 hover:underline"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="ml-auto">
-          <ThemeToggle />
-        </div>
-      </div>
-    </header>
-  );
+  return <SiteTopBar idPrefix="page" section={section} trailing={<ThemeToggle />} />;
 }

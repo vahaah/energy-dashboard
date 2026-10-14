@@ -4,7 +4,9 @@ import {
   homepageDemandFigureInputs,
   isGeographyId,
   METRICS,
+  metricProvenance,
   metricSourceIds,
+  RECORD_METRICS,
 } from "@/lib/metrics";
 import type { MetricDefinition, Observation } from "@/lib/types";
 
@@ -173,5 +175,19 @@ describe("geography enum", () => {
       aggregation: "last",
     });
     expect(METRICS["elec.gb.price.imbalance"].coverage).toContain("price_gbp_mwh");
+  });
+});
+
+describe("record metrics", () => {
+  it("states source, start date, interval and method", () => {
+    const line = metricProvenance(RECORD_METRICS.wind);
+    expect(RECORD_METRICS.renewable_share.id).toBe("renewable_share");
+    expect(line).toContain("NESO historic generation mix");
+    expect(line).toContain("From 1 Jan 2009");
+    expect(line).toContain("Half-hour");
+    expect(line).toContain(RECORD_METRICS.wind.method);
+    expect(metricProvenance(RECORD_METRICS.coal_end)).toContain("From 30 Sep 2024");
+    expect(metricProvenance(RECORD_METRICS.coal_end)).toContain("Day");
+    expect(RECORD_METRICS.renewable_share.method).toContain("wind, solar and hydro");
   });
 });

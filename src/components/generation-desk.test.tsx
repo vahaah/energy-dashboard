@@ -131,7 +131,7 @@ describe("generation desk layout", () => {
     expect(html).toContain("Imports");
     expect(html).toContain("Share of generation");
     expect(html).toContain("Fossil fuels");
-    expect(html).toContain("Renewables");
+    expect(html).toContain("Wind, solar and hydro");
     expect(html).toContain("Other sources");
     expect(html).toContain("Interconnectors");
     expect(html).toContain("Storage");
@@ -180,7 +180,11 @@ describe("generation desk layout", () => {
     expect(payloadSource).toContain("getLookAhead");
     expect(payloadSource).toContain("publicLookAhead");
     expect(payloadSource).not.toContain("queryPipe<LookAhead");
-    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).toContain(
+    expect(readFileSync(resolve(import.meta.dirname, "./period-tabs.tsx"), "utf8")).toContain(
+      "PERIOD_OPTIONS"
+    );
+    expect(dashboardSource).toContain("<PeriodTabs");
+    expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).not.toContain(
       "PERIOD_OPTIONS"
     );
     expect(readFileSync(resolve(import.meta.dirname, "./site-header.tsx"), "utf8")).not.toContain(

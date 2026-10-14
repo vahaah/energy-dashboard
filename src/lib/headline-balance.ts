@@ -15,6 +15,10 @@ import type { Generation5min } from "@/lib/types";
  * ITSDO + embedded is not generation + net transfers. Headline demand is
  * derived: generation + imports − exports − storage charging.
  */
+/** Battery charging is subtracted in the balance. It is never a generation slice. */
+export const BATTERY_CHARGING_SENTENCE =
+  "Charging is a balance term, never a slice of the mix.";
+
 export type BalanceFuel = {
   fuel: string;
   /** Net half-hour average. Source rows keep this signed value. */

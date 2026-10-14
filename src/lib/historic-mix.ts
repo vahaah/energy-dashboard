@@ -14,6 +14,44 @@ export const COAL_ENDED_SHARE_PCT = 0.5;
 export const WIND_MILESTONE_START_GW = 10;
 export const NESO_HISTORIC_START_YEAR = 2009;
 
+export type HistoricQuarantineMetric = "wind" | "solar";
+
+export type HistoricQuarantineRule = {
+  id: string;
+  metric: HistoricQuarantineMetric;
+  /** Readings strictly above this MW are quarantined while the rule is in force. */
+  aboveMw: number;
+  /** Inclusive ISO date. */
+  from: string;
+  /** Exclusive ISO date. On this day the ceiling no longer applies. */
+  until: string;
+};
+
+/**
+ * The old hard ceilings, dated. A row above the cap stays in the raw series
+ * with its MW unchanged and is left out of published records only while the
+ * rule applies.
+ *
+ * Wind: 30 GW until 2027-04-01. The March 2026 NESO record is 23.9 GW.
+ * Solar: 20 GW until 2028-04-01. The April 2026 NESO record is 15.4 GW.
+ */
+export const HISTORIC_QUARANTINE_RULES: HistoricQuarantineRule[] = [
+  {
+    id: "wind-above-30gw",
+    metric: "wind",
+    aboveMw: MAX_WIND_MW,
+    from: `${NESO_HISTORIC_START_YEAR}-01-01`,
+    until: "2027-04-01",
+  },
+  {
+    id: "solar-above-20gw",
+    metric: "solar",
+    aboveMw: MAX_SOLAR_MW,
+    from: `${NESO_HISTORIC_START_YEAR}-01-01`,
+    until: "2028-04-01",
+  },
+];
+
 /**
  * Britain's last coal power station, Ratcliffe-on-Soar (Uniper), closed on
  * 30 Sep 2024. NESO historic mix still carries residual coal after that date;
@@ -219,8 +257,12 @@ export function parseNesoHistoricRow(raw: Record<string, unknown>): NesoHistoric
   };
 }
 
-export function windMw(row: NesoHistoricRow): number {
-  return (row.WIND ?? 0) + (row.WIND_EMB ?? 0);
+/** Transmission plus embedded. A missing component is unknown, not zero. */
+export function windMw(row: NesoHistoricRow): number | null {
+  if (row.WIND == null || row.WIND_EMB == null) {
+    return null;
+  }
+  return row.WIND + row.WIND_EMB;
 }
 
 export function solarMw(row: NesoHistoricRow): number {
@@ -238,8 +280,11 @@ export function zeroCarbonSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  const zeroCarbonMw =
-    windMw(row) + solarMw(row) + (row.HYDRO ?? 0) + (row.NUCLEAR ?? 0);
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  const zeroCarbonMw = wind + solarMw(row) + (row.HYDRO ?? 0) + (row.NUCLEAR ?? 0);
   return (zeroCarbonMw / row.GENERATION) * 100;
 }
 
@@ -250,15 +295,16 @@ export function renewableSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  const renewableMw = windMw(row) + solarMw(row) + (row.HYDRO ?? 0);
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  const renewableMw = wind + solarMw(row) + (row.HYDRO ?? 0);
   return (renewableMw / row.GENERATION) * 100;
 }
 
 export function isSaneHistoricRow(row: NesoHistoricRow): boolean {
   if (row.GENERATION == null || row.GENERATION <= 0) {
-    return false;
-  }
-  if (windMw(row) > MAX_WIND_MW || solarMw(row) > MAX_SOLAR_MW) {
     return false;
   }
 
@@ -294,12 +340,70 @@ export function saneHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[] {
   return rows.filter((row) => isSaneHistoricRow(row));
 }
 
+function quarantineMetricMw(metric: HistoricQuarantineMetric, row: NesoHistoricRow): number | null {
+  switch (metric) {
+    case "wind":
+      return windMw(row);
+    case "solar":
+      return row.SOLAR;
+    default: {
+      const exhaustive: never = metric;
+      return exhaustive;
+    }
+  }
+}
+
+/** The dated ceiling that quarantines this row, or null. Does not mutate the row. */
+export function historicQuarantineRule(row: NesoHistoricRow): HistoricQuarantineRule | null {
+  const date = row.DATETIME.slice(0, 10);
+  for (const rule of HISTORIC_QUARANTINE_RULES) {
+    if (date < rule.from || date >= rule.until) {
+      continue;
+    }
+    const mw = quarantineMetricMw(rule.metric, row);
+    if (mw != null && mw > rule.aboveMw) {
+      return rule;
+    }
+  }
+  return null;
+}
+
+/** Share-sane rows that are not inside a dated ceiling. Raw rows are not copied or stripped. */
+export function publishedHistoricRows(rows: NesoHistoricRow[]): NesoHistoricRow[] {
+  return saneHistoricRows(rows).filter((row) => historicQuarantineRule(row) == null);
+}
+
+/**
+ * Publication predicate matching `windMw`: a missing component is not zero.
+ * The ceiling applies only to a complete sum. Raw columns stay in the SELECT list.
+ */
+function quarantineWithinSql(metric: HistoricQuarantineMetric, aboveMw: number): string {
+  switch (metric) {
+    case "wind":
+      return `NOT ("WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL) OR ("WIND" + "WIND_EMB") <= ${aboveMw}`;
+    case "solar":
+      return `"SOLAR" IS NULL OR "SOLAR" <= ${aboveMw}`;
+    default: {
+      const exhaustive: never = metric;
+      return exhaustive;
+    }
+  }
+}
+
+export function historicQuarantineSql(rule: HistoricQuarantineRule): string {
+  return `(${quarantineWithinSql(rule.metric, rule.aboveMw)} OR "DATETIME" < '${rule.from}' OR "DATETIME" >= '${rule.until}')`;
+}
+
+function historicQuarantineWhereSql(): string {
+  return HISTORIC_QUARANTINE_RULES.map((rule) => historicQuarantineSql(rule)).join(" AND ");
+}
+
 export function isCoalOperating(row: NesoHistoricRow): boolean {
   return (row.COAL ?? 0) >= COAL_ENDED_MW || (row.COAL_perc ?? 0) >= COAL_ENDED_SHARE_PCT;
 }
 
 export function residualCoalAfterPowerEnded(rows: NesoHistoricRow[]): NesoHistoricRow[] {
-  return saneHistoricRows(rows).filter((row) => {
+  return publishedHistoricRows(rows).filter((row) => {
     if (!isCoalOperating(row)) {
       return false;
     }
@@ -340,7 +444,7 @@ export function computeRecords(
   excludeTimestamps: Iterable<string> = []
 ): GridRecords {
   const excluded = normalizeTimestampSet(excludeTimestamps);
-  const sane = saneHistoricRows(rows).filter(
+  const sane = publishedHistoricRows(rows).filter(
     (row) => !excluded.has(integrityTimestampKey(row.DATETIME))
   );
   let maxWind: HistoricRecordPoint | null = null;
@@ -352,7 +456,7 @@ export function computeRecords(
 
   for (const row of sane) {
     const wind = windMw(row);
-    if (maxWind == null || wind > maxWind.value) {
+    if (wind != null && (maxWind == null || wind > maxWind.value)) {
       maxWind = recordPoint(wind, row.DATETIME, WIND_RECORD_BASIS);
     }
 
@@ -388,11 +492,13 @@ export function computeRecords(
       );
     }
 
-    const windGw = Math.floor(wind / 1000);
-    for (let gw = WIND_MILESTONE_START_GW; gw <= windGw; gw += 1) {
-      const existing = firstAboveGw.get(gw);
-      if (!existing || row.DATETIME < existing) {
-        firstAboveGw.set(gw, row.DATETIME);
+    if (wind != null) {
+      const windGw = Math.floor(wind / 1000);
+      for (let gw = WIND_MILESTONE_START_GW; gw <= windGw; gw += 1) {
+        const existing = firstAboveGw.get(gw);
+        if (!existing || row.DATETIME < existing) {
+          firstAboveGw.set(gw, row.DATETIME);
+        }
       }
     }
   }
@@ -427,7 +533,7 @@ function mean(values: Array<number | null>): number | null {
 }
 
 export function periodAverages(rows: NesoHistoricRow[]): PeriodAverages {
-  const sane = saneHistoricRows(rows);
+  const sane = publishedHistoricRows(rows);
   return {
     carbon: mean(sane.map((row) => row.CARBON_INTENSITY)),
     demandMw: mean(sane.map((row) => row.GENERATION)),
@@ -439,7 +545,7 @@ export function periodAverages(rows: NesoHistoricRow[]): PeriodAverages {
 
 export function yearlyAverages(rows: NesoHistoricRow[]): YearlyAverage[] {
   const byYear = new Map<number, NesoHistoricRow[]>();
-  for (const row of saneHistoricRows(rows)) {
+  for (const row of publishedHistoricRows(rows)) {
     const year = parseUtcDateTime(row.DATETIME).getUTCFullYear();
     if (year < NESO_HISTORIC_START_YEAR) {
       continue;
@@ -481,7 +587,11 @@ function windSharePct(row: NesoHistoricRow): number | null {
   if (row.GENERATION == null || row.GENERATION <= 0) {
     return null;
   }
-  return (windMw(row) / row.GENERATION) * 100;
+  const wind = windMw(row);
+  if (wind == null) {
+    return null;
+  }
+  return (wind / row.GENERATION) * 100;
 }
 
 function formatGrams(value: number): string {
@@ -583,7 +693,7 @@ export function historicRowToGeneration(row: NesoHistoricRow): Generation5min[] 
 }
 
 export function averageHistoricRow(rows: NesoHistoricRow[]): NesoHistoricRow | null {
-  const sane = saneHistoricRows(rows);
+  const sane = publishedHistoricRows(rows);
   const last = sane.at(-1);
   if (!last) {
     return null;
@@ -630,7 +740,7 @@ export function averageHistoricRow(rows: NesoHistoricRow[]): NesoHistoricRow | n
 }
 
 export function buildHistoricPeriodView(rows: NesoHistoricRow[]): HistoricPeriodView {
-  const sane = saneHistoricRows(rows);
+  const sane = publishedHistoricRows(rows);
   const snapshots = sane.map(historicRowToSnapshot);
   const generation = sane.flatMap(historicRowToGeneration);
   const average = averageHistoricRow(sane);
@@ -722,15 +832,15 @@ export function historicWeeklySql(): string {
     'AVG("LOW_CARBON_perc") AS "LOW_CARBON_perc", AVG("ZERO_CARBON_perc") AS "ZERO_CARBON_perc",',
     'AVG("RENEWABLE_perc") AS "RENEWABLE_perc", AVG("FOSSIL_perc") AS "FOSSIL_perc"',
     `FROM "${NESO_HISTORIC_RESOURCE_ID}"`,
-    `WHERE ${NESO_SANITY_SQL}`,
+    `WHERE ${NESO_SANITY_SQL} AND ${historicQuarantineWhereSql()}`,
     "GROUP BY 1 ORDER BY 1",
   ].join(" ");
 }
 
 export function historicRecordsSql(excludeTimestamps: Iterable<string> = []): string {
   const parts = [
-    `SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND ("WIND" + "WIND_EMB") <= ${MAX_WIND_MW} ORDER BY ("WIND" + "WIND_EMB") DESC LIMIT 5`,
-    `SELECT * FROM sane WHERE "SOLAR" IS NOT NULL AND "SOLAR" <= ${MAX_SOLAR_MW} ORDER BY "SOLAR" DESC LIMIT 5`,
+    'SELECT * FROM sane WHERE "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL ORDER BY ("WIND" + "WIND_EMB") DESC LIMIT 5',
+    'SELECT * FROM sane WHERE "SOLAR" IS NOT NULL ORDER BY "SOLAR" DESC LIMIT 5',
     'SELECT * FROM sane WHERE "CARBON_INTENSITY" > 0 AND "ZERO_CARBON_perc" <= 100 ORDER BY "CARBON_INTENSITY" ASC LIMIT 10',
     'SELECT * FROM sane WHERE "ZERO_CARBON_perc" <= 100 ORDER BY "ZERO_CARBON_perc" DESC LIMIT 5',
     'SELECT * FROM sane WHERE "GENERATION" > 0 AND "WIND" IS NOT NULL AND "WIND_EMB" IS NOT NULL AND "SOLAR" IS NOT NULL AND "HYDRO" IS NOT NULL AND "NUCLEAR" IS NOT NULL ORDER BY (("WIND" + "WIND_EMB" + "SOLAR" + "HYDRO" + "NUCLEAR") / "GENERATION") DESC LIMIT 5',
@@ -744,7 +854,7 @@ export function historicRecordsSql(excludeTimestamps: Iterable<string> = []): st
   }
 
   return [
-    `WITH sane AS (SELECT ${NESO_RECORD_COLUMNS} FROM "${NESO_HISTORIC_RESOURCE_ID}" WHERE ${NESO_SANITY_SQL}${nesoIntegrityExcludeSql(excludeTimestamps)})`,
+    `WITH sane AS (SELECT ${NESO_RECORD_COLUMNS} FROM "${NESO_HISTORIC_RESOURCE_ID}" WHERE ${NESO_SANITY_SQL} AND ${historicQuarantineWhereSql()}${nesoIntegrityExcludeSql(excludeTimestamps)})`,
     parts.map((part) => `(${part})`).join(" UNION ALL "),
   ].join(" ");
 }

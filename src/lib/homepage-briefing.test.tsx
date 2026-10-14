@@ -120,8 +120,8 @@ describe("homepage briefing", () => {
     const html = renderToStaticMarkup(<HomepageBriefing cite={cite} />);
 
     expect(html).toContain("<h1");
-    expect(html).toContain("What&#x27;s powering Britain&#x27;s electricity today");
     expect(html).toContain(HOME_H1.replaceAll("'", "&#x27;"));
+    expect(html).toContain("What&#x27;s powering Britain?");
     expect(html.match(/<h1/g)?.length).toBe(1);
     expect(html).toContain("16.0 GW");
     expect(html).not.toContain("<dl");

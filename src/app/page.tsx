@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { Dashboard } from "@/components/dashboard";
-import { GridMark } from "@/components/grid-mark";
 import { HomepageBriefing } from "@/components/homepage-briefing";
 import { JsonLd } from "@/components/json-ld";
-import { CARD_PAD_X, PAGE_STACK_CLASS } from "@/components/ui/card";
+import { SiteTopBar } from "@/components/site-top-bar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { PAGE_STACK_CLASS } from "@/components/ui/card";
 import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
@@ -13,8 +13,8 @@ import { homepageOgImage } from "@/lib/page-metadata";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_OG_TYPE, SITE_TWITTER_CARD } from "@/lib/site";
 
 /**
- * Homepage shell. Static/ISR so the CDN can HIT `/`. Headline copy is a Server
- * Component so the H1 and cite sentence are real HTML for crawlers. `?date=`
+ * Homepage shell. Static/ISR so the CDN can HIT `/`. The H1 and cite sentence
+ * are in the initial HTML, including the suspense fallback. `?date=`
  * is hidden on the client only — the canonical strips it. Homepage metadata
  * versions `/og?p=` with the settlement period and does not use `?focus=`.
  * Per-section cards stay on the `/og` route for the share menu only.
@@ -61,7 +61,7 @@ export default async function Home() {
           </div>
         }
       >
-        <Dashboard initialPayload={payload}>{briefing}</Dashboard>
+        <Dashboard initialPayload={payload} cite={cite} />
       </Suspense>
     </div>
   );
@@ -76,14 +76,7 @@ function HomepageFallbackHeader() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-        <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
-          <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
-            <GridMark />
-            <span className="text-heading-16">Grid</span>
-          </Link>
-        </div>
-      </header>
+      <SiteTopBar idPrefix="home-fallback" trailing={<ThemeToggle />} />
     </>
   );
 }
