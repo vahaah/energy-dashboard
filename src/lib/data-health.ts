@@ -5,6 +5,7 @@ import {
   getPricesQueryParams,
 } from "@/lib/dashboard-data";
 import {
+  EMBEDDED_ALIGN_WINDOW_MS,
   isBatteryFuel,
   isEmbeddedFuel,
   isInterconnectorFuel,
@@ -12,9 +13,10 @@ import {
   mapGenerationFuelToStackKey,
   normalizeFuelType,
 } from "@/lib/dashboard-model";
-import { assessPublication, type DataState, type PublicationMark } from "@/lib/data-state";
+import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { METRICS, metricSourceLabel, type MetricId } from "@/lib/metrics";
+import { METRICS, metricSourceIds, metricSourceLabel, type MetricId } from "@/lib/metrics";
+import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
 
@@ -132,6 +134,7 @@ export function buildReading(input: {
     now: input.now,
     publicationStatus: input.publicationStatus,
     formatValue: (value) => formatReadingValue(value, metric.unit),
+    schedule: stalenessSchedule(metric),
   });
   return {
     metric_id: input.metricId,
@@ -168,8 +171,38 @@ type Observed = {
   retrievedAt: string | null;
 };
 
+const DAILY_PRICE_RANGE = "30d";
+const MONTHLY_PRICE_RANGE = "1y";
+
+const BALANCE_COMPONENT_IDS = [
+  "elec.gb.generation.gas",
+  "elec.gb.generation.coal",
+  "elec.gb.generation.oil",
+  "elec.gb.generation.nuclear",
+  "elec.gb.generation.biomass",
+  "elec.gb.generation.hydro",
+  "elec.gb.generation.other",
+  "elec.gb.generation.wind",
+  "elec.gb.generation.embedded_wind",
+  "elec.gb.generation.solar",
+  "elec.gb.generation.pumped_storage",
+  "elec.gb.generation.battery",
+] as const satisfies readonly MetricId[];
+
+const SHARE_COMPONENT_IDS = [
+  "elec.gb.generation.wind",
+  "elec.gb.generation.embedded_wind",
+  "elec.gb.generation.solar",
+  "elec.gb.generation.hydro",
+] as const satisfies readonly MetricId[];
+
+const LEADING_COMPONENT_IDS = new Set<MetricId>([
+  "elec.gb.generation.embedded_wind",
+  "elec.gb.generation.solar",
+]);
+
 export async function loadDataHealth(now = new Date()): Promise<DataHealthReading[]> {
-  const [snapshots, generation, prices] = await Promise.all([
+  const [snapshots, generation, dailyPrices, monthlyPrices] = await Promise.all([
     peekWarmedEnvelope<EnergySnapshot>("snapshots_range", getHeadlineSnapshotsQueryParams(now), {
       range: "24h",
       now,
@@ -178,31 +211,164 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
       range: "24h",
       now,
     }),
-    peekWarmedEnvelope<CommodityPrice>("prices_range", getPricesQueryParams("30d", now), {
-      range: "30d",
+    peekWarmedEnvelope<CommodityPrice>("prices_range", getPricesQueryParams(DAILY_PRICE_RANGE, now), {
+      range: DAILY_PRICE_RANGE,
+      now,
+    }),
+    peekWarmedEnvelope<CommodityPrice>("prices_range", getPricesQueryParams(MONTHLY_PRICE_RANGE, now), {
+      range: MONTHLY_PRICE_RANGE,
       now,
     }),
   ]);
 
   const snapshotRows = snapshots?.data ?? [];
   const generationRows = generation?.data ?? [];
-  const priceRows = filterCanonicalCommodityPrices(prices?.data ?? []);
+  const dailyBook = priceBook(dailyPrices);
+  const monthlyBook = monthlyPrices ? priceBook(monthlyPrices) : null;
   const retrieved = {
     snapshot: isoFromCachedAt(snapshots?.cachedAt),
     generation: isoFromCachedAt(generation?.cachedAt),
-    prices: isoFromCachedAt(prices?.cachedAt),
   };
 
+  const observed = new Map<MetricId, Observed>();
+  for (const metricId of Object.keys(METRICS) as MetricId[]) {
+    if (seriesKind(metricId) === "derived") {
+      continue;
+    }
+    const prices = priceBookFor(metricId, dailyBook, monthlyBook);
+    observed.set(
+      metricId,
+      observeMetric(metricId, snapshotRows, generationRows, prices.rows, {
+        snapshot: retrieved.snapshot,
+        generation: retrieved.generation,
+        prices: prices.retrievedAt,
+      }, now)
+    );
+  }
+
+  const aligned = alignedGeneration(observed, retrieved.generation);
+  observed.set("elec.gb.generation.balance", aligned.balance);
+  observed.set("elec.gb.share.wind_solar_hydro", aligned.share);
+
   return (Object.keys(METRICS) as MetricId[]).map((metricId) => {
-    const observed = observeMetric(metricId, snapshotRows, generationRows, priceRows, retrieved, now);
+    const row = observed.get(metricId) ?? { value: null, publishedAt: null, retrievedAt: null };
     return buildReading({
       metricId,
-      value: observed.value,
-      publishedAt: observed.publishedAt,
-      retrievedAt: observed.retrievedAt,
+      value: row.value,
+      publishedAt: row.publishedAt,
+      retrievedAt: row.retrievedAt,
       now,
     });
   });
+}
+
+function priceBook(envelope: { data: CommodityPrice[]; cachedAt: number } | null): {
+  rows: CommodityPrice[];
+  retrievedAt: string | null;
+} {
+  return {
+    rows: filterCanonicalCommodityPrices(envelope?.data ?? []),
+    retrievedAt: isoFromCachedAt(envelope?.cachedAt),
+  };
+}
+
+function priceBookFor(
+  metricId: MetricId,
+  daily: { rows: CommodityPrice[]; retrievedAt: string | null },
+  monthly: { rows: CommodityPrice[]; retrievedAt: string | null } | null
+): { rows: CommodityPrice[]; retrievedAt: string | null } {
+  const cadence = METRICS[metricId].expected_cadence;
+  if ((cadence === "P1M" || cadence === "P1Y") && monthly) {
+    return monthly;
+  }
+  return daily;
+}
+
+function alignedGeneration(
+  observed: ReadonlyMap<MetricId, Observed>,
+  retrievedAt: string | null
+): { balance: Observed; share: Observed } {
+  const empty: Observed = { value: null, publishedAt: null, retrievedAt };
+  const anchor = latestPlantObservation(observed);
+  if (!anchor?.publishedAt || anchor.value == null) {
+    return { balance: empty, share: empty };
+  }
+  const anchorMs = parseUtcDateTime(anchor.publishedAt).getTime();
+  if (Number.isNaN(anchorMs)) {
+    return { balance: empty, share: empty };
+  }
+  const periodStart = getSettlementPeriod(new Date(anchorMs)).startUtc.getTime();
+  const latestMs = anchorMs + EMBEDDED_ALIGN_WINDOW_MS;
+  const balanceParts = includedObservations(BALANCE_COMPONENT_IDS, observed, periodStart, latestMs);
+  if (balanceParts.length === 0) {
+    return { balance: empty, share: empty };
+  }
+  const balanceValue = balanceParts.reduce((sum, row) => sum + (row.value ?? 0), 0);
+  const shareParts = includedObservations(SHARE_COMPONENT_IDS, observed, periodStart, latestMs);
+  const publishedAt = new Date(periodStart).toISOString();
+  return {
+    balance: { value: balanceValue, publishedAt, retrievedAt },
+    share: {
+      value:
+        balanceValue > 0 && shareParts.length > 0
+          ? (shareParts.reduce((sum, row) => sum + (row.value ?? 0), 0) / balanceValue) * 100
+          : null,
+      publishedAt,
+      retrievedAt,
+    },
+  };
+}
+
+function latestPlantObservation(observed: ReadonlyMap<MetricId, Observed>): Observed | null {
+  let latest: Observed | null = null;
+  let latestMs = Number.NEGATIVE_INFINITY;
+  for (const metricId of BALANCE_COMPONENT_IDS) {
+    if (LEADING_COMPONENT_IDS.has(metricId)) {
+      continue;
+    }
+    const row = observed.get(metricId);
+    if (!row?.publishedAt || row.value == null) {
+      continue;
+    }
+    const ms = parseUtcDateTime(row.publishedAt).getTime();
+    if (Number.isNaN(ms) || ms < latestMs) {
+      continue;
+    }
+    latestMs = ms;
+    latest = row;
+  }
+  return latest;
+}
+
+function includedObservations(
+  ids: readonly MetricId[],
+  observed: ReadonlyMap<MetricId, Observed>,
+  periodStart: number,
+  latestMs: number
+): Observed[] {
+  const rows: Observed[] = [];
+  for (const metricId of ids) {
+    const row = observed.get(metricId);
+    if (!row?.publishedAt || row.value == null || !Number.isFinite(row.value)) {
+      continue;
+    }
+    const ms = parseUtcDateTime(row.publishedAt).getTime();
+    if (Number.isNaN(ms) || ms < periodStart || ms > latestMs) {
+      continue;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function stalenessSchedule(metric: (typeof METRICS)[MetricId]): StalenessSchedule {
+  if (metric.interval_convention === "uk_settlement_period_half_open") {
+    return "settlement";
+  }
+  if (metricSourceIds(metric).includes("eia") && /^P\d+D$/.test(metric.expected_cadence)) {
+    return "business_day";
+  }
+  return "calendar";
 }
 
 function isoFromCachedAt(cachedAt: number | undefined): string | null {
@@ -329,21 +495,34 @@ function observeGeneration(
   now: Date
 ): Observed {
   let bestMs = Number.NEGATIVE_INFINITY;
-  let value: number | null = null;
-  let publishedAt: string | null = null;
+  const matched: Generation5min[] = [];
   for (const row of rows) {
     if (!generationMatches(metricId, row)) {
       continue;
     }
     const ms = parseUtcDateTime(row.timestamp).getTime();
-    if (Number.isNaN(ms) || ms > now.getTime() || ms < bestMs) {
+    if (Number.isNaN(ms) || ms > now.getTime()) {
       continue;
     }
-    bestMs = ms;
-    value = generationValue(metricId, row.generation_mw);
-    publishedAt = utcIsoFromTimestamp(row.timestamp) ?? null;
+    if (ms > bestMs) {
+      bestMs = ms;
+      matched.length = 0;
+      matched.push(row);
+      continue;
+    }
+    if (ms === bestMs) {
+      matched.push(row);
+    }
   }
-  return { value, publishedAt, retrievedAt };
+  if (matched.length === 0) {
+    return { value: null, publishedAt: null, retrievedAt };
+  }
+  const value = matched.reduce((sum, row) => sum + generationValue(metricId, row.generation_mw), 0);
+  return {
+    value,
+    publishedAt: utcIsoFromTimestamp(matched[0]?.timestamp) ?? null,
+    retrievedAt,
+  };
 }
 
 function generationValue(metricId: MetricId, mw: number): number {
