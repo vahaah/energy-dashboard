@@ -113,12 +113,34 @@ describe("generation mix shares", () => {
     expect(sharesSumWithinTolerance(shares)).toBe(true);
   });
 
+  it("sizes the bar from the exact share so a rounded-off fuel stays visible", () => {
+    const shares = generationMixShares(
+      [
+        row(PERIOD, "wind", 6_000),
+        row(PERIOD, "ccgt", 3_960),
+        row(PERIOD, "oil", 40),
+      ],
+      null
+    );
+    const oil = shares.find((share) => share.fuel === "oil");
+
+    expect(oil?.sharePct).toBeCloseTo(0.4, 5);
+    expect(oil?.displayPct).toBe(0);
+    expect(shareBarSegmentStyle(oil?.sharePct ?? 0).flexGrow).toBeCloseTo(0.4, 5);
+    expect(formatSharePercent(oil?.displayPct ?? -1)).toBe("0");
+    expect(shares.reduce((sum, share) => sum + share.displayPct, 0)).toBe(100);
+    expect(shares.reduce((sum, share) => sum + shareBarSegmentStyle(share.sharePct).flexGrow, 0)).toBeCloseTo(
+      100,
+      5
+    );
+  });
+
   it("sizes the bar with flex-grow so the track cannot exceed 100%", () => {
     const shares = generationMixShares(rows, "2026-10-13T08:00:00.000Z");
-    const styles = shares.map((share) => shareBarSegmentStyle(share.displayPct));
+    const styles = shares.map((share) => shareBarSegmentStyle(share.sharePct));
     const grown = styles.reduce((sum, style) => sum + style.flexGrow, 0);
 
-    expect(grown).toBe(100);
+    expect(grown).toBeCloseTo(100, 5);
     expect(styles.every((style) => style.flexBasis === 0 && style.minWidth === 0)).toBe(true);
     expect(styles.every((style) => !("width" in style))).toBe(true);
     expect(showsInlineShareLabel(54, false)).toBe(true);

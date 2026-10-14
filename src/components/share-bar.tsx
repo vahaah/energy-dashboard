@@ -57,7 +57,7 @@ export function ShareBar({
               <div
                 key={share.fuel}
                 className="min-w-0"
-                style={shareBarSegmentStyle(share.displayPct)}
+                style={shareBarSegmentStyle(share.sharePct)}
               >
                 <InlineLabel share={share} />
               </div>
@@ -72,7 +72,7 @@ export function ShareBar({
               <span
                 key={share.fuel}
                 className="h-full min-w-0"
-                style={{ ...shareBarSegmentStyle(share.displayPct), backgroundColor: share.color }}
+                style={{ ...shareBarSegmentStyle(share.sharePct), backgroundColor: share.color }}
               />
             ))}
           </div>
@@ -88,8 +88,8 @@ export function ShareBar({
 }
 
 function InlineLabel({ share }: { share: GenerationMixShare }) {
-  const desktop = showsInlineShareLabel(share.displayPct, false);
-  const narrow = showsInlineShareLabel(share.displayPct, true);
+  const desktop = showsInlineShareLabel(share.sharePct, false);
+  const narrow = showsInlineShareLabel(share.sharePct, true);
   if (!desktop) {
     return null;
   }
@@ -102,8 +102,8 @@ function InlineLabel({ share }: { share: GenerationMixShare }) {
 }
 
 function LegendItem({ share }: { share: GenerationMixShare }) {
-  const desktop = showsInlineShareLabel(share.displayPct, false);
-  const narrow = showsInlineShareLabel(share.displayPct, true);
+  const desktop = showsInlineShareLabel(share.sharePct, false);
+  const narrow = showsInlineShareLabel(share.sharePct, true);
   if (narrow) {
     return null;
   }

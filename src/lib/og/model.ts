@@ -283,7 +283,8 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
   const title = buildAnswerSentence({
     topFuel: top?.fuel ?? null,
     topMw: top?.mw ?? null,
-    topSharePct: shareDisplay[0] ?? null,
+    topSharePct: top?.sharePct ?? null,
+    topShareDisplayPct: shareDisplay[0] ?? null,
     transfersMw: power.transfersMw ?? facts.netImportsMw.value,
     empty: facts.empty,
   });

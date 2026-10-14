@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { generationMixShares } from "@/lib/generation-share";
 import { parseUtcDateTime } from "@/lib/london-time";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
@@ -266,6 +267,28 @@ describe("today page model", () => {
     expect(model.cheapest?.value).toBe(12);
     expect(model.dearest?.value).toBe(88);
     expect(model.priceAverage).toBe(50);
+  });
+
+  it("cites the reconciled wind share, matching the homepage list", () => {
+    const rows = [
+      generation("2026-10-10 11:30:00", "wind", 4_050),
+      generation("2026-10-10 11:30:00", "ccgt", 3_060),
+      generation("2026-10-10 11:30:00", "nuclear", 2_890),
+    ];
+    const wind = generationMixShares(rows, null).find((share) => share.fuel === "wind");
+    expect(Math.round(wind?.sharePct ?? 0)).toBe(41);
+    expect(wind?.displayPct).toBe(40);
+
+    const model = buildTodayPageModel({
+      day: payload({ snapshots: [snapshot()], generation: rows }),
+      week: null,
+      now: new Date("2026-10-10T12:00:00.000Z"),
+    });
+    const answer = todayFaqs(model).find((faq) => faq.question.includes("wind"))?.answer;
+
+    expect(model.latest.windSharePct).toBe(40);
+    expect(answer).toContain("wind was 40% of generation");
+    expect(answer).not.toContain("41%");
   });
 
   it("answers the visible FAQ from the same model", () => {

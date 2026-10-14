@@ -36,6 +36,33 @@ describe("og model", () => {
     });
   });
 
+  it("calls a 49.6% lead the largest source and prints the reconciled 50", () => {
+    const facts = snapshot.facts;
+    if (!facts) {
+      throw new Error("fixture facts missing");
+    }
+    const row = (fuelType: string, generationMw: number): Generation5min => ({
+      timestamp: "2026-10-10 11:00:00",
+      fuel_type: fuelType,
+      generation_mw: generationMw,
+      source: "fuelinst",
+    });
+    const card = buildOgCard(
+      { kind: "focus", focus: "overview" },
+      {
+        ...snapshot,
+        facts: {
+          ...facts,
+          generationRows: [row("wind", 4_960), row("ccgt", 2_560), row("nuclear", 2_480)],
+        },
+      }
+    );
+
+    expect(card.title).toContain("largest source");
+    expect(card.title).toContain("at 5.0 GW (50%)");
+    expect(card.title).not.toContain("most");
+  });
+
   it("builds live headline cards from cached facts only", () => {
     const overview = buildOgCard({ kind: "focus", focus: "overview" }, snapshot);
     expect(overview.cached).toBe(true);
@@ -93,6 +120,7 @@ describe("og model", () => {
     expect(overview.metrics.find((metric) => metric.label === "Demand")?.hint).toBe("Half-hour balance");
     expect(overview.title).toContain("Gas is supplying most");
     expect(overview.title).toContain("at 20.0 GW (67%)");
+    expect(overview.title).toContain("most");
     expect(overview.title).not.toContain("exporting");
     expect(overview.balance?.terms.map((term) => term.label)).toEqual([
       "Generation",

@@ -288,7 +288,7 @@ export function buildTodayPageModel(input: {
       price: day?.facts.price.value == null ? null : day.facts.price.value.toFixed(2),
       netImportsMw: netImports,
       netImportsGw: formatHeadlineGw(netImports),
-      windSharePct: latestWind?.sharePct ?? null,
+      windSharePct: latestWind?.displayPct ?? null,
       windGw: latestWind ? formatHeadlineGw(latestWind.mw) : null,
     },
     comparison: {
@@ -324,7 +324,7 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
       answer:
         model.latest.windSharePct == null || !model.latest.windGw
           ? `Grid does not yet have a complete latest half-hour. ${TODAY_CITE_SOURCES}`
-          : `In the latest half-hour Grid holds, wind was ${model.latest.windSharePct.toFixed(0)}% of generation (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
+          : `In the latest half-hour Grid holds, wind was ${model.latest.windSharePct}% of generation (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
     },
     {
       question: "How much came from gas today?",
@@ -466,10 +466,10 @@ export function settlementDateOf(timestamp: string): string {
 function latestCiteFuelShare(
   rows: Generation5min[],
   fuel: string
-): { mw: number; sharePct: number } | null {
+): { mw: number; sharePct: number; displayPct: number } | null {
   const match = generationMixShares(rows, null).find((share) => share.fuel === citeFuelKey(fuel));
   if (!match) {
     return null;
   }
-  return { mw: match.mw, sharePct: match.sharePct };
+  return { mw: match.mw, sharePct: match.sharePct, displayPct: match.displayPct };
 }

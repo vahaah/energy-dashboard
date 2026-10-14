@@ -71,6 +71,30 @@ describe("buildAnswerSentence", () => {
     );
   });
 
+  it("decides most from the exact share and prints the reconciled integer", () => {
+    expect(
+      buildAnswerSentence({
+        topFuel: "wind",
+        topMw: 4960,
+        topSharePct: 49.6,
+        topShareDisplayPct: 50,
+        transfersMw: 0,
+        empty: false,
+      })
+    ).toBe("Wind is the largest source of Britain’s electricity at 5.0 GW (50%).");
+
+    expect(
+      buildAnswerSentence({
+        topFuel: "wind",
+        topMw: 5000,
+        topSharePct: 50,
+        topShareDisplayPct: 50,
+        transfersMw: 0,
+        empty: false,
+      })
+    ).toBe("Wind is supplying most of Britain’s electricity at 5.0 GW (50%).");
+  });
+
   it("has a catching-up line when the day is empty", () => {
     expect(
       buildAnswerSentence({
