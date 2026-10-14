@@ -9,7 +9,7 @@ import {
   type Observation,
 } from "@/lib/metrics";
 
-const REGISTERED = Object.values(METRICS);
+const REGISTERED: MetricDefinition[] = Object.values(METRICS);
 
 function isPercentOrShare(metric: MetricDefinition): boolean {
   return metric.quantity_kind === "share" || metric.unit.includes("%") || /percent/i.test(metric.unit);
