@@ -71,8 +71,12 @@ export default async function TodayPage() {
       >
         <section className={CARD_GRID_CLASS}>
           <Card as="article" title="Latest half-hour" size="stat" id="demand">
-            <p className="font-sans text-heading-32 tabular-nums text-gray-1000">
-              {model.latest.demandGw} GW
+            <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+              <span data-value>{model.latest.demandGw}</span>
+              <span data-unit className="align-baseline">
+                {" "}
+                GW
+              </span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               Demand. Generation {model.latest.generationGw} GW
@@ -84,8 +88,15 @@ export default async function TodayPage() {
             </p>
           </Card>
           <Card as="article" title="How much came from gas" size="stat">
-            <p className="font-sans text-heading-32 tabular-nums text-gray-1000">
-              {model.shares.gasPct == null ? "—" : `${Math.round(model.shares.gasPct)}%`}
+            <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+              <span data-value>
+                {model.shares.gasPct == null ? "—" : Math.round(model.shares.gasPct)}
+              </span>
+              {model.shares.gasPct == null ? null : (
+                <span data-unit className="align-baseline">
+                  %
+                </span>
+              )}
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               {model.shares.gasGw == null
@@ -94,16 +105,16 @@ export default async function TodayPage() {
             </p>
           </Card>
           <Card as="article" title="Cheapest market index" size="stat">
-            <p className="font-sans text-heading-32 tabular-nums text-gray-1000">
-              {model.cheapest ? `£${model.cheapest.value.toFixed(2)}` : "—"}
+            <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+              <span data-value>{model.cheapest ? `£${model.cheapest.value.toFixed(2)}` : "—"}</span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               {model.cheapest ? `${model.cheapest.clock} · APXMIDP` : "No market index yet today."}
             </p>
           </Card>
           <Card as="article" title="Dearest market index" size="stat">
-            <p className="font-sans text-heading-32 tabular-nums text-gray-1000">
-              {model.dearest ? `£${model.dearest.value.toFixed(2)}` : "—"}
+            <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+              <span data-value>{model.dearest ? `£${model.dearest.value.toFixed(2)}` : "—"}</span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
               {model.dearest ? `${model.dearest.clock} · APXMIDP` : "No market index yet today."}

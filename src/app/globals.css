@@ -46,6 +46,7 @@
   --color-chart-battery: var(--chart-battery);
   --color-chart-other: var(--chart-other);
   --color-chart-demand: var(--gray-1000);
+  --spacing-card: var(--card-pad);
 }
 
 :root,
@@ -74,7 +75,8 @@
   --amber-700: #d97706;
   --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   --radius-card: 12px;
-  --spacing-card: 1rem;
+  --card-pad: 1rem;
+  --spacing-card: var(--card-pad);
   --chart-gas: #e06814;
   --chart-coal: #4e4b46;
   --chart-oil: #97918d;
@@ -116,7 +118,8 @@
   --amber-700: #f5a524;
   --card-shadow: none;
   --radius-card: 12px;
-  --spacing-card: 1rem;
+  --card-pad: 1rem;
+  --spacing-card: var(--card-pad);
   --chart-gas: #f97316;
   --chart-coal: #57534e;
   --chart-oil: #a8a29e;
@@ -227,6 +230,12 @@ body {
 }
 
 @media (min-width: 640px) {
+  :root,
+  .light,
+  .dark {
+    --card-pad: 1.5rem;
+  }
+
   .text-display {
     font-size: 3rem;
     line-height: 3.25rem;

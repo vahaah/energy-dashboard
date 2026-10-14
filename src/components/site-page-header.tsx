@@ -2,11 +2,12 @@ import Link from "next/link";
 import { GridMark } from "@/components/grid-mark";
 import { SITE_NAV_LINKS } from "@/components/site-public-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CARD_PAD_X } from "@/components/ui/card";
 
 export function SitePageHeader({ section }: { section: string }) {
   return (
     <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+      <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
         <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
           <GridMark />
           <span className="text-heading-16">Grid</span>

@@ -2,8 +2,15 @@ import type { ReactNode } from "react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const PAGE_STACK_CLASS =
-  "mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-4 overflow-x-clip px-4 py-6 sm:px-6 sm:py-10";
+/** Responsive card inset. 1rem, then 1.5rem from 640px. See `--card-pad`. */
+export const CARD_PAD_X = "px-[var(--card-pad)]";
+export const CARD_PAD_X_FROM_SM = "sm:px-[var(--card-pad)]";
+export const CARD_PAD_RIGHT_FROM_SM = "sm:pr-[var(--card-pad)]";
+export const CARD_PAD_TOP = "pt-[var(--card-pad)]";
+export const CARD_PAD_BOTTOM = "pb-[var(--card-pad)]";
+export const CARD_PAD = "p-[var(--card-pad)]";
+
+export const PAGE_STACK_CLASS = `mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-4 overflow-x-clip ${CARD_PAD_X} py-6 sm:py-10`;
 
 export const CARD_GRID_CLASS = "grid gap-4 sm:grid-cols-2";
 
@@ -65,7 +72,7 @@ export function Card({
         {footer ? (
           <div
             data-slot="card-footer"
-            className="border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6"
+            className={`border-t border-gray-alpha-400 ${CARD_PAD_X} py-3 text-label-12 text-gray-900`}
           >
             {footer}
           </div>
@@ -86,7 +93,7 @@ export function Card({
       {hasHeader ? (
         <div
           data-slot="card-header"
-          className="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:pt-6"
+          className={`flex flex-col gap-3 ${CARD_PAD_X} ${CARD_PAD_TOP} sm:flex-row sm:items-start sm:justify-between`}
         >
           <div className="flex min-w-0 items-center gap-2">
             {title ? <h2 className={titleClass(size)}>{title}</h2> : null}
@@ -104,7 +111,9 @@ export function Card({
       <div
         data-slot="card-body"
         className={
-          hasHeader ? "min-w-0 px-4 pt-4 pb-4 sm:px-6 sm:pt-4 sm:pb-6" : "min-w-0 p-4 sm:p-6"
+          hasHeader
+            ? `min-w-0 ${CARD_PAD_X} pt-4 ${CARD_PAD_BOTTOM}`
+            : `min-w-0 ${CARD_PAD}`
         }
       >
         {children}
@@ -112,7 +121,7 @@ export function Card({
       {footer ? (
         <div
           data-slot="card-footer"
-          className="border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6"
+          className={`border-t border-gray-alpha-400 ${CARD_PAD_X} py-3 text-label-12 text-gray-900`}
         >
           {footer}
         </div>

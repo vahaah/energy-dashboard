@@ -23,16 +23,16 @@ export function LookAheadStrip({ lookAhead }: { lookAhead: LookAheadView }) {
         </p>
       ) : null}
       {lookAhead.wind ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Sparkline
-            values={lookAhead.wind.sparkline}
-            color={FUEL_COLORS.wind}
-            label="Transmission-connected wind forecast"
-          />
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="text-copy-16 text-gray-1000">{lookAhead.wind.sentence}</p>
           <InfoTooltip
             text={`${lookAhead.wind.basis} Source: Elexon WINDFOR.`}
             label="What is the wind forecast?"
+          />
+          <Sparkline
+            values={lookAhead.wind.sparkline}
+            color={FUEL_COLORS.wind}
+            label="Transmission-connected wind forecast"
           />
         </div>
       ) : null}

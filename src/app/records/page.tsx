@@ -6,7 +6,7 @@ import { EnergyTransition } from "@/components/energy-transition";
 import { JsonLd } from "@/components/json-ld";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePublicNav } from "@/components/site-public-nav";
-import { Card, CARD_GRID_CLASS, PAGE_STACK_CLASS } from "@/components/ui/card";
+import { CARD_GRID_CLASS, CARD_PAD_X, Card, PAGE_STACK_CLASS } from "@/components/ui/card";
 import {
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
@@ -80,7 +80,7 @@ export default async function RecordsPage() {
     <div className="min-h-screen bg-background-100 text-gray-1000">
       <JsonLd data={recordsJsonLd({ faqs, records })} />
       <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+        <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
           <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
             <GridMark />
             <span className="text-heading-16">Grid</span>
@@ -298,7 +298,9 @@ function RecordBlock({
 
   return (
     <Card as="article" title={title} size="stat">
-      <p className="font-sans text-heading-32 tabular-nums text-gray-1000">{value}</p>
+      <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+        <span data-value>{value}</span>
+      </p>
       {stamp ? <p className="mt-2 text-mono-12 text-gray-900">{stamp}</p> : null}
       {record ? <p className="mt-2 text-copy-14 text-gray-900">{record.basis}</p> : null}
       {nesoLine ? <p className="mt-2 text-copy-14 text-gray-900">{nesoLine}</p> : null}

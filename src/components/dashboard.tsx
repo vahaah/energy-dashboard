@@ -78,7 +78,16 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SiteHeader } from "@/components/site-header";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
-import { Card, CardEmpty, CardError, CardLoading, PAGE_STACK_CLASS } from "@/components/ui/card";
+import {
+  CARD_PAD,
+  CARD_PAD_RIGHT_FROM_SM,
+  CARD_PAD_X_FROM_SM,
+  Card,
+  CardEmpty,
+  CardError,
+  CardLoading,
+  PAGE_STACK_CLASS,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CarbonIntensityChart } from "@/components/charts/carbon-intensity-chart";
 import { ElectricityPriceChart } from "@/components/charts/price-chart";
@@ -394,7 +403,10 @@ export function Dashboard({
                       />
                     }
                   />
-                  <div className="mt-6 border-t border-gray-alpha-400 pt-5">
+                  <div
+                    data-slot="card-pad"
+                    className={`mt-6 border-t border-gray-alpha-400 ${CARD_PAD}`}
+                  >
                     <PeriodAveragesRow averages={averages} neso={neso} />
                   </div>
                 </>
@@ -564,8 +576,8 @@ export function Dashboard({
                     key={commodity}
                     className={
                       commodity === commodityCards[0]?.commodity
-                        ? "pb-4 sm:pr-6 sm:pb-0"
-                        : "border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-0"
+                        ? `pb-4 sm:pb-0 ${CARD_PAD_RIGHT_FROM_SM}`
+                        : `border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:py-0 ${CARD_PAD_X_FROM_SM}`
                     }
                   >
                     {commodity === GB_GAS_SAP_COMMODITY ? (
@@ -822,10 +834,12 @@ function CommodityStatCard({
           aria-hidden="true"
         />
       </div>
-      <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">
-        {latest ? formatCommodityPrice(latest) : "—"}
+      <p data-figure className="mt-2 whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+        <span data-value>{latest ? formatCommodityPrice(latest) : "—"}</span>
         {latest ? (
-          <span className="text-heading-32 text-gray-700">{commodityUnitSuffix(latest.unit)}</span>
+          <span data-unit className="align-baseline text-heading-32 text-gray-700">
+            {commodityUnitSuffix(latest.unit)}
+          </span>
         ) : null}
       </p>
       <p className={`mt-1 text-label-12 ${rising ? "text-green-700" : "text-red-700"}`}>
@@ -858,8 +872,8 @@ function CommoditySkeleton() {
             key={commodity}
             className={
               commodity === COMMODITY_CARD_KEYS[0]
-                ? "pb-4 sm:pr-6 sm:pb-0"
-                : "border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-0"
+                ? `pb-4 sm:pb-0 ${CARD_PAD_RIGHT_FROM_SM}`
+                : `border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:py-0 ${CARD_PAD_X_FROM_SM}`
             }
           >
             <Skeleton className="h-28 w-full" />

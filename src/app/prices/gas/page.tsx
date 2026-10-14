@@ -58,9 +58,11 @@ export default async function GasPricePage() {
         <section className={CARD_GRID_CLASS}>
           {model.series.map((row) => (
             <Card as="article" key={row.commodity} title={row.label} size="stat">
-              <p className="font-sans text-heading-32 tabular-nums text-gray-1000">
-                {row.value}{" "}
-                <span className="text-heading-16 text-gray-900">{row.unit}</span>
+              <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+                <span data-value>{row.value}</span>{" "}
+                <span data-unit className="align-baseline text-heading-16 text-gray-900">
+                  {row.unit}
+                </span>
               </p>
               <p className="mt-2 text-copy-14 text-gray-900">
                 {row.dateLabel} · {row.source}
