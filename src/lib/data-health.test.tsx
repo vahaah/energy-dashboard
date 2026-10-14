@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DataHealthPage from "@/app/data-health/page";
 import { DataHealthReading } from "@/components/data-health-reading";
 import { DataStateNotice } from "@/components/ui/data-state";
-import { buildReading, loadDataHealth } from "@/lib/data-health";
+import { buildReading, loadDataHealth, publicationLagLabel } from "@/lib/data-health";
 import { ABSENT_FIGURE, assessPublication, DATA_STATE_LABEL, DATA_STATES } from "@/lib/data-state";
 
 vi.mock("next/navigation", () => ({
@@ -159,6 +159,33 @@ describe("data health clocks", () => {
     }
   });
 
+  it("explains a PT30M publication lag as about 30 minutes", () => {
+    const reading = buildReading({
+      metricId: "elec.gb.price.imbalance",
+      value: 80,
+      publishedAt: "2026-10-14T10:30:00.000Z",
+      retrievedAt: RETRIEVED,
+      now: NOW,
+    });
+
+    expect(reading.publication_lag).toBe("PT30M");
+    expect(reading.publication_lag_label).toBe(
+      "Published about 30 minutes after the settlement period"
+    );
+    expect(reading.publication_lag_label).toContain("about 30 minutes");
+    expect(publicationLagLabel("PT1H", "uk_settlement_period_half_open")).toBe(
+      "Published about 1 hour after the settlement period"
+    );
+    expect(publicationLagLabel("PT1H30M", "uk_settlement_period_half_open")).toBe(
+      "Published about 1 hour 30 minutes after the settlement period"
+    );
+    expect(publicationLagLabel("PT45S", "uk_settlement_period_half_open")).toBe(
+      "Published about 45 seconds after the settlement period"
+    );
+    expect(publicationLagLabel("PT0S", "uk_settlement_period_half_open")).toBeNull();
+    expect(publicationLagLabel("P1D", "gas_day_half_open")).toBe("Published about 1 day after the gas day");
+  });
+
   it("renders battery discharge with no FUELINST row as not yet available", () => {
     const reading = buildReading({
       metricId: "elec.gb.generation.battery",
@@ -308,6 +335,36 @@ describe("loadDataHealth", () => {
     expect(readings.find((reading) => reading.metric_id === "elec.gb.imports.fuelinst")?.value).toBe(1000);
     expect(readings.find((reading) => reading.metric_id === "elec.gb.exports.fuelinst")?.value).toBe(250);
     expect(readings.find((reading) => reading.metric_id === "elec.gb.storage.charging")?.value).toBe(100);
+  });
+
+  it("reports pumping as zero discharge with a fresh published time", async () => {
+    peekWarmedEnvelope.mockImplementation(async (pipe: string) => {
+      if (pipe !== "generation_5min_range") {
+        return null;
+      }
+      return {
+        data: [
+          { timestamp: "2026-10-14 06:00:00", fuel_type: "ps", generation_mw: 400, source: "fuelinst" },
+          { timestamp: "2026-10-14 10:30:00", fuel_type: "ps", generation_mw: -13, source: "fuelinst" },
+          { timestamp: "2026-10-14 06:00:00", fuel_type: "bess", generation_mw: 50, source: "fuelinst" },
+          { timestamp: "2026-10-14 10:30:00", fuel_type: "battery", generation_mw: -4, source: "fuelinst" },
+        ],
+        cachedAt: Date.parse(RETRIEVED),
+        freshFor: 300,
+      };
+    });
+
+    const readings = await loadDataHealth(NOW);
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.generation.pumped_storage")).toMatchObject({
+      value: 0,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.generation.battery")).toMatchObject({
+      value: 0,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
   });
 
   it("reads World Bank month-start rows from the warmed 1y price envelope", async () => {

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { getLondonDate } from "@/lib/london-time";
+import { listSettlementPeriods } from "@/lib/settlement-period";
 import {
   TINYBIRD_CACHE_SECONDS,
   TINYBIRD_LIMIT_RETRY_AFTER_SECONDS,
@@ -149,17 +151,51 @@ describe("getTinybirdCachePolicy", () => {
     ).toBe(TINYBIRD_CACHE_SECONDS.longYear);
   });
 
-  it("treats completed external windows as historical", () => {
-    expect(policyForExternalWindow("2026-05-19T22:59:59.000Z", now).tier).toBe("historical");
-    expect(policyForExternalWindow("2026-10-02T12:00:00.000Z", now).tier).toBe("live");
+  it("treats completed external windows as historical and recent ones as short-lived", () => {
+    expect(policyForExternalWindow("2026-05-19T22:59:59.000Z", now)).toMatchObject({
+      tier: "historical",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.historical,
+    });
+    expect(policyForExternalWindow("2026-10-01T22:00:00.000Z", now)).toMatchObject({
+      tier: "live",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
+      staleWhileRevalidate: 0,
+    });
+    expect(policyForExternalWindow("2026-10-02T12:00:00.000Z", now)).toMatchObject({
+      tier: "live",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
+      staleWhileRevalidate: 0,
+    });
   });
 
-  it("keeps yesterday's settlement prices live through the following London day", () => {
-    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T00:00:00.000Z")).tier).toBe(
-      "live"
+  it("classifies an exclusive midnight by the last covered London day", () => {
+    const now = new Date("2026-10-14T15:00:00.000Z");
+    const olderEnd = listSettlementPeriods("2026-10-12").at(-1)?.endUtc;
+    const yesterdayEnd = listSettlementPeriods("2026-10-13").at(-1)?.endUtc;
+    if (!olderEnd || !yesterdayEnd) {
+      throw new Error("missing settlement period end");
+    }
+
+    expect(getLondonDate(olderEnd)).toBe("2026-10-13");
+    expect(policyForExternalWindow(olderEnd.toISOString(), now).tier).toBe("historical");
+    expect(policyForExternalWindow(yesterdayEnd.toISOString(), now)).toMatchObject({
+      tier: "live",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
+      staleWhileRevalidate: 0,
+    });
+  });
+
+  it("keeps yesterday's settlement prices refetchable through the following London day", () => {
+    const yesterday = {
+      tier: "live",
+      revalidateSeconds: TINYBIRD_CACHE_SECONDS.recentExternal,
+      staleWhileRevalidate: 0,
+    };
+    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T00:00:00.000Z"))).toMatchObject(
+      yesterday
     );
-    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T09:30:00.000Z")).tier).toBe(
-      "live"
+    expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-16T09:30:00.000Z"))).toMatchObject(
+      yesterday
     );
     expect(policyForSettlementPrices("2026-01-15", new Date("2026-01-17T00:00:00.000Z")).tier).toBe(
       "historical"

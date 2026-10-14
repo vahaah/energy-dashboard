@@ -301,7 +301,8 @@ export const METRICS = {
     coverage:
       "System buy price, the imbalance cash-out. The homepage field is price_gbp_mwh. The published price can be negative.",
     expected_cadence: "PT30M",
-    publication_lag: "PT0S",
+    // Elexon publishes the system price about 48 minutes after the period starts.
+    publication_lag: "PT30M",
   },
   "commodity.brent.spot": {
     metric_id: "commodity.brent.spot",

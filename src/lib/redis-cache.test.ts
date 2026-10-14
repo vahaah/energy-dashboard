@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { liveCachePolicy } from "@/lib/tinybird-cache";
+import { liveCachePolicy, recentExternalCachePolicy, TINYBIRD_CACHE_SECONDS } from "@/lib/tinybird-cache";
 import {
   CACHE_EPOCH_KEY,
   bumpCacheEpoch,
@@ -10,6 +10,7 @@ import {
   fallbackLogReason,
   getRedis,
   getRedisFailureReason,
+  isErrorFallbackEnvelope,
   isFreshEnvelope,
   isStaleUsableEnvelope,
   parseRedisGet,
@@ -18,6 +19,7 @@ import {
   readThroughCacheResult,
   redisEnvPresent,
   redisKeyFor,
+  redisTtlSeconds,
   resetRedisClient,
   resolveRedisRestConfig,
   setRedisForTests,
@@ -158,6 +160,54 @@ describe("readThroughCache", () => {
     await expect(peekThroughCache("tb:og-err", liveCachePolicy())).resolves.toBeNull();
     expect(getRedisFailureReason()).toContain("redis-get-failed");
     expect(getRedisFailureReason()).not.toContain("secret.upstash.io");
+  });
+
+  it("keeps the previous recent body when the synchronous refetch throws", async () => {
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    const policy = recentExternalCachePolicy();
+    const cachedAt = Date.now() - 31 * 60 * 1000;
+    const envelope: CacheEnvelope<string[]> = {
+      data: ["previous"],
+      cachedAt,
+      freshFor: policy.revalidateSeconds,
+    };
+    const key = await redisKeyFor("ext:elexon-system-prices:2026-10-14", policy.tier);
+    await redis.set(key, envelope, { ex: redisTtlSeconds(policy) });
+
+    expect(redisTtlSeconds(policy)).toBe(
+      TINYBIRD_CACHE_SECONDS.recentExternal + TINYBIRD_CACHE_SECONDS.recentExternalFallback
+    );
+    expect(isFreshEnvelope(envelope, policy)).toBe(false);
+    expect(isStaleUsableEnvelope(envelope, policy)).toBe(false);
+    expect(isErrorFallbackEnvelope(envelope, policy)).toBe(true);
+
+    const load = vi.fn(async (): Promise<string[]> => {
+      throw new Error("upstream timeout");
+    });
+    await expect(
+      readThroughCacheResult("ext:elexon-system-prices:2026-10-14", policy, load)
+    ).resolves.toEqual({
+      data: ["previous"],
+      status: "redis-stale",
+    });
+    expect(load).toHaveBeenCalledOnce();
+
+    const published = vi.fn(async () => ["published"]);
+    await expect(
+      readThroughCache("ext:elexon-system-prices:2026-10-14", policy, published)
+    ).resolves.toEqual(["published"]);
+    expect(published).toHaveBeenCalledOnce();
+  });
+
+  it("still throws a recent refetch error when nothing is retained", async () => {
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    await expect(
+      readThroughCacheResult("ext:missing", recentExternalCachePolicy(), async () => {
+        throw new Error("upstream timeout");
+      })
+    ).rejects.toThrow("upstream timeout");
   });
 
   it("serves stale data immediately and refreshes in the background", async () => {

@@ -59,6 +59,7 @@ export function featuredMetricIds(): readonly FeaturedMetricId[] {
 }
 
 type LagUnit = "D" | "W" | "M";
+type TimeLagUnit = "hour" | "minute" | "second";
 
 /** Human line for a non-zero publication lag. Zero lag stays null. */
 export function publicationLagLabel(
@@ -74,14 +75,37 @@ export function publicationLagLabel(
 
 function humanLag(publicationLag: string): string | null {
   const match = /^P(\d+)([DWM])$/.exec(publicationLag);
-  if (!match || !isLagUnit(match[2])) {
+  if (match && isLagUnit(match[2])) {
+    const count = Number(match[1]);
+    if (!Number.isFinite(count) || count <= 0) {
+      return null;
+    }
+    return lagUnitPhrase(count, match[2]);
+  }
+  return humanTimeLag(publicationLag);
+}
+
+function humanTimeLag(publicationLag: string): string | null {
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(publicationLag);
+  if (!match || match[0] === "PT") {
     return null;
   }
-  const count = Number(match[1]);
+  const parts = [
+    timePart(Number(match[1] ?? 0), "hour"),
+    timePart(Number(match[2] ?? 0), "minute"),
+    timePart(Number(match[3] ?? 0), "second"),
+  ].filter((part): part is string => part != null);
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join(" ");
+}
+
+function timePart(count: number, unit: TimeLagUnit): string | null {
   if (!Number.isFinite(count) || count <= 0) {
     return null;
   }
-  return lagUnitPhrase(count, match[2]);
+  return timeLagPhrase(count, unit);
 }
 
 function isLagUnit(value: string): value is LagUnit {
@@ -103,6 +127,22 @@ function lagUnitPhrase(count: number, unit: LagUnit): string {
       return count === 1 ? "1 week" : `${count} weeks`;
     case "M":
       return count === 1 ? "1 month" : `${count} months`;
+    default: {
+      const exhaustive: never = unit;
+      return exhaustive;
+    }
+  }
+}
+
+function timeLagPhrase(count: number, unit: TimeLagUnit): string {
+  const amount = String(count);
+  switch (unit) {
+    case "hour":
+      return count === 1 ? "1 hour" : `${amount} hours`;
+    case "minute":
+      return count === 1 ? "1 minute" : `${amount} minutes`;
+    case "second":
+      return count === 1 ? "1 second" : `${amount} seconds`;
     default: {
       const exhaustive: never = unit;
       return exhaustive;
@@ -604,6 +644,9 @@ function generationValue(metricId: MetricId, mw: number): number {
     case "elec.gb.exports.fuelinst":
     case "elec.gb.storage.charging":
       return Math.abs(mw);
+    case "elec.gb.generation.pumped_storage":
+    case "elec.gb.generation.battery":
+      return Math.max(0, mw);
     default:
       return mw;
   }
@@ -633,9 +676,9 @@ function generationMatches(metricId: MetricId, row: Generation5min): boolean {
     case "elec.gb.generation.solar":
       return normalizeFuelType(row.fuel_type) === "embedded_solar" || fuel === "solar";
     case "elec.gb.generation.pumped_storage":
-      return isPumpedStorageFuel(row.fuel_type) && row.generation_mw >= 0;
+      return isPumpedStorageFuel(row.fuel_type);
     case "elec.gb.generation.battery":
-      return isBatteryFuel(row.fuel_type) && row.generation_mw >= 0;
+      return isBatteryFuel(row.fuel_type);
     case "elec.gb.imports.fuelinst":
       return isInterconnectorFuel(row.fuel_type) && row.generation_mw > 0;
     case "elec.gb.exports.fuelinst":

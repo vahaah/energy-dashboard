@@ -157,6 +157,7 @@ describe("geography enum", () => {
     expect(METRICS["commodity.henry_hub.spot"].publication_lag).toBe("P8D");
     expect(METRICS["elec.gb.demand.itsdo"].publication_lag).toBe("PT0S");
     expect(METRICS["elec.gb.generation.battery"].publication_lag).toBe("PT0S");
+    expect(METRICS["elec.gb.price.imbalance"].publication_lag).toBe("PT30M");
   });
 
   it("tags commodity markets with their own geography", () => {
