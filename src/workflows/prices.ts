@@ -1,3 +1,4 @@
+import { FatalError } from "workflow";
 import { publishStep } from "@/workflows/steps/publish";
 import {
   fetchEiaStep,
@@ -27,7 +28,7 @@ export async function pricesSlot(slot: string, owner: string, nowIso: string) {
   await fetchEiaStep(slot, nowIso);
   await fetchPinkSheetStep(slot, nowIso);
   await fetchSapStep(slot, nowIso);
-  await postPricesStep(slot, nowIso);
+  const posted = await postPricesStep(slot, nowIso);
   await warmPipeStep(LONG_PIPE_IDS[0], nowIso);
   await warmPipeStep(LONG_PIPE_IDS[1], nowIso);
   await warmPipeStep(LONG_PIPE_IDS[2], nowIso);
@@ -38,4 +39,8 @@ export async function pricesSlot(slot: string, owner: string, nowIso: string) {
   await warmPipeStep(LONG_PIPE_IDS[7], nowIso);
   await warmPipeStep(LONG_PIPE_IDS[8], nowIso);
   await publishStep(nowIso, false);
+  if (!posted.ok) {
+    console.error("[workflow] prices required source failed", { slot });
+    throw new FatalError("required price source failed");
+  }
 }

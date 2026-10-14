@@ -38,9 +38,30 @@ describe("/api/snapshots", () => {
     expect(queryPipe.mock.calls[0]?.[2]).not.toHaveProperty("date");
   });
 
-  it("returns 400 for a date outside the warmed window and does not query", async () => {
+  it("asks for a past London day instead of rejecting it", async () => {
+    queryPipe.mockResolvedValue([
+      { timestamp: "2020-01-01 12:00:00", price_gbp_mwh: 10 },
+      { timestamp: "2020-01-02 00:00:00", price_gbp_mwh: 11 },
+    ]);
+
     const response = await GET(
       new NextRequest("http://localhost/api/snapshots?range=24h&date=2020-01-01")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(queryPipe).toHaveBeenCalledWith(
+      "snapshots_range",
+      expect.any(Object),
+      expect.objectContaining({ range: "24h", date: "2020-01-01" })
+    );
+    expect(body.data).toEqual([{ timestamp: "2020-01-01 12:00:00", price_gbp_mwh: 10 }]);
+    expect(body.count).toBe(1);
+  });
+
+  it("returns 400 for a future date and does not query", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/snapshots?range=24h&date=2099-01-01")
     );
 
     expect(response.status).toBe(400);

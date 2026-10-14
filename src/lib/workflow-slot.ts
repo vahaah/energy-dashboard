@@ -1,4 +1,4 @@
-import { FatalError, RetryableError } from "workflow";
+import { FatalError } from "workflow";
 import { getRedis } from "@/lib/redis-cache";
 
 export const SLOT_TTL_SECONDS = {
@@ -39,6 +39,9 @@ export function yesterdaySlot(now: Date): string {
  * First step of a run. SET NX EX. The same run may retry this step and still
  * owns the key. A second start() for the slot throws FatalError before any
  * upstream call.
+ *
+ * Without Upstash the lock is skipped so local ingest can still run. The
+ * request path then reads Tinybird directly. See AGENTS.md.
  */
 export async function takeWorkflowSlot(
   job: WorkflowJob,
@@ -47,7 +50,8 @@ export async function takeWorkflowSlot(
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) {
-    throw new RetryableError("redis unavailable for workflow slot", { retryAfter: "30s" });
+    console.warn("[workflow] redis unset; slot lock skipped");
+    return;
   }
 
   const key = workflowSlotKey(job, slot);

@@ -31,6 +31,23 @@ export function londonDayInsideWarmWindow(
 }
 
 /**
+ * Future or invalid calendar dates are not a historical day. A past day is
+ * served by slicing a warmed envelope, or by one budgeted pipe read.
+ */
+export function futureDateError(
+  date: string | null,
+  now: Date
+): "range_not_warmed" | null {
+  if (!date || date === getLondonDate(now)) {
+    return null;
+  }
+  if (!isValidDashboardDate(date) || date > getLondonDate(now)) {
+    return "range_not_warmed";
+  }
+  return null;
+}
+
+/**
  * `null` when the request should be served from the rolling envelope.
  * `"range_not_warmed"` when `?date=` would have been a fresh pipe call.
  */

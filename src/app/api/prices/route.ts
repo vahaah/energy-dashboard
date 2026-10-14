@@ -28,10 +28,6 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const params = getPricesQueryParams(rangeResult.value, now);
-  if (commodity) {
-    params.commodity = commodity;
-  }
-
   const cacheOptions = { range: rangeResult.value, now };
   const policy = getTinybirdCachePolicy({
     pipeName: "prices_range",
@@ -40,9 +36,10 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const data = filterPublicCommodityPrices(
+    const warmed = filterPublicCommodityPrices(
       await queryPipe<CommodityPrice>("prices_range", params, cacheOptions)
     );
+    const data = commodity ? warmed.filter((row) => row.commodity === commodity) : warmed;
     return cachedJson({ data, range: rangeResult.value, count: data.length }, policy);
   } catch (error) {
     return upstreamError(error);

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getLondonDate } from "@/lib/london-time";
-import { sliceLondonDay, unwarmedDateError } from "@/lib/warm-window";
+import { futureDateError, sliceLondonDay, unwarmedDateError } from "@/lib/warm-window";
 
 describe("warm window", () => {
   const now = new Date("2026-10-14T12:00:00.000Z");
@@ -23,6 +23,15 @@ describe("warm window", () => {
   it("accepts yesterday inside the 7d envelope", () => {
     expect(unwarmedDateError("2026-10-13", "7d", now)).toBeNull();
     expect(unwarmedDateError("2026-10-13", "30d", now)).toBeNull();
+  });
+
+  it("serves a past London day and rejects a future date", () => {
+    expect(futureDateError(null, now)).toBeNull();
+    expect(futureDateError("2026-10-14", now)).toBeNull();
+    expect(futureDateError("2026-10-13", now)).toBeNull();
+    expect(futureDateError("2020-01-01", now)).toBeNull();
+    expect(futureDateError("2026-12-01", now)).toBe("range_not_warmed");
+    expect(futureDateError("not-a-date", now)).toBe("range_not_warmed");
   });
 
   it("slices one London civil day and leaves today whole", () => {
@@ -47,7 +56,8 @@ describe("warm window", () => {
       "src/app/api/interconnectors/route.ts",
     ]) {
       const source = readFileSync(resolve(process.cwd(), file), "utf8");
-      expect(source, file).toContain("unwarmedDateError");
+      expect(source, file).toContain("futureDateError");
+      expect(source, file).not.toContain("unwarmedDateError");
       expect(source, file).toContain("sliceLondonDay");
       expect(source, file).not.toContain("date: dateResult.value, now");
       expect(source, file).not.toContain("fetchPipeRows");

@@ -109,6 +109,7 @@ export const LONG_PIPES: readonly WarmPipe[] = [
     cadence: "6h",
     params: (now) => getGenerationQueryParams("1y", now),
   },
+  // One envelope per range. Commodity query params are filtered locally.
   {
     id: "prices_range:30d",
     pipe: "prices_range",

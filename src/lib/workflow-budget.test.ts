@@ -100,6 +100,11 @@ describe("workflow budget", () => {
     expect(prices).not.toContain("Promise.all");
     expect(yesterday).not.toContain("warmPipeStep");
     expect(yesterday).not.toContain("fetchPipeRows");
+    const publishAt = prices.indexOf("await publishStep(nowIso, false)");
+    const fatalAt = prices.indexOf("required price source failed");
+    expect(publishAt).toBeGreaterThan(-1);
+    expect(fatalAt).toBeGreaterThan(publishAt);
+    expect(prices).toContain("if (!posted.ok)");
   });
 
   it("backs off 30s then 2m, and treats 400 as fatal", () => {

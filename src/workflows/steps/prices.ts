@@ -76,15 +76,27 @@ export async function postPricesStep(slot: string, nowIso: string): Promise<Step
       rows: source.rows.length,
       error: source.error,
     }));
-  const requiredFailed = sources.some(
-    (source) => !source.ok && isRequiredPriceCronSource(source.source)
-  );
+  const requiredFailed = [eia, worldbank].some((source) => requiredSourceFailed(source));
   console.info("[workflow] prices", { requiredFailed, sources });
   const posted = await postTinybirdRows("commodity_prices", rows, now);
-  if (posted.rows === 0 && requiredFailed) {
-    return stepStatus(false, 0, posted.bytes, posted.cachedAt);
+  if (requiredFailed) {
+    console.error("[workflow] prices required source failed", {
+      sources: sources.map((source) => ({
+        source: source.source,
+        ok: source.ok,
+        error: source.error,
+      })),
+    });
+    return stepStatus(false, posted.rows, posted.bytes, posted.cachedAt);
   }
   return posted;
+}
+
+function requiredSourceFailed(body: PriceBody | null): boolean {
+  if (body == null) {
+    return true;
+  }
+  return !body.ok && isRequiredPriceCronSource(body.source);
 }
 
 (fetchEiaStep as { maxRetries?: number }).maxRetries = 1;

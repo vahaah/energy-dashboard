@@ -9,10 +9,16 @@ export function tinybirdOpsKey(now: Date): string {
   return `grid:tb:ops:${now.toISOString().slice(0, 10)}`;
 }
 
+const memoryOps = new Map<string, number>();
+
+export function resetTinybirdOpsMemoryForTests(): void {
+  memoryOps.clear();
+}
+
 export async function readTinybirdOps(now = new Date()): Promise<number> {
   const redis = getRedis();
   if (!redis) {
-    return 0;
+    return memoryOps.get(tinybirdOpsKey(now)) ?? 0;
   }
   const current = await redis.get<number | string>(tinybirdOpsKey(now));
   const count = Number(current ?? 0);
@@ -24,10 +30,24 @@ export async function readTinybirdOps(now = new Date()): Promise<number> {
  * the previous envelope stays. The increment counts the attempt even if the
  * HTTP call then fails, including the at-least-once retry.
  */
+function reserveMemoryOp(now: Date): number {
+  const key = tinybirdOpsKey(now);
+  const current = memoryOps.get(key) ?? 0;
+  if (current >= TINYBIRD_OPS_LIMIT) {
+    throw new FatalError(`tinybird daily op cap ${current}`);
+  }
+  const next = current + 1;
+  memoryOps.set(key, next);
+  if (next > TINYBIRD_OPS_LIMIT) {
+    throw new FatalError(`tinybird daily op cap ${next}`);
+  }
+  return next;
+}
+
 export async function reserveTinybirdOp(now = new Date()): Promise<number> {
   const redis = getRedis();
   if (!redis) {
-    throw new FatalError("redis unavailable for tinybird op counter");
+    return reserveMemoryOp(now);
   }
 
   const key = tinybirdOpsKey(now);

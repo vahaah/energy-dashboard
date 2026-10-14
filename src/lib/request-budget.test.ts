@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { dropComposedDashboardPayloads } from "@/lib/cache-warm";
+import { dropComposedDashboardPayloads, publishAfterSuccess } from "@/lib/cache-warm";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
+import { peekOgCacheSnapshot } from "@/lib/og/peek";
 import { resetRedisClient, setRedisForTests, type RedisCommands } from "@/lib/redis-cache";
+import { clearTinybirdLastGood } from "@/lib/tinybird-cache";
 import * as tinybird from "@/lib/tinybird";
 import { LIVE_PIPES } from "@/lib/warm-pipes";
 import { storeWarmedRows } from "@/lib/warm-envelope";
 import { GET as health } from "@/app/api/health/route";
+
+vi.mock("@vercel/functions", () => ({
+  dangerouslyDeleteByTag: vi.fn(async () => undefined),
+}));
 
 vi.mock("next/cache", () => ({
   unstable_cache: (fn: () => Promise<unknown>) => () => fn(),
@@ -154,5 +160,36 @@ describe("request path Tinybird budget", () => {
 
     await dropComposedDashboardPayloads();
     expect(await stamp()).toBe(second);
+  });
+
+  it("rebuilds dashboard:day after publish so share cards keep facts", async () => {
+    const now = new Date("2026-10-14T12:00:00.000Z");
+    const stamp = "2026-10-14 10:30:00";
+    await storeWarmedRows(
+      snapshots24h,
+      snapshots24h.params(now),
+      [{ timestamp: stamp, demand_mw: 32_000 }],
+      now
+    );
+    const fetchPipeRows = vi.spyOn(tinybird, "fetchPipeRows");
+
+    await publishAfterSuccess(now);
+    const peeked = await peekOgCacheSnapshot(now);
+
+    expect(peeked.facts?.referenceTimestamp).toBe(stamp);
+    expect(peeked.facts?.empty).toBe(false);
+    expect(fetchPipeRows).not.toHaveBeenCalled();
+  });
+
+  it("still finishes publish when the day payload cannot be rebuilt", async () => {
+    clearTinybirdLastGood();
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    await expect(publishAfterSuccess(new Date("2026-10-14T12:00:00.000Z"))).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(
+      "[workflow] dashboard day rebuild failed",
+      expect.stringContaining("warmed envelope missing")
+    );
   });
 });

@@ -141,6 +141,16 @@ UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
 - `CRON_SECRET` — Required. Cron routes fail closed if it is unset.
 - Tokens are created via `tb --cloud deploy` (Tinybird Forward requires resource-scoped tokens in data files, not via CLI `token create`).
 
+### Redis is optional
+
+Production sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the Marketplace `KV_REST_API_*` pair). That is what holds the slot lock, the 450/day Tinybird counter, workflow step bodies, and the warmed envelopes. The scheduled success path stays **378** Tinybird ops.
+
+When neither pair is set (local `next dev`, or a deploy without Upstash):
+
+- The workflow slot lock is skipped, so ingest still starts. A second cron in the same slot is not deduped.
+- Step bodies and the daily op counter stay in process memory. A single-process local run can finish. Separate Vercel isolates still need Redis to hand a body from one step to the next.
+- Public `queryPipe` reads Tinybird directly for the rolling window instead of returning 503. A past `?date=` is sliced from the narrowest warmed envelope that contains that London day. If the envelope is missing, or the day is older than every warmed window, one civil-day pipe read is counted on the daily budget and cached for the historical TTL (one day fresh, seven days stale). That read is not part of the 378 success path. Without Redis the same civil-day read still runs, counted only in that process. Set Redis before relying on the 450 cap across instances.
+
 ## Conventions
 
 ### Tailwind v4

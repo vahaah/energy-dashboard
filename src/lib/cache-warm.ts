@@ -1,6 +1,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { dangerouslyDeleteByTag } from "@vercel/functions";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
+import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { DASHBOARD_PERIODS } from "@/lib/dashboard-period";
 import {
   dashboardPayloadCacheKey,
@@ -34,8 +35,21 @@ export async function publishAfterSuccess(
   } catch {
     // Local and CI have no Vercel purge credentials.
   }
+  await rebuildDashboardDayPayload(now);
   const ops = await readTinybirdOps(now);
   console.info("[workflow] publish", { ops });
+}
+
+async function rebuildDashboardDayPayload(now: Date): Promise<void> {
+  if (!getRedis()) {
+    return;
+  }
+  try {
+    await loadDashboardPayload({ period: "day", now });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[workflow] dashboard day rebuild failed", message);
+  }
 }
 
 export async function dropComposedDashboardPayloads(): Promise<void> {

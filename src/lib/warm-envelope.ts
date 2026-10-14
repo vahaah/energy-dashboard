@@ -1,4 +1,3 @@
-import { FatalError } from "workflow";
 import { jsonBytes, stepStatus, type StepStatus } from "@/lib/step-status";
 import { pipeCacheIdentity, type QueryPipeOptions } from "@/lib/tinybird";
 import { getRedis, peekThroughCache, redisKeyFor } from "@/lib/redis-cache";
@@ -22,7 +21,7 @@ export async function storeWarmedRows<T>(
 ): Promise<StepStatus> {
   const redis = getRedis();
   if (!redis) {
-    throw new FatalError("redis unavailable for warmed envelope");
+    return stepStatus(true, rows.length, jsonBytes(rows));
   }
 
   const options: QueryPipeOptions = { range: spec.range, now };

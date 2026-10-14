@@ -81,6 +81,22 @@ describe("/api/prices public commodities", () => {
     expect(body.count).toBe(1);
   });
 
+  it("filters a commodity locally and does not pass it to the pipe", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/prices?range=30d&commodity=brent_crude")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual([brent]);
+    expect(body.count).toBe(1);
+    expect(queryPipe).toHaveBeenCalledWith(
+      "prices_range",
+      expect.not.objectContaining({ commodity: expect.anything() }),
+      expect.objectContaining({ range: "30d" })
+    );
+  });
+
   it("returns World Bank monthly series and hides leftover TTF", async () => {
     const response = await GET(new NextRequest("http://localhost/api/prices"));
     const body = await response.json();

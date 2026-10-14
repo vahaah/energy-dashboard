@@ -10,7 +10,8 @@
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { DASHBOARD_CACHE_TAG } from "@/lib/cache-tags";
-import { peekThroughCache } from "@/lib/redis-cache";
+import { isPastLondonDay, readDatedPipe } from "@/lib/dated-pipe";
+import { getRedis, peekThroughCache } from "@/lib/redis-cache";
 import {
   dateForTinybirdCacheKey,
   getTinybirdCachePolicy,
@@ -199,17 +200,73 @@ export function pipeCacheIdentity(
   return { logicalKey, policy };
 }
 
+function withoutCommodity(params?: Record<string, string>): {
+  commodity: string | null;
+  params?: Record<string, string>;
+} {
+  if (!params?.commodity) {
+    return { commodity: null, params };
+  }
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== "commodity") {
+      next[key] = value;
+    }
+  }
+  return { commodity: params.commodity, params: next };
+}
+
+function filterCommodity<T>(rows: T[], commodity: string | null): T[] {
+  if (!commodity) {
+    return rows;
+  }
+  return rows.filter((row) => {
+    if (!row || typeof row !== "object" || !("commodity" in row)) {
+      return false;
+    }
+    return (row as { commodity: unknown }).commodity === commodity;
+  });
+}
+
 export async function queryPipe<T = Record<string, unknown>>(
   pipeName: string,
   params?: Record<string, string>,
   options?: QueryPipeOptions
 ): Promise<T[]> {
+  const { commodity, params: pipeParams } = withoutCommodity(params);
+  const rows = await queryPipeUnfiltered<T>(pipeName, pipeParams, options);
+  return filterCommodity(rows, commodity);
+}
+
+async function queryPipeUnfiltered<T>(
+  pipeName: string,
+  params: Record<string, string> | undefined,
+  options?: QueryPipeOptions
+): Promise<T[]> {
+  const now = options?.now ?? new Date();
+  const date = options?.date ?? null;
+
+  // A past London day is sliced from the warmed envelope, or one bounded read
+  // cached on the historical TTL. Without Upstash there is no envelope, so
+  // this is still that civil-day read and the page does not 503.
+  if (date && isPastLondonDay(date, now)) {
+    return readDatedPipe<T>(pipeName, date, now, (dayParams) =>
+      fetchPipeRows<T>(pipeName, dayParams)
+    );
+  }
+
+  // No Upstash: read the rolling window directly so a page is never a 503
+  // solely because the warmed envelope cannot exist.
+  if (getRedis() == null) {
+    return fetchPipeRows<T>(pipeName, params);
+  }
+
   const { logicalKey, policy } = pipeCacheIdentity(pipeName, params, options);
   const cacheDate = dateForTinybirdCacheKey(options?.range, options?.date);
 
   // Request path reads the warmed Redis envelope through Next's data cache.
   // A miss must not call Tinybird — the workflow is the only reader.
-  const rows = await queryPipePerRequest<T>(pipeName, logicalKey, policy.revalidateSeconds, {
+  return queryPipePerRequest<T>(pipeName, logicalKey, policy.revalidateSeconds, {
     pipeName,
     params,
     range: options?.range,
@@ -217,5 +274,4 @@ export async function queryPipe<T = Record<string, unknown>>(
     now: options?.now,
     purpose: options?.purpose,
   });
-  return rows;
 }
