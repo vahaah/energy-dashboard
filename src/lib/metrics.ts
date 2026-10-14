@@ -84,7 +84,7 @@ export type Observation = {
 };
 
 const GEOGRAPHY_ID =
-  /^(?:GB|NI|UK|IE|ALL_ISLAND|GB_NTS|GB_DNO_[0-9]+|GB_GSP_[A-Z0-9]+|ONS_[A-Z][A-Z0-9]*_[A-Z0-9]+)$/;
+  /^(?:GB|NI|UK|IE|ALL_ISLAND|GB_NTS|GB_DNO_[0-9]+|GB_GSP_[A-Z0-9]+|ONS_[A-Z][A-Z0-9]*_[A-Z0-9]+|US|NW_EUROPE|JP|GLOBAL)$/;
 
 export function isGeographyId(value: string): boolean {
   if (value.toLowerCase().includes("national")) {
@@ -125,14 +125,6 @@ const GB_MW = {
 } as const;
 
 const HEADLINE_SOURCES = ["elexon-bmrs", "neso-open-data", "sheffield-pv-live"] as const;
-
-/**
- * WTI, Henry Hub, Europe gas and Japan LNG have no member in the geography
- * enum. They stay in the registry because the site shows them. geography_id
- * is GB as the dashboard context, and coverage names the delivery market.
- * That is not a claim that the hub is in Britain.
- */
-const EXTERNAL_PRICE_GEOGRAPHY = "GB";
 
 export const METRICS = {
   "elec.gb.demand.itsdo": {
@@ -311,14 +303,15 @@ export const METRICS = {
     metric_definition_version: 1,
     unit: "$/bbl",
     quantity_kind: "index",
-    geography_id: "UK",
+    geography_id: "GLOBAL",
     interval_convention: "calendar_day_utc_half_open",
     sign_convention: "positive_price",
     aggregation: "last",
     denominator: null,
     source_id: "eia",
     dataset_id: "PET.RBRTE.D",
-    coverage: "Europe Brent spot price FOB. North Sea marker. Stored ingest unit is $/BBL.",
+    coverage:
+      "EIA Europe Brent spot price FOB (PET.RBRTE.D), a global marker. Stored ingest unit is $/BBL.",
     expected_cadence: "P1D",
   },
   "commodity.wti.spot": {
@@ -326,15 +319,14 @@ export const METRICS = {
     metric_definition_version: 1,
     unit: "$/bbl",
     quantity_kind: "index",
-    geography_id: EXTERNAL_PRICE_GEOGRAPHY,
+    geography_id: "US",
     interval_convention: "calendar_day_utc_half_open",
     sign_convention: "positive_price",
     aggregation: "last",
     denominator: null,
     source_id: "eia",
     dataset_id: "PET.RWTC.D",
-    coverage:
-      "Cushing, OK WTI spot price FOB. Delivery is not in the geography enum; geography_id GB is the dashboard context, not the hub. Stored ingest unit is $/BBL.",
+    coverage: "Cushing, OK WTI spot price FOB. Stored ingest unit is $/BBL.",
     expected_cadence: "P1D",
   },
   "commodity.henry_hub.spot": {
@@ -342,15 +334,14 @@ export const METRICS = {
     metric_definition_version: 1,
     unit: "$/MMBtu",
     quantity_kind: "index",
-    geography_id: EXTERNAL_PRICE_GEOGRAPHY,
+    geography_id: "US",
     interval_convention: "calendar_day_utc_half_open",
     sign_convention: "positive_price",
     aggregation: "last",
     denominator: null,
     source_id: "eia",
     dataset_id: "NG.RNGWHHD.D",
-    coverage:
-      "Henry Hub spot gas. Delivery is Louisiana, which the geography enum cannot name; geography_id GB is the dashboard context, not the hub. Stored ingest unit is $/MMBTU.",
+    coverage: "Henry Hub spot gas, Louisiana. Stored ingest unit is $/MMBTU.",
     expected_cadence: "P1D",
   },
   "commodity.eu_natural_gas.spot": {
@@ -358,15 +349,14 @@ export const METRICS = {
     metric_definition_version: 1,
     unit: "$/MMBtu",
     quantity_kind: "index",
-    geography_id: EXTERNAL_PRICE_GEOGRAPHY,
+    geography_id: "NW_EUROPE",
     interval_convention: "calendar_month_utc_half_open",
     sign_convention: "positive_price",
     aggregation: "last",
     denominator: null,
     source_id: "world-bank-pink-sheet",
     dataset_id: "Natural gas, Europe",
-    coverage:
-      "World Bank Pink Sheet monthly Europe natural gas. The enum has no Europe member; geography_id GB is the dashboard context, not the market.",
+    coverage: "World Bank Pink Sheet monthly Northwest Europe natural gas.",
     expected_cadence: "P1M",
   },
   "commodity.lng_asia.spot": {
@@ -374,15 +364,14 @@ export const METRICS = {
     metric_definition_version: 1,
     unit: "$/MMBtu",
     quantity_kind: "index",
-    geography_id: EXTERNAL_PRICE_GEOGRAPHY,
+    geography_id: "JP",
     interval_convention: "calendar_month_utc_half_open",
     sign_convention: "positive_price",
     aggregation: "last",
     denominator: null,
     source_id: "world-bank-pink-sheet",
     dataset_id: "Liquefied natural gas, Japan",
-    coverage:
-      "World Bank Pink Sheet monthly Japan LNG import price. The enum has no Japan member; geography_id GB is the dashboard context, not the market.",
+    coverage: "World Bank Pink Sheet monthly Japan LNG import price.",
     expected_cadence: "P1M",
   },
   "commodity.gb_gas_sap.price": {

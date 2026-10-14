@@ -103,7 +103,22 @@ describe("metric registry", () => {
 
 describe("geography enum", () => {
   it("accepts the closed geography ids", () => {
-    for (const id of ["GB", "NI", "UK", "IE", "ALL_ISLAND", "GB_NTS", "GB_DNO_10", "GB_DNO_0", "GB_GSP_ABHA", "ONS_LAD_E09000001"]) {
+    for (const id of [
+      "GB",
+      "NI",
+      "UK",
+      "IE",
+      "ALL_ISLAND",
+      "GB_NTS",
+      "GB_DNO_10",
+      "GB_DNO_0",
+      "GB_GSP_ABHA",
+      "ONS_LAD_E09000001",
+      "US",
+      "NW_EUROPE",
+      "JP",
+      "GLOBAL",
+    ]) {
       expect(isGeographyId(id), id).toBe(true);
     }
   });
@@ -115,10 +130,11 @@ describe("geography enum", () => {
       "GB_NATIONAL",
       "GB_national_demand",
       "NATIONAL",
-      "US",
       "WORLD",
       "EU",
-      "JP",
+      "EUROPE",
+      "ASIA",
+      "USA",
       "GB_DNO_",
       "GB_DNO_n",
       "GB_GSP_",
@@ -129,5 +145,14 @@ describe("geography enum", () => {
     ]) {
       expect(isGeographyId(id), id).toBe(false);
     }
+  });
+
+  it("tags commodity markets with their own geography", () => {
+    expect(METRICS["commodity.brent.spot"].geography_id).toBe("GLOBAL");
+    expect(METRICS["commodity.wti.spot"].geography_id).toBe("US");
+    expect(METRICS["commodity.henry_hub.spot"].geography_id).toBe("US");
+    expect(METRICS["commodity.eu_natural_gas.spot"].geography_id).toBe("NW_EUROPE");
+    expect(METRICS["commodity.lng_asia.spot"].geography_id).toBe("JP");
+    expect(METRICS["commodity.gb_gas_sap.price"].geography_id).toBe("GB_NTS");
   });
 });
