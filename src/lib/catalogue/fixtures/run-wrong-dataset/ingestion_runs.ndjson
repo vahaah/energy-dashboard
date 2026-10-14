@@ -1,0 +1,1 @@
+{"catalogue_schema_version":1,"ingestion_run_id":"run-itsdo","dataset_id":"elexon-bmrs:ITSDO","source_release_id":"national-gas:PUBOB603:sha256:04a9ea2dd3a938dffdb0b8ce8f9d4ad37216a67b193209d521cb364f30db33be","started_at":"2026-01-15T00:00:00.000Z","finished_at":"2026-01-15T00:00:00.000Z","status":"succeeded"}

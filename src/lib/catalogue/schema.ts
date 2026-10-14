@@ -29,7 +29,24 @@ export const CATALOGUE_FILES = {
 const ISO_DURATION =
   /^P(?!$)(?:\d+Y)?(?:\d+M)?(?:\d+W)?(?:\d+D)?(?:T(?:\d+H)?(?:\d+M)?(?:\d+S)?)?$/;
 
-const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/;
+const ISO_INSTANT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
+
+/**
+ * `2026-02-31T00:00:00.000Z` matches the shape and then overflows in `Date`.
+ * Compare that round-trip with the same millisecond the string claims.
+ */
+export function isUtcInstant(value: string): boolean {
+  const match = ISO_INSTANT.exec(value);
+  if (!match?.[1]) {
+    return false;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+  const fraction = (match[2] ?? "").padEnd(3, "0").slice(0, 3);
+  return parsed.toISOString() === `${match[1]}.${fraction}Z`;
+}
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
@@ -38,7 +55,7 @@ export const NATIONAL_GAS_PUBLICATION_ID = /^PUB[A-Z0-9]+$/;
 
 export const isoDurationSchema = z.string().regex(ISO_DURATION, "expected an ISO-8601 duration");
 
-export const instantSchema = z.string().regex(ISO_INSTANT, "expected a UTC instant");
+export const instantSchema = z.string().refine(isUtcInstant, "expected a real UTC instant");
 
 const requiredText = z.string().refine((value) => value.trim().length > 0, "required");
 
@@ -73,13 +90,12 @@ export const datasetSchema = z
   })
   .strict();
 
-export const releaseContentSchema = z
-  .object({
-    catalogue_key: requiredText,
-    cadence: isoDurationSchema,
-    metric_ids: z.array(requiredText).min(1),
-  })
-  .strict();
+/**
+ * Snapshot of the extracted payload. `content_hash` is the canonical JSON of
+ * this value. Catalogue key, cadence, and metric ids stay on the dataset, so
+ * a new extract of the same series gets a new hash.
+ */
+export const releaseContentSchema = z.json();
 
 export const sourceReleaseSchema = z
   .object({

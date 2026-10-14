@@ -15,7 +15,7 @@ function sortValue(value: unknown): unknown {
   return value;
 }
 
-/** Stable JSON for hashes and release equality. Key order does not matter; array order does. */
+/** Stable JSON for extract hashes. Release lines are compared as committed bytes, not this form. */
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(sortValue(value));
 }

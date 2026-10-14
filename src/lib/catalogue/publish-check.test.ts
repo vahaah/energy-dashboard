@@ -14,6 +14,7 @@ const GAS_METRIC = [
     metric_id: "commodity.gb_gas_sap.price",
     dataset_id: "PUBOB603",
     source_id: "national-gas",
+    expected_cadence: "P1D",
   },
 ] as const satisfies readonly CatalogueMetricRef[];
 
@@ -22,8 +23,11 @@ const ITSDO_METRIC = [
     metric_id: "elec.gb.demand.itsdo",
     dataset_id: "ITSDO",
     source_id: "elexon-bmrs",
+    expected_cadence: "PT30M",
   },
 ] as const satisfies readonly CatalogueMetricRef[];
+
+const PARTIAL = { fullRegistry: false } as const;
 
 describe("publish-check", () => {
   it("accepts the checked-in catalogue", () => {
@@ -32,14 +36,14 @@ describe("publish-check", () => {
   });
 
   it("fails when a source has no licence", () => {
-    const result = checkCatalogue(resolve(FIXTURES, "missing-licence"), { fullRegistry: false, metrics: [] });
+    const result = checkCatalogue(resolve(FIXTURES, "missing-licence"), { ...PARTIAL, metrics: [] });
     expect(result.ok).toBe(false);
     expect(result.errors.join("\n")).toMatch(/licence_url/);
   });
 
   it("fails when a dataset points at a source that is not in the catalogue", () => {
     const result = checkCatalogue(resolve(FIXTURES, "dangling-reference"), {
-      fullRegistry: false,
+      ...PARTIAL,
       metrics: ITSDO_METRIC,
     });
     expect(result.ok).toBe(false);
@@ -51,14 +55,65 @@ describe("publish-check", () => {
   it("fails when an existing release id changes content", () => {
     const baselineDir = resolve(FIXTURES, "mutated-release/baseline");
     const candidateDir = resolve(FIXTURES, "mutated-release/candidate");
-    const options = { fullRegistry: false, metrics: GAS_METRIC };
+    const options = { ...PARTIAL, metrics: GAS_METRIC };
     expect(checkCatalogue(baselineDir, options)).toEqual({ ok: true, errors: [] });
     expect(checkCatalogue(candidateDir, options)).toEqual({ ok: true, errors: [] });
     const mutated = checkCatalogue(candidateDir, { ...options, baselineDir });
     expect(mutated).toEqual({
       ok: false,
-      errors: ["source_release_id national-gas:PUBOB603:2026-01-15T00:00:00.000Z changed content"],
+      errors: ["source_release_id national-gas:PUBOB603:2026-01-15T00:00:00.000Z is not the committed line"],
     });
+  });
+
+  it("fails when an existing release line is reordered", () => {
+    const baselineDir = resolve(FIXTURES, "reordered-release/baseline");
+    const candidateDir = resolve(FIXTURES, "reordered-release/candidate");
+    const options = { ...PARTIAL, metrics: GAS_METRIC };
+    expect(checkCatalogue(baselineDir, options)).toEqual({ ok: true, errors: [] });
+    expect(checkCatalogue(candidateDir, options)).toEqual({ ok: true, errors: [] });
+    const reordered = checkCatalogue(candidateDir, { ...options, baselineDir });
+    expect(reordered).toEqual({
+      ok: false,
+      errors: [
+        "source_release_id national-gas:PUBOB603:sha256:ada2a7e7ad06c2635897689f51e1582cb322e4688c76365b729bebdcfa5663bb is not the committed line",
+      ],
+    });
+  });
+
+  it("fails when a run's release belongs to another dataset", () => {
+    const result = checkCatalogue(resolve(FIXTURES, "run-wrong-dataset"), {
+      ...PARTIAL,
+      metrics: [...ITSDO_METRIC, ...GAS_METRIC],
+    });
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        "ingestion run run-itsdo release national-gas:PUBOB603:sha256:04a9ea2dd3a938dffdb0b8ce8f9d4ad37216a67b193209d521cb364f30db33be belongs to national-gas:PUBOB603, not elexon-bmrs:ITSDO",
+      ],
+    });
+  });
+
+  it("fails when dataset cadence matches no metric expected_cadence", () => {
+    const result = checkCatalogue(resolve(FIXTURES, "wrong-cadence"), {
+      ...PARTIAL,
+      metrics: GAS_METRIC,
+    });
+    expect(result).toEqual({
+      ok: false,
+      errors: ["national-gas:PUBOB603: cadence PT1H does not match expected_cadence P1D"],
+    });
+  });
+
+  it("fails on an impossible UTC instant", () => {
+    const result = checkCatalogue(resolve(FIXTURES, "impossible-instant"), { ...PARTIAL, metrics: [] });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join("\n")).toMatch(/real UTC instant/);
+  });
+
+  it("accepts a second extract of the same dataset when the hash covers that extract", () => {
+    expect(
+      checkCatalogue(resolve(FIXTURES, "second-extract"), { ...PARTIAL, metrics: GAS_METRIC }),
+    ).toEqual({ ok: true, errors: [] });
   });
 });
 

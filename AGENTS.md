@@ -131,15 +131,15 @@ data/catalogue/
 └── ingestion_runs.ndjson     # append-only runs (empty until an import records one)
 ```
 
-Zod schemas live in `src/lib/catalogue/schema.ts` (`catalogue_schema_version` 1). `npm run publish-check` validates them. CI runs that script. On a pull request it also compares `source_releases.ndjson` to `GITHUB_BASE_REF` and fails if an existing release id was edited or removed.
+Zod schemas live in `src/lib/catalogue/schema.ts` (`catalogue_schema_version` 1). `npm run publish-check` validates them. CI runs that script. On a pull request it compares each existing release to the committed NDJSON line on `GITHUB_BASE_REF`. A reformatted or reordered line fails. Removing a line fails. Instants must round-trip through `Date`.
 
 Identifiers:
 
 - `source_id` is a slug from `DATA_SOURCE_IDS` in `src/lib/attribution.ts` (`elexon-bmrs`, `neso-open-data`, `carbon-intensity`, `sheffield-pv-live`, `eia`, `world-bank-pink-sheet`, `national-gas`).
 - `dataset_id` is `{source_id}:{catalogue_key}`. The catalogue key is the `dataset_id` already stored on each metric in `src/lib/metrics.ts`. National Gas keys are the portal publication id (`PUBOB603` for the System Average Price). Do not invent a slug.
-- `source_release_id` is `{dataset_id}:{published_at}` when the publisher timestamps the extract, otherwise `{dataset_id}:{content_hash}`. `content_hash` is `sha256:` plus the hex digest of the canonical JSON `content`. The id is immutable.
+- `source_release_id` is `{dataset_id}:{published_at}` when the publisher timestamps the extract, otherwise `{dataset_id}:{content_hash}`. `content_hash` is `sha256:` plus the hex digest of the canonical JSON `content`. `content` is the extract snapshot, not the dataset's catalogue key, cadence, or metric list, so a new extract of the same series gets a new id. The id's line is immutable.
 
-Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (ingest schedule: `PT1H` or `PT6H`). Each dataset row has the metric cadence (`expected_cadence` from the registry) and the `metric_ids` that read it. Derived headline balance is registered on `elexon-bmrs` because that source is one of the metric's sources and FUELINST is the spine. The key stays `headline-balance`.
+Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (ingest schedule: `PT1H` or `PT6H`). Each dataset row has the metric cadence (`expected_cadence` from `src/lib/metrics.ts`; `publish-check` rejects a cadence that matches none of the metrics on that dataset) and the `metric_ids` that read it. Derived headline balance is registered on `elexon-bmrs` because that source is one of the metric's sources and FUELINST is the spine. The key stays `headline-balance`.
 
 `/data-sources` reads `sources.json` through `cataloguePageSources()` in `src/lib/catalogue/page-sources.ts`. Keep that page's layout and sentences. The National Gas attribution in the catalogue is `Data sourced from the National Gas Transmission Data Portal.` Series captions elsewhere still use `NATIONAL_GAS_ATTRIBUTION`. The Elexon row stores the copyright year in the file. `dataSources(year)` in that same module restamps that one credit for callers that pass a year. Do not import the catalogue module from client components; `src/lib/attribution.ts` stays free of it so chart bundles do not pull the JSON or Zod. `/` stays `force-static`. This catalogue is not wired into Tinybird.
 
@@ -148,9 +148,9 @@ Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (inge
 REPD (Renewable Energy Planning Database) and DUKES (Digest of UK Energy Statistics) are not in the seed. A future import writes releases like this:
 
 1. Add the source slug to `DATA_SOURCE_IDS` and `CATALOGUE_SOURCE_IDS`, then add the `sources.json` and `datasets.json` rows. New National Gas datasets, if any, use the real publication id.
-2. Hash the extract (`sha256` of the bytes, or of the canonical JSON snapshot stored on the release). Build `source_release_id` from `dataset_id` plus `published_at`, or plus the content hash when the publisher has no timestamp.
-3. If that id is already a line in `source_releases.ndjson`, the new record must be byte-for-byte the same. `publish-check` fails a changed body. Append a new line for a new id. Do not edit or delete an old line.
-4. Append one `ingestion_runs.ndjson` line for the run (`ingestion_run_id`, `dataset_id`, `source_release_id`, `started_at`, `finished_at`, `status`).
+2. Hash the extract (`sha256` of the bytes, or of the canonical JSON snapshot stored on `content`). Do not hash the dataset's catalogue key, cadence, or metric list. Build `source_release_id` from `dataset_id` plus `published_at`, or plus the content hash when the publisher has no timestamp.
+3. If that id is already a line in `source_releases.ndjson`, the new line must be byte-for-byte the same, including key order. `publish-check` fails a changed line. Append a new line for a new id. Do not edit or delete an old line.
+4. Append one `ingestion_runs.ndjson` line for the run (`ingestion_run_id`, `dataset_id`, `source_release_id`, `started_at`, `finished_at`, `status`). `source_release_id` must be a release of that same `dataset_id`.
 
 Do not commit the large extract or geometry. A later change will put those objects in Vercel Blob and record the blob URL on the release. This schema has no blob field yet. Do not add Blob, the extracts, or the geometry in the catalogue PR.
 

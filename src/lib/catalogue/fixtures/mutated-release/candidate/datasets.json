@@ -4,7 +4,7 @@
     "dataset_id": "national-gas:PUBOB603",
     "source_id": "national-gas",
     "catalogue_key": "PUBOB603",
-    "cadence": "PT1H",
+    "cadence": "P1D",
     "metric_ids": [
       "commodity.gb_gas_sap.price"
     ]

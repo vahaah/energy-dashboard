@@ -1,6 +1,6 @@
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
-import { canonicalJson, sha256Prefixed } from "@/lib/catalogue/canonical";
-import { catalogueErrors, loadCatalogue } from "@/lib/catalogue/load";
+import { sha256Prefixed } from "@/lib/catalogue/canonical";
+import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
 import { METRICS } from "@/lib/metrics";
 import {
   CATALOGUE_SOURCE_IDS,
@@ -10,7 +10,6 @@ import {
   type CatalogueDataset,
   type CatalogueSource,
   type IngestionRun,
-  type SourceRelease,
 } from "@/lib/catalogue/schema";
 
 export type CatalogueMetricRef = {
@@ -18,6 +17,8 @@ export type CatalogueMetricRef = {
   /** Catalogue key, the same string `METRICS[id].dataset_id` already uses. */
   dataset_id: string;
   source_id: string | readonly string[];
+  /** `METRICS[id].expected_cadence`. Dataset cadence must match one listed metric. */
+  expected_cadence: string;
 };
 
 export type CheckResult = { ok: true; errors: [] } | { ok: false; errors: string[] };
@@ -40,6 +41,7 @@ function registryMetrics(): CatalogueMetricRef[] {
     metric_id: metric.metric_id,
     dataset_id: metric.dataset_id,
     source_id: metric.source_id,
+    expected_cadence: metric.expected_cadence,
   }));
 }
 
@@ -55,33 +57,30 @@ function sameMembers(left: readonly string[], right: readonly string[]): boolean
   return right.every((value) => seen.has(value));
 }
 
-function releaseContentMatchesDataset(release: SourceRelease, dataset: CatalogueDataset): boolean {
-  return (
-    release.content.catalogue_key === dataset.catalogue_key &&
-    release.content.cadence === dataset.cadence &&
-    canonicalJson(release.content.metric_ids) === canonicalJson(dataset.metric_ids)
-  );
-}
-
-export function releaseChanges(baseline: readonly SourceRelease[], candidate: readonly SourceRelease[]): string[] {
+export function releaseChanges(
+  baseline: readonly CatalogueReleaseLine[],
+  candidate: readonly CatalogueReleaseLine[],
+): string[] {
   const errors: string[] = [];
-  const byId = new Map<string, SourceRelease>();
-  for (const release of candidate) {
-    const previous = byId.get(release.source_release_id);
+  const byId = new Map<string, CatalogueReleaseLine>();
+  for (const record of candidate) {
+    const id = record.release.source_release_id;
+    const previous = byId.get(id);
     if (previous) {
-      errors.push(`duplicate source_release_id ${release.source_release_id}`);
+      errors.push(`duplicate source_release_id ${id}`);
       continue;
     }
-    byId.set(release.source_release_id, release);
+    byId.set(id, record);
   }
-  for (const release of baseline) {
-    const next = byId.get(release.source_release_id);
+  for (const record of baseline) {
+    const id = record.release.source_release_id;
+    const next = byId.get(id);
     if (!next) {
-      errors.push(`source_release_id ${release.source_release_id} was removed`);
+      errors.push(`source_release_id ${id} was removed`);
       continue;
     }
-    if (canonicalJson(release) !== canonicalJson(next)) {
-      errors.push(`source_release_id ${release.source_release_id} changed content`);
+    if (next.line !== record.line) {
+      errors.push(`source_release_id ${id} is not the committed line`);
     }
   }
   return errors;
@@ -156,6 +155,13 @@ function checkDatasets(
         metricOwners.set(metricId, dataset.dataset_id);
       }
     }
+    const listed = metrics.filter((metric) => dataset.metric_ids.includes(metric.metric_id));
+    if (listed.length > 0 && listed.every((metric) => metric.expected_cadence !== dataset.cadence)) {
+      const expected = [...new Set(listed.map((metric) => metric.expected_cadence))].join(", ");
+      errors.push(
+        `${dataset.dataset_id}: cadence ${dataset.cadence} does not match expected_cadence ${expected}`,
+      );
+    }
   }
 
   for (const metric of metrics) {
@@ -192,13 +198,17 @@ function checkDatasets(
   return errors;
 }
 
-function checkReleases(releases: readonly SourceRelease[], datasets: readonly CatalogueDataset[]): string[] {
+function checkReleases(
+  releases: readonly CatalogueReleaseLine[],
+  datasets: readonly CatalogueDataset[],
+): string[] {
   const errors: string[] = [];
-  const datasetsById = new Map(datasets.map((dataset) => [dataset.dataset_id, dataset]));
+  const datasetIds = new Set(datasets.map((dataset) => dataset.dataset_id));
   const seen = new Set<string>();
-  const matched = new Set<string>();
+  const covered = new Set<string>();
 
-  for (const release of releases) {
+  for (const record of releases) {
+    const release = record.release;
     if (seen.has(release.source_release_id)) {
       errors.push(`duplicate source_release_id ${release.source_release_id}`);
     }
@@ -214,31 +224,32 @@ function checkReleases(releases: readonly SourceRelease[], datasets: readonly Ca
     if (sha256Prefixed(release.content) !== release.content_hash) {
       errors.push(`${release.source_release_id}: content_hash does not match content`);
     }
-    const dataset = datasetsById.get(release.dataset_id);
-    if (!dataset) {
+    if (!datasetIds.has(release.dataset_id)) {
       errors.push(
         `dangling reference: source release ${release.source_release_id} points at missing dataset ${release.dataset_id}`,
       );
       continue;
     }
-    if (releaseContentMatchesDataset(release, dataset)) {
-      matched.add(dataset.dataset_id);
-    }
+    covered.add(release.dataset_id);
   }
 
   for (const dataset of datasets) {
-    if (!matched.has(dataset.dataset_id)) {
-      errors.push(`${dataset.dataset_id}: no source release matches the current dataset`);
+    if (!covered.has(dataset.dataset_id)) {
+      errors.push(`${dataset.dataset_id}: no source release`);
     }
   }
 
   return errors;
 }
 
-function checkRuns(runs: readonly IngestionRun[], datasets: readonly CatalogueDataset[], releases: readonly SourceRelease[]): string[] {
+function checkRuns(
+  runs: readonly IngestionRun[],
+  datasets: readonly CatalogueDataset[],
+  releases: readonly CatalogueReleaseLine[],
+): string[] {
   const errors: string[] = [];
   const datasetIds = new Set(datasets.map((dataset) => dataset.dataset_id));
-  const releaseIds = new Set(releases.map((release) => release.source_release_id));
+  const releasesById = new Map(releases.map((record) => [record.release.source_release_id, record.release]));
   const seen = new Set<string>();
   for (const run of runs) {
     if (seen.has(run.ingestion_run_id)) {
@@ -250,10 +261,17 @@ function checkRuns(runs: readonly IngestionRun[], datasets: readonly CatalogueDa
         `dangling reference: ingestion run ${run.ingestion_run_id} points at missing dataset ${run.dataset_id}`,
       );
     }
-    if (run.source_release_id !== null && !releaseIds.has(run.source_release_id)) {
-      errors.push(
-        `dangling reference: ingestion run ${run.ingestion_run_id} points at missing source release ${run.source_release_id}`,
-      );
+    if (run.source_release_id !== null) {
+      const release = releasesById.get(run.source_release_id);
+      if (!release) {
+        errors.push(
+          `dangling reference: ingestion run ${run.ingestion_run_id} points at missing source release ${run.source_release_id}`,
+        );
+      } else if (release.dataset_id !== run.dataset_id) {
+        errors.push(
+          `ingestion run ${run.ingestion_run_id} release ${run.source_release_id} belongs to ${release.dataset_id}, not ${run.dataset_id}`,
+        );
+      }
     }
     const status = run.status;
     switch (status) {

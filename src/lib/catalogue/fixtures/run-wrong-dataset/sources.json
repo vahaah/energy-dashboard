@@ -1,0 +1,24 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "elexon-bmrs",
+    "name": "Elexon BMRS / Insights",
+    "url": "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
+    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF.",
+    "licence": "Elexon BMRS Data Licence",
+    "licence_url": "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
+    "attribution": "Contains BMRS data © Elexon Limited copyright and database right 2026.",
+    "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "national-gas",
+    "name": "National Gas",
+    "url": "https://data.nationalgas.com",
+    "used_for": "Great Britain System Average Price (PUBOB603) in p/kWh.",
+    "licence": "Published as open operational data under the National Gas System Operator licence.",
+    "licence_url": "https://data.nationalgas.com",
+    "attribution": "Data sourced from the National Gas Transmission Data Portal.",
+    "cadence": "PT6H"
+  }
+]
