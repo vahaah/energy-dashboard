@@ -15,7 +15,7 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { METRICS, metricSourceIds, metricSourceLabel, type MetricId } from "@/lib/metrics";
+import { METRICS, metricSourceLabel, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
@@ -135,6 +135,7 @@ export function buildReading(input: {
     publicationStatus: input.publicationStatus,
     formatValue: (value) => formatReadingValue(value, metric.unit),
     schedule: stalenessSchedule(metric),
+    publicationLag: metric.publication_lag,
   });
   return {
     metric_id: input.metricId,
@@ -364,9 +365,6 @@ function includedObservations(
 function stalenessSchedule(metric: (typeof METRICS)[MetricId]): StalenessSchedule {
   if (metric.interval_convention === "uk_settlement_period_half_open") {
     return "settlement";
-  }
-  if (metricSourceIds(metric).includes("eia") && /^P\d+D$/.test(metric.expected_cadence)) {
-    return "business_day";
   }
   return "calendar";
 }

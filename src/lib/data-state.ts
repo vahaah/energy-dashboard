@@ -1,6 +1,5 @@
-import { isWeekdayDate } from "@/lib/commodity-gaps";
 import { HOURLY_CRON_STALE_MS } from "@/lib/health";
-import { addUtcDays, getLondonDateTimeParts, parseUtcDateTime } from "@/lib/london-time";
+import { getLondonDateTimeParts, parseUtcDateTime } from "@/lib/london-time";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 
 /** Missing figures. Never coerce a gap to 0. */
@@ -106,33 +105,47 @@ const SETTLEMENT_PERIOD_MS = 30 * 60 * 1000;
  */
 export const SETTLEMENT_PUBLICATION_GRACE_MS = HOURLY_CRON_STALE_MS - SETTLEMENT_PERIOD_MS;
 
-export type StalenessSchedule = "calendar" | "settlement" | "business_day";
+export type StalenessSchedule = "calendar" | "settlement";
+
+export const NO_PUBLICATION_LAG = "PT0S";
 
 export function isBeyondCadence(
   publishedAt: string,
   now: Date,
   cadence: string,
-  schedule: StalenessSchedule = "calendar"
+  schedule: StalenessSchedule = "calendar",
+  publicationLag = NO_PUBLICATION_LAG
 ): boolean {
   const published = parseUtcDateTime(publishedAt);
   if (Number.isNaN(published.getTime())) {
     return false;
   }
-  const deadline = stalenessDeadline(published, cadence, schedule);
+  const deadline = stalenessDeadline(published, cadence, schedule, publicationLag);
   if (!deadline) {
     return false;
   }
   return now.getTime() > deadline.getTime();
 }
 
-function stalenessDeadline(published: Date, cadence: string, schedule: StalenessSchedule): Date | null {
+function stalenessDeadline(
+  published: Date,
+  cadence: string,
+  schedule: StalenessSchedule,
+  publicationLag: string
+): Date | null {
+  const opened = openedDeadline(published, cadence, schedule);
+  if (!opened) {
+    return null;
+  }
+  return extendByLag(opened, publicationLag);
+}
+
+function openedDeadline(published: Date, cadence: string, schedule: StalenessSchedule): Date | null {
   switch (schedule) {
     case "calendar":
       return cadenceDeadline(published, cadence);
     case "settlement":
       return new Date(getSettlementPeriod(published).endUtc.getTime() + SETTLEMENT_PUBLICATION_GRACE_MS);
-    case "business_day":
-      return businessDayDeadline(published, cadence);
     default: {
       const exhaustive: never = schedule;
       return exhaustive;
@@ -140,25 +153,11 @@ function stalenessDeadline(published: Date, cadence: string, schedule: Staleness
   }
 }
 
-/** Next publication is `PnD` weekdays ahead. Saturday and Sunday are not print days. */
-function businessDayDeadline(published: Date, cadence: string): Date | null {
-  const match = /^P(\d+)D$/.exec(cadence);
-  if (!match) {
-    return cadenceDeadline(published, cadence);
+function extendByLag(deadline: Date, publicationLag: string): Date | null {
+  if (publicationLag === NO_PUBLICATION_LAG || publicationLag === "P0D") {
+    return deadline;
   }
-  const days = Number(match[1]);
-  if (!Number.isFinite(days) || days <= 0) {
-    return null;
-  }
-  let date = published.toISOString().slice(0, 10);
-  let left = days;
-  while (left > 0) {
-    date = addUtcDays(date, 1);
-    if (isWeekdayDate(date)) {
-      left -= 1;
-    }
-  }
-  return parseUtcDateTime(`${date}T00:00:00.000Z`);
+  return cadenceDeadline(deadline, publicationLag);
 }
 
 export type PublicationAssessment = {
@@ -178,6 +177,7 @@ export function assessPublication(input: {
   publicationStatus?: PublicationMark | null;
   formatValue?: (value: number) => string;
   schedule?: StalenessSchedule;
+  publicationLag?: string;
 }): PublicationAssessment {
   const publishedLabel = input.expectedCadence.startsWith("PT")
     ? formatHealthClock(input.publishedAt)
@@ -197,7 +197,13 @@ export function assessPublication(input: {
 
   const stale =
     input.publishedAt != null &&
-    isBeyondCadence(input.publishedAt, input.now, input.expectedCadence, input.schedule ?? "calendar");
+    isBeyondCadence(
+      input.publishedAt,
+      input.now,
+      input.expectedCadence,
+      input.schedule ?? "calendar",
+      input.publicationLag ?? NO_PUBLICATION_LAG
+    );
 
   if (stale) {
     return { stale: true, state: "stale", valueLabel, publishedLabel, retrievedLabel };

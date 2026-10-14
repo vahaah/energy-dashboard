@@ -45,6 +45,8 @@ export type MetricDefinition = {
   dataset_id: string;
   coverage: string;
   expected_cadence: string;
+  /** Extra wait after one cadence interval before a missing newer print is stale. */
+  publication_lag: string;
 };
 
 /**
