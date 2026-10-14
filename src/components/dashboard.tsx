@@ -80,8 +80,8 @@ import { TimeRangeSelector } from "@/components/time-range-selector";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
 import {
   CARD_PAD,
-  CARD_PAD_RIGHT_FROM_SM,
-  CARD_PAD_X_FROM_SM,
+  CARD_PAD_RIGHT_FROM_LG,
+  CARD_PAD_X_FROM_LG,
   Card,
   CardEmpty,
   CardError,
@@ -570,15 +570,11 @@ export function Dashboard({
             <CommoditySkeleton />
           ) : initialPrices.length > 0 ? (
             <>
-              <div className="grid sm:grid-cols-3">
+              <div className="grid lg:grid-cols-3">
                 {commodityCards.map(({ commodity, latest, absoluteDelta, percentageDelta }) => (
                   <div
                     key={commodity}
-                    className={
-                      commodity === commodityCards[0]?.commodity
-                        ? `pb-4 sm:pb-0 ${CARD_PAD_RIGHT_FROM_SM}`
-                        : `border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:py-0 ${CARD_PAD_X_FROM_SM}`
-                    }
+                    className={commodityColumnClass(commodity === commodityCards[0]?.commodity)}
                   >
                     {commodity === GB_GAS_SAP_COMMODITY ? (
                       <GbGasSapCard
@@ -863,19 +859,18 @@ function TransfersSkeleton() {
   );
 }
 
+function commodityColumnClass(first: boolean): string {
+  return first
+    ? `pb-4 lg:pb-0 ${CARD_PAD_RIGHT_FROM_LG}`
+    : `border-t border-gray-alpha-400 py-4 lg:border-t-0 lg:border-l lg:py-0 ${CARD_PAD_X_FROM_LG}`;
+}
+
 function CommoditySkeleton() {
   return (
     <>
-      <div className="grid sm:grid-cols-3">
+      <div className="grid lg:grid-cols-3">
         {COMMODITY_CARD_KEYS.map((commodity) => (
-          <div
-            key={commodity}
-            className={
-              commodity === COMMODITY_CARD_KEYS[0]
-                ? `pb-4 sm:pb-0 ${CARD_PAD_RIGHT_FROM_SM}`
-                : `border-t border-gray-alpha-400 py-4 sm:border-t-0 sm:border-l sm:py-0 ${CARD_PAD_X_FROM_SM}`
-            }
-          >
+          <div key={commodity} className={commodityColumnClass(commodity === COMMODITY_CARD_KEYS[0])}>
             <Skeleton className="h-28 w-full" />
           </div>
         ))}

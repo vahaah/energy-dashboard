@@ -16,10 +16,26 @@ const PAGES = [
 
 const VIEWPORTS = [
   { width: 1280, height: 900 },
+  { width: 1279, height: 900 },
   { width: 1024, height: 900 },
+  { width: 1023, height: 900 },
   { width: 768, height: 900 },
+  { width: 767, height: 900 },
+  { width: 640, height: 900 },
+  { width: 639, height: 900 },
   { width: 390, height: 844 },
 ] as const;
+
+const PRICE_FIXTURE = {
+  data: [
+    { date: "2026-09-01", commodity: "brent_crude", price: 70.1, currency: "USD", unit: "$/BBL" },
+    { date: "2026-10-09", commodity: "brent_crude", price: 66.42, currency: "USD", unit: "$/BBL" },
+    { date: "2026-09-01", commodity: "henry_hub_gas", price: 2.9, currency: "USD", unit: "$/MMBTU" },
+    { date: "2026-10-09", commodity: "henry_hub_gas", price: 3.12, currency: "USD", unit: "$/MMBTU" },
+    { date: "2026-09-01", commodity: "gb_gas_sap", price: 2.4, currency: "GBP", unit: "p/kWh" },
+    { date: "2026-10-09", commodity: "gb_gas_sap", price: 2.8, currency: "GBP", unit: "p/kWh" },
+  ],
+};
 
 const THEMES = ["dark", "light"] as const;
 
@@ -279,9 +295,77 @@ async function auditLayout(page: Page): Promise<LayoutIssue[]> {
       }
     }
 
+    function textBounds(el: Element): { left: number; right: number; top: number; bottom: number } | null {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width > 1 && rect.height > 1);
+      if (rects.length === 0) {
+        return null;
+      }
+      return {
+        left: Math.min(...rects.map((rect) => rect.left)),
+        right: Math.max(...rects.map((rect) => rect.right)),
+        top: Math.min(...rects.map((rect) => rect.top)),
+        bottom: Math.max(...rects.map((rect) => rect.bottom)),
+      };
+    }
+
+    function columnOf(el: Element): HTMLElement | null {
+      let node = el.parentElement;
+      while (node?.parentElement) {
+        const display = getComputedStyle(node.parentElement).display;
+        if (
+          display === "grid" ||
+          display === "inline-grid" ||
+          display === "flex" ||
+          display === "inline-flex"
+        ) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return null;
+    }
+
     for (const figure of document.querySelectorAll("[data-figure]")) {
       if (!visible(figure)) {
         continue;
+      }
+      const bounds = textBounds(figure);
+      const column = bounds ? columnOf(figure) : null;
+      if (bounds && column && visible(column)) {
+        const col = column.getBoundingClientRect();
+        const figureText = (figure.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 90);
+        if (
+          bounds.left < col.left - tol ||
+          bounds.right > col.right + tol ||
+          bounds.top < col.top - tol ||
+          bounds.bottom > col.bottom + tol
+        ) {
+          issues.push({
+            kind: "figure-column",
+            text: figureText,
+            detail: `text ${Math.round(bounds.left)},${Math.round(bounds.top)}–${Math.round(bounds.right)},${Math.round(bounds.bottom)} column ${Math.round(col.left)},${Math.round(col.top)}–${Math.round(col.right)},${Math.round(col.bottom)}`,
+          });
+        }
+        const parent = column.parentElement;
+        if (parent) {
+          for (const sibling of parent.children) {
+            if (sibling === column || !visible(sibling)) {
+              continue;
+            }
+            const sib = sibling.getBoundingClientRect();
+            const overlapX = Math.min(bounds.right, sib.right) - Math.max(bounds.left, sib.left);
+            const overlapY = Math.min(bounds.bottom, sib.bottom) - Math.max(bounds.top, sib.top);
+            if (overlapX > tol && overlapY > tol) {
+              issues.push({
+                kind: "figure-overlap",
+                text: figureText,
+                detail: `overlaps ${describe(sibling)} by ${Math.round(overlapX)}×${Math.round(overlapY)}px`,
+              });
+            }
+          }
+        }
       }
       const value = figure.querySelector("[data-value]");
       const unit = figure.querySelector("[data-unit]");
@@ -399,8 +483,18 @@ for (const theme of THEMES) {
     for (const path of PAGES) {
       test(`${theme} ${viewport.width} ${path} keeps card text inside padding`, async ({ page }) => {
         await prepare(page, theme, viewport.width, viewport.height);
+        await page.route("**/api/prices**", (route) =>
+          route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(PRICE_FIXTURE),
+          })
+        );
         await page.goto(path, { waitUntil: "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
+        if (path === "/") {
+          await page.getByText("Henry Hub gas").waitFor();
+        }
         const file = `test-results/layout/${theme}-${viewport.width}-${slug(path)}.png`;
         await page.screenshot({ path: file, fullPage: true });
         const layoutIssues = await auditLayout(page);

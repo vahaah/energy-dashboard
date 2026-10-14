@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 /** Responsive card inset. 1rem, then 1.5rem from 640px. See `--card-pad`. */
 export const CARD_PAD_X = "px-[var(--card-pad)]";
-export const CARD_PAD_X_FROM_SM = "sm:px-[var(--card-pad)]";
-export const CARD_PAD_RIGHT_FROM_SM = "sm:pr-[var(--card-pad)]";
+export const CARD_PAD_X_FROM_LG = "lg:px-[var(--card-pad)]";
+export const CARD_PAD_RIGHT_FROM_LG = "lg:pr-[var(--card-pad)]";
 export const CARD_PAD_TOP = "pt-[var(--card-pad)]";
 export const CARD_PAD_BOTTOM = "pb-[var(--card-pad)]";
 export const CARD_PAD = "p-[var(--card-pad)]";
