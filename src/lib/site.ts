@@ -27,7 +27,7 @@ export const GAS_H1 = "UK gas price today";
 
 export const DATA_HEALTH_TITLE = "Data health — Grid";
 export const DATA_HEALTH_DESCRIPTION =
-  "Published time from each source and when Grid retrieved it, checked against that series' expected cadence.";
+  "Published time from each source and when Grid retrieved it, checked against that series' expected cadence and publication lag.";
 export const DATA_HEALTH_H1 = "Data health";
 
 export const METHODOLOGY_TITLE = "How Grid's numbers are made: sources and method";

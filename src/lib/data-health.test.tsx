@@ -44,6 +44,9 @@ describe("data health clocks", () => {
     expect(html).toContain('data-state="stale"');
     expect(html).toContain("Stale");
     expect(html).toContain("Elexon BMRS");
+    expect(reading.publication_lag).toBe("PT0S");
+    expect(reading.publication_lag_label).toBeNull();
+    expect(html).not.toContain("Published about");
   });
 
   it("does not mark an annual cadence stale at 48 hours", () => {
@@ -93,9 +96,14 @@ describe("data health clocks", () => {
     });
 
     expect(fresh.published_label).toBe("13 Oct 2026");
+    expect(fresh.publication_lag).toBe("P1D");
+    expect(fresh.publication_lag_label).toBe("Published about 1 day after the gas day");
     expect(fresh.stale).toBe(false);
     expect(fresh.state).toBeNull();
     expect(overdue.stale).toBe(true);
+    expect(renderToStaticMarkup(<DataHealthReading reading={fresh} featured />)).toContain(
+      "Published about 1 day after the gas day"
+    );
   });
 
   it("keeps the prior World Bank month fresh in early month+1", () => {
@@ -116,6 +124,9 @@ describe("data health clocks", () => {
     });
 
     expect(september.published_label).toBe("1 Sep 2026");
+    expect(september.publication_lag).toBe("P1M");
+    expect(september.publication_lag_label).toBe("Published about 1 month after the month");
+    expect(august.publication_lag_label).toBe("Published about 1 month after the month");
     expect(september.stale).toBe(false);
     expect(september.state).toBeNull();
     expect(august.stale).toBe(true);
@@ -140,6 +151,8 @@ describe("data health clocks", () => {
         now: afterReleaseDay,
       });
       expect(fresh.published_label).toBe("6 Oct 2026");
+      expect(fresh.publication_lag).toBe("P8D");
+      expect(fresh.publication_lag_label).toBe("Published about 8 days after the trading day");
       expect(fresh.stale).toBe(false);
       expect(fresh.state).toBeNull();
       expect(overdue.stale).toBe(true);

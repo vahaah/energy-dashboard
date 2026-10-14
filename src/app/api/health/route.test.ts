@@ -153,12 +153,13 @@ describe("/api/health", () => {
     expect(response.status).toBe(200);
     expect(body.streams[0].stream).toBe("snapshots");
     expect(body.streams[0].stale).toBe(false);
-    expect(demand).toMatchObject({ stale: true, state: "stale" });
+    expect(demand).toMatchObject({ stale: true, state: "stale", publication_lag: "PT0S" });
     expect(demand.published_at).toEqual(expect.any(String));
     expect(demand.retrieved_at).toEqual(expect.any(String));
     expect(sap.published_at).toBe("2020-01-01T00:00:00.000Z");
     expect(sap.retrieved_at).toEqual(expect.any(String));
     expect(sap.stale).toBe(true);
+    expect(sap.publication_lag).toBe("P1D");
   });
 
   it("flags embedded from the older feed and from a missing feed", async () => {
