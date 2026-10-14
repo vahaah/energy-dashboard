@@ -230,6 +230,7 @@ export function Dashboard({
     topFuel: topShare?.fuel ?? null,
     topMw: topShare?.mw ?? null,
     topSharePct: topShare?.sharePct ?? null,
+    topShareDisplayPct: topShare?.displayPct ?? null,
     transfersMw: power.transfersMw,
     empty: facts.empty,
     horizon: generationPeriod === "year" || generationPeriod === "all" ? generationPeriod : "live",

@@ -48,6 +48,7 @@ describe("generation mix shares", () => {
     expect(formatSharePercent(shares[0]?.sharePct ?? 0)).toBe(
       formatSharePercent((18_800 / (18_800 + 6_200 + 4_100 + 2_500 + 1_100 + 1_000 + 600 + 300)) * 100)
     );
+    expect(shares.reduce((total, share) => total + share.displayPct, 0)).toBe(100);
   });
 
   it("uses the same percentages from fuel totals and from settlement rows", () => {
@@ -110,6 +111,28 @@ describe("generation mix shares", () => {
     expect(shares.find((share) => share.fuel === "gas")?.mw).toBe(8_000);
     expect(shares.find((share) => share.fuel === "gas")?.sharePct).not.toBeCloseTo(100, 0);
     expect(sharesSumWithinTolerance(shares)).toBe(true);
+  });
+
+  it("sizes the bar from the exact share so a rounded-off fuel stays visible", () => {
+    const shares = generationMixShares(
+      [
+        row(PERIOD, "wind", 6_000),
+        row(PERIOD, "ccgt", 3_960),
+        row(PERIOD, "oil", 40),
+      ],
+      null
+    );
+    const oil = shares.find((share) => share.fuel === "oil");
+
+    expect(oil?.sharePct).toBeCloseTo(0.4, 5);
+    expect(oil?.displayPct).toBe(0);
+    expect(shareBarSegmentStyle(oil?.sharePct ?? 0).flexGrow).toBeCloseTo(0.4, 5);
+    expect(formatSharePercent(oil?.displayPct ?? -1)).toBe("0");
+    expect(shares.reduce((sum, share) => sum + share.displayPct, 0)).toBe(100);
+    expect(shares.reduce((sum, share) => sum + shareBarSegmentStyle(share.sharePct).flexGrow, 0)).toBeCloseTo(
+      100,
+      5
+    );
   });
 
   it("sizes the bar with flex-grow so the track cannot exceed 100%", () => {

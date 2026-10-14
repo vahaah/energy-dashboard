@@ -7,7 +7,10 @@ export type AnswerHorizon = "live" | "year" | "all";
 export type AnswerSentenceInput = {
   topFuel: string | null;
   topMw: number | null;
+  /** Exact share. “Most” means 50% or more of this value. */
   topSharePct?: number | null;
+  /** Reconciled integer to print. Falls back to rounding `topSharePct`. */
+  topShareDisplayPct?: number | null;
   transfersMw: number | null;
   empty: boolean;
   horizon?: AnswerHorizon;
@@ -36,10 +39,21 @@ export function buildAnswerSentence(input: AnswerSentenceInput): string {
 }
 
 function magnitudeClause(input: AnswerSentenceInput): string {
-  if (input.topMw == null || input.topSharePct == null) {
+  const printed = printedSharePct(input);
+  if (input.topMw == null || printed == null) {
     return "";
   }
-  return ` at ${formatHeadlineGw(input.topMw)} GW (${Math.round(input.topSharePct)}%)`;
+  return ` at ${formatHeadlineGw(input.topMw)} GW (${printed}%)`;
+}
+
+function printedSharePct(input: AnswerSentenceInput): number | null {
+  if (input.topShareDisplayPct != null) {
+    return input.topShareDisplayPct;
+  }
+  if (input.topSharePct == null) {
+    return null;
+  }
+  return Math.round(input.topSharePct);
 }
 
 function leadClause(input: AnswerSentenceInput): string {

@@ -10,6 +10,7 @@ import {
   normalizeFuelType,
   splitLatestGenerationRows,
 } from "@/lib/dashboard-model";
+import { displayedPercents } from "@/lib/display-rounding";
 import { formatHeadlineGw } from "@/lib/facts";
 import { buildSettlementBalance } from "@/lib/headline-balance";
 import { formatSharePercent } from "@/lib/generation-share";
@@ -171,7 +172,32 @@ export function buildGroupedSourceTable(
             };
           });
 
-  return { groups, mix };
+  return { groups: generationMw > 0 ? applyDisplayedShareLabels(groups) : groups, mix };
+}
+
+function applyDisplayedShareLabels(groups: SourceGroupView[]): SourceGroupView[] {
+  const eligible = groups
+    .filter((group) => group.id !== "interconnectors")
+    .flatMap((group) => group.rows)
+    .filter((row) => row.mw != null && row.sharePct != null);
+  const percents = displayedPercents(eligible.map((row) => row.sharePct ?? 0));
+  const labelById = new Map(eligible.map((row, index) => [row.id, `${percents[index] ?? 0}%`]));
+
+  return groups.map((group) => {
+    const rows = group.rows.map((row) => {
+      const shareLabel = labelById.get(row.id);
+      return shareLabel ? { ...row, shareLabel } : row;
+    });
+    if (group.id === "interconnectors" || group.mw == null) {
+      return { ...group, rows };
+    }
+    const shown = rows.filter((row) => row.mw != null && row.shareLabel.endsWith("%"));
+    if (shown.length === 0) {
+      return { ...group, rows };
+    }
+    const sum = shown.reduce((total, row) => total + Number.parseInt(row.shareLabel, 10), 0);
+    return { ...group, rows, shareLabel: `${sum}%` };
+  });
 }
 
 function rowsForGroup(

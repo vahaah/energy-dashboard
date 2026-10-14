@@ -82,12 +82,13 @@ export function buildHomepageCite(input: {
     dateLabel: formatLondonCiteDate(at),
     topFuel: fuelLabel(top.fuel),
     topGw: formatHeadlineGw(top.mw),
-    topSharePct: Math.round(top.sharePct).toFixed(0),
-    gasSharePct: Math.round(gas?.sharePct ?? 0).toFixed(0),
+    topSharePct: String(top.displayPct),
+    gasSharePct: String(gas?.displayPct ?? 0),
     carbon: carbon.toFixed(0),
     price: price.toFixed(2),
-    demandGw: formatHeadlineGw(power.demandMw),
-    generationGw: formatHeadlineGw(power.generationMw),
+    demandGw: power.terms.find((term) => term.id === "demand")?.displayGw ?? formatHeadlineGw(power.demandMw),
+    generationGw:
+      power.terms.find((term) => term.id === "generation")?.displayGw ?? formatHeadlineGw(power.generationMw),
   };
 }
 

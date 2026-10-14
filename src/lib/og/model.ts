@@ -1,6 +1,13 @@
 import { DASHBOARD_FOCUSES } from "@/lib/dashboard-search-params";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
-import { balanceEquationSentence, getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
+import {
+  balanceEquationSentence,
+  getDisplayedPower,
+  termDisplayGw,
+  type DisplayedPower,
+  type HeadlineTermId,
+} from "@/lib/displayed-demand";
+import { displayedPercents } from "@/lib/display-rounding";
 import { formatHeadlineGw, type LatestFacts, type SupplyShare } from "@/lib/facts";
 import { FUEL_COLORS, fuelLabel, COMMODITY_CARD_LABELS } from "@/lib/colors";
 import {
@@ -48,6 +55,7 @@ export type OgMixSlice = {
   fuel: string;
   label: string;
   sharePct: number;
+  displayPct: number;
   mw: number;
   color: string;
 };
@@ -271,10 +279,12 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
   const power = getDisplayedPower(facts);
   const shares = headlineShares(facts, power);
   const top = shares[0] ?? null;
+  const shareDisplay = displayedPercents(shares.map((share) => share.sharePct));
   const title = buildAnswerSentence({
     topFuel: top?.fuel ?? null,
     topMw: top?.mw ?? null,
     topSharePct: top?.sharePct ?? null,
+    topShareDisplayPct: shareDisplay[0] ?? null,
     transfersMw: power.transfersMw ?? facts.netImportsMw.value,
     empty: facts.empty,
   });
@@ -286,7 +296,7 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
     metrics: [
       {
         label: "Demand",
-        value: `${formatHeadlineGw(power.demandMw)} GW`,
+        value: `${balanceFigure(power, "demand", power.demandMw)} GW`,
         hint: power.showEquals ? "Half-hour balance" : "ITSDO + embedded",
       },
       {
@@ -321,7 +331,7 @@ function priceCard(facts: LatestFacts | null): OgCard {
       { label: "System", value: formatPrice(facts.systemPrice.value), hint: "Imbalance" },
       {
         label: "Demand",
-        value: `${formatHeadlineGw(power.demandMw)} GW`,
+        value: `${balanceFigure(power, "demand", power.demandMw)} GW`,
       },
     ],
     mix: [],
@@ -340,7 +350,7 @@ function transfersCard(facts: LatestFacts | null): OgCard {
 
   const gross =
     power?.balanceClosed && power.importsMw != null && power.exportsMw != null
-      ? `Importing ${formatHeadlineGw(power.importsMw)} GW, exporting ${formatHeadlineGw(power.exportsMw)} GW`
+      ? `Importing ${balanceFigure(power, "imports", power.importsMw)} GW, exporting ${balanceFigure(power, "exports", power.exportsMw)} GW`
       : null;
   const importing = mw >= 0;
   return {
@@ -348,8 +358,14 @@ function transfersCard(facts: LatestFacts | null): OgCard {
     title: gross ?? `${importing ? "Importing" : "Exporting"} ${formatHeadlineGw(Math.abs(mw))} GW`,
     kicker: gross ? "Interconnector flows" : "Net interconnector flow",
     metrics: [
-      { label: "Generation", value: `${formatHeadlineGw(power?.generationMw ?? facts.generationMw.value)} GW` },
-      { label: "Demand", value: `${formatHeadlineGw(power?.demandMw ?? facts.demand.value)} GW` },
+      {
+        label: "Generation",
+        value: `${power ? balanceFigure(power, "generation", power.generationMw ?? facts.generationMw.value) : formatHeadlineGw(facts.generationMw.value)} GW`,
+      },
+      {
+        label: "Demand",
+        value: `${power ? balanceFigure(power, "demand", power.demandMw ?? facts.demand.value) : formatHeadlineGw(facts.demand.value)} GW`,
+      },
     ],
     mix: [],
     stamp: facts.stamp,
@@ -407,7 +423,7 @@ function carbonCard(facts: LatestFacts | null): OgCard {
     title: `${facts.carbon.value.toFixed(0)} gCO₂/kWh`,
     kicker: facts.carbon.index ? `Index: ${facts.carbon.index}` : "National carbon intensity",
     metrics: [
-      { label: "Demand", value: `${formatHeadlineGw(power.demandMw)} GW` },
+      { label: "Demand", value: `${balanceFigure(power, "demand", power.demandMw)} GW` },
       {
         label: "Largest source",
         value: top ? fuelLabel(top.fuel) : "—",
@@ -473,7 +489,7 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
     metrics: [
       {
         label: "Demand",
-        value: `${formatHeadlineGw(power.demandMw)} GW`,
+        value: `${balanceFigure(power, "demand", power.demandMw)} GW`,
       },
       {
         label: "Carbon",
@@ -583,7 +599,7 @@ function balanceFromPower(power: DisplayedPower): OgBalance | null {
   return {
     terms: power.terms.map((term) => ({
       label: term.label,
-      gw: formatHeadlineGw(term.mw == null ? null : Math.abs(term.mw)),
+      gw: term.displayGw,
       operator: term.operator,
     })),
     periodStamp: `${formatLondonCiteDate(parseUtcDateTime(start))} · ${formatPlainSettlementWindow(start)}`,
@@ -644,13 +660,19 @@ function pageCacheControl(page: OgPageId): string {
   }
 }
 
+function balanceFigure(power: DisplayedPower, id: HeadlineTermId, fallback: number | null): string {
+  return termDisplayGw(power, id) ?? formatHeadlineGw(fallback);
+}
+
 function mixSlices(shares: SupplyShare[]): OgMixSlice[] {
-  return shares.map((share) => {
+  const display = displayedPercents(shares.map((share) => share.sharePct));
+  return shares.map((share, index) => {
     const fuel = share.fuel;
     return {
       fuel,
       label: fuelLabel(fuel),
       sharePct: share.sharePct,
+      displayPct: display[index] ?? 0,
       mw: share.mw,
       color: FUEL_COLORS[fuel] ?? FUEL_COLORS.other ?? "#9ca3af",
     };

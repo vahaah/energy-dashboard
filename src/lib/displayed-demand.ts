@@ -1,10 +1,10 @@
 import { isEmbeddedFuel, splitLatestGenerationRows } from "@/lib/dashboard-model";
+import { formatDisplay, reconcileSignedDisplay } from "@/lib/display-rounding";
 import { formatHeadlineGw, type LatestFacts } from "@/lib/facts";
 import { alignAnswerPeriod } from "@/lib/generation-desk-view";
 import { STORAGE_CHARGING_MIN_MW } from "@/lib/generation-share";
 import {
   buildSettlementBalance,
-  headlineTermsClose,
   type SettlementBalance,
   type StorageChargingKind,
 } from "@/lib/headline-balance";
@@ -12,6 +12,8 @@ import { parseUtcDateTime } from "@/lib/london-time";
 import { homepageDemandFigureInputs } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
+
+const BALANCE_GW_QUANTUM = 0.1;
 
 export const DISPLAYED_DEMAND_STAT = "demand";
 
@@ -27,7 +29,8 @@ export type HeadlineTerm = {
   operator: HeadlineOperator | null;
   help: string;
   source: string;
-  roundingNote: string | null;
+  /** Gigawatts after shared display rounding. Closed equations use one basis. */
+  displayGw: string;
 };
 
 export type DisplayedPower = {
@@ -75,17 +78,7 @@ export function getDisplayedPower(
   const demandSource = pureItsdoDemand(facts, aligned.demand, balance, closed)
     ? homepageDemandFigureInputs().source
     : compositeSource;
-  const showEquals =
-    closed &&
-    demandMw != null &&
-    generationMw != null &&
-    headlineTermsClose({
-      generationMw,
-      importsMw: balance.importsMw,
-      exportsMw: balance.exportsMw,
-      storageChargingMw: balance.storageChargingMw,
-      demandMw,
-    });
+  const showEquals = closed && demandMw != null && generationMw != null;
   const periodStart = closed ? balance.periodStartUtc : null;
 
   const power: DisplayedPower = {
@@ -142,11 +135,13 @@ export function headlineBalanceHolds(power: DisplayedPower): boolean {
   return residual != null && Math.abs(residual) < 1e-6;
 }
 
-export const BALANCE_ROUNDING_NOTE = "Rounded to 0.1 GW from unrounded megawatts.";
+export function termDisplayGw(power: DisplayedPower, id: HeadlineTermId): string | null {
+  return power.terms.find((term) => term.id === id)?.displayGw ?? null;
+}
 
 export function balanceEquationSentence(power: DisplayedPower): string {
   const parts = power.terms.map((term) => {
-    const value = `${formatHeadlineGw(unsignedMw(term.mw))} GW`;
+    const value = `${term.displayGw} GW`;
     switch (term.operator) {
       case "+":
         return `plus ${term.label} ${value}`;
@@ -162,12 +157,8 @@ export function balanceEquationSentence(power: DisplayedPower): string {
       }
     }
   });
-  const note = power.terms.find((term) => term.roundingNote)?.roundingNote ?? null;
   if (!power.balanceClosed) {
     return `${parts.join(", ")}. Not a closed equation.`;
-  }
-  if (note) {
-    return `${parts.join(", ")}. ${note}`;
   }
   return `${parts.join(", ")}.`;
 }
@@ -184,11 +175,10 @@ function headlineTerms(
   storageKind: StorageChargingKind | null
 ): HeadlineTerm[] {
   if (!power.balanceClosed) {
-    return openTerms(power);
+    return finishTerms(openTerms(power), null, false);
   }
 
-  const roundingNote = power.showEquals ? null : BALANCE_ROUNDING_NOTE;
-  const terms: HeadlineTerm[] = [
+  const terms: DraftTerm[] = [
     {
       id: "generation",
       label: "Generation",
@@ -197,7 +187,6 @@ function headlineTerms(
       operator: null,
       help: "GB generation in this half-hour, including estimated embedded wind and solar. Generation includes storage discharge. Half-hour average of Elexon FUELINST.",
       source: power.generationSource,
-      roundingNote: null,
     },
     {
       id: "imports",
@@ -207,7 +196,6 @@ function headlineTerms(
       operator: "+",
       help: "Power flowing into Great Britain on the interconnectors. Positive Elexon flow is an import. Half-hour average of FUELINST.",
       source: power.transfersSource,
-      roundingNote: null,
     },
     {
       id: "exports",
@@ -217,7 +205,6 @@ function headlineTerms(
       operator: "−",
       help: "Power flowing out of Great Britain. Shown as a positive number and subtracted. Half-hour average of FUELINST.",
       source: power.transfersSource,
-      roundingNote: null,
     },
   ];
 
@@ -234,14 +221,45 @@ function headlineTerms(
     role: "Electricity use this half-hour",
     mw: power.demandMw,
     operator: "=",
-    help: roundingNote ? `${power.demandDefinition} ${roundingNote}` : power.demandDefinition,
+    help: power.demandDefinition,
     source: power.demandSource,
-    roundingNote,
   });
-  return terms;
+  return finishTerms(terms, power.demandMw, true);
 }
 
-function openTerms(power: DisplayedPower): HeadlineTerm[] {
+type DraftTerm = Omit<HeadlineTerm, "displayGw">;
+
+function finishTerms(terms: DraftTerm[], demandMw: number | null, closed: boolean): HeadlineTerm[] {
+  if (!closed || demandMw == null) {
+    return terms.map((term) => ({
+      ...term,
+      displayGw: formatHeadlineGw(unsignedMw(term.mw)),
+    }));
+  }
+
+  const others = terms.filter((term) => term.id !== "demand");
+  const reconciled = reconcileSignedDisplay(
+    others.map((term) => ({
+      value: Math.abs(term.mw ?? 0) / 1000,
+      sign: term.operator === "−" ? -1 : 1,
+    })),
+    demandMw / 1000,
+    BALANCE_GW_QUANTUM
+  );
+  const display = new Map(
+    others.map((term, index) => [term.id, formatDisplay(reconciled.parts[index] ?? 0, BALANCE_GW_QUANTUM)])
+  );
+
+  return terms.map((term) => ({
+    ...term,
+    displayGw:
+      term.id === "demand"
+        ? formatDisplay(reconciled.total, BALANCE_GW_QUANTUM)
+        : (display.get(term.id) ?? formatHeadlineGw(unsignedMw(term.mw))),
+  }));
+}
+
+function openTerms(power: DisplayedPower): DraftTerm[] {
   return [
     {
       id: "generation",
@@ -251,7 +269,6 @@ function openTerms(power: DisplayedPower): HeadlineTerm[] {
       operator: null,
       help: "GB generation including estimated embedded wind and solar. Interconnector flows for this half-hour are incomplete, so this is not closed against demand.",
       source: power.generationSource,
-      roundingNote: null,
     },
     {
       id: "imports",
@@ -261,7 +278,6 @@ function openTerms(power: DisplayedPower): HeadlineTerm[] {
       operator: null,
       help: "Metered interconnector net flow. A partial interconnector book is not a national total.",
       source: power.transfersSource,
-      roundingNote: null,
     },
     {
       id: "demand",
@@ -271,19 +287,17 @@ function openTerms(power: DisplayedPower): HeadlineTerm[] {
       operator: null,
       help: power.demandDefinition,
       source: power.demandSource,
-      roundingNote: null,
     },
   ];
 }
 
-function storageTerm(mw: number, kind: StorageChargingKind, source: string): HeadlineTerm {
+function storageTerm(mw: number, kind: StorageChargingKind, source: string): DraftTerm {
   const base = {
     id: "storage_charging" as const,
     label: "Storage charging",
     mw,
     operator: "−" as const,
     source,
-    roundingNote: null,
   };
   switch (kind) {
     case "pumping":

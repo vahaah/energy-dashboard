@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  BALANCE_ROUNDING_NOTE,
   DISPLAYED_DEMAND_STAT,
   balanceEquationSentence,
   getDisplayedPower,
@@ -268,7 +267,7 @@ describe("displayed demand", () => {
     expect(embeddedPower.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
   });
 
-  it("keeps the equals sign and speaks the rounding note when rounded gigawatts miss", () => {
+  it("reconciles a closed equation whose independent gigawatts miss", () => {
     const timestamp = "2026-10-13 08:00:00";
     const rows = [
       generation(timestamp, "ccgt", 249),
@@ -286,9 +285,12 @@ describe("displayed demand", () => {
     const power = getDisplayedPower(latest, [snapshot(timestamp, 1000)]);
 
     expect(power.balanceClosed).toBe(true);
-    expect(power.showEquals).toBe(false);
+    expect(power.showEquals).toBe(true);
     expect(power.terms.find((term) => term.id === "demand")?.operator).toBe("=");
-    expect(balanceEquationSentence(power)).toContain(`equals Demand 0.0 GW. ${BALANCE_ROUNDING_NOTE}`);
+    expect(power.terms.map((term) => term.label)).toContain("Storage charging");
+    expect(balanceEquationSentence(power)).toBe(
+      "Generation 0.2 GW, plus Imports 0.2 GW, minus Exports 0.2 GW, minus Storage charging 0.2 GW, equals Demand 0.0 GW."
+    );
   });
 
   it("is the only demand figure wired into the page", () => {

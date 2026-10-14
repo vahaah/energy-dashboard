@@ -10,17 +10,17 @@ import {
 
 export function ShareBar({
   shares,
-  generationMw,
+  generationGw,
   carbon,
   carbonHelp,
 }: {
   shares: GenerationMixShare[];
-  generationMw: number | null;
+  generationGw: string | null;
   carbon: number | null;
   carbonHelp: string;
 }) {
   const summary = shares
-    .map((share) => `${share.label} ${formatSharePercent(share.sharePct)}%`)
+    .map((share) => `${share.label} ${formatSharePercent(share.displayPct)}%`)
     .join(", ");
 
   return (
@@ -28,8 +28,8 @@ export function ShareBar({
       <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <p className="min-w-0 text-label-13 text-gray-900">
           Share of generation
-          {generationMw != null ? (
-            <span className="tabular-nums"> · of {formatHeadlineGw(generationMw)} GW generation</span>
+          {generationGw != null ? (
+            <span className="tabular-nums"> · of {generationGw} GW generation</span>
           ) : null}
           <span className="ml-1 inline-flex align-middle">
             <InfoTooltip
@@ -96,7 +96,7 @@ function InlineLabel({ share }: { share: GenerationMixShare }) {
   return (
     <p className={`truncate text-label-12 ${narrow ? "" : "hidden sm:block"}`}>
       <span className="font-semibold text-gray-1000">{share.label}</span>{" "}
-      <span className="text-gray-900 tabular-nums">{formatSharePercent(share.sharePct)}%</span>
+      <span className="text-gray-900 tabular-nums">{formatSharePercent(share.displayPct)}%</span>
     </p>
   );
 }
@@ -120,7 +120,7 @@ function LegendItem({ share }: { share: GenerationMixShare }) {
       />
       <span className="truncate">{share.label}</span>
       <span className="tabular-nums text-gray-900">
-        {formatHeadlineGw(share.mw)} GW · {formatSharePercent(share.sharePct)}%
+        {formatHeadlineGw(share.mw)} GW · {formatSharePercent(share.displayPct)}%
       </span>
     </li>
   );
