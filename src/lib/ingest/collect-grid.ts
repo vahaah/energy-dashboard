@@ -113,10 +113,14 @@ export async function fetchSystemPrices(
 
 export const MID_DATA_PROVIDER = "APXMIDP";
 
-export async function fetchMarketIndex(fromIso: string, toIso: string): Promise<ElexonMarketIndex[]> {
+export async function fetchMarketIndex(
+  fromIso: string,
+  toIso: string,
+  now: Date = new Date()
+): Promise<ElexonMarketIndex[]> {
   return readThroughCache(
     externalCacheKey("elexon-market-index", [fromIso, toIso]),
-    policyForExternalWindow(toIso),
+    policyForExternalWindow(toIso, now),
     async () => {
       const json = await fetchJson<{ data: ElexonMarketIndex[] }>(
         `https://data.elexon.co.uk/bmrs/api/v1/balancing/pricing/market-index?from=${fromIso}&to=${toIso}&dataProviders=${MID_DATA_PROVIDER}`
@@ -645,7 +649,9 @@ export async function fetchElexonSnapshotParts(
       const sets = await Promise.all(window.priceDates.map((date) => fetchSystemPrices(date, now)));
       return sets.flat();
     }),
-    settleFetch("market_index", () => fetchMarketIndex(window.carbonFrom, window.carbonTo)),
+    settleFetch("market_index", () =>
+      fetchMarketIndex(window.carbonFrom, window.carbonTo, now)
+    ),
     settleFetch("demand", () =>
       fetchElexonWindow<ElexonDemand>("ITSDO", window.publishFrom, window.publishTo)
     ),

@@ -310,6 +310,36 @@ describe("loadDataHealth", () => {
     expect(readings.find((reading) => reading.metric_id === "elec.gb.storage.charging")?.value).toBe(100);
   });
 
+  it("reports pumping as zero discharge with a fresh published time", async () => {
+    peekWarmedEnvelope.mockImplementation(async (pipe: string) => {
+      if (pipe !== "generation_5min_range") {
+        return null;
+      }
+      return {
+        data: [
+          { timestamp: "2026-10-14 06:00:00", fuel_type: "ps", generation_mw: 400, source: "fuelinst" },
+          { timestamp: "2026-10-14 10:30:00", fuel_type: "ps", generation_mw: -13, source: "fuelinst" },
+          { timestamp: "2026-10-14 06:00:00", fuel_type: "bess", generation_mw: 50, source: "fuelinst" },
+          { timestamp: "2026-10-14 10:30:00", fuel_type: "battery", generation_mw: -4, source: "fuelinst" },
+        ],
+        cachedAt: Date.parse(RETRIEVED),
+        freshFor: 300,
+      };
+    });
+
+    const readings = await loadDataHealth(NOW);
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.generation.pumped_storage")).toMatchObject({
+      value: 0,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.generation.battery")).toMatchObject({
+      value: 0,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
+  });
+
   it("reads World Bank month-start rows from the warmed 1y price envelope", async () => {
     peekWarmedEnvelope.mockImplementation(async (pipe: string, _params: unknown, options?: { range?: string }) => {
       if (pipe !== "prices_range") {

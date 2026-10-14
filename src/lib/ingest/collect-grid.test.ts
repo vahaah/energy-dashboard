@@ -6,6 +6,8 @@ import {
   collectSnapshotsForSettlementDate,
   elexonPublishWindow,
   ELEXON_PUBLISH_LAG_MS,
+  fetchMarketIndex,
+  fetchSystemPrices,
   generationMwByPeriod,
   generationMwWithinPlausibleMaxima,
   groupGenerationMwByPeriod,
@@ -15,8 +17,17 @@ import {
   withSettlementDateCoverage,
 } from "@/lib/ingest/collect-grid";
 import { SNAPSHOT_FUELS, SNAPSHOT_MIX_FUELS } from "@/lib/ingest/fuels";
+import {
+  externalCacheKey,
+  redisKeyFor,
+  resetRedisClient,
+  setRedisForTests,
+  type CacheEnvelope,
+  type RedisCommands,
+} from "@/lib/redis-cache";
 import { listRecentSettlementPeriods, listSettlementPeriods } from "@/lib/settlement-period";
-import type { ElexonGeneration } from "@/lib/types";
+import { policyForExternalWindow, policyForSettlementPrices } from "@/lib/tinybird-cache";
+import type { ElexonGeneration, ElexonMarketIndex, ElexonSystemPrice } from "@/lib/types";
 
 function jsonResponse(data: unknown) {
   return {
@@ -800,5 +811,176 @@ describe("settlement price cache policy", () => {
     const source = readFileSync(resolve(process.cwd(), "src/lib/ingest/collect-grid.ts"), "utf8");
     expect(source).toContain("policyForSettlementPrices(settlementDate, now)");
     expect(source).not.toContain("policyForExternalWindow(`${settlementDate}T23:59:59.000Z`)");
+  });
+});
+
+class MemoryRedis implements RedisCommands {
+  readonly store = new Map<string, { value: unknown; expiresAt: number }>();
+
+  async get<T>(key: string): Promise<T | null> {
+    const hit = this.store.get(key);
+    if (!hit || hit.expiresAt <= Date.now()) {
+      return null;
+    }
+    return hit.value as T;
+  }
+
+  async set(
+    key: string,
+    value: unknown,
+    opts?: { ex?: number; nx?: boolean }
+  ): Promise<"OK" | null> {
+    const existing = this.store.get(key);
+    if (opts?.nx && existing && existing.expiresAt > Date.now()) {
+      return null;
+    }
+    this.store.set(key, {
+      value,
+      expiresAt: Date.now() + (opts?.ex ?? 60) * 1000,
+    });
+    return "OK";
+  }
+
+  async del(...keys: string[]): Promise<number> {
+    let count = 0;
+    for (const key of keys) {
+      if (this.store.delete(key)) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  async incr(key: string): Promise<number> {
+    const current = Number((await this.get<number | string>(key)) ?? 0) + 1;
+    await this.set(key, current, { ex: 86_400 });
+    return current;
+  }
+
+  async expire(key: string, seconds: number): Promise<number> {
+    const hit = this.store.get(key);
+    if (!hit || hit.expiresAt <= Date.now()) {
+      return 0;
+    }
+    hit.expiresAt = Date.now() + seconds * 1000;
+    return 1;
+  }
+}
+
+describe("recent price cache", () => {
+  afterEach(() => {
+    resetRedisClient();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not let the previous run hide a newly published period", async () => {
+    const now = new Date("2026-10-14T15:00:00.000Z");
+    const settlementDate = "2026-10-14";
+    const fromIso = "2026-10-14T12:00:00.000Z";
+    const toIso = "2026-10-14T15:00:00.000Z";
+    const cachedAt = Date.now() - 31 * 60 * 1000;
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+
+    const previousPrice: ElexonSystemPrice = {
+      settlementDate,
+      settlementPeriod: 29,
+      startTime: "2026-10-14T13:00:00Z",
+      systemSellPrice: 40,
+      systemBuyPrice: 41,
+    };
+    const publishedPrice: ElexonSystemPrice = {
+      settlementDate,
+      settlementPeriod: 30,
+      startTime: "2026-10-14T13:30:00Z",
+      systemSellPrice: 70,
+      systemBuyPrice: 80,
+    };
+    const previousIndex: ElexonMarketIndex = {
+      startTime: "2026-10-14T13:00:00Z",
+      dataProvider: "APXMIDP",
+      settlementDate,
+      settlementPeriod: 29,
+      price: 60,
+      volume: 100,
+    };
+    const publishedIndex: ElexonMarketIndex = {
+      startTime: "2026-10-14T13:30:00Z",
+      dataProvider: "APXMIDP",
+      settlementDate,
+      settlementPeriod: 30,
+      price: 90,
+      volume: 120,
+    };
+
+    const pricePolicy = policyForSettlementPrices(settlementDate, now);
+    const priceKey = await redisKeyFor(
+      externalCacheKey("elexon-system-prices", [settlementDate]),
+      pricePolicy.tier
+    );
+    await redis.set(
+      priceKey,
+      { data: [previousPrice], cachedAt, freshFor: 1_800 } satisfies CacheEnvelope<ElexonSystemPrice[]>,
+      { ex: 86_400 }
+    );
+
+    const indexPolicy = policyForExternalWindow(toIso, now);
+    const indexKey = await redisKeyFor(
+      externalCacheKey("elexon-market-index", [fromIso, toIso]),
+      indexPolicy.tier
+    );
+    await redis.set(
+      indexKey,
+      { data: [previousIndex], cachedAt, freshFor: 1_800 } satisfies CacheEnvelope<ElexonMarketIndex[]>,
+      { ex: 86_400 }
+    );
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes(`system-prices/${settlementDate}`)) {
+        return jsonResponse({ data: [previousPrice, publishedPrice] });
+      }
+      if (url.includes("market-index")) {
+        return jsonResponse({ data: [previousIndex, publishedIndex] });
+      }
+      return httpError(404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const prices = await fetchSystemPrices(settlementDate, now);
+    const index = await fetchMarketIndex(fromIso, toIso, now);
+
+    expect(prices.map((row) => row.settlementPeriod)).toEqual([29, 30]);
+    expect(index.map((row) => row.settlementPeriod)).toEqual([29, 30]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps an older settlement date on the long cache", async () => {
+    const now = new Date("2026-10-14T15:00:00.000Z");
+    const settlementDate = "2026-05-01";
+    const redis = new MemoryRedis();
+    setRedisForTests(redis);
+    const cached: ElexonSystemPrice = {
+      settlementDate,
+      settlementPeriod: 1,
+      startTime: "2026-04-30T23:00:00Z",
+      systemSellPrice: 10,
+      systemBuyPrice: 12,
+    };
+    const policy = policyForSettlementPrices(settlementDate, now);
+    const key = await redisKeyFor(externalCacheKey("elexon-system-prices", [settlementDate]), policy.tier);
+    await redis.set(
+      key,
+      {
+        data: [cached],
+        cachedAt: Date.now() - 60_000,
+        freshFor: policy.revalidateSeconds,
+      } satisfies CacheEnvelope<ElexonSystemPrice[]>,
+      { ex: 86_400 }
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ data: [] })));
+
+    await expect(fetchSystemPrices(settlementDate, now)).resolves.toEqual([cached]);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

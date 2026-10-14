@@ -604,6 +604,9 @@ function generationValue(metricId: MetricId, mw: number): number {
     case "elec.gb.exports.fuelinst":
     case "elec.gb.storage.charging":
       return Math.abs(mw);
+    case "elec.gb.generation.pumped_storage":
+    case "elec.gb.generation.battery":
+      return Math.max(0, mw);
     default:
       return mw;
   }
@@ -633,9 +636,9 @@ function generationMatches(metricId: MetricId, row: Generation5min): boolean {
     case "elec.gb.generation.solar":
       return normalizeFuelType(row.fuel_type) === "embedded_solar" || fuel === "solar";
     case "elec.gb.generation.pumped_storage":
-      return isPumpedStorageFuel(row.fuel_type) && row.generation_mw >= 0;
+      return isPumpedStorageFuel(row.fuel_type);
     case "elec.gb.generation.battery":
-      return isBatteryFuel(row.fuel_type) && row.generation_mw >= 0;
+      return isBatteryFuel(row.fuel_type);
     case "elec.gb.imports.fuelinst":
       return isInterconnectorFuel(row.fuel_type) && row.generation_mw > 0;
     case "elec.gb.exports.fuelinst":
