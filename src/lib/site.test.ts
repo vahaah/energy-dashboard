@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
+  DATA_HEALTH_DESCRIPTION,
+  DATA_HEALTH_TITLE,
   DESCRIPTION_MAX_CHARS,
   GAS_DESCRIPTION,
   GAS_TITLE,
@@ -38,6 +40,7 @@ describe("SEO titles and descriptions", () => {
       GAS_TITLE,
       METHODOLOGY_TITLE,
       API_DOCS_TITLE,
+      DATA_HEALTH_TITLE,
     ];
     const descriptions = [
       HOME_DESCRIPTION,
@@ -47,6 +50,7 @@ describe("SEO titles and descriptions", () => {
       GAS_DESCRIPTION,
       METHODOLOGY_DESCRIPTION,
       API_DOCS_DESCRIPTION,
+      DATA_HEALTH_DESCRIPTION,
     ];
     for (const title of titles) {
       expect(pageTitleLength(title)).toBeLessThanOrEqual(TITLE_MAX_CHARS);

@@ -25,6 +25,11 @@ export const GAS_DESCRIPTION =
   "GB System Average Price from National Gas, plus Henry Hub, World Bank Europe gas and Japan LNG. Updated as sources publish.";
 export const GAS_H1 = "UK gas price today";
 
+export const DATA_HEALTH_TITLE = "Data health — Grid";
+export const DATA_HEALTH_DESCRIPTION =
+  "Published time from each source and when Grid retrieved it, checked against that series' expected cadence.";
+export const DATA_HEALTH_H1 = "Data health";
+
 export const METHODOLOGY_TITLE = "How Grid's numbers are made: sources and method";
 export const METHODOLOGY_DESCRIPTION =
   "Every source, unit, refresh time and calculation behind Grid, including licences: Elexon BMRS, NESO, Carbon Intensity API and Sheffield Solar.";

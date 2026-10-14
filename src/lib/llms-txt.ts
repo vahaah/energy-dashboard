@@ -25,6 +25,7 @@ ${latest}
 
 ## Data
 - [API docs](https://grid.vahaah.com/api): JSON, no key, 60 requests/minute
+- [Data health](https://grid.vahaah.com/data-health): published time versus when Grid retrieved each series
 - [Snapshots JSON](https://grid.vahaah.com/api/snapshots?range=24h)
 
 ## How to cite

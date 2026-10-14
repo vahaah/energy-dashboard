@@ -15,7 +15,7 @@ import {
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { useElementWidth } from "@/components/charts/use-element-width";
-import { ForecastBadge } from "@/components/ui/forecast-badge";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { formatChartTick, formatChartTooltip } from "@/lib/chart-formatting";
 import { chartTimeMs, evenTimeTicks, timeTickCount } from "@/lib/chart-time";
 import {
@@ -116,7 +116,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       {forecast.length > 0 ? (
         <div className="flex items-center gap-2">
-          <ForecastBadge />
+          <DataStateNotice state="forecast" />
           <p className="text-label-12 text-gray-900">
             Dashed line and shaded band are the 48-hour carbon forecast.
           </p>

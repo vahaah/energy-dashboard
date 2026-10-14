@@ -7,6 +7,7 @@ import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { LookAheadStrip } from "@/components/look-ahead-strip";
 import { CARD_PAD_BOTTOM, CARD_PAD_TOP, CARD_PAD_X, CardEmpty, CardLoading } from "@/components/ui/card";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
@@ -86,7 +87,8 @@ export function GenerationDesk({
         {actions ? <div className="mt-3 shrink-0 sm:mt-0">{actions}</div> : null}
       </header>
       {pending ? (
-        <div data-slot="card-pad" className={CARD_PAD_X}>
+        <div data-slot="card-pad" className={`flex flex-col gap-3 ${CARD_PAD_X}`}>
+          <DataStateNotice state="loading" />
           <EquationSkeleton />
         </div>
       ) : (
@@ -114,8 +116,12 @@ export function GenerationDesk({
         batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
       />
       {delayNote ? (
-        <p data-slot="card-pad" className={`${CARD_PAD_X} pt-3 text-label-12 text-gray-900`}>
-          {delayNote}
+        <p
+          data-slot="card-pad"
+          className={`flex flex-wrap items-center gap-2 ${CARD_PAD_X} pt-3 text-label-12 text-gray-900`}
+        >
+          <DataStateNotice state="stale" />
+          <span>{delayNote}</span>
         </p>
       ) : null}
       <div data-slot="card-pad" className={`flex flex-col gap-5 ${CARD_PAD_X} pt-5 ${CARD_PAD_BOTTOM}`}>
@@ -220,9 +226,10 @@ function BalanceFooter({
           settlement period
         </p>
       ) : null}
+      {status === "stale" ? <DataStateNotice state="stale" /> : null}
+      {status === "incomplete" ? <DataStateNotice state="partial" /> : null}
       {statusCopy ? (
-        <p role="status" className="flex w-full items-center gap-1.5 text-amber-700 sm:w-auto">
-          <span className="size-1.5 rounded-full bg-amber-700" aria-hidden="true" />
+        <p role="status" className="w-full text-gray-900 sm:w-auto">
           {statusCopy}
         </p>
       ) : null}

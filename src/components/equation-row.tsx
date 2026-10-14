@@ -1,5 +1,7 @@
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { CARD_PAD_X } from "@/components/ui/card";
+import { ABSENT_FIGURE } from "@/lib/data-state";
 import { balanceEquationSentence, type DisplayedPower, type HeadlineTerm } from "@/lib/displayed-demand";
 import { homepageDemandFigureInputs } from "@/lib/metrics";
 
@@ -26,6 +28,11 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
           <LedgerRow key={term.id} term={term} />
         ))}
       </div>
+      {power.terms.some((term) => term.displayGw === ABSENT_FIGURE) ? (
+        <div className="mt-3">
+          <DataStateNotice state="not_yet_available" />
+        </div>
+      ) : null}
     </div>
   );
 }

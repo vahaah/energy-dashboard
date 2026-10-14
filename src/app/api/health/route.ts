@@ -13,6 +13,7 @@ import {
   STALE_AFTER_MS,
   streamFreshness,
 } from "@/lib/health";
+import { healthMetrics, loadDataHealth, type HealthMetric } from "@/lib/data-health";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 import { peekWarmedPipe } from "@/lib/warm-envelope";
 
@@ -87,12 +88,20 @@ export async function GET() {
       streamFreshness("prices", priceLatest, now, STALE_AFTER_MS.prices, false),
     ];
 
+    let metrics: HealthMetric[] | undefined;
+    try {
+      metrics = healthMetrics(await loadDataHealth(now));
+    } catch {
+      metrics = undefined;
+    }
+
     const status = healthHttpStatus(streams);
     return NextResponse.json(
       {
         ok: status === 200,
         checkedAt: now.toISOString(),
         streams,
+        ...(metrics ? { metrics } : {}),
       },
       {
         status,

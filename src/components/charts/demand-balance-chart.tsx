@@ -22,7 +22,7 @@ import { EXPORT_GAP_COLOR, IMPORT_GAP_COLOR } from "@/lib/colors";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { useElementWidth } from "@/components/charts/use-element-width";
-import { ForecastBadge } from "@/components/ui/forecast-badge";
+import { DataStateNotice } from "@/components/ui/data-state";
 import {
   DEMAND_FORECAST_EMBEDDED_BASIS,
   type DemandForecastBasis,
@@ -195,7 +195,7 @@ export function DemandBalanceChart({
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <GapKey />
-        {demandForecast.length > 0 ? <ForecastBadge /> : null}
+        {demandForecast.length > 0 ? <DataStateNotice state="forecast" /> : null}
       </div>
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">

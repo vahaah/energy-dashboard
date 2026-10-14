@@ -8,6 +8,7 @@ const SITEMAP_CANDIDATES = [
   { path: "/explained/price-cap", changeFrequency: "weekly" as const, priority: 0.8 },
   { path: "/prices/gas", changeFrequency: "daily" as const, priority: 0.8 },
   { path: "/methodology", changeFrequency: "monthly" as const, priority: 0.5 },
+  { path: "/data-health", changeFrequency: "hourly" as const, priority: 0.4 },
   { path: "/api", changeFrequency: "monthly" as const, priority: 0.5 },
   { path: "/privacy", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/terms", changeFrequency: "yearly" as const, priority: 0.3 },

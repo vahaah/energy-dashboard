@@ -15,6 +15,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/explained/price-cap",
       "https://grid.vahaah.com/prices/gas",
       "https://grid.vahaah.com/methodology",
+      "https://grid.vahaah.com/data-health",
       "https://grid.vahaah.com/api",
       "https://grid.vahaah.com/privacy",
       "https://grid.vahaah.com/terms",
@@ -34,6 +35,7 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/prices/gas", stamps)).toBe(gas);
     expect(lastModifiedForPath("/privacy", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/terms", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/data-health", stamps)).toBe(grid);
     expect(lastModifiedForPath("/methodology", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/api", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/explained/price-cap", stamps)).toBeUndefined();

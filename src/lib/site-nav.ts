@@ -46,6 +46,7 @@ export const SITE_NAV_CATALOG: SiteNavEntry[] = [
 export const SHIPPED_PAGE_ROUTES = [
   "/",
   "/api",
+  "/data-health",
   "/data-sources",
   "/explained/price-cap",
   "/methodology",

@@ -46,6 +46,12 @@ const ENDPOINTS = [
     name: "Look-ahead",
     fields: "Derived cleanest-window answer from the NESO carbon forecast.",
   },
+  {
+    path: "/api/v1/data-health",
+    name: "Data health",
+    fields:
+      "Published time from the source and when Grid retrieved it, per metric, with the expected cadence. Read from warmed envelopes.",
+  },
 ] as const;
 
 export default async function ApiDocsPage() {

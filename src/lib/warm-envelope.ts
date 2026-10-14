@@ -1,6 +1,7 @@
 import { jsonBytes, stepStatus, type StepStatus } from "@/lib/step-status";
 import { pipeCacheIdentity, type QueryPipeOptions } from "@/lib/tinybird";
-import { getRedis, peekThroughCache, redisKeyFor } from "@/lib/redis-cache";
+import { getRedis, peekEnvelopeThroughCache, redisKeyFor } from "@/lib/redis-cache";
+import type { CacheEnvelope } from "@/lib/redis-cache";
 import type { WarmPipe } from "@/lib/warm-pipes";
 
 /** Cadence from ARCH §8. Ten minutes of grace so a late cron does not blank the key. */
@@ -42,6 +43,16 @@ export async function peekWarmedPipe<T>(
   params: Record<string, string> | undefined,
   options?: QueryPipeOptions
 ): Promise<T[] | null> {
+  const envelope = await peekWarmedEnvelope<T>(pipeName, params, options);
+  return envelope ? envelope.data : null;
+}
+
+/** Warmed rows plus `cachedAt` (when Grid stored them). Never calls Tinybird. */
+export async function peekWarmedEnvelope<T>(
+  pipeName: string,
+  params: Record<string, string> | undefined,
+  options?: QueryPipeOptions
+): Promise<CacheEnvelope<T[]> | null> {
   const { logicalKey, policy } = pipeCacheIdentity(pipeName, params, options);
-  return peekThroughCache<T[]>(logicalKey, policy);
+  return peekEnvelopeThroughCache<T[]>(logicalKey, policy);
 }
