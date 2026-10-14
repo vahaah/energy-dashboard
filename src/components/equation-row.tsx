@@ -1,4 +1,5 @@
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { CARD_PAD_X } from "@/components/ui/card";
 import { balanceEquationSentence, type DisplayedPower, type HeadlineTerm } from "@/lib/displayed-demand";
 import { formatHeadlineGw } from "@/lib/facts";
 
@@ -9,7 +10,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
   const wideFigures = power.terms.length >= 5;
 
   return (
-    <div>
+    <div data-slot="card-pad" className={CARD_PAD_X}>
       <p className="sr-only">{sentence}</p>
       <dl
         data-balanced={power.balanceClosed ? "true" : "false"}
@@ -20,7 +21,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
           <EquationTerm key={term.id} term={term} wide={wideFigures} />
         ))}
       </dl>
-      <div className="px-4 sm:hidden" aria-hidden="true">
+      <div className="lg:hidden" aria-hidden="true">
         {power.terms.map((term) => (
           <LedgerRow key={term.id} term={term} />
         ))}
@@ -30,7 +31,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
 }
 
 function equationGridClass(closed: boolean, wide: boolean): string {
-  const base = "hidden items-end gap-x-0 px-6 pt-8 pb-7 sm:grid";
+  const base = "hidden items-end gap-x-0 pt-8 pb-7 lg:grid";
   if (!closed) {
     return `${base} grid-cols-3`;
   }
@@ -61,18 +62,21 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
           {term.operator}
         </span>
       ) : null}
-      <div data-stat={term.id} className={demand ? "border-l border-gray-alpha-400 pl-6" : ""}>
+      <div data-stat={term.id} className={demand ? "min-w-0 border-l border-gray-alpha-400 pl-6" : "min-w-0"}>
         <dt className="flex items-center gap-1 text-label-13 font-medium text-gray-900">
           <span>{term.label}</span>
           <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
         </dt>
         <dd
-          className={`mt-3 font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
+          data-figure
+          className={`mt-3 font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
           title={term.roundingNote ?? undefined}
           aria-describedby={demand ? PERIOD_ID : undefined}
         >
-          <span>{formatHeadlineGw(unsignedMw(term.mw))}</span>
-          <span className="ml-1 text-xl font-medium tracking-normal text-gray-700">GW</span>
+          <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+          <span data-unit className="ml-1 align-baseline text-xl font-medium tracking-normal text-gray-700">
+            GW
+          </span>
         </dd>
         <p className="mt-2 truncate text-label-12 text-gray-900">{term.role}</p>
       </div>
@@ -99,9 +103,14 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         <span>{term.label}</span>
         <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
       </span>
-      <span className={`font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}>
-        <span>{formatHeadlineGw(unsignedMw(term.mw))}</span>
-        <span className="ml-1 text-sm font-medium tracking-normal text-gray-700">GW</span>
+      <span
+        data-figure
+        className={`font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
+      >
+        <span data-value>{formatHeadlineGw(unsignedMw(term.mw))}</span>
+        <span data-unit className="ml-1 align-baseline text-sm font-medium tracking-normal text-gray-700">
+          GW
+        </span>
       </span>
     </div>
   );

@@ -24,3 +24,20 @@ export function clampTooltipLeft(
   const left = Math.min(Math.max(gutter, preferred), maxLeft);
   return { left, width };
 }
+
+export function placeTooltipTop(
+  anchorTop: number,
+  anchorHeight: number,
+  tooltipHeight: number,
+  viewportHeight: number,
+  gutter = 8,
+  gap = 8
+): number {
+  const above = anchorTop - gap - tooltipHeight;
+  if (above >= gutter) {
+    return above;
+  }
+  const below = anchorTop + anchorHeight + gap;
+  const maxTop = Math.max(gutter, viewportHeight - tooltipHeight - gutter);
+  return Math.min(Math.max(gutter, below), maxTop);
+}

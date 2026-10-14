@@ -10,7 +10,7 @@ export function PeriodAveragesRow({
   neso: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       <AverageStat
         label="Price"
         value={
@@ -87,9 +87,13 @@ function AverageStat({
         <p className="text-label-13 text-gray-900">{label}</p>
         <InfoTooltip text={help} label={`What is ${label}?`} />
       </div>
-      <p className="mt-1 font-sans text-heading-24 tabular-nums text-gray-1000">
-        <span>{value}</span>
-        {unit ? <span className="text-gray-700">{unit}</span> : null}
+      <p data-figure className="mt-1 whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000">
+        <span data-value>{value}</span>
+        {unit ? (
+          <span data-unit className="align-baseline text-gray-700">
+            {unit}
+          </span>
+        ) : null}
       </p>
       {caption ? <p className="text-label-12 text-gray-900">{caption}</p> : null}
     </div>

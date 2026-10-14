@@ -5,7 +5,7 @@ import { Dashboard } from "@/components/dashboard";
 import { GridMark } from "@/components/grid-mark";
 import { HomepageBriefing } from "@/components/homepage-briefing";
 import { JsonLd } from "@/components/json-ld";
-import { PAGE_STACK_CLASS } from "@/components/ui/card";
+import { CARD_PAD_X, PAGE_STACK_CLASS } from "@/components/ui/card";
 import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
@@ -77,7 +77,7 @@ function HomepageFallbackHeader() {
         Skip to content
       </a>
       <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+        <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
           <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
             <GridMark />
             <span className="text-heading-16">Grid</span>

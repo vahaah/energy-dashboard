@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarDays, Check, Copy } from "lucide-react";
 import { GridMark } from "@/components/grid-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CARD_PAD_X } from "@/components/ui/card";
 import { PERIOD_OPTIONS } from "@/lib/dashboard-blocks";
 import type { DashboardPeriod } from "@/lib/dashboard-period";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
@@ -39,7 +40,7 @@ export function SiteHeader({
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+      <div className={`mx-auto flex h-16 max-w-[1200px] items-center gap-3 ${CARD_PAD_X}`}>
         <Link href="/" className="flex shrink-0 items-center gap-2 text-gray-1000">
           <GridMark />
           <span className="text-heading-16">Grid</span>
@@ -86,7 +87,7 @@ export function SiteHeader({
       </div>
 
       <div className="border-t border-gray-alpha-400 md:hidden">
-        <div className="mx-auto flex h-10 max-w-[1200px] items-center overflow-x-auto px-4">
+        <div className={`mx-auto flex h-10 max-w-[1200px] items-center overflow-x-auto ${CARD_PAD_X}`}>
           <PeriodTabs
             period={period}
             onPeriodChange={onPeriodChange}
@@ -99,7 +100,7 @@ export function SiteHeader({
       <p
         className={
           stale
-            ? "border-t border-gray-alpha-400 px-4 py-1.5 text-center text-label-12 text-gray-900"
+            ? `border-t border-gray-alpha-400 ${CARD_PAD_X} py-1.5 text-center text-label-12 text-gray-900`
             : "sr-only"
         }
         aria-live={stale ? "polite" : undefined}

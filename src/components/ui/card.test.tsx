@@ -26,6 +26,8 @@ describe("Card", () => {
     expect(html).toContain("Elexon BMRS · 10:00 BST");
     expect(html).toContain("text-heading-16");
     expect(html).not.toContain("text-heading-24");
+    expect(html).toContain("var(--card-pad)");
+    expect(html).toContain('data-slot="card-body"');
   });
 
   it("renders compact stat titles for tile cards", () => {

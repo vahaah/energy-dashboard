@@ -6,7 +6,7 @@ import { ShareBar } from "@/components/share-bar";
 import { SourceTable } from "@/components/source-table";
 import { DemandBalanceChart } from "@/components/charts/demand-balance-chart";
 import { LookAheadStrip } from "@/components/look-ahead-strip";
-import { CardEmpty, CardLoading } from "@/components/ui/card";
+import { CARD_PAD_BOTTOM, CARD_PAD_TOP, CARD_PAD_X, CardEmpty, CardLoading } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { getDisplayedPower, type DisplayedPower } from "@/lib/displayed-demand";
@@ -75,7 +75,10 @@ export function GenerationDesk({
 
   return (
     <div className="flex flex-col">
-      <header className="flex flex-col px-4 pt-4 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:pt-6">
+      <header
+        data-slot="card-pad"
+        className={`flex flex-col ${CARD_PAD_X} ${CARD_PAD_TOP} sm:flex-row sm:items-start sm:justify-between`}
+      >
         <div className="min-w-0">
           <h2 className="text-heading-16 font-semibold text-gray-1000">{question}</h2>
           {answer ? <p className="mt-1 max-w-prose text-copy-14 text-gray-900">{answer}</p> : null}
@@ -83,12 +86,14 @@ export function GenerationDesk({
         {actions ? <div className="mt-3 shrink-0 sm:mt-0">{actions}</div> : null}
       </header>
       {pending ? (
-        <EquationSkeleton />
+        <div data-slot="card-pad" className={CARD_PAD_X}>
+          <EquationSkeleton />
+        </div>
       ) : (
         <EquationRow power={power} />
       )}
       {pending ? (
-        <div className="px-4 pb-6 sm:px-6">
+        <div data-slot="card-pad" className={`${CARD_PAD_X} ${CARD_PAD_BOTTOM}`}>
           <Skeleton className="h-3 w-full rounded-sm" />
         </div>
       ) : (
@@ -105,9 +110,11 @@ export function GenerationDesk({
         batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
       />
       {delayNote ? (
-        <p className="px-4 pt-3 text-label-12 text-gray-900 sm:px-6">{delayNote}</p>
+        <p data-slot="card-pad" className={`${CARD_PAD_X} pt-3 text-label-12 text-gray-900`}>
+          {delayNote}
+        </p>
       ) : null}
-      <div className="flex flex-col gap-5 px-4 pt-5 pb-4 sm:px-6 sm:pb-6">
+      <div data-slot="card-pad" className={`flex flex-col gap-5 ${CARD_PAD_X} pt-5 ${CARD_PAD_BOTTOM}`}>
 
       {pending ? (
         <SourceTableSkeleton />
@@ -197,7 +204,10 @@ function BalanceFooter({
   const statusCopy = balanceStatusCopy(status);
 
   return (
-    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-gray-alpha-400 px-4 py-3 text-label-12 text-gray-900 sm:px-6">
+    <footer
+      data-slot="card-footer"
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-gray-alpha-400 ${CARD_PAD_X} py-3 text-label-12 text-gray-900`}
+    >
       {windowLabel && dateTime ? (
         <p className="w-full sm:w-auto">
           <time id={balancePeriodId()} dateTime={dateTime} className="text-mono-12">
@@ -235,7 +245,7 @@ function settlementInterval(startUtc: string): string {
 
 export function GenerationDeskSkeleton() {
   return (
-    <div className="flex flex-col gap-5">
+    <div data-slot="card-pad" className={`flex flex-col gap-5 ${CARD_PAD_X} ${CARD_PAD_TOP} ${CARD_PAD_BOTTOM}`}>
       <EquationSkeleton />
       <Skeleton className="h-3 w-full rounded-full" />
       <SourceTableSkeleton />

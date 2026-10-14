@@ -45,9 +45,14 @@ export function GbGasSapCard({
           aria-hidden="true"
         />
       </div>
-      <p className="mt-2 font-sans text-heading-32 tabular-nums text-gray-1000">
-        {latest ? formatSapPencePerTherm(latest.price).replace(" p/therm", "") : "—"}
-        <span className="text-heading-32 text-gray-700"> p/therm</span>
+      <p data-figure className="mt-2 whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
+        <span data-value>
+          {latest ? formatSapPencePerTherm(latest.price).replace(" p/therm", "") : "—"}
+        </span>
+        <span data-unit className="align-baseline text-heading-32 text-gray-700">
+          {" "}
+          p/therm
+        </span>
       </p>
       <p className="font-sans text-copy-14 tabular-nums text-gray-900">
         {latest ? formatSapGbpPerMwh(latest.price) : "No current value"}

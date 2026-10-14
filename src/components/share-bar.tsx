@@ -1,3 +1,4 @@
+import { CARD_PAD_BOTTOM, CARD_PAD_X } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { formatHeadlineGw } from "@/lib/facts";
 import {
@@ -23,9 +24,9 @@ export function ShareBar({
     .join(", ");
 
   return (
-    <div className="px-4 pb-6 sm:px-6">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <p className="text-label-13 text-gray-900">
+    <div data-slot="card-pad" className={`${CARD_PAD_X} ${CARD_PAD_BOTTOM}`}>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <p className="min-w-0 text-label-13 text-gray-900">
           Share of generation
           {generationMw != null ? (
             <span className="tabular-nums"> · of {formatHeadlineGw(generationMw)} GW generation</span>
@@ -37,7 +38,7 @@ export function ShareBar({
             />
           </span>
         </p>
-        <p className="shrink-0 text-label-13 text-gray-900">
+        <p className="min-w-0 text-label-13 text-gray-900">
           Carbon intensity{" "}
           <span className="font-semibold tabular-nums text-gray-1000">
             {carbon == null ? "—" : `${carbon.toFixed(0)} gCO₂/kWh`}

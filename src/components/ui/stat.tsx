@@ -29,14 +29,15 @@ export function Stat({
     <div data-stat={stat} className="flex flex-col gap-1">
       {label ? <p className="text-label-13 text-gray-900">{label}</p> : null}
       <p
+        data-figure
         className={
           headline
-            ? "font-sans text-display tabular-nums text-gray-1000"
-            : "font-sans text-heading-24 tabular-nums text-gray-1000"
+            ? "whitespace-nowrap font-sans text-display tabular-nums text-gray-1000"
+            : "whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000"
         }
       >
-        <span>{value}</span>
-        <span data-unit={unit} className="text-gray-700">
+        <span data-value>{value}</span>
+        <span data-unit={unit} className="align-baseline text-gray-700">
           {unit}
         </span>
       </p>
