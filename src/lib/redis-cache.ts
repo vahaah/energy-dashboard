@@ -277,6 +277,14 @@ export async function peekThroughCache<T>(
   logicalKey: string,
   policy: TinybirdCachePolicy
 ): Promise<T | null> {
+  const envelope = await peekEnvelopeThroughCache<T>(logicalKey, policy);
+  return envelope ? envelope.data : null;
+}
+
+export async function peekEnvelopeThroughCache<T>(
+  logicalKey: string,
+  policy: TinybirdCachePolicy
+): Promise<CacheEnvelope<T> | null> {
   const redis = getRedis();
   if (!redis) {
     return null;
@@ -286,7 +294,7 @@ export async function peekThroughCache<T>(
     const key = await redisKeyFor(logicalKey, policy.tier);
     const hit = await redis.get<CacheEnvelope<T>>(key);
     if (hit && isStaleUsableEnvelope(hit, policy)) {
-      return hit.data;
+      return hit;
     }
     return null;
   } catch (error) {

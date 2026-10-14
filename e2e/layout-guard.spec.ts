@@ -7,6 +7,7 @@ const PAGES = [
   "/prices/gas",
   "/explained/price-cap",
   "/methodology",
+  "/data-health",
   "/api",
   "/privacy",
   "/terms",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { routeExists } from "@/lib/site-nav";
 
 export const SITE_NAV_LINKS = [
   { href: "/today", label: "Today" },
@@ -6,16 +7,18 @@ export const SITE_NAV_LINKS = [
   { href: "/prices/gas", label: "Gas price" },
   { href: "/explained/price-cap", label: "Price cap" },
   { href: "/methodology", label: "Methodology" },
+  { href: "/data-health", label: "Data health" },
   { href: "/api", label: "API" },
 ] as const;
 
 export function SitePublicNav({ className = "" }: { className?: string }) {
+  const links = SITE_NAV_LINKS.filter((link) => routeExists(link.href));
   return (
     <nav
       aria-label="Site"
       className={`flex flex-wrap gap-x-4 gap-y-2 text-label-13 text-gray-900 ${className}`.trim()}
     >
-      {SITE_NAV_LINKS.map((link) => (
+      {links.map((link) => (
         <Link
           key={link.href}
           href={link.href}

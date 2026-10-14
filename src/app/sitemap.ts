@@ -8,7 +8,7 @@ import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
 import { peekWarmedPipe } from "@/lib/warm-envelope";
 
-const GRID_LASTMOD_PATHS = new Set(["", "/today", "/llms.txt"]);
+const GRID_LASTMOD_PATHS = new Set(["", "/today", "/llms.txt", "/data-health"]);
 const GAS_LASTMOD_PATHS = new Set(["/prices/gas"]);
 
 export type SitemapStamps = {

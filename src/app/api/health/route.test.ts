@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const peekWarmedPipe = vi.fn();
+const peekWarmedEnvelope = vi.fn();
 
 vi.mock("@/lib/warm-envelope", () => ({
   peekWarmedPipe: (...args: unknown[]) => peekWarmedPipe(...args),
+  peekWarmedEnvelope: (...args: unknown[]) => peekWarmedEnvelope(...args),
 }));
 
 import { GET } from "./route";
@@ -15,6 +17,8 @@ function tinybirdTimestamp(msAgo: number): string {
 describe("/api/health", () => {
   beforeEach(() => {
     peekWarmedPipe.mockReset();
+    peekWarmedEnvelope.mockReset();
+    peekWarmedEnvelope.mockResolvedValue(null);
     peekWarmedPipe.mockImplementation(async (pipe: string) => {
       if (pipe === "snapshots_range") {
         return [{ timestamp: tinybirdTimestamp(30 * 60 * 1000) }];
@@ -97,6 +101,64 @@ describe("/api/health", () => {
     );
     expect(body.streams[2].stale).toBe(false);
     expect(body.streams[2].critical).toBe(false);
+    expect(Array.isArray(body.metrics)).toBe(true);
+    expect(body.streams[0]).toEqual(
+      expect.objectContaining({
+        stream: "snapshots",
+        critical: true,
+      })
+    );
+  });
+
+  it("adds optional metric freshness without changing the snapshot status code", async () => {
+    const published = new Date(Date.now() - 6 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .slice(0, 19);
+    peekWarmedEnvelope.mockImplementation(async (pipe: string) => {
+      if (pipe === "snapshots_range") {
+        return {
+          data: [{ timestamp: published, demand_mw: 28000, price_gbp_mwh: 80 }],
+          cachedAt: Date.now(),
+          freshFor: 300,
+        };
+      }
+      if (pipe === "prices_range") {
+        return {
+          data: [
+            {
+              date: "2020-01-01",
+              commodity: "gb_gas_sap",
+              price: 2.4,
+              currency: "GBP",
+              unit: "p/kWh",
+            },
+          ],
+          cachedAt: Date.now(),
+          freshFor: 300,
+        };
+      }
+      return null;
+    });
+
+    const response = await GET();
+    const body = await response.json();
+    const demand = body.metrics.find(
+      (metric: { metric_id: string }) => metric.metric_id === "elec.gb.demand.itsdo"
+    );
+    const sap = body.metrics.find(
+      (metric: { metric_id: string }) => metric.metric_id === "commodity.gb_gas_sap.price"
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.streams[0].stream).toBe("snapshots");
+    expect(body.streams[0].stale).toBe(false);
+    expect(demand).toMatchObject({ stale: true, state: "stale" });
+    expect(demand.published_at).toEqual(expect.any(String));
+    expect(demand.retrieved_at).toEqual(expect.any(String));
+    expect(sap.published_at).toBe("2020-01-01T00:00:00.000Z");
+    expect(sap.retrieved_at).toEqual(expect.any(String));
+    expect(sap.stale).toBe(true);
   });
 
   it("flags embedded from the older feed and from a missing feed", async () => {

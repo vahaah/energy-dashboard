@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -132,10 +133,13 @@ export function Card({
 
 export function CardLoading({ className = "" }: { className?: string }) {
   return (
-    <Skeleton
-      data-slot="card-loading"
-      className={`h-[200px] w-full sm:h-[280px] ${className}`.trim()}
-    />
+    <div className="flex flex-col gap-3">
+      <DataStateNotice state="loading" />
+      <Skeleton
+        data-slot="card-loading"
+        className={`h-[200px] w-full sm:h-[280px] ${className}`.trim()}
+      />
+    </div>
   );
 }
 

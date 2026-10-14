@@ -4,6 +4,7 @@ import { CalendarDays, Check, Copy } from "lucide-react";
 import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CARD_PAD_X } from "@/components/ui/card";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
 
 export function SiteHeader({
@@ -62,12 +63,13 @@ export function SiteHeader({
         <p
           className={
             stale
-              ? `border-t border-gray-alpha-400 ${CARD_PAD_X} py-1.5 text-center text-label-12 text-gray-900`
+              ? `flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-400 ${CARD_PAD_X} py-1.5 text-center text-label-12 text-gray-900`
               : "sr-only"
           }
           aria-live={stale ? "polite" : undefined}
         >
-          {stamp}
+          {stale ? <DataStateNotice state="stale" /> : null}
+          <span>{stamp}</span>
         </p>
       }
     />

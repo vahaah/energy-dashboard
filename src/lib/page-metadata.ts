@@ -8,6 +8,8 @@ import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-dema
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
+  DATA_HEALTH_DESCRIPTION,
+  DATA_HEALTH_TITLE,
   GAS_DESCRIPTION,
   GAS_TITLE,
   HOME_DESCRIPTION,
@@ -259,6 +261,16 @@ export function gasPageMetadata(): Metadata {
     path: "/prices/gas",
     imagePath: "/prices/gas/opengraph-image",
     imageAlt: GAS_TITLE,
+  });
+}
+
+export function dataHealthPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: DATA_HEALTH_TITLE,
+    description: DATA_HEALTH_DESCRIPTION,
+    path: "/data-health",
+    imagePath: "/og",
+    imageAlt: DATA_HEALTH_TITLE,
   });
 }
 

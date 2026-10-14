@@ -1,4 +1,5 @@
 import { Sparkline } from "@/components/sparkline";
+import { DataStateNotice } from "@/components/ui/data-state";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type { GroupedSourceTable } from "@/lib/source-groups";
 
@@ -31,7 +32,12 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
               <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-copy-14 text-gray-1000">{row.label}</p>
-                {row.missingNote ? <p className="text-label-12 text-gray-900">{row.missingNote}</p> : null}
+                {row.missingNote ? (
+                  <p className="mt-1 flex max-w-full flex-wrap items-center gap-1.5 text-label-12 text-gray-900">
+                    {row.missingNote === "no data" ? <DataStateNotice state="unavailable" /> : null}
+                    <span>{row.missingNote}</span>
+                  </p>
+                ) : null}
               </div>
               <p data-figure className="w-14 shrink-0 whitespace-nowrap text-right font-sans text-copy-14 tabular-nums text-gray-1000">
                 <span data-value>{row.gwLabel}</span>

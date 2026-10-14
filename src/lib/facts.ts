@@ -1,3 +1,4 @@
+import { ABSENT_FIGURE } from "@/lib/data-state";
 import {
   generationSharesFromRows,
   latestSnapshotWithField,
@@ -72,7 +73,7 @@ export type GetLatestFactsInput = {
 };
 
 const NO_DATA_STAMP = "No data yet. Grid refreshes every hour.";
-const MISSING_FACT = "—";
+const MISSING_FACT = ABSENT_FIGURE;
 const DEMAND_FIGURE = homepageDemandFigureInputs();
 
 export function formatHeadlineGw(value: number | null, digits = 1): string {

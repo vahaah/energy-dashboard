@@ -76,6 +76,9 @@ describe("site nav shell", () => {
 
   it("keeps an API link in the footer nav", () => {
     expect(SITE_NAV_LINKS).toContainEqual({ href: "/api", label: "API" });
+    expect(SITE_NAV_LINKS).toContainEqual({ href: "/data-health", label: "Data health" });
+    expect(visibleNavHrefs()).not.toContain("/data-health");
+    expect(routeExists("/data-health")).toBe(true);
   });
 
   it("moves a keyboard menu without trapping Tab", () => {
