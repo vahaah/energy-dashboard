@@ -176,9 +176,9 @@ describe("displayed demand", () => {
     expect(power.storageChargingMw).toBe(2_000);
     expect(power.transfersMw).toBe(1_200);
     expect(power.demandMw).toBe(30_200);
-    expect(power.demandSource).toBe(homepageDemandFigureInputs().source);
+    expect(power.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
     expect(power.terms.find((term) => term.id === "demand")?.source).toBe(
-      homepageDemandFigureInputs().source
+      "Elexon BMRS, NESO, Sheffield Solar PV Live"
     );
     expect(facts.demand.definition).toContain("ITSDO");
     expect(power.demandMw).toBe(
@@ -233,6 +233,39 @@ describe("displayed demand", () => {
     expect(power.demandMw).toBe(30_200);
     expect(power.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
     expect(power.demandSource).not.toBe(homepageDemandFigureInputs().source);
+  });
+
+  it("uses Elexon BMRS only when the displayed demand is pure ITSDO", () => {
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const timestamp = "2026-10-10 11:00:00";
+    const pure = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, 23_000)],
+      generation: [generation(timestamp, "ccgt", 15_000), generation(timestamp, "wind", 8_000)],
+      now,
+    });
+    const purePower = getDisplayedPower(pure, [snapshot(timestamp, 23_000)]);
+
+    expect(pure.demand.definition).toContain("ITSDO");
+    expect(purePower.balanceClosed).toBe(false);
+    expect(purePower.demandSource).toBe(homepageDemandFigureInputs().source);
+
+    const withEmbedded = getLatestFacts({
+      resolution: resolveDashboardDate(null, now, "24h"),
+      snapshots: [snapshot(timestamp, 23_000)],
+      generation: [
+        generation(timestamp, "ccgt", 15_000),
+        generation(timestamp, "wind", 8_000),
+        generation(timestamp, "embedded_wind", 2_000, "neso"),
+        generation(timestamp, "embedded_solar", 1_000, "pvlive"),
+      ],
+      now,
+    });
+    const embeddedPower = getDisplayedPower(withEmbedded, [snapshot(timestamp, 23_000)]);
+
+    expect(embeddedPower.balanceClosed).toBe(false);
+    expect(embeddedPower.demandMw).toBe(26_000);
+    expect(embeddedPower.demandSource).toBe("Elexon BMRS, NESO, Sheffield Solar PV Live");
   });
 
   it("keeps the equals sign and speaks the rounding note when rounded gigawatts miss", () => {

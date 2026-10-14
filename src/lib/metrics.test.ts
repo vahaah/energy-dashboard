@@ -5,9 +5,8 @@ import {
   isGeographyId,
   METRICS,
   metricSourceIds,
-  type MetricDefinition,
-  type Observation,
 } from "@/lib/metrics";
+import type { MetricDefinition, Observation } from "@/lib/types";
 
 const REGISTERED: MetricDefinition[] = Object.values(METRICS);
 
@@ -154,5 +153,25 @@ describe("geography enum", () => {
     expect(METRICS["commodity.eu_natural_gas.spot"].geography_id).toBe("NW_EUROPE");
     expect(METRICS["commodity.lng_asia.spot"].geography_id).toBe("JP");
     expect(METRICS["commodity.gb_gas_sap.price"].geography_id).toBe("GB_NTS");
+  });
+
+  it("registers the homepage Market Index and imbalance price", () => {
+    expect(METRICS["elec.gb.price.market_index"]).toMatchObject({
+      unit: "£/MWh",
+      dataset_id: "APXMIDP",
+      source_id: "elexon-bmrs",
+      geography_id: "GB",
+      aggregation: "last",
+      quantity_kind: "index",
+    });
+    expect(METRICS["elec.gb.price.market_index"].coverage).toContain("price_mid_gbp_mwh");
+    expect(METRICS["elec.gb.price.imbalance"]).toMatchObject({
+      unit: "£/MWh",
+      dataset_id: "system-prices",
+      source_id: "elexon-bmrs",
+      geography_id: "GB",
+      aggregation: "last",
+    });
+    expect(METRICS["elec.gb.price.imbalance"].coverage).toContain("price_gbp_mwh");
   });
 });

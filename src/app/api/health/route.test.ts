@@ -33,6 +33,12 @@ describe("/api/health", () => {
             fuel_type: "embedded_wind",
             generation_mw: 400,
           },
+          {
+            timestamp: tinybirdTimestamp(40 * 60 * 1000),
+            source: "pvlive",
+            fuel_type: "embedded_solar",
+            generation_mw: 200,
+          },
         ];
       }
       if (pipe === "prices_range") {
@@ -89,6 +95,57 @@ describe("/api/health", () => {
     expect(body.streams.every((stream: { latest: string | null }) => stream.latest != null)).toBe(
       true
     );
+    expect(body.streams[2].stale).toBe(false);
+    expect(body.streams[2].critical).toBe(false);
+  });
+
+  it("flags embedded from the older feed and from a missing feed", async () => {
+    const wind = tinybirdTimestamp(20 * 60 * 1000);
+    const solar = tinybirdTimestamp(3 * 60 * 60 * 1000);
+    peekWarmedPipe.mockImplementation(async (pipe: string) => {
+      if (pipe === "snapshots_range") {
+        return [{ timestamp: tinybirdTimestamp(30 * 60 * 1000) }];
+      }
+      if (pipe === "generation_5min_range") {
+        return [
+          { timestamp: wind, source: "neso", fuel_type: "embedded_wind", generation_mw: 400 },
+          { timestamp: solar, source: "pvlive", fuel_type: "embedded_solar", generation_mw: 200 },
+        ];
+      }
+      return [];
+    });
+
+    const older = await GET();
+    const olderBody = await older.json();
+
+    expect(older.status).toBe(200);
+    expect(olderBody.streams[2]).toMatchObject({
+      stream: "embedded",
+      latest: solar,
+      stale: true,
+      critical: false,
+    });
+
+    peekWarmedPipe.mockImplementation(async (pipe: string) => {
+      if (pipe === "snapshots_range") {
+        return [{ timestamp: tinybirdTimestamp(30 * 60 * 1000) }];
+      }
+      if (pipe === "generation_5min_range") {
+        return [{ timestamp: wind, source: "neso", fuel_type: "embedded_wind", generation_mw: 400 }];
+      }
+      return [];
+    });
+
+    const missing = await GET();
+    const missingBody = await missing.json();
+
+    expect(missing.status).toBe(200);
+    expect(missingBody.streams[2]).toMatchObject({
+      stream: "embedded",
+      latest: null,
+      stale: true,
+      critical: false,
+    });
   });
 
   it("returns 503 when the snapshot envelope is stale", async () => {

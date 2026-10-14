@@ -5,6 +5,7 @@ import { STORAGE_CHARGING_MIN_MW } from "@/lib/generation-share";
 import {
   buildSettlementBalance,
   headlineTermsClose,
+  type SettlementBalance,
   type StorageChargingKind,
 } from "@/lib/headline-balance";
 import { parseUtcDateTime } from "@/lib/london-time";
@@ -70,12 +71,10 @@ export function getDisplayedPower(
   const demandDefinition = closed
     ? demandDefinitionFrom(itsdo, balance.embeddedMw, balance.demandMw)
     : aligned.demand.definition;
-  // Year/All demand is the NESO historic series. Only the ITSDO fact takes the registry source.
-  const demandSource = facts.demand.definition.includes("ITSDO")
+  const compositeSource = closed ? generationSource : aligned.demand.source;
+  const demandSource = pureItsdoDemand(facts, aligned.demand, balance, closed)
     ? homepageDemandFigureInputs().source
-    : closed
-      ? generationSource
-      : aligned.demand.source;
+    : compositeSource;
   const showEquals =
     closed &&
     demandMw != null &&
@@ -310,6 +309,32 @@ function storageTerm(mw: number, kind: StorageChargingKind, source: string): Hea
       return exhaustive;
     }
   }
+}
+
+function pureItsdoDemand(
+  facts: LatestFacts,
+  alignedDemand: { source: string; definition: string },
+  balance: SettlementBalance,
+  closed: boolean
+): boolean {
+  if (!facts.demand.definition.includes("ITSDO")) {
+    return false;
+  }
+  if (closed) {
+    return !balanceMixesEmbeddedOrNeso(balance);
+  }
+  return alignedDemand.source === facts.demand.source && alignedDemand.definition === facts.demand.definition;
+}
+
+function balanceMixesEmbeddedOrNeso(balance: SettlementBalance): boolean {
+  if (balance.embeddedMw !== 0) {
+    return true;
+  }
+  return balance.fuels.some(
+    (fuel) =>
+      (fuel.source === "neso" || fuel.source === "neso-historic") &&
+      (fuel.mw !== 0 || fuel.positiveMw !== 0 || fuel.negativeMw !== 0)
+  );
 }
 
 function demandDefinitionFrom(

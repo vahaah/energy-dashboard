@@ -1,10 +1,15 @@
 import type { DataSourceId } from "@/lib/attribution";
+import type {
+  Aggregation,
+  IntervalConvention,
+  MetricDefinition,
+  QuantityKind,
+  SignConvention,
+} from "@/lib/types";
 
 /**
  * Checked-in contract for every series the UI can name.
- * Observation values are not built here. The observation type is the shape
- * a later writer has to fill. Intervals are UTC and half-open: start inclusive,
- * end exclusive.
+ * Types live in `src/lib/types.ts`. Intervals are UTC and half-open.
  */
 
 export const QUANTITY_KINDS = [
@@ -14,22 +19,16 @@ export const QUANTITY_KINDS = [
   "stock",
   "index",
   "share",
-] as const;
+] as const satisfies readonly QuantityKind[];
 
-export type QuantityKind = (typeof QUANTITY_KINDS)[number];
-
-export const AGGREGATIONS = ["mean", "sum", "last", "ratio"] as const;
-
-export type Aggregation = (typeof AGGREGATIONS)[number];
+export const AGGREGATIONS = ["mean", "sum", "last", "ratio"] as const satisfies readonly Aggregation[];
 
 export const INTERVAL_CONVENTIONS = [
   "uk_settlement_period_half_open",
   "calendar_day_utc_half_open",
   "calendar_month_utc_half_open",
   "gas_day_half_open",
-] as const;
-
-export type IntervalConvention = (typeof INTERVAL_CONVENTIONS)[number];
+] as const satisfies readonly IntervalConvention[];
 
 export const SIGN_CONVENTIONS = [
   "positive_demand",
@@ -40,48 +39,7 @@ export const SIGN_CONVENTIONS = [
   "positive_intensity",
   "positive_price",
   "share_of_denominator",
-] as const;
-
-export type SignConvention = (typeof SIGN_CONVENTIONS)[number];
-
-export type MetricSourceId = DataSourceId | readonly DataSourceId[];
-
-export type MetricDefinition = {
-  metric_id: string;
-  metric_definition_version: number;
-  unit: string;
-  quantity_kind: QuantityKind;
-  geography_id: string;
-  interval_convention: IntervalConvention;
-  sign_convention: SignConvention;
-  aggregation: Aggregation;
-  /** Required for every share or percent. Null otherwise. */
-  denominator: string | null;
-  source_id: MetricSourceId;
-  dataset_id: string;
-  coverage: string;
-  expected_cadence: string;
-};
-
-/**
- * UTC half-open interval. `value` is null when the period was not observed.
- * No runtime constructor: nothing writes these yet.
- */
-export type Observation = {
-  interval_start: string;
-  interval_end: string;
-  period_label: string | null;
-  time_basis: string;
-  value: number | null;
-  observation_kind: string;
-  publication_status: string;
-  forecast_issued_at: string | null;
-  published_at: string | null;
-  retrieved_at: string | null;
-  source_release_id: string | null;
-  source_record_key: string | null;
-  quality_flags: readonly string[];
-};
+] as const satisfies readonly SignConvention[];
 
 const GEOGRAPHY_ID =
   /^(?:GB|NI|UK|IE|ALL_ISLAND|GB_NTS|GB_DNO_[0-9]+|GB_GSP_[A-Z0-9]+|ONS_[A-Z][A-Z0-9]*_[A-Z0-9]+|US|NW_EUROPE|JP|GLOBAL)$/;
@@ -296,6 +254,38 @@ export const METRICS = {
     dataset_id: "headline-balance",
     coverage:
       "Transmission wind + embedded wind + PV Live solar + conventional hydro, over the generation side of the headline balance for the same settlement period. Excludes biomass, pumped storage, battery and imports.",
+    expected_cadence: "PT30M",
+  },
+  "elec.gb.price.market_index": {
+    metric_id: "elec.gb.price.market_index",
+    metric_definition_version: 1,
+    unit: "£/MWh",
+    quantity_kind: "index",
+    geography_id: "GB",
+    interval_convention: "uk_settlement_period_half_open",
+    sign_convention: "positive_price",
+    aggregation: "last",
+    denominator: null,
+    source_id: "elexon-bmrs",
+    dataset_id: "APXMIDP",
+    coverage:
+      "Short-term wholesale Market Index. The homepage field is price_mid_gbp_mwh. Not the day-ahead auction.",
+    expected_cadence: "PT30M",
+  },
+  "elec.gb.price.imbalance": {
+    metric_id: "elec.gb.price.imbalance",
+    metric_definition_version: 1,
+    unit: "£/MWh",
+    quantity_kind: "index",
+    geography_id: "GB",
+    interval_convention: "uk_settlement_period_half_open",
+    sign_convention: "positive_price",
+    aggregation: "last",
+    denominator: null,
+    source_id: "elexon-bmrs",
+    dataset_id: "system-prices",
+    coverage:
+      "System buy price, the imbalance cash-out. The homepage field is price_gbp_mwh. The published price can be negative.",
     expected_cadence: "PT30M",
   },
   "commodity.brent.spot": {

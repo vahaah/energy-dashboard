@@ -9,6 +9,7 @@ import {
 import {
   healthHttpStatus,
   latestObservedTimestamp,
+  olderEmbeddedTimestamp,
   STALE_AFTER_MS,
   streamFreshness,
 } from "@/lib/health";
@@ -63,12 +64,15 @@ export async function GET() {
       generationRows.filter((row) => row.source === "fuelinst").map((row) => row.timestamp),
       now
     );
-    const embeddedLatest = latestObservedTimestamp(
-      generationRows
-        .filter((row) => row.fuel_type === "embedded_solar" || row.fuel_type === "embedded_wind")
-        .map((row) => row.timestamp),
+    const embeddedWindLatest = latestObservedTimestamp(
+      generationRows.filter((row) => row.fuel_type === "embedded_wind").map((row) => row.timestamp),
       now
     );
+    const embeddedSolarLatest = latestObservedTimestamp(
+      generationRows.filter((row) => row.fuel_type === "embedded_solar").map((row) => row.timestamp),
+      now
+    );
+    const embeddedLatest = olderEmbeddedTimestamp(embeddedWindLatest, embeddedSolarLatest);
     const priceLatest = latestObservedTimestamp(
       filterCanonicalCommodityPrices(prices ?? [])
         .map((row) => priceObservedAt(row.date))
