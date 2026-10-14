@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { canonicalJson } from "@/lib/catalogue/canonical";
 import { parseNdjson } from "@/lib/catalogue/load";
-import { ASSET_REGISTER_FILES } from "@/lib/catalogue/schema";
+import { ASSET_REGISTER_FILES, type CatalogueDataset } from "@/lib/catalogue/schema";
 import {
   assetRecordSchema,
   capacityRecordSchema,
@@ -31,6 +31,7 @@ const MW_MAX = 5_000;
 type ReleaseRef = {
   source_release_id: string;
   dataset_id: string;
+  published_at?: string | null;
   content: unknown;
 };
 
@@ -119,6 +120,10 @@ export function assetRegisterErrors(register: AssetRegister, releases: readonly 
       "capacity_record_id",
       register.capacity.map((record) => record.capacity_record_id),
     ),
+    ...duplicateErrors(
+      "match_id",
+      register.matches.map((match) => match.match_id),
+    ),
   );
   const mappingKeys = register.mappings.map((mapping) => `${mapping.scheme}:${mapping.source_entity_id}`);
   errors.push(...duplicateErrors("source entity", mappingKeys));
@@ -170,7 +175,7 @@ export function assetRegisterErrors(register: AssetRegister, releases: readonly 
       );
     }
   }
-  errors.push(...doubleCountErrors(register));
+  errors.push(...doubleCountErrors(register, releases));
   return errors;
 }
 
@@ -178,7 +183,23 @@ function projectKey(project: ProjectRecord): string {
   return `${project.source_id}|${project.external_ref}`;
 }
 
-function doubleCountErrors(register: AssetRegister): string[] {
+function latestReleaseIds(register: AssetRegister, releases: readonly ReleaseRef[]): Set<string> {
+  const used = new Set(register.capacity.map((record) => record.source_release_id));
+  const byDataset = new Map<string, { id: string; at: string }>();
+  for (const release of releases) {
+    if (!used.has(release.source_release_id)) {
+      continue;
+    }
+    const at = release.published_at ?? "";
+    const current = byDataset.get(release.dataset_id);
+    if (!current || at > current.at) {
+      byDataset.set(release.dataset_id, { id: release.source_release_id, at });
+    }
+  }
+  return new Set([...byDataset.values()].map((item) => item.id));
+}
+
+function doubleCountErrors(register: AssetRegister, releases: readonly ReleaseRef[]): string[] {
   const errors: string[] = [];
   const projects = new Map(register.projects.map((project) => [projectKey(project), project]));
   const capacityByProject = new Map<string, CapacityRecord[]>();
@@ -217,23 +238,10 @@ function doubleCountErrors(register: AssetRegister): string[] {
       }
       dukesRecords.push(...(capacityByProject.get(project.project_id) ?? []));
     }
-    const repdMw = repdRecords.reduce((sum, record) => sum + record.mw, 0);
-    const dukesMw = dukesRecords.reduce((sum, record) => sum + record.mw, 0);
-    const counted = [...repdRecords, ...dukesRecords].reduce(
-      (sum, record) => sum + (record.counts ? record.mw : 0),
-      0,
+    errors.push(
+      ...releaseCountErrors(match, repdRecords, match.counts_source === REPD_SOURCE_ID),
+      ...releaseCountErrors(match, dukesRecords, match.counts_source === DUKES_SOURCE_ID),
     );
-    const preferred = match.counts_source === REPD_SOURCE_ID ? repdMw : dukesMw;
-    if (repdMw > 0 && dukesMw > 0 && counted > Math.max(repdMw, dukesMw) + 0.05) {
-      errors.push(
-        `match ${match.match_id} counts ${counted} MW from both REPD ${repdMw} and DUKES ${dukesMw}`,
-      );
-    }
-    if (Math.abs(counted - preferred) > 0.05) {
-      errors.push(
-        `match ${match.match_id} counted ${counted} MW, expected ${preferred} from ${match.counts_source}`,
-      );
-    }
     const quiet = match.counts_source === REPD_SOURCE_ID ? dukesRecords : repdRecords;
     for (const record of quiet) {
       const project = projectsByCapacity(register, record);
@@ -242,13 +250,39 @@ function doubleCountErrors(register: AssetRegister): string[] {
       }
     }
   }
+  const latest = latestReleaseIds(register, releases);
   for (const record of register.capacity) {
-    if (record.counts) {
+    if (record.counts || !latest.has(record.source_release_id)) {
       continue;
     }
     const project = register.projects.find((item) => item.project_id === record.project_id);
     if (!project || !suppressed.has(projectKey(project))) {
       errors.push(`${record.capacity_record_id} does not count and is not a matched duplicate`);
+    }
+  }
+  return errors;
+}
+
+function releaseCountErrors(
+  match: AssetRegister["matches"][number],
+  records: readonly CapacityRecord[],
+  shouldCount: boolean,
+): string[] {
+  const errors: string[] = [];
+  const byRelease = new Map<string, CapacityRecord[]>();
+  for (const record of records) {
+    const list = byRelease.get(record.source_release_id) ?? [];
+    list.push(record);
+    byRelease.set(record.source_release_id, list);
+  }
+  for (const [releaseId, rows] of byRelease) {
+    const total = rows.reduce((sum, record) => sum + record.mw, 0);
+    const counted = rows.reduce((sum, record) => sum + (record.counts ? record.mw : 0), 0);
+    if (shouldCount && Math.abs(counted - total) > 0.05) {
+      errors.push(`match ${match.match_id} release ${releaseId} counted ${counted} MW, expected ${total}`);
+    }
+    if (!shouldCount && counted > 0.05) {
+      errors.push(`match ${match.match_id} release ${releaseId} counts ${counted} MW from both sources`);
     }
   }
   return errors;
@@ -276,9 +310,19 @@ function headlineFromRelease(release: ReleaseRef | undefined): { major_power_pro
   return headline.success ? headline.data : null;
 }
 
-export function checkAssetFiles(dir: string, releases: readonly ReleaseRef[]): string[] {
+export function checkAssetFiles(
+  dir: string,
+  releases: readonly ReleaseRef[],
+  datasets: readonly CatalogueDataset[] = [],
+): string[] {
   const present = Object.values(ASSET_REGISTER_FILES).filter((file) => existsSync(join(dir, file)));
+  const requiresRegister = datasets.some((dataset) => dataset.register === "assets");
   if (!existsSync(join(dir, ASSET_REGISTER_FILES.assets))) {
+    if (requiresRegister) {
+      return Object.values(ASSET_REGISTER_FILES)
+        .filter((file) => !existsSync(join(dir, file)))
+        .map((file) => `missing ${file}`);
+    }
     return present.length > 0 ? [`asset register is missing ${ASSET_REGISTER_FILES.assets}`] : [];
   }
   const errors: string[] = [];

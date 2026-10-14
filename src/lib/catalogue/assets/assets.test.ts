@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildAssetRegister, countedMegawatts } from "@/lib/catalogue/assets/build";
+import { buildAssetRegister, countedMegawatts, withHistoricalCapacity } from "@/lib/catalogue/assets/build";
+import { stableId } from "@/lib/catalogue/assets/ids";
 import { assetRegisterErrors } from "@/lib/catalogue/assets/check";
 import { distanceMetres, osgbToWgs84 } from "@/lib/catalogue/assets/osgb";
 import { parseRepdCsv } from "@/lib/catalogue/assets/repd";
@@ -252,5 +253,86 @@ describe("asset register checks", () => {
       assets: [{ ...asset, latitude: 0, longitude: 0 }],
     };
     expect(assetRegisterErrors(broken, RELEASE_REFS).join("\n")).toMatch(/\(0, 0\)/);
+  });
+
+  it("rejects two matches that share a match id", () => {
+    const register = buildAssetRegister(
+      [station({ sourceId: REPD_SOURCE_ID, externalRef: "10", name: "Same Farm", easting: 450_000, northing: 400_000, mw: 100 })],
+      [
+        station({
+          sourceId: DUKES_SOURCE_ID,
+          externalRef: "SOL-1",
+          name: "Same Farm Solar",
+          easting: 450_100,
+          northing: 400_100,
+          mw: 100,
+        }),
+      ],
+      EMPTY_OVERRIDES,
+      RELEASES,
+    );
+    const match = register.matches[0];
+    expect(match).toBeDefined();
+    if (!match) {
+      return;
+    }
+    const duplicate = {
+      ...register,
+      matches: [match, { ...match, repd_refs: ["11"], dukes_site_codes: ["SOL-9"], dukes_names: ["Other Farm"] }],
+    };
+    expect(assetRegisterErrors(duplicate, RELEASE_REFS).join("\n")).toMatch(/duplicate match_id/);
+  });
+
+  it("keeps an older release's capacity row", () => {
+    const current = buildAssetRegister(
+      [station({ sourceId: REPD_SOURCE_ID, externalRef: "10", name: "Same Farm", easting: 450_000, northing: 400_000, mw: 100 })],
+      [
+        station({
+          sourceId: DUKES_SOURCE_ID,
+          externalRef: "SOL-1",
+          name: "Same Farm Solar",
+          easting: 450_100,
+          northing: 400_100,
+          mw: 100,
+        }),
+      ],
+      EMPTY_OVERRIDES,
+      RELEASES,
+    );
+    const olderRelease = "desnz-repd:repd-quarterly:2026-04-01T00:00:00.000Z";
+    const currentRepd = current.capacity.find((record) => record.source_id === REPD_SOURCE_ID);
+    const project = current.projects.find((item) => item.source_id === REPD_SOURCE_ID);
+    expect(currentRepd).toBeDefined();
+    expect(project).toBeDefined();
+    if (!currentRepd || !project) {
+      return;
+    }
+    const historical = {
+      ...currentRepd,
+      capacity_record_id: stableId("cap", `${REPD_SOURCE_ID}:${project.external_ref}:${olderRelease}`),
+      source_release_id: olderRelease,
+      mw: 90,
+    };
+    const merged = withHistoricalCapacity(
+      current,
+      { assets: current.assets, projects: current.projects, mappings: current.mappings, capacity: [historical, { ...currentRepd, mw: 1 }] },
+      [RELEASES.repd, RELEASES.dukes],
+    );
+    expect(merged.capacity.map((record) => record.capacity_record_id).sort()).toEqual(
+      [historical.capacity_record_id, ...current.capacity.map((record) => record.capacity_record_id)].sort(),
+    );
+    expect(merged.capacity.find((record) => record.source_release_id === RELEASES.repd)?.mw).toBe(currentRepd.mw);
+    expect(
+      assetRegisterErrors(merged, [
+        { ...RELEASE_REFS[0], published_at: "2026-08-03T09:00:03.000Z" },
+        { ...RELEASE_REFS[1], published_at: "2026-07-30T00:00:00.000Z" },
+        {
+          source_release_id: olderRelease,
+          dataset_id: "desnz-repd:repd-quarterly",
+          published_at: "2026-04-01T00:00:00.000Z",
+          content: {},
+        },
+      ]),
+    ).toEqual([]);
   });
 });

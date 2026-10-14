@@ -318,6 +318,7 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
     ...checkAssetFiles(
       dir,
       loaded.releases.data.map((record) => record.release),
+      loaded.datasets.data,
     ),
   );
 

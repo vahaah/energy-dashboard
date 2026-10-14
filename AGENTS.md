@@ -147,7 +147,7 @@ Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (inge
 
 Checked-in plant register. No database, no Tinybird, no homepage change. `/` stays `force-static`.
 
-`npm run catalogue:assets` downloads the latest gov.uk releases (Open Government Licence v3.0). `--offline` reads `data/catalogue/raw/`, which is gitignored. It rewrites the compact register and appends releases:
+`npm run catalogue:assets` downloads the latest gov.uk releases (Open Government Licence v3.0). `--offline` reads `data/catalogue/raw/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script rewrites the current plant list and appends releases:
 
 - `assets.ndjson` (`ast_`), `projects.ndjson` (`prj_`), `capacity_records.ndjson` (`cap_`), `source_entity_mappings.ndjson` (`REPD_REF`, `DUKES_NAME`), `asset_matches.ndjson`
 - `asset_match_overrides.json` is hand-edited. Links and unlinks are applied before the automatic rules.
@@ -157,7 +157,9 @@ Operational REPD renewables, including pumped storage and excluding batteries an
 
 The same site must not count twice. `src/lib/catalogue/assets/match.ts` matches on coordinates, then a distinctive name, then a name group. Renewables count the REPD megawatts. Gas, oil, nuclear, and pumped storage count DUKES. The other side is `counts: false`.
 
-Each import appends one immutable `source_releases.ndjson` line and one `ingestion_runs.ndjson` line. `content` is the edition, publication time, download URL, byte length, and `extract_sha256` of the official file, plus the DUKES 5.11.A headline MW. `content_hash` is the canonical JSON of that descriptor, not of the station list. Do not edit a committed release line. A later quarter appends a new release and new capacity rows.
+Each import appends one immutable `source_releases.ndjson` line. `content` is the edition, publication time, download URL, byte length, and `extract_sha256` of the official file, plus the DUKES 5.11.A headline MW. `content_hash` is the canonical JSON of that descriptor, not of the station list. Do not edit a committed release line. A later quarter appends a new release and new `capacity_records.ndjson` rows. Rows from older releases stay. Capacity for the release being imported is replaced.
+
+Each invocation also appends `ingestion_runs.ndjson` lines. `ingestion_run_id` is unique per run. `started_at` and `finished_at` are the import clock, not the publisher's `published_at`.
 
 `publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. The raw extracts stay out of git. Publishing the register to Blob is P1A.2. Do not add Blob in this change.
 

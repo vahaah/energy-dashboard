@@ -14,6 +14,13 @@ import type {
   ReleaseBinding,
 } from "@/lib/catalogue/assets/types";
 
+export type PreviousRegister = {
+  assets: readonly AssetRecord[];
+  projects: readonly ProjectRecord[];
+  mappings: readonly MappingRecord[];
+  capacity: readonly CapacityRecord[];
+};
+
 function pointOf(station: CatalogueStation): { latitude: number | null; longitude: number | null } {
   if (station.easting === null || station.northing === null) {
     return { latitude: null, longitude: null };
@@ -153,12 +160,57 @@ export function buildAssetRegister(
     );
   }
 
-  assets.sort((left, right) => compareId(left.asset_id, right.asset_id));
-  projects.sort((left, right) => compareId(left.project_id, right.project_id));
-  capacity.sort((left, right) => compareId(left.capacity_record_id, right.capacity_record_id));
-  mappings.sort(
+  return sortRegister({ assets, projects, capacity, mappings, matches });
+}
+
+/**
+ * A later REPD quarter or DUKES edition appends capacity rows. Rows for the
+ * releases being imported are replaced. Older release rows stay, and so do
+ * the assets and projects they point at.
+ */
+export function withHistoricalCapacity(
+  register: AssetRegister,
+  previous: PreviousRegister,
+  releaseIds: readonly string[],
+): AssetRegister {
+  const current = new Set(releaseIds);
+  const historical = previous.capacity.filter((record) => !current.has(record.source_release_id));
+  const nextIds = new Set(register.capacity.map((record) => record.capacity_record_id));
+  for (const record of historical) {
+    if (nextIds.has(record.capacity_record_id)) {
+      throw new Error(`historical capacity ${record.capacity_record_id} collides with ${record.source_release_id}`);
+    }
+  }
+  return sortRegister({
+    assets: preferNext(previous.assets, register.assets, (row) => row.asset_id),
+    projects: preferNext(previous.projects, register.projects, (row) => row.project_id),
+    mappings: preferNext(previous.mappings, register.mappings, (row) => `${row.scheme}\0${row.source_entity_id}`),
+    capacity: [...historical, ...register.capacity],
+    matches: register.matches,
+  });
+}
+
+function preferNext<T>(previous: readonly T[], next: readonly T[], idOf: (row: T) => string): T[] {
+  const rows = new Map<string, T>();
+  for (const row of previous) {
+    rows.set(idOf(row), row);
+  }
+  for (const row of next) {
+    rows.set(idOf(row), row);
+  }
+  return [...rows.values()];
+}
+
+function sortRegister(register: AssetRegister): AssetRegister {
+  const assets = [...register.assets].sort((left, right) => compareId(left.asset_id, right.asset_id));
+  const projects = [...register.projects].sort((left, right) => compareId(left.project_id, right.project_id));
+  const capacity = [...register.capacity].sort((left, right) =>
+    compareId(left.capacity_record_id, right.capacity_record_id),
+  );
+  const mappings = [...register.mappings].sort(
     (left, right) =>
       compareId(left.scheme, right.scheme) || compareId(left.source_entity_id, right.source_entity_id),
   );
+  const matches = [...register.matches].sort((left, right) => compareId(left.match_id, right.match_id));
   return { assets, projects, capacity, mappings, matches };
 }

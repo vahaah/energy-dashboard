@@ -4,10 +4,18 @@
  *   npx tsx scripts/catalogue/build-assets.ts
  *   npx tsx scripts/catalogue/build-assets.ts --offline
  */
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildAssetRegister } from "../../src/lib/catalogue/assets/build";
-import { matchOverridesSchema } from "../../src/lib/catalogue/assets/record-schema";
+import { z } from "zod";
+import { buildAssetRegister, withHistoricalCapacity, type PreviousRegister } from "../../src/lib/catalogue/assets/build";
+import {
+  assetRecordSchema,
+  capacityRecordSchema,
+  mappingRecordSchema,
+  matchOverridesSchema,
+  projectRecordSchema,
+} from "../../src/lib/catalogue/assets/record-schema";
+import { ingestionRunLine } from "../../src/lib/catalogue/assets/runs";
 import { summarizeRegister } from "../../src/lib/catalogue/assets/summary";
 import { familyOf, DUKES_DATASET_ID, REPD_DATASET_ID } from "../../src/lib/catalogue/assets/technologies";
 import type { CatalogueStation } from "../../src/lib/catalogue/assets/types";
@@ -61,18 +69,49 @@ function releaseLine(
   return { id, line: JSON.stringify(record) };
 }
 
-function runLine(datasetId: string, releaseId: string, publishedAt: string): { id: string; line: string } {
-  const id = `run:${datasetId}:${publishedAt}`;
-  const record = {
-    catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
-    ingestion_run_id: id,
-    dataset_id: datasetId,
-    source_release_id: releaseId,
-    started_at: publishedAt,
-    finished_at: publishedAt,
-    status: "succeeded" as const,
+function readRecords<T>(file: string, schema: z.ZodType<T>): T[] {
+  const path = resolve(root, file);
+  if (!existsSync(path)) {
+    return [];
+  }
+  const records: T[] = [];
+  const lines = readFileSync(path, "utf8").split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const parsed = schema.safeParse(JSON.parse(line));
+    if (!parsed.success) {
+      throw new Error(`${file}:${index + 1} is not a ${file} record`);
+    }
+    records.push(parsed.data);
+  }
+  return records;
+}
+
+function previousRegister(): PreviousRegister {
+  return {
+    assets: readRecords(ASSET_REGISTER_FILES.assets, assetRecordSchema),
+    projects: readRecords(ASSET_REGISTER_FILES.projects, projectRecordSchema),
+    mappings: readRecords(ASSET_REGISTER_FILES.mappings, mappingRecordSchema),
+    capacity: readRecords(ASSET_REGISTER_FILES.capacity, capacityRecordSchema),
   };
-  return { id, line: JSON.stringify(record) };
+}
+
+function appendLine(file: string, idKey: string, id: string, line: string): void {
+  const path = resolve(root, file);
+  const existing = readFileSync(path, "utf8");
+  const lines = existing.split("\n").filter((row) => row.trim().length > 0);
+  const index = lines.findIndex((row) => {
+    const parsed = JSON.parse(row) as Record<string, unknown>;
+    return parsed[idKey] === id;
+  });
+  if (index >= 0) {
+    throw new Error(`${id} is already in ${file}`);
+  }
+  lines.push(line);
+  writeFileSync(path, `${lines.join("\n")}\n`);
 }
 
 function unmatchedRenewables(stations: readonly CatalogueStation[], codes: ReadonlySet<string>): CatalogueStation[] {
@@ -86,6 +125,7 @@ function unmatchedRenewables(stations: readonly CatalogueStation[], codes: Reado
 }
 
 async function main(): Promise<void> {
+  const startedAt = new Date().toISOString();
   const offline = process.argv.includes("--offline");
   const repd = await loadRepd(offline);
   const dukes = await loadDukes(offline);
@@ -108,10 +148,14 @@ async function main(): Promise<void> {
   };
   const repdRelease = releaseLine(REPD_DATASET_ID, repd.publishedAt, repdContent);
   const dukesRelease = releaseLine(DUKES_DATASET_ID, dukes.publishedAt, dukesContent);
-  const register = buildAssetRegister(repd.stations, dukes.stations, overrides, {
-    repd: repdRelease.id,
-    dukes: dukesRelease.id,
-  });
+  const register = withHistoricalCapacity(
+    buildAssetRegister(repd.stations, dukes.stations, overrides, {
+      repd: repdRelease.id,
+      dukes: dukesRelease.id,
+    }),
+    previousRegister(),
+    [repdRelease.id, dukesRelease.id],
+  );
   const files = {
     assets: ndjson(register.assets),
     projects: ndjson(register.projects),
@@ -144,10 +188,11 @@ async function main(): Promise<void> {
   writeFileSync(resolve(root, ASSET_REGISTER_FILES.summary), `${JSON.stringify(summary, null, 2)}\n`);
   upsertLine("source_releases.ndjson", "source_release_id", repdRelease.id, repdRelease.line);
   upsertLine("source_releases.ndjson", "source_release_id", dukesRelease.id, dukesRelease.line);
-  const repdRun = runLine(REPD_DATASET_ID, repdRelease.id, repd.publishedAt);
-  const dukesRun = runLine(DUKES_DATASET_ID, dukesRelease.id, dukes.publishedAt);
-  upsertLine("ingestion_runs.ndjson", "ingestion_run_id", repdRun.id, repdRun.line);
-  upsertLine("ingestion_runs.ndjson", "ingestion_run_id", dukesRun.id, dukesRun.line);
+  const finishedAt = new Date().toISOString();
+  const repdRun = ingestionRunLine(REPD_DATASET_ID, repdRelease.id, startedAt, finishedAt);
+  const dukesRun = ingestionRunLine(DUKES_DATASET_ID, dukesRelease.id, startedAt, finishedAt);
+  appendLine("ingestion_runs.ndjson", "ingestion_run_id", repdRun.id, repdRun.line);
+  appendLine("ingestion_runs.ndjson", "ingestion_run_id", dukesRun.id, dukesRun.line);
   const matched = new Set(register.matches.flatMap((match) => match.dukes_site_codes));
   const leftover = unmatchedRenewables(dukes.stations, matched);
   console.log(JSON.stringify(summary, null, 2));

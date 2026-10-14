@@ -110,6 +110,14 @@ describe("publish-check", () => {
     expect(result.errors.join("\n")).toMatch(/real UTC instant/);
   });
 
+  it("fails when an asset dataset has no register files", () => {
+    const result = checkCatalogue(resolve(FIXTURES, "missing-asset-register"), { ...PARTIAL, metrics: [] });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("missing assets.ndjson");
+    expect(result.errors).toContain("missing capacity_records.ndjson");
+    expect(result.errors).toContain("missing asset_matches.ndjson");
+  });
+
   it("accepts a second extract of the same dataset when the hash covers that extract", () => {
     expect(
       checkCatalogue(resolve(FIXTURES, "second-extract"), { ...PARTIAL, metrics: GAS_METRIC }),

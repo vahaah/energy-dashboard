@@ -62,9 +62,15 @@ function unwrap(value: ExcelJS.CellValue): unknown {
   return null;
 }
 
+function workbookBytes(bytes: Buffer): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
+}
+
 async function sheetRows(bytes: Buffer, name: string): Promise<unknown[][]> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(bytes);
+  await workbook.xlsx.load(workbookBytes(bytes));
   const sheet = workbook.getWorksheet(name);
   if (!sheet) {
     throw new Error(`DUKES workbook is missing sheet ${name}`);
@@ -80,12 +86,17 @@ async function sheetRows(bytes: Buffer, name: string): Promise<unknown[][]> {
   return rows;
 }
 
-export async function loadDukes(offline = false): Promise<DukesExtract> {
-  const cache = resolve(process.cwd(), "data/catalogue/raw/dukes-5.11.xlsx");
-  const metaPath = resolve(process.cwd(), "data/catalogue/raw/dukes-5.11.json");
-  let bytes = offline ? readCache(cache) : null;
+export async function loadDukes(offline = false, catalogueRoot = process.cwd()): Promise<DukesExtract> {
+  const cache = resolve(catalogueRoot, "data/catalogue/raw/dukes-5.11.xlsx");
+  const metaPath = resolve(catalogueRoot, "data/catalogue/raw/dukes-5.11.json");
+  let bytes: Buffer;
   let downloadUrl: string;
-  if (bytes && offline) {
+  if (offline) {
+    const cached = readCache(cache);
+    if (!cached) {
+      throw new Error("offline DUKES cache is missing data/catalogue/raw/dukes-5.11.xlsx");
+    }
+    bytes = cached;
     const meta = JSON.parse(readCache(metaPath)?.toString("utf8") ?? "{}") as { downloadUrl?: string };
     if (!meta.downloadUrl) {
       throw new Error("offline DUKES cache is missing data/catalogue/raw/dukes-5.11.json");

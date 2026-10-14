@@ -42,14 +42,19 @@ function editionFromUrl(url: string): string {
   return `REPD ${match[1]} ${match[2]}`;
 }
 
-export async function loadRepd(offline = false): Promise<RepdExtract> {
-  const cache = resolve(process.cwd(), "data/catalogue/raw/repd.csv");
-  const metaPath = resolve(process.cwd(), "data/catalogue/raw/repd.json");
-  let bytes = offline ? readCache(cache) : null;
+export async function loadRepd(offline = false, catalogueRoot = process.cwd()): Promise<RepdExtract> {
+  const cache = resolve(catalogueRoot, "data/catalogue/raw/repd.csv");
+  const metaPath = resolve(catalogueRoot, "data/catalogue/raw/repd.json");
+  let bytes: Buffer;
   let downloadUrl: string;
   let publishedAt: string;
   let edition: string;
-  if (bytes && offline) {
+  if (offline) {
+    const cached = readCache(cache);
+    if (!cached) {
+      throw new Error("offline REPD cache is missing data/catalogue/raw/repd.csv");
+    }
+    bytes = cached;
     const meta = JSON.parse(readCache(metaPath)?.toString("utf8") ?? "{}") as {
       downloadUrl?: string;
       publishedAt?: string;

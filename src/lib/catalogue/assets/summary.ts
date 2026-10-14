@@ -40,8 +40,10 @@ export function summarizeRegister(
   headline: DukesHeadline,
   files: Record<string, number>,
 ): AssetSummary {
+  const currentReleaseIds = new Set([releases.repd, releases.dukes]);
+  const currentCapacity = register.capacity.filter((record) => currentReleaseIds.has(record.source_release_id));
   const countedByAsset = new Map<string, number>();
-  for (const record of register.capacity) {
+  for (const record of currentCapacity) {
     if (!record.counts) {
       continue;
     }
@@ -71,7 +73,7 @@ export function summarizeRegister(
     left[0] < right[0] ? -1 : 1,
   );
   const statusEntries = [...byStatus.entries()].sort((left, right) => (left[0] < right[0] ? -1 : 1));
-  const suppressed = register.capacity.reduce((sum, record) => sum + (record.counts ? 0 : record.mw), 0);
+  const suppressed = currentCapacity.reduce((sum, record) => sum + (record.counts ? 0 : record.mw), 0);
   return {
     catalogue_schema_version: 1,
     repd_source_release_id: releases.repd,
@@ -80,7 +82,7 @@ export function summarizeRegister(
     projects: register.projects.length,
     capacity_records: register.capacity.length,
     mappings: register.mappings.length,
-    counted_mw: round3(countedMegawatts(register.capacity)),
+    counted_mw: round3(countedMegawatts(currentCapacity)),
     by_technology: Object.fromEntries(
       technologyEntries.map(([key, value]) => [key, { assets: value.assets, counted_mw: round3(value.counted_mw) }]),
     ),
