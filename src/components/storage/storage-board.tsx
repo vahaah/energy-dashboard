@@ -180,7 +180,7 @@ function InventoryTable({ rows }: { rows: readonly StorageRow[] }) {
 function Field({ label, value, numeric = false }: { label: string; value: string; numeric?: boolean }) {
   return (
     <p className={`min-w-0 break-words text-copy-14 text-gray-1000 ${numeric ? "tabular-nums" : ""}`}>
-      <span className="text-label-12 text-gray-900 md:sr-only">{label} </span>
+      <span className="text-label-12 text-gray-900 md:hidden">{label} </span>
       {value}
     </p>
   );
