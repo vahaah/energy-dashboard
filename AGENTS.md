@@ -186,11 +186,23 @@ The header search button is on every page, including `/`. The dialog and `/searc
 
 `asset_parties.ndjson` holds operator, region, and county from the same official editions. `prebuild` copies the MapLibre worker to `public/maplibre/`; that copy is not committed.
 
+### P1A.4 Asset pages and schematic interconnectors
+
+`/assets/[id]` and a wrong `/assets/[id]/[slug]` return 308 to the canonical slug. The id is the identity. An unknown id returns 404. Internal links, Cmd-K, the map inspector (`Asset page →`), and the sitemap use that path. `?sel=<id>` selects an asset on `/map`. Interconnectors also set `layers=ic`.
+
+`data/catalogue/interconnectors.json` lists IFA, IFA2, ElecLink, BritNed, Nemo, NSL, Viking, Moyle, East-West, and Greenlink. Each row has its INT* FUELINST code, schematic country-label endpoints, and an Elexon citation. `intneso` is the residual Imports bucket and is never drawn. Endpoints are checked against the schematic box (west -12, south 47, east 14, north 64). `(0, 0)` fails. The `layers=ic` layer is off unless the query asks for it. The line is dashed in `--chart-imports` and labelled `Schematic link, not the cable route.` There is no cable route.
+
+Flow series attach only by exact INT* code, including the lowercased code the ingest stores. The page peeks the warmed `interconnector_flows` envelope and does not call Tinybird. Positive MW is an import to Great Britain. A plant or gas terminal with no evidenced series says the series will appear once that source is added. The canonical asset route revalidates every 1800s, the live warm cadence for the 24h flow envelope. Next requires that interval as a literal. The in-flight peek is shared only until that call settles.
+
+`data/catalogue/gas_terminals.json` lists NTS terminal names from the National Gas portal. No free licence-permitted coordinate source is cited, so every terminal has null coordinates and reads `Location unavailable` in `/assets`. No gas flow series is stored. Theddlethorpe is omitted. A pin is allowed only with an Open Government Licence v3.0 or CC BY 4.0 coordinate citation inside the GB pin box.
+
+`publish-check` validates both files when they are present, and requires them for the full register. `/` stays `force-static` with `revalidate` 300. These pages add no Tinybird calls.
+
 ### P1A.5 Today map card
 
 `/` stays `force-static` with `revalidate` 300. Below the answer and the headline balance, a static card links to `/map`. The card does not import maplibre, pmtiles, the catalogue loader, or `renderStaticMap`. A page request does not read the register and does not add a Tinybird call. The only map bytes on `/` are the two committed PNGs.
 
-`npm run map:today` (`scripts/build-today-map.ts`, also `predev` / `prebuild`) draws those images from the checked-in register and the DNO outline. `renderStaticMap` in `src/lib/map/static-map.ts` takes a bbox and points so a later asset-page thumbnail can call it. Light and dark PNGs are `public/today/map-light.png` and `public/today/map-dark.png`, swapped with the `html.dark` class inside a fixed aspect box. The script rewrites them only when the REPD release, the DUKES release, or the DNO sha256 changes; pass `--force` after a renderer change. The alt count is `catalogue.rows.length`, the same total `/map` prints as "All N stations". The footer uses `OGL_V3_ATTRIBUTION` and `NESO_OPEN_DATA_ATTRIBUTION`. The outline is the DNO silhouette, not Zoomstack, so the card does not carry the OS basemap credit. No OSM.
+`npm run map:today` (`scripts/build-today-map.ts`, also `predev` / `prebuild`) draws those images from the checked-in register and the DNO outline. `renderStaticMap` in `src/lib/map/static-map.ts` takes a bbox and points so a later asset-page thumbnail can call it. Light and dark PNGs are `public/today/map-light.png` and `public/today/map-dark.png`, swapped with the `html.dark` class inside a fixed aspect box. The script rewrites them only when the REPD release, the DUKES release, or the DNO sha256 changes; pass `--force` after a renderer change. The alt count is the REPD and DUKES station total. Interconnectors and gas terminals are not in that count. `/map` prints every catalogue row as assets. The footer uses `OGL_V3_ATTRIBUTION` and `NESO_OPEN_DATA_ATTRIBUTION`. The outline is the DNO silhouette, not Zoomstack, so the card does not carry the OS basemap credit. No OSM.
 
 ## Environment Variables
 

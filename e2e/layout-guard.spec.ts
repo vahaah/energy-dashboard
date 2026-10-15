@@ -15,7 +15,9 @@ const PAGES = [
   "/records",
   "/map",
   "/assets",
-  "/assets/ast_0003670fbf90f564",
+  "/assets/ast_0003670fbf90f564/cuckoo-grove-farm",
+  "/assets/ast_5c5dc7c6656c3f93/ifa",
+  "/assets/ast_0789b8c8f94ec14a/bacton-ips",
 ] as const;
 
 const VIEWPORTS = [
@@ -495,7 +497,7 @@ for (const theme of THEMES) {
           })
         );
         await page.route(/pmtiles|blob\.vercel-storage\.com/i, (route) => route.abort());
-        const mapPage = path === "/map" || path.startsWith("/assets/");
+        const mapPage = path === "/map";
         await page.goto(path, { waitUntil: mapPage ? "domcontentloaded" : "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
         if (path === "/map") {

@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     "/map": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/assets": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/assets/[id]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/assets/[id]/[slug]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/sitemap.xml": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
   },
   async headers() {

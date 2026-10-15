@@ -13,6 +13,7 @@ export function SeoPage({
   cite,
   citation,
   updated,
+  header,
   skipHref,
   skipLabel = "Skip to content",
   children,
@@ -23,6 +24,7 @@ export function SeoPage({
   cite: ReactNode;
   citation: string;
   updated?: ReactNode;
+  header?: ReactNode;
   skipHref?: string;
   skipLabel?: string;
   children: ReactNode;
@@ -40,14 +42,16 @@ export function SeoPage({
       <SitePageHeader section={section} />
       <main className={PAGE_STACK_CLASS}>
         <SiteBreadcrumb items={breadcrumb} />
-        <section>
-          <h1 className="text-heading-32 text-gray-1000">{title}</h1>
-          <div className="mt-3 max-w-3xl text-copy-16 text-gray-900">{cite}</div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <CiteButton text={citation} />
-            {updated}
-          </div>
-        </section>
+        {header ?? (
+          <section>
+            <h1 className="text-heading-32 text-gray-1000">{title}</h1>
+            <div className="mt-3 max-w-3xl text-copy-16 text-gray-900">{cite}</div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <CiteButton text={citation} />
+              {updated}
+            </div>
+          </section>
+        )}
         {children}
         <footer className="border-t border-gray-alpha-400 pt-8 pb-4 text-copy-14 text-gray-900">
           <SitePublicNav />

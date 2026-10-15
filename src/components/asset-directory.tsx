@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
-import { formatMw, technologyLabel } from "@/lib/assets/labels";
+import { assetHref } from "@/lib/assets/href";
+import { LOCATION_UNAVAILABLE, formatMw, technologyLabel } from "@/lib/assets/labels";
 import { assetListParsers } from "@/lib/assets/params";
 import { queryAssets } from "@/lib/assets/query";
-import { ASSET_PAGE_SIZE, ASSET_SORTS, type AssetIndexRow, type AssetSort } from "@/lib/assets/types";
-import { TECHNOLOGIES, type Technology } from "@/lib/catalogue/assets/technologies";
+import {
+  ASSET_PAGE_SIZE,
+  ASSET_SORTS,
+  ASSET_SOURCES,
+  DIRECTORY_TECHNOLOGIES,
+  isAssetSource,
+  isAssetTechnology,
+  type AssetIndexRow,
+  type AssetSort,
+} from "@/lib/assets/types";
 import { Card } from "@/components/ui/card";
 
 const SORT_LABEL: Record<AssetSort, string> = {
@@ -53,7 +62,7 @@ export function AssetDirectory({
     page: url.page,
     pageSize: ASSET_PAGE_SIZE,
   });
-  const technologies = TECHNOLOGIES.filter((technology) => rows.some((row) => row.technology === technology));
+  const technologies = DIRECTORY_TECHNOLOGIES.filter((technology) => rows.some((row) => row.technology === technology));
 
   function toggleSort(sort: AssetSort) {
     if (url.sort === sort) {
@@ -65,7 +74,7 @@ export function AssetDirectory({
 
   return (
     <Card
-      title="Stations"
+      title="Assets"
       footer={
         <nav aria-label="Pagination" className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <button
@@ -104,7 +113,7 @@ export function AssetDirectory({
         <FilterSelect
           label="Technology"
           value={url.technology ?? ""}
-          onChange={(value) => void setUrl({ technology: (value || null) as Technology | null, page: 1 })}
+          onChange={(value) => void setUrl({ technology: isAssetTechnology(value) ? value : null, page: 1 })}
           options={technologies.map((technology) => ({ value: technology, label: technologyLabel(technology) }))}
         />
         <FilterSelect
@@ -116,11 +125,8 @@ export function AssetDirectory({
         <FilterSelect
           label="Source"
           value={url.source ?? ""}
-          onChange={(value) => void setUrl({ source: value === "REPD" || value === "DUKES" ? value : null, page: 1 })}
-          options={[
-            { value: "REPD", label: "REPD" },
-            { value: "DUKES", label: "DUKES" },
-          ]}
+          onChange={(value) => void setUrl({ source: isAssetSource(value) ? value : null, page: 1 })}
+          options={ASSET_SOURCES.map((source) => ({ value: source, label: source }))}
         />
         <FilterSelect
           label="Region"
@@ -130,10 +136,10 @@ export function AssetDirectory({
         />
       </form>
       <p className="mt-4 text-label-13 text-gray-900">
-        {result.total.toLocaleString("en-GB")} {result.total === 1 ? "station" : "stations"}
+        {result.total.toLocaleString("en-GB")} {result.total === 1 ? "asset" : "assets"}
       </p>
       {result.rows.length === 0 ? (
-        <p className="mt-4 text-copy-14 text-gray-900">No stations match these filters.</p>
+        <p className="mt-4 text-copy-14 text-gray-900">No assets match these filters.</p>
       ) : (
         <div className="mt-3 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[40rem] border-collapse text-left text-copy-14">
@@ -166,14 +172,16 @@ export function AssetDirectory({
               {result.rows.map((row) => (
                 <tr key={row.id} className="border-b border-gray-alpha-400 last:border-b-0">
                   <th scope="row" className="py-3 pr-3 text-left font-medium text-gray-1000">
-                    <Link href={`/assets/${row.id}`} className="text-blue-700 underline-offset-2 hover:underline">
+                    <Link href={assetHref(row)} className="text-blue-700 underline-offset-2 hover:underline">
                       {row.name}
                     </Link>
                   </th>
                   <td className="py-3 pr-3 text-gray-1000">{technologyLabel(row.technology)}</td>
                   <td className="py-3 pr-3 text-gray-1000">Operational</td>
                   <td className="py-3 pr-3 text-gray-1000">{formatMw(row.mw)}</td>
-                  <td className="py-3 pr-3 text-gray-1000">{row.region}</td>
+                  <td className="py-3 pr-3 text-gray-1000">
+                    {row.location === LOCATION_UNAVAILABLE ? LOCATION_UNAVAILABLE : row.region}
+                  </td>
                   <td className="py-3 pr-3 text-gray-1000">{row.sources.join(", ")}</td>
                 </tr>
               ))}

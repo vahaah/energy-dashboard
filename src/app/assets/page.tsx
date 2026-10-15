@@ -20,8 +20,9 @@ export default function AssetsPage() {
       breadcrumb={[{ label: "Assets" }]}
       cite={
         <p>
-          Operational stations from the DESNZ Renewable Energy Planning Database and DUKES 5.11.
-          Capacity is the megawatts the register counts, so a matched site is not added twice.
+          Operational stations from the DESNZ Renewable Energy Planning Database and DUKES 5.11, schematic
+          interconnectors from Elexon BMRS, and National Gas terminal names. Capacity is the megawatts the
+          register counts, so a matched site is not added twice.
         </p>
       }
       citation={`Grid, "Power assets", grid.vahaah.com/assets, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}

@@ -1,6 +1,4 @@
-import type { Technology } from "@/lib/catalogue/assets/technologies";
-import { TECHNOLOGIES } from "@/lib/catalogue/assets/technologies";
-import { ASSET_SOURCES, type AssetIndexRow, type AssetSourceLabel } from "@/lib/assets/types";
+import { ASSET_SOURCES, isAssetTechnology, type AssetIndexRow, type AssetSourceLabel, type AssetTechnology } from "@/lib/assets/types";
 
 export const ASSET_INDEX_VERSION = 1;
 export const ASSET_INDEX_PATH = "/search/assets.json";
@@ -9,7 +7,7 @@ type CompactRow = [
   string,
   string,
   string,
-  Technology,
+  AssetTechnology,
   "operational",
   number | null,
   string,
@@ -27,8 +25,8 @@ export type AssetIndexFile = {
   rows: CompactRow[];
 };
 
-function isTechnology(value: unknown): value is Technology {
-  return typeof value === "string" && (TECHNOLOGIES as readonly string[]).includes(value);
+function isTechnology(value: unknown): value is AssetTechnology {
+  return typeof value === "string" && isAssetTechnology(value);
 }
 
 function isSource(value: unknown): value is AssetSourceLabel {

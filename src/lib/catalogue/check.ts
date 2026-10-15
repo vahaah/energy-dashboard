@@ -1,5 +1,6 @@
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
 import { checkAssetFiles } from "@/lib/catalogue/assets/check";
+import { checkLinkFiles } from "@/lib/catalogue/links/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
@@ -323,6 +324,7 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
     ),
   );
   errors.push(...checkLayerCatalogue(dir, { required: fullRegistry }));
+  errors.push(...checkLinkFiles(dir, { required: fullRegistry }));
 
   if (errors.length > 0) {
     return fail(errors);

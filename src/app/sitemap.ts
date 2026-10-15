@@ -3,6 +3,7 @@ import { getHeadlineSnapshotsQueryParams } from "@/lib/dashboard-data";
 import { latestObservedTimestamp } from "@/lib/health";
 import { parseUtcDateTime } from "@/lib/london-time";
 import { peekLatestPrices } from "@/lib/og/peek";
+import { assetHref } from "@/lib/assets/href";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { SITE_URL } from "@/lib/site";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
@@ -58,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
   });
   const assets = loadAssetCatalogue().rows.map((row) => ({
-    url: `${SITE_URL}/assets/${row.id}`,
+    url: `${SITE_URL}${assetHref(row)}`,
     changeFrequency: "monthly" as const,
     priority: 0.4,
   }));

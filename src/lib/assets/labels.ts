@@ -1,7 +1,6 @@
-import type { Technology } from "@/lib/catalogue/assets/technologies";
 import { DUKES_SOURCE_ID, REPD_SOURCE_ID } from "@/lib/catalogue/assets/technologies";
 import type { LayerPrecision } from "@/lib/map/precision";
-import type { AssetSourceLabel } from "@/lib/assets/types";
+import type { AssetSourceLabel, AssetTechnology } from "@/lib/assets/types";
 
 export const MAP_COVERAGE_COPY = "The map shows Great Britain. Each layer lists its own coverage.";
 
@@ -9,7 +8,28 @@ export const MAP_KEYBOARD_COPY = "Arrow keys pan the map. Plus and minus zoom.";
 
 export const ASSET_PRECISION = "published_approximate" satisfies LayerPrecision;
 
-export function technologyLabel(technology: Technology): string {
+export const NOT_AVAILABLE = "Not available";
+export const LOCATION_UNAVAILABLE = "Location unavailable";
+export const DURATION_TOOLTIP = "A ratio of the two capacities, not a guaranteed running time.";
+export const IMPORT_FLOW_NOTE = "Positive flow is an import to Great Britain.";
+
+export function missingSeriesCopy(source: string): string {
+  return `Grid does not have this data yet. It will appear here once ${source} is added.`;
+}
+
+export function assetDocumentTitle(name: string, technology: string): string {
+  return `${name}: ${technology} | Grid`;
+}
+
+export function assetQuestion(name: string): string {
+  return `What is ${name}, and what is its status?`;
+}
+
+export function assetLede(technology: string, area: string): string {
+  return `${technology} in ${area}. Details below come from the sources listed for each field.`;
+}
+
+export function technologyLabel(technology: AssetTechnology): string {
   switch (technology) {
     case "solar_pv":
       return "Solar PV";
@@ -51,6 +71,10 @@ export function technologyLabel(technology: Technology): string {
       return "Nuclear";
     case "pumped_storage":
       return "Pumped storage";
+    case "interconnector":
+      return "Interconnector";
+    case "gas_terminal":
+      return "Gas terminal";
     default: {
       const neverTechnology: never = technology;
       return neverTechnology;
@@ -58,7 +82,7 @@ export function technologyLabel(technology: Technology): string {
   }
 }
 
-export function technologyColor(technology: Technology): string {
+export function technologyColor(technology: AssetTechnology): string {
   switch (technology) {
     case "solar_pv":
       return "#d3a107";
@@ -100,6 +124,10 @@ export function technologyColor(technology: Technology): string {
       return "#973dce";
     case "pumped_storage":
       return "#12a696";
+    case "interconnector":
+      return "#64748b";
+    case "gas_terminal":
+      return "#f97316";
     default: {
       const neverTechnology: never = technology;
       return neverTechnology;
@@ -145,23 +173,15 @@ export function formatMw(mw: number | null): string {
   return `${text} MW`;
 }
 
-export function assetPageTitle(name: string): string {
-  const suffix = " — Grid";
-  const room = 60 - [...suffix].length;
-  const trimmed = [...name].slice(0, room).join("").trimEnd();
-  return `${trimmed}${suffix}`;
+export function formatFactMw(mw: number | null): string {
+  if (mw === null) {
+    return NOT_AVAILABLE;
+  }
+  return formatMw(mw);
 }
 
-export function assetPageDescription(row: {
-  name: string;
-  technology: Technology;
-  region: string;
-  mw: number | null;
-  source: AssetSourceLabel;
-}): string {
-  const capacity = row.mw === null ? "Capacity is not counted" : formatMw(row.mw);
-  const text = `${row.name}, ${technologyLabel(row.technology).toLowerCase()} in ${row.region}. ${capacity} from ${row.source}.`;
-  return [...text].slice(0, 155).join("");
+export function assetPageDescription(lede: string): string {
+  return [...lede].slice(0, 155).join("");
 }
 
 export function containsLiveWord(text: string): boolean {

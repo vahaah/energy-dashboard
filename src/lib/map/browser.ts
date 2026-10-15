@@ -6,6 +6,8 @@ import {
   capacityRadiusExpression,
   technologyColorExpression,
 } from "@/lib/map/asset-layer";
+import type { MapBounds } from "@/lib/map/counts";
+import { interconnectorFeatureCollection, type InterconnectorLine } from "@/lib/map/interconnector-layer";
 import type { MapPoint } from "@/lib/assets/types";
 import { MAP_KEYBOARD_COPY } from "@/lib/assets/labels";
 
@@ -34,10 +36,20 @@ function styleUrl(theme: MapTheme): string {
   return theme === "dark" ? "/basemap/style-dark.json" : "/basemap/style-light.json";
 }
 
+const IMPORTS_FALLBACK = "#64748b";
+
+function importsColor(): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--chart-imports").trim();
+  return value.length > 0 ? value : IMPORTS_FALLBACK;
+}
+
 export type PowerMapHandle = {
   destroy: () => void;
   setDnoVisible: (visible: boolean) => void;
   setAssetsVisible: (visible: boolean) => void;
+  setLinesVisible: (visible: boolean) => void;
+  setPoints: (points: readonly MapPoint[]) => void;
+  setLines: (lines: readonly InterconnectorLine[]) => void;
   setTheme: (theme: MapTheme) => void;
   setSelected: (id: string | null) => void;
 };
@@ -46,23 +58,30 @@ export function mountPowerMap(
   container: HTMLElement,
   options: {
     points: readonly MapPoint[];
+    lines: readonly InterconnectorLine[];
     dnoPath: string;
     dnoVisible: boolean;
     assetsVisible: boolean;
+    linesVisible: boolean;
     selectedId: string | null;
     onStatus: (status: MapMountStatus) => void;
     onSelect: (id: string) => void;
+    onView?: (bounds: MapBounds) => void;
   },
 ): PowerMapHandle {
   ensureProtocol();
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let theme = themeOf(document.documentElement);
+  let points = options.points.slice();
+  let lines = options.lines.slice();
   let dnoVisible = options.dnoVisible;
   let assetsVisible = options.assetsVisible;
+  let linesVisible = options.linesVisible;
   let selectedId = options.selectedId;
   let framed = false;
   let ready = false;
   let basemapLoaded = false;
+  let lineClicksBound = false;
 
   const map = new Map({
     container,
@@ -85,12 +104,12 @@ export function mountPowerMap(
   }
 
   function addAssetLayers(): void {
-    const collection = assetFeatureCollection(options.points);
+    const collection = assetFeatureCollection(points);
     if (!map.getSource("assets")) {
       map.addSource("assets", {
         type: "geojson",
         data: collection,
-        cluster: options.points.length > 1,
+        cluster: true,
         clusterRadius: 48,
         clusterMaxZoom: 11,
         clusterProperties: {
@@ -144,7 +163,60 @@ export function mountPowerMap(
           "circle-stroke-width": ["case", ["==", ["get", "id"], selectedId ?? ""], 3, 1],
         },
       });
+    } else {
+      const source = map.getSource("assets");
+      if (source instanceof GeoJSONSource) {
+        source.setData(collection);
+      }
     }
+  }
+
+  function bindLineClicks(): void {
+    if (lineClicksBound || !map.getLayer("interconnector-lines")) {
+      return;
+    }
+    lineClicksBound = true;
+    map.on("click", "interconnector-lines", (event) => {
+      const id = event.features?.[0]?.properties.id;
+      if (typeof id === "string") {
+        options.onSelect(id);
+      }
+    });
+    map.on("mouseenter", "interconnector-lines", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "interconnector-lines", () => {
+      map.getCanvas().style.cursor = "";
+    });
+  }
+
+  function addLineLayers(): void {
+    const collection = interconnectorFeatureCollection(lines);
+    const color = importsColor();
+    if (!map.getSource("interconnectors")) {
+      map.addSource("interconnectors", { type: "geojson", data: collection });
+      map.addLayer({
+        id: "interconnector-lines",
+        type: "line",
+        source: "interconnectors",
+        layout: { visibility: visibility(linesVisible) },
+        paint: {
+          "line-color": color,
+          "line-width": 2,
+          "line-dasharray": [2, 2],
+        },
+      });
+    } else {
+      const source = map.getSource("interconnectors");
+      if (source instanceof GeoJSONSource) {
+        source.setData(collection);
+      }
+      if (map.getLayer("interconnector-lines")) {
+        map.setPaintProperty("interconnector-lines", "line-color", color);
+        map.setLayoutProperty("interconnector-lines", "visibility", visibility(linesVisible));
+      }
+    }
+    bindLineClicks();
   }
 
   function addDnoLayers(): void {
@@ -181,15 +253,31 @@ export function mountPowerMap(
   }
 
   function applySelection(): void {
-    if (!map.getLayer("asset-points")) {
-      return;
+    if (map.getLayer("asset-points")) {
+      map.setPaintProperty("asset-points", "circle-stroke-width", [
+        "case",
+        ["==", ["get", "id"], selectedId ?? ""],
+        3,
+        1,
+      ]);
     }
-    map.setPaintProperty("asset-points", "circle-stroke-width", [
-      "case",
-      ["==", ["get", "id"], selectedId ?? ""],
-      3,
-      1,
-    ]);
+    if (map.getLayer("interconnector-lines")) {
+      map.setPaintProperty("interconnector-lines", "line-width", [
+        "case",
+        ["==", ["get", "id"], selectedId ?? ""],
+        4,
+        2,
+      ]);
+    }
+  }
+
+  function focus(longitude: number, latitude: number, zoomFloor: number): void {
+    const move = { center: [longitude, latitude] as [number, number], zoom: Math.max(map.getZoom(), zoomFloor) };
+    if (reduceMotion) {
+      map.jumpTo(move);
+    } else {
+      map.easeTo(move);
+    }
   }
 
   function frame(): void {
@@ -197,22 +285,33 @@ export function mountPowerMap(
       return;
     }
     framed = true;
-    const selected = selectedId ? options.points.find((point) => point.id === selectedId) : undefined;
-    if (selected) {
-      map.jumpTo({ center: [selected.longitude, selected.latitude], zoom: 10 });
+    const selectedPoint = selectedId ? points.find((point) => point.id === selectedId) : undefined;
+    if (selectedPoint) {
+      map.jumpTo({ center: [selectedPoint.longitude, selectedPoint.latitude], zoom: 10 });
       return;
     }
-    if (options.points.length === 0) {
+    const selectedLine = selectedId ? lines.find((line) => line.id === selectedId) : undefined;
+    if (selectedLine) {
+      map.jumpTo({
+        center: [
+          (selectedLine.gbLongitude + selectedLine.remoteLongitude) / 2,
+          (selectedLine.gbLatitude + selectedLine.remoteLatitude) / 2,
+        ],
+        zoom: 5,
+      });
       return;
     }
-    if (options.points.length === 1) {
-      const only = options.points[0];
+    if (points.length === 0) {
+      return;
+    }
+    if (points.length === 1) {
+      const only = points[0];
       if (only) {
         map.jumpTo({ center: [only.longitude, only.latitude], zoom: 10 });
       }
       return;
     }
-    const first = options.points[0];
+    const first = points[0];
     if (!first) {
       return;
     }
@@ -220,7 +319,7 @@ export function mountPowerMap(
     let east = first.longitude;
     let south = first.latitude;
     let north = first.latitude;
-    for (const point of options.points) {
+    for (const point of points) {
       west = Math.min(west, point.longitude);
       east = Math.max(east, point.longitude);
       south = Math.min(south, point.latitude);
@@ -235,11 +334,23 @@ export function mountPowerMap(
     );
   }
 
+  function reportBounds(): void {
+    const bounds = map.getBounds();
+    options.onView?.({
+      west: bounds.getWest(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      north: bounds.getNorth(),
+    });
+  }
+
   function paint(): void {
     addAssetLayers();
+    addLineLayers();
     addDnoLayers();
     applySelection();
     frame();
+    reportBounds();
     if (!ready) {
       ready = true;
       options.onStatus("ready");
@@ -247,6 +358,7 @@ export function mountPowerMap(
   }
 
   map.on("style.load", paint);
+  map.on("moveend", reportBounds);
   map.on("click", "asset-clusters", (event) => {
     const feature = event.features?.[0];
     const source = map.getSource("assets");
@@ -319,6 +431,28 @@ export function mountPowerMap(
       map.setLayoutProperty("asset-cluster-count", "visibility", value);
       map.setLayoutProperty("asset-points", "visibility", value);
     },
+    setLinesVisible: (visible: boolean) => {
+      linesVisible = visible;
+      if (!map.getLayer("interconnector-lines")) {
+        return;
+      }
+      map.setLayoutProperty("interconnector-lines", "visibility", visibility(visible));
+    },
+    setPoints: (next: readonly MapPoint[]) => {
+      points = next.slice();
+      if (!ready) {
+        return;
+      }
+      addAssetLayers();
+    },
+    setLines: (next: readonly InterconnectorLine[]) => {
+      lines = next.slice();
+      if (!ready) {
+        return;
+      }
+      addLineLayers();
+      applySelection();
+    },
     setTheme: (next: MapTheme) => {
       if (next === theme) {
         return;
@@ -329,16 +463,16 @@ export function mountPowerMap(
     setSelected: (id: string | null) => {
       selectedId = id;
       applySelection();
-      const selected = id ? options.points.find((point) => point.id === id) : undefined;
-      if (!selected) {
+      const selected = id ? points.find((point) => point.id === id) : undefined;
+      if (selected) {
+        focus(selected.longitude, selected.latitude, 10);
         return;
       }
-      const move = { center: [selected.longitude, selected.latitude] as [number, number], zoom: Math.max(map.getZoom(), 10) };
-      if (reduceMotion) {
-        map.jumpTo(move);
-      } else {
-        map.easeTo(move);
+      const line = id ? lines.find((item) => item.id === id) : undefined;
+      if (!line) {
+        return;
       }
+      focus((line.gbLongitude + line.remoteLongitude) / 2, (line.gbLatitude + line.remoteLatitude) / 2, 5);
     },
   };
 }

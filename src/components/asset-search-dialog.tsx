@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { assetHref } from "@/lib/assets/href";
 import { formatMw, technologyLabel } from "@/lib/assets/labels";
 import { comboboxKeyMotion, searchAssets } from "@/lib/assets/query";
 import { loadSearchIndex } from "@/lib/assets/search-index";
@@ -61,7 +62,7 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
     if (!hit) {
       return;
     }
-    window.location.assign(`/assets/${hit.id}`);
+    window.location.assign(assetHref(hit));
   }
 
   return (
@@ -166,7 +167,7 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
                   id={`${listId}-option-${index}`}
                   role="option"
                   aria-selected={index === activeIndex}
-                  href={`/assets/${row.id}`}
+                  href={assetHref(row)}
                   className={`flex min-h-11 min-w-0 flex-col justify-center rounded-md px-2 py-1 ${
                     index === activeIndex ? "bg-gray-100" : ""
                   }`}
@@ -184,7 +185,7 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
           </ul>
         ) : null}
         {rows && query.trim().length > 0 && results.length === 0 ? (
-          <p className="mt-3 text-copy-14 text-gray-900">No matching stations.</p>
+          <p className="mt-3 text-copy-14 text-gray-900">No matching assets.</p>
         ) : null}
         <p className="mt-3 text-label-12 text-gray-900">
           <Link
