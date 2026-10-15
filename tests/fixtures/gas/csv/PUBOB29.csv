@@ -1,0 +1,10 @@
+# publication_id: PUBOB29
+# catalogue_version: API Data Item List v2.3.7
+# unit: mscm
+# quantity_kind: stock
+# gas_day: Applicable For is the gas day. The gas day runs 05:00–05:00 Europe/London. Closing linepack of gas day D equals opening linepack of gas day D+1 on the actual series.
+# null_behaviour: A blank Value is null, never 0. A blank Quality Indicator is null.
+# verification: latestFlag=Y kept one row per gas day. Interim opening stock, not a cumulative throughput.
+Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator
+15/10/2026 06:02:16,15/10/2026,Opening linepack (interim),334.4651393384087,15/10/2026 06:02:17,
+15/10/2026 04:00:24,14/10/2026,Opening linepack (interim),335.70076137825686,15/10/2026 04:00:26,

@@ -1,11 +1,13 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DATA_SOURCE_IDS, elexonBmrsAttribution, OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { checkCatalogue, type CatalogueMetricRef } from "@/lib/catalogue/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { DNO_ATTRIBUTION, NESO_DNO_ACCURACY_WARNING, osBasemapAttribution } from "@/lib/map/constants";
 import { cataloguePageSources, dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
+import { checkNationalGasSpike } from "@/lib/ingest/national-gas/check";
 import { catalogueRoot } from "@/lib/catalogue/publish-check";
 import { CATALOGUE_SOURCE_IDS } from "@/lib/catalogue/schema";
 
@@ -138,6 +140,56 @@ describe("publish-check", () => {
     expect(result.errors).toContain("missing assets.ndjson");
     expect(result.errors).toContain("missing capacity_records.ndjson");
     expect(result.errors).toContain("missing asset_matches.ndjson");
+  });
+
+  it("rejects a synthetic National Gas publication", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gas-spike-"));
+    const gas = join(dir, "gas");
+    const fixtures = join(dir, "csv");
+    mkdirSync(gas);
+    mkdirSync(fixtures);
+    writeFileSync(
+      join(gas, "catalogue.json"),
+      JSON.stringify({
+        sha256: `sha256:${"ab".repeat(32)}`,
+        catalogueVersion: "synthetic",
+        lastChangeDate: "01-01-2020",
+        rows: [
+          {
+            name: "Synthetic",
+            parent: "Synthetic",
+            frequency: "Daily",
+            publicationTime: "12:00",
+            unitOfMeasure: "mscm",
+            timeFrame: "",
+            status: "Existing",
+            statusChangeDate: "2020-01-01",
+            statusChangeDescription: "synthetic",
+            publicationId: "PUBSYNTH",
+            description: "synthetic",
+          },
+        ],
+      }),
+    );
+    writeFileSync(join(gas, "date-format.json"), "{}");
+    writeFileSync(join(gas, "instantaneous-flow.json"), "{}");
+    writeFileSync(
+      join(fixtures, "PUBSYNTH.csv"),
+      [
+        "# publication_id: PUBSYNTH",
+        "# catalogue_version: synthetic",
+        "# unit: mscm",
+        "# quantity_kind: banana",
+        "# gas_day: none",
+        "# null_behaviour: treat blank as zero",
+        "Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator",
+        "",
+      ].join("\n"),
+    );
+    const errors = checkNationalGasSpike(gas, fixtures, join(dir, "missing-release.json"));
+    expect(errors.join("\n")).toMatch(/PUBSYNTH/);
+    expect(errors.join("\n")).toMatch(/sha256/);
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("accepts a second extract of the same dataset when the hash covers that extract", () => {

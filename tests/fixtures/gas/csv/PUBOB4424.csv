@@ -1,0 +1,38 @@
+# publication_id: PUBOB4424
+# catalogue_version: API Data Item List v2.3.7
+# unit: kWh
+# quantity_kind: day total
+# gas_day: Applicable For is the gas day label. The gas day runs 05:00–05:00 Europe/London. Applicable At and Generated Time are publication stamps, not the gas-day start.
+# null_behaviour: A blank Value is null, never 0. A blank Quality Indicator is null.
+# verification: One value per gas day, so it is not an intraday cumulative. Withdrawal is published negative. Not added to injection.
+Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator
+12/10/2026 16:00:00,01/09/2026,"Storage Withdrawal, Actual",-61792034,12/10/2026 16:00:10,
+12/10/2026 16:00:00,02/09/2026,"Storage Withdrawal, Actual",-229575690,12/10/2026 16:00:10,
+12/10/2026 16:00:00,03/09/2026,"Storage Withdrawal, Actual",-26668020,12/10/2026 16:00:10,
+12/10/2026 16:00:00,04/09/2026,"Storage Withdrawal, Actual",-75583545,12/10/2026 16:00:10,
+12/10/2026 16:00:00,05/09/2026,"Storage Withdrawal, Actual",-130942693,12/10/2026 16:00:10,
+12/10/2026 16:00:00,06/09/2026,"Storage Withdrawal, Actual",-107495649,12/10/2026 16:00:10,
+12/10/2026 16:00:00,07/09/2026,"Storage Withdrawal, Actual",-65568764,12/10/2026 16:00:10,
+12/10/2026 16:00:00,08/09/2026,"Storage Withdrawal, Actual",-11362211,12/10/2026 16:00:10,
+12/10/2026 16:00:00,09/09/2026,"Storage Withdrawal, Actual",-58004851,12/10/2026 16:00:10,
+12/10/2026 16:00:00,10/09/2026,"Storage Withdrawal, Actual",-80813361,12/10/2026 16:00:10,
+12/10/2026 16:00:00,11/09/2026,"Storage Withdrawal, Actual",-57622133,12/10/2026 16:00:10,
+12/10/2026 16:00:00,12/09/2026,"Storage Withdrawal, Actual",-5084103,12/10/2026 16:00:10,
+12/10/2026 16:00:00,13/09/2026,"Storage Withdrawal, Actual",-195947730,12/10/2026 16:00:10,
+12/10/2026 16:00:00,14/09/2026,"Storage Withdrawal, Actual",-97015641,12/10/2026 16:00:10,
+12/10/2026 16:00:00,15/09/2026,"Storage Withdrawal, Actual",-8269074,12/10/2026 16:00:10,
+12/10/2026 16:00:00,16/09/2026,"Storage Withdrawal, Actual",-117003908,12/10/2026 16:00:10,
+12/10/2026 16:00:00,17/09/2026,"Storage Withdrawal, Actual",-37565423,12/10/2026 16:00:10,
+12/10/2026 16:00:00,18/09/2026,"Storage Withdrawal, Actual",-26752301,12/10/2026 16:00:10,
+12/10/2026 16:00:00,19/09/2026,"Storage Withdrawal, Actual",-3429329,12/10/2026 16:00:10,
+12/10/2026 16:00:00,20/09/2026,"Storage Withdrawal, Actual",-1452671,12/10/2026 16:00:10,
+12/10/2026 16:00:00,21/09/2026,"Storage Withdrawal, Actual",-381745787,12/10/2026 16:00:10,
+12/10/2026 16:00:00,22/09/2026,"Storage Withdrawal, Actual",-431878694,12/10/2026 16:00:10,
+12/10/2026 16:00:00,23/09/2026,"Storage Withdrawal, Actual",-318805226,12/10/2026 16:00:10,
+12/10/2026 16:00:00,24/09/2026,"Storage Withdrawal, Actual",-404689174,12/10/2026 16:00:10,
+12/10/2026 16:00:00,25/09/2026,"Storage Withdrawal, Actual",-496132102,12/10/2026 16:00:10,
+12/10/2026 16:00:00,26/09/2026,"Storage Withdrawal, Actual",-233393430,12/10/2026 16:00:10,
+12/10/2026 16:00:00,27/09/2026,"Storage Withdrawal, Actual",-167031855,12/10/2026 16:00:10,
+12/10/2026 16:00:00,28/09/2026,"Storage Withdrawal, Actual",-447953179,12/10/2026 16:00:10,
+12/10/2026 16:00:00,29/09/2026,"Storage Withdrawal, Actual",-108031109,12/10/2026 16:00:10,
+12/10/2026 16:00:00,30/09/2026,"Storage Withdrawal, Actual",-20675087,12/10/2026 16:00:10,

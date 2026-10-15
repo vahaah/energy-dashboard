@@ -1,0 +1,29 @@
+{
+  "publication_id": "PUBOB2042",
+  "probed_at": "2026-10-15T05:21:30.000Z",
+  "endpoint": "https://data.nationalgas.com/api/find-gas-data-download",
+  "results": [
+    {
+      "format": "YYYY-MM-DD",
+      "dateFrom": "2026-10-14",
+      "dateTo": "2026-10-14",
+      "length": null,
+      "http": 200,
+      "content_type": "text/csv; charset=utf-8",
+      "works": true,
+      "data_rows": 1,
+      "note": "Same-day from and to returned one hourly row. A range from 2026-10-13 to 2026-10-15 returned the hourly series (49 lines including the header)."
+    },
+    {
+      "format": "YYYY-MM-DDTHH:mm:ss",
+      "dateFrom": "2026-10-14T05:00:00",
+      "dateTo": "2026-10-15T05:00:00",
+      "length": 19,
+      "http": 200,
+      "content_type": "text/csv; charset=utf-8",
+      "works": true,
+      "data_rows": 24,
+      "note": "The portal technical guidance documents this 19-character form as the mandatory dateFrom and dateTo length. It returned the hourly series."
+    }
+  ]
+}

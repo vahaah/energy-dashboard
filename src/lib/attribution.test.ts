@@ -80,9 +80,14 @@ describe("Elexon BMRS attribution", () => {
     expect(PV_LIVE_ATTRIBUTION).toContain("Sheffield Solar PV_Live");
     expect(EIA_ATTRIBUTION).toContain("Energy Information Administration");
     expect(WORLD_BANK_PINK_SHEET_ATTRIBUTION).toContain("CC BY 4.0");
-    expect(NATIONAL_GAS_ATTRIBUTION).toContain("PUBOB603");
+    expect(NATIONAL_GAS_ATTRIBUTION).toBe(
+      "Data sourced from the National Gas Transmission Data Portal.",
+    );
     expect(sources.find((source) => source.id === "national-gas")?.attribution).toBe(
       "Data sourced from the National Gas Transmission Data Portal.",
+    );
+    expect(sources.find((source) => source.id === "national-gas")?.licence).toContain(
+      "14 Oct 2026",
     );
     for (const id of ["desnz-repd", "desnz-dukes"] as const) {
       const source = sources.find((item) => item.id === id);

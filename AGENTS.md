@@ -118,7 +118,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
 | World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | None | EU natural gas + Japan LNG (CC BY 4.0) |
-| National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh** |
+| National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh**. Physical NTS parsers are offline fixtures only. |
 
 ## File catalogue
 
@@ -144,7 +144,7 @@ Identifiers:
 
 Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (ingest schedule: `PT1H` or `PT6H`). Each dataset row has the metric cadence (`expected_cadence` from `src/lib/metrics.ts`; `publish-check` rejects a cadence that matches none of the metrics on that dataset) and the `metric_ids` that read it. Derived headline balance is registered on `elexon-bmrs` because that source is one of the metric's sources and FUELINST is the spine. The key stays `headline-balance`.
 
-`/data-sources` reads `sources.json` through `cataloguePageSources()` in `src/lib/catalogue/page-sources.ts`. Keep that page's layout and sentences. The National Gas attribution in the catalogue is `Data sourced from the National Gas Transmission Data Portal.` Series captions elsewhere still use `NATIONAL_GAS_ATTRIBUTION`. The Elexon row stores the copyright year in the file. `dataSources(year)` in that same module restamps that one credit for callers that pass a year. Do not import the catalogue module from client components; `src/lib/attribution.ts` stays free of it so chart bundles do not pull the JSON or Zod. `/` stays `force-static`. This catalogue is not wired into Tinybird.
+`/data-sources` reads `sources.json` through `cataloguePageSources()` in `src/lib/catalogue/page-sources.ts`. Keep that page's layout and sentences. `NATIONAL_GAS_ATTRIBUTION` in `src/lib/attribution.ts` is exactly `Data sourced from the National Gas Transmission Data Portal.` The catalogue source row uses that sentence and records National Gas Transmission's written consent of 14 Oct 2026. The Elexon row stores the copyright year in the file. `dataSources(year)` in that same module restamps that one credit for callers that pass a year. Do not import the catalogue module from client components; `src/lib/attribution.ts` stays free of it so chart bundles do not pull the JSON or Zod. `/` stays `force-static`. This catalogue is not wired into Tinybird.
 
 ### P1A.1 REPD / DUKES asset register
 
@@ -203,6 +203,16 @@ Flow series attach only by exact INT* code, including the lowercased code the in
 `/` stays `force-static` with `revalidate` 300. Below the answer and the headline balance, a static card links to `/map`. The card does not import maplibre, pmtiles, the catalogue loader, or `renderStaticMap`. A page request does not read the register and does not add a Tinybird call. The only map bytes on `/` are the two committed PNGs.
 
 `npm run map:today` (`scripts/build-today-map.ts`, also `predev` / `prebuild`) draws those images from the checked-in register and the DNO outline. `renderStaticMap` in `src/lib/map/static-map.ts` takes a bbox and points so a later asset-page thumbnail can call it. Light and dark PNGs are `public/today/map-light.png` and `public/today/map-dark.png`, swapped with the `html.dark` class inside a fixed aspect box. The script rewrites them only when the REPD release, the DUKES release, or the DNO sha256 changes; pass `--force` after a renderer change. The alt count is the REPD and DUKES station total. Interconnectors and gas terminals are not in that count. `/map` prints every catalogue row as assets. The footer uses `OGL_V3_ATTRIBUTION` and `NESO_OPEN_DATA_ATTRIBUTION`. The outline is the DNO silhouette, not Zoomstack, so the card does not carry the OS basemap credit. No OSM.
+
+### P1A.6 National Gas physical spike
+
+Offline parsers and fixtures only. No page, no cron, nothing on Blob, and no Tinybird. The success path stays 378.
+
+`data/catalogue/national-gas/catalogue.json` keeps the sha256, `catalogueVersion`, `lastChangeDate`, and the publication rows from one GET of `https://api.nationalgas.com/operationaldata/v1/publications/catalogue`. The full 10.9 MB catalogue stays out of git. CSV fixtures live in `tests/fixtures/gas/csv/`, one file per publication id, with a header comment for id, catalogue version, unit, quantity kind, gas-day timestamps, and null behaviour. `tests/fixtures/gas/release.json` is the `GasRelease` contract (`gasReleaseSchema` in `src/lib/ingest/national-gas/release.ts`). P1A.7 produces that document and P1A.8 renders it.
+
+Parsers are in `src/lib/ingest/national-gas/`. Gas days are 05:00–05:00 Europe/London via `src/lib/london-time.ts`, including the 23-hour and 25-hour 2026 clock changes. A parent and its children never both count. Unknown publication ids, columns, and enum values are quarantined. Rates and cumulative readings are not summed. `GAS_METRICS` in `src/lib/metrics.ts` registers the series at geography `GB_NTS` and is not part of `METRICS`, so `/data-health` does not list them. SAP `PUBOB603` is unchanged (`publication_lag` `P1D`, `stale_grace` `P2D`).
+
+`publish-check` rejects a publication id outside that list. The portal documents `dateFrom` and `dateTo` as 19-character timestamps; `YYYY-MM-DD` also returned CSV for `PUBOB2042`. Both results are in `date-format.json`. The Instantaneous Flow API answered `GET /operationaldata/v1/instantaneousflow/sites` without a login. This spike does not parse it.
 
 ## Environment Variables
 

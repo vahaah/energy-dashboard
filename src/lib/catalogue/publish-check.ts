@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { checkCatalogue } from "@/lib/catalogue/check";
 import { CATALOGUE_FILES } from "@/lib/catalogue/schema";
+import { checkNationalGasSpike } from "@/lib/ingest/national-gas/check";
 
 const BRANCH_REF = /^[A-Za-z0-9._/-]+$/;
 
@@ -86,8 +87,12 @@ export function publishCheckExitCode(
     const baselineDir = baselineFlag ? resolve(cwd, baselineFlag) : baselineDirFromGit(cwd, env);
     gitBaseline = baselineFlag ? null : baselineDir;
     const result = checkCatalogue(dir, baselineDir ? { baselineDir } : {});
-    if (!result.ok) {
-      for (const error of result.errors) {
+    const gasErrors = dirFlag ? [] : checkNationalGasSpike();
+    if (!result.ok || gasErrors.length > 0) {
+      for (const error of result.ok ? [] : result.errors) {
+        console.error(error);
+      }
+      for (const error of gasErrors) {
         console.error(error);
       }
       return 1;

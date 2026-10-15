@@ -423,6 +423,251 @@ export function metricById(id: MetricId): MetricDefinition {
   return METRICS[id];
 }
 
+const GAS_NTS = {
+  metric_definition_version: 1,
+  geography_id: "GB_NTS",
+  interval_convention: "gas_day_half_open",
+  denominator: null,
+  source_id: "national-gas",
+} as const;
+
+const GAS_RATE = {
+  ...GAS_NTS,
+  quantity_kind: "instantaneous_rate",
+  aggregation: "mean",
+  expected_cadence: "PT1H",
+  publication_lag: "PT10M",
+} as const;
+
+const GAS_FORECAST = {
+  ...GAS_RATE,
+  aggregation: "last",
+} as const;
+
+const GAS_DAY_TOTAL = {
+  ...GAS_NTS,
+  quantity_kind: "interval_total",
+  aggregation: "last",
+  expected_cadence: "P1D",
+  publication_lag: "P1D",
+} as const;
+
+const GAS_STOCK_DAY = {
+  ...GAS_NTS,
+  quantity_kind: "stock",
+  aggregation: "last",
+  expected_cadence: "P1D",
+  publication_lag: "P1D",
+} as const;
+
+const GAS_STOCK_HOUR = {
+  ...GAS_STOCK_DAY,
+  expected_cadence: "PT1H",
+  publication_lag: "PT10M",
+} as const;
+
+/**
+ * Physical NTS series. Withheld from `METRICS` so /data-health and /api/health
+ * stay on the series already shown. SAP is unchanged.
+ */
+export const GAS_METRICS = {
+  "gas.gb_nts.entry.physical.national": {
+    ...GAS_RATE,
+    metric_id: "gas.gb_nts.entry.physical.national",
+    unit: "mscm/d",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOB2042",
+    coverage: "Physical entry into the NTS, national, as an mscm/d rate. North and south are the split.",
+  },
+  "gas.gb_nts.entry.physical.north": {
+    ...GAS_RATE,
+    metric_id: "gas.gb_nts.entry.physical.north",
+    unit: "mscm/d",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOB2043",
+    coverage: "Physical entry into the NTS for the north zone, as an mscm/d rate.",
+  },
+  "gas.gb_nts.entry.physical.south": {
+    ...GAS_RATE,
+    metric_id: "gas.gb_nts.entry.physical.south",
+    unit: "mscm/d",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOB2044",
+    coverage: "Physical entry into the NTS for the south zone, as an mscm/d rate.",
+  },
+  "gas.gb_nts.entry.forecast": {
+    ...GAS_FORECAST,
+    metric_id: "gas.gb_nts.entry.forecast",
+    unit: "mscm/d",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOB19",
+    coverage: "Forecast end-of-day aggregate entry, mscm/d. Each row has forecast_issued_at.",
+  },
+  "gas.gb_nts.demand.actual_energy": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.demand.actual_energy",
+    unit: "kWh",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB4422",
+    coverage:
+      "Catalogue unit is kWh for a gas-day NTS throughput. The autumn 2026 CSV was empty and the January 2025 extract repeated one value, so this series is deferred.",
+  },
+  "gas.gb_nts.linepack.opening_interim": {
+    ...GAS_STOCK_HOUR,
+    metric_id: "gas.gb_nts.linepack.opening_interim",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB29",
+    coverage: "Interim opening linepack for the gas day, million standard cubic metres.",
+  },
+  "gas.gb_nts.linepack.pclp1": {
+    ...GAS_STOCK_HOUR,
+    metric_id: "gas.gb_nts.linepack.pclp1",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB30",
+    coverage: "Predicted closing linepack (PCLP1), million standard cubic metres.",
+  },
+  "gas.gb_nts.linepack.pclp2": {
+    ...GAS_STOCK_HOUR,
+    metric_id: "gas.gb_nts.linepack.pclp2",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB31",
+    coverage: "Predicted closing linepack (PCLP2), million standard cubic metres.",
+  },
+  "gas.gb_nts.storage.injection": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.storage.injection",
+    unit: "kWh",
+    sign_convention: "positive_storage_charging",
+    dataset_id: "PUBOB4423",
+    coverage: "Storage injection for the gas day, kWh. One value per gas day. Positive is injection.",
+  },
+  "gas.gb_nts.storage.withdrawal": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.storage.withdrawal",
+    unit: "kWh",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOB4424",
+    coverage: "Storage withdrawal for the gas day, kWh. One value per gas day. The portal publishes withdrawal negative.",
+  },
+  "gas.gb_nts.demand.actual_volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.demand.actual_volume",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB637",
+    coverage: "NTS demand for the finished gas day, million standard cubic metres, published on D+1.",
+  },
+  "gas.gb_nts.supply.physical_volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.supply.physical_volume",
+    unit: "mscm",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOBJ635",
+    coverage: "Physical NTS entry for the finished gas day, million standard cubic metres, published on D+1.",
+  },
+  "gas.gb_nts.supply.physical_energy": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.supply.physical_energy",
+    unit: "kWh",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOBJ636",
+    coverage: "Physical NTS entry for the finished gas day, kWh, published on D+1.",
+  },
+  "gas.gb_nts.linepack.opening": {
+    ...GAS_STOCK_DAY,
+    metric_id: "gas.gb_nts.linepack.opening",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB693",
+    coverage: "Opening linepack for the gas day, million standard cubic metres. Equals the previous close.",
+  },
+  "gas.gb_nts.linepack.closing": {
+    ...GAS_STOCK_DAY,
+    metric_id: "gas.gb_nts.linepack.closing",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOB694",
+    coverage: "Closing linepack for the gas day, million standard cubic metres. Equals the next open.",
+  },
+  "gas.gb_nts.offtake.ldz.volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.ldz.volume",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1015",
+    coverage: "LDZ offtake total for the gas day, million standard cubic metres. Parent of the LDZ site rows.",
+  },
+  "gas.gb_nts.offtake.ldz.energy": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.ldz.energy",
+    unit: "kWh",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1023",
+    coverage: "LDZ offtake total for the gas day, kWh. Parent of the LDZ site rows.",
+  },
+  "gas.gb_nts.offtake.power.volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.power.volume",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1017",
+    coverage: "Power station offtake total for the gas day, million standard cubic metres.",
+  },
+  "gas.gb_nts.offtake.power.energy": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.power.energy",
+    unit: "kWh",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1025",
+    coverage: "Power station offtake total for the gas day, kWh.",
+  },
+  "gas.gb_nts.offtake.storage_injection.volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.storage_injection.volume",
+    unit: "mscm",
+    sign_convention: "positive_storage_charging",
+    dataset_id: "PUBOBJ1016",
+    coverage: "Storage injection offtake total for the gas day, million standard cubic metres.",
+  },
+  "gas.gb_nts.offtake.storage_injection.energy": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.storage_injection.energy",
+    unit: "kWh",
+    sign_convention: "positive_storage_charging",
+    dataset_id: "PUBOBJ1024",
+    coverage: "Storage injection offtake total for the gas day, kWh.",
+  },
+  "gas.gb_nts.offtake.industrial.volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.industrial.volume",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1018",
+    coverage: "Industrial offtake total for the gas day, million standard cubic metres.",
+  },
+  "gas.gb_nts.offtake.interconnector.volume": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.offtake.interconnector.volume",
+    unit: "mscm",
+    sign_convention: "positive_demand",
+    dataset_id: "PUBOBJ1020",
+    coverage: "Interconnector export total for the gas day, million standard cubic metres.",
+  },
+  "gas.gb_nts.supply.storage_withdrawal": {
+    ...GAS_DAY_TOTAL,
+    metric_id: "gas.gb_nts.supply.storage_withdrawal",
+    unit: "mscm",
+    sign_convention: "positive_generation",
+    dataset_id: "PUBOBJ630",
+    coverage: "Storage withdrawal onto the NTS for the gas day, million standard cubic metres, published on D+1.",
+  },
+} satisfies Record<string, MetricDefinition>;
+
+export type GasMetricId = keyof typeof GAS_METRICS;
+
 /** Duration the stale clock waits. The public lag stays `publication_lag`. */
 export function staleGrace(metric: Pick<MetricDefinition, "publication_lag" | "stale_grace">): string {
   return metric.stale_grace ?? metric.publication_lag;

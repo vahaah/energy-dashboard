@@ -1,0 +1,22 @@
+{
+  "needs_login": false,
+  "probed_at": "2026-10-15T05:24:41.000Z",
+  "skipped_parser": true,
+  "reason": "No login was required. GET /operationaldata/v1/instantaneousflow/sites and /latestpublishedtime returned 200 with no Authorization header. This spike does not parse that feed. The contract is the publication CSV ids.",
+  "endpoints": [
+    {
+      "method": "GET",
+      "url": "https://api.nationalgas.com/operationaldata/v1/instantaneousflow/sites",
+      "http": 200,
+      "content_type": "application/json; charset=UTF-8"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.nationalgas.com/operationaldata/v1/instantaneousflow/latestpublishedtime",
+      "http": 200,
+      "body": {
+        "latestPublishedTime": "2026-10-15T06:23:28+01:00"
+      }
+    }
+  ]
+}
