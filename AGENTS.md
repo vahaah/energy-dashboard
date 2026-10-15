@@ -293,7 +293,7 @@ The System nav item is `{ id: "storage", label: "Storage", href: "/system/storag
 
 `/system/whole-energy` is `force-static` with `revalidate` 86400. `/` stays `force-static` with `revalidate` 300. The homepage does not import `src/lib/whole-energy`. No cron. No new Tinybird pipe. Tinybird budget **+0**. The scheduled success path stays 378.
 
-One edition is checked in at `data/catalogue/whole-energy.json`. `npm run catalogue:whole-energy` (`scripts/catalogue/whole-energy.ts`) is the one-shot. `--offline` reads `data/catalogue/raw/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script appends one immutable `source_releases.ndjson` line and one `ingestion_runs.ndjson` line. A committed release line is not rewritten.
+One edition is checked in at `data/catalogue/whole-energy.json`. `npm run catalogue:whole-energy` (`scripts/catalogue/whole-energy.ts`) is the one-shot. `--offline` reads `data/catalogue/raw/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script checks the release id before it writes `whole-energy.json`. A changed extract with the same publication time throws and leaves the checked-in edition. A matching rerun appends one `ingestion_runs.ndjson` line and does not rewrite the release line. A new extract appends one immutable `source_releases.ndjson` line and one ingestion run.
 
 The value source is DUKES 2026 table 1.1, ktoe, gross calorific values, published 30 July 2026. `1 toe = 11,630 kWh, so 1 ktoe = 0.01163 TWh.` Cells are stored at 0.01 ktoe. Shown to 0.1 TWh. Geography is UK, an annual statistic. The page says `UK, annual statistic.`
 

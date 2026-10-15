@@ -27,7 +27,8 @@ export type SignConvention =
   | "positive_storage_charging"
   | "positive_intensity"
   | "positive_price"
-  | "share_of_denominator";
+  | "share_of_denominator"
+  | "negative_transformation_input";
 
 /** Measured series are post-event. Forecast series are a snapshot issued ahead of the interval. */
 export type SeriesKind = "measured" | "forecast";

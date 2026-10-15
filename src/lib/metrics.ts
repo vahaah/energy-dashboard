@@ -51,6 +51,7 @@ export const SIGN_CONVENTIONS = [
   "positive_intensity",
   "positive_price",
   "share_of_denominator",
+  "negative_transformation_input",
 ] as const satisfies readonly SignConvention[];
 
 const GEOGRAPHY_ID =
@@ -854,9 +855,9 @@ export const WHOLE_ENERGY_METRICS = {
     ...WHOLE_ENERGY_YEAR,
     metric_id: "energy.uk.transformation.natural_gas",
     unit: "TWh",
-    sign_convention: "positive_demand",
+    sign_convention: "negative_transformation_input",
     coverage:
-      "Natural gas input to electricity generation, TWh. An input is negative, the sign DUKES publishes. Already inside primary supply.",
+      "Natural gas input to electricity generation, TWh. A negative value is energy consumed by the transformation, the sign DUKES publishes. Already inside primary supply.",
   },
   "energy.uk.final_consumption.total": {
     ...WHOLE_ENERGY_YEAR,

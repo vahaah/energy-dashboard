@@ -199,5 +199,8 @@ describe("whole energy balance", () => {
     expect(Object.keys(WHOLE_ENERGY_METRICS)).toHaveLength(10);
     expect(Object.values(WHOLE_ENERGY_METRICS).every((metric) => metric.geography_id === "UK")).toBe(true);
     expect(Object.values(WHOLE_ENERGY_METRICS).every((metric) => metric.expected_cadence === "P1Y")).toBe(true);
+    expect(WHOLE_ENERGY_METRICS["energy.uk.transformation.natural_gas"].sign_convention).toBe(
+      "negative_transformation_input",
+    );
   });
 });

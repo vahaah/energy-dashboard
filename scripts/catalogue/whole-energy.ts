@@ -5,21 +5,20 @@
  *   npx tsx scripts/catalogue/whole-energy.ts --offline
  *
  * No cron. The raw workbook stays in data/catalogue/raw, which is gitignored.
- * A committed release line is not rewritten.
+ * The release id is checked before whole-energy.json is written.
+ * A matching rerun appends an ingestion run and leaves the release line.
  */
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ExcelJS from "exceljs";
-import { sha256Bytes, sha256Prefixed } from "../../src/lib/catalogue/canonical";
-import { CATALOGUE_SCHEMA_VERSION, catalogueReleaseId } from "../../src/lib/catalogue/schema";
+import { sha256Bytes } from "../../src/lib/catalogue/canonical";
 import { buildWholeEnergyEdition } from "../../src/lib/whole-energy/build";
+import { commitWholeEnergyEdition } from "../../src/lib/whole-energy/catalogue-write";
 import { parseBalanceSheet } from "../../src/lib/whole-energy/parse";
-import type { WholeEnergyEdition } from "../../src/lib/whole-energy/schema";
 import { fetchBytes, fetchText, readCache, writeCache } from "./http";
 
 const PUBLICATION_URL =
   "https://www.gov.uk/government/statistics/energy-chapter-1-digest-of-united-kingdom-energy-statistics-dukes";
-const DATASET_ID = "desnz-dukes:dukes-1.1";
 const MONTHS: Record<string, string> = {
   january: "01",
   february: "02",
@@ -130,16 +129,6 @@ function latestYearSheet(book: ExcelJS.Workbook): { year: number; sheet: ExcelJS
   return { year, sheet };
 }
 
-function readLines(path: string): string[] {
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter((line) => line.length > 0);
-}
-
-function sameEdition(left: unknown, right: unknown): boolean {
-  return sha256Prefixed(left) === sha256Prefixed(right);
-}
-
 async function main(): Promise<void> {
   const offline = process.argv.includes("--offline");
   const root = process.cwd();
@@ -186,47 +175,10 @@ async function main(): Promise<void> {
     rows: parsed.rows,
   });
 
-  const editionPath = resolve(root, "data/catalogue/whole-energy.json");
-  writeFileSync(editionPath, `${JSON.stringify(edition, null, 2)}\n`);
-  appendRelease(root, edition);
-  console.log(`wrote ${edition.year} ${edition.published_at} ${edition.extract_sha256} (${edition.bytes} bytes)`);
-}
-
-function appendRelease(root: string, edition: WholeEnergyEdition): void {
-  const releasesPath = resolve(root, "data/catalogue/source_releases.ndjson");
-  const runsPath = resolve(root, "data/catalogue/ingestion_runs.ndjson");
-  const contentHash = sha256Prefixed(edition);
-  const sourceReleaseId = catalogueReleaseId(DATASET_ID, edition.published_at, contentHash);
-  const releases = readLines(releasesPath);
-  const existing = releases
-    .map((line) => JSON.parse(line) as { source_release_id?: string; content_hash?: string; content?: unknown })
-    .find((line) => line.source_release_id === sourceReleaseId);
-  if (existing) {
-    if (existing.content_hash !== contentHash || !sameEdition(existing.content, edition)) {
-      throw new Error(`${sourceReleaseId} is already committed with different content`);
-    }
-    return;
-  }
-  const release = {
-    catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
-    source_release_id: sourceReleaseId,
-    dataset_id: DATASET_ID,
-    published_at: edition.published_at,
-    content_hash: contentHash,
-    content: edition,
-  };
-  appendFileSync(releasesPath, `${JSON.stringify(release)}\n`);
-  const clock = new Date().toISOString();
-  const run = {
-    catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
-    ingestion_run_id: `run:${DATASET_ID}:${clock}`,
-    dataset_id: DATASET_ID,
-    source_release_id: sourceReleaseId,
-    started_at: clock,
-    finished_at: clock,
-    status: "succeeded",
-  };
-  appendFileSync(runsPath, `${JSON.stringify(run)}\n`);
+  const committed = commitWholeEnergyEdition(root, edition);
+  console.log(
+    `wrote ${edition.year} ${edition.published_at} ${edition.extract_sha256} (${edition.bytes} bytes) ${committed.ingestionRunId}`,
+  );
 }
 
 main().catch((error: unknown) => {
