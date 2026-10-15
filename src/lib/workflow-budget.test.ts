@@ -101,9 +101,12 @@ describe("workflow budget", () => {
     expect(yesterday).not.toContain("warmPipeStep");
     expect(yesterday).not.toContain("fetchPipeRows");
     const publishAt = prices.indexOf("await publishStep(nowIso, false)");
+    const gasAt = prices.indexOf("await publishCompletedGasDayStep(nowIso)");
     const fatalAt = prices.indexOf("required price source failed");
     expect(publishAt).toBeGreaterThan(-1);
-    expect(fatalAt).toBeGreaterThan(publishAt);
+    expect(gasAt).toBeGreaterThan(publishAt);
+    expect(fatalAt).toBeGreaterThan(gasAt);
+    expect(prices).toContain("fetchSapStep");
     expect(prices).toContain("if (!posted.ok)");
   });
 

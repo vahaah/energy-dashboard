@@ -127,6 +127,198 @@
   },
   {
     "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB2042",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB2042",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.entry.physical.national"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB2043",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB2043",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.entry.physical.north"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB2044",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB2044",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.entry.physical.south"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB19",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB19",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.entry.forecast"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB4422",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB4422",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.demand.actual_energy"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB29",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB29",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.linepack.opening_interim"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB30",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB30",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.linepack.pclp1"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB31",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB31",
+    "cadence": "PT1H",
+    "metric_ids": ["gas.gb_nts.linepack.pclp2"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB4423",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB4423",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.storage.injection"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB4424",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB4424",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.storage.withdrawal"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB637",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB637",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.demand.actual_volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ635",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ635",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.supply.physical_volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ636",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ636",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.supply.physical_energy"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB693",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB693",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.linepack.opening"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOB694",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOB694",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.linepack.closing"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1015",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1015",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.ldz.volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1023",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1023",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.ldz.energy"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1017",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1017",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.power.volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1025",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1025",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.power.energy"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1016",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1016",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.storage_injection.volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1024",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1024",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.storage_injection.energy"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1018",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1018",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.industrial.volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ1020",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ1020",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.offtake.interconnector.volume"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "national-gas:PUBOBJ630",
+    "source_id": "national-gas",
+    "catalogue_key": "PUBOBJ630",
+    "cadence": "P1D",
+    "metric_ids": ["gas.gb_nts.supply.storage_withdrawal"]
+  },
+  {
+    "catalogue_schema_version": 1,
     "dataset_id": "desnz-repd:repd-quarterly",
     "source_id": "desnz-repd",
     "catalogue_key": "repd-quarterly",

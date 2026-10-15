@@ -1,4 +1,5 @@
 import { FatalError } from "workflow";
+import { publishCompletedGasDayStep } from "@/workflows/steps/gas";
 import { publishStep } from "@/workflows/steps/publish";
 import {
   fetchEiaStep,
@@ -39,6 +40,7 @@ export async function pricesSlot(slot: string, owner: string, nowIso: string) {
   await warmPipeStep(LONG_PIPE_IDS[7], nowIso);
   await warmPipeStep(LONG_PIPE_IDS[8], nowIso);
   await publishStep(nowIso, false);
+  await publishCompletedGasDayStep(nowIso);
   if (!posted.ok) {
     console.error("[workflow] prices required source failed", { slot });
     throw new FatalError("required price source failed");

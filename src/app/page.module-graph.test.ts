@@ -63,7 +63,10 @@ describe("homepage module graph", () => {
     expect(joined).not.toMatch(/["']pmtiles["']/);
     expect(files.some((file) => file.endsWith("static-map.ts") || file.endsWith("today-card-build.ts"))).toBe(false);
     expect(files.some((file) => file.includes(`${join("ingest", "national-gas")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("lib", "gas")}`))).toBe(false);
     expect(joined).not.toContain("blob.vercel-storage");
+    expect(joined).not.toContain("/api/v1/gas");
+    expect(joined).not.toContain("releases/gas/");
     expect(joined).not.toContain("/tiles/");
   });
 

@@ -4,7 +4,7 @@ import { checkLinkFiles } from "@/lib/catalogue/links/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
-import { METRICS } from "@/lib/metrics";
+import { GAS_METRICS, METRICS } from "@/lib/metrics";
 import {
   CATALOGUE_SOURCE_IDS,
   catalogueDatasetId,
@@ -40,7 +40,7 @@ function sourceIdsOf(metric: CatalogueMetricRef): readonly string[] {
 }
 
 function registryMetrics(): CatalogueMetricRef[] {
-  return Object.values(METRICS).map((metric) => ({
+  return [...Object.values(METRICS), ...Object.values(GAS_METRICS)].map((metric) => ({
     metric_id: metric.metric_id,
     dataset_id: metric.dataset_id,
     source_id: metric.source_id,

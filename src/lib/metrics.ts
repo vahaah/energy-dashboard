@@ -467,8 +467,9 @@ const GAS_STOCK_HOUR = {
 } as const;
 
 /**
- * Physical NTS series. Withheld from `METRICS` so /data-health and /api/health
- * stay on the series already shown. SAP is unchanged.
+ * Physical NTS series. Kept out of `METRICS` so the homepage registry and
+ * `/api/health` stay on the series already shown. `/data-health` appends them
+ * from the Blob release. SAP is unchanged.
  */
 export const GAS_METRICS = {
   "gas.gb_nts.entry.physical.national": {

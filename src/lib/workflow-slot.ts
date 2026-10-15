@@ -5,6 +5,7 @@ export const SLOT_TTL_SECONDS = {
   electricity: 35 * 60,
   prices: 6 * 60 * 60,
   yesterday: 24 * 60 * 60,
+  gas: 50 * 60,
 } as const;
 
 export type WorkflowJob = keyof typeof SLOT_TTL_SECONDS;
@@ -33,6 +34,13 @@ export function pricesSlot(now: Date): string {
 
 export function yesterdaySlot(now: Date): string {
   return now.toISOString().slice(0, 10);
+}
+
+/** Gas cron fires at minute 5 of every hour. */
+export function gasSlot(now: Date): string {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 5, 0, 0),
+  ).toISOString();
 }
 
 /**
