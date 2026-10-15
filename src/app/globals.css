@@ -219,6 +219,17 @@ body {
   box-shadow: var(--card-shadow);
 }
 
+.power-map .maplibregl-ctrl-group {
+  background: #ffffff;
+  border: 1px solid var(--gray-alpha-400);
+  box-shadow: none;
+}
+
+.power-map .maplibregl-ctrl-group button {
+  width: 32px;
+  height: 32px;
+}
+
 .import-hatch {
   background-image: repeating-linear-gradient(
     -45deg,

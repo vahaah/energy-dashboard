@@ -147,11 +147,11 @@ Each source row has `licence`, `licence_url`, `attribution`, and `cadence` (inge
 
 ### P1A.1 REPD / DUKES asset register
 
-Checked-in plant register. No database, no Tinybird, no homepage change. `/` stays `force-static`.
+Checked-in plant register. No database, no Tinybird. `/` stays `force-static`.
 
 `npm run catalogue:assets` downloads the latest gov.uk releases (Open Government Licence v3.0). `--offline` reads `data/catalogue/raw/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script rewrites the current plant list and appends releases:
 
-- `assets.ndjson` (`ast_`), `projects.ndjson` (`prj_`), `capacity_records.ndjson` (`cap_`), `source_entity_mappings.ndjson` (`REPD_REF`, `DUKES_NAME`), `asset_matches.ndjson`
+- `assets.ndjson` (`ast_`), `projects.ndjson` (`prj_`), `capacity_records.ndjson` (`cap_`), `source_entity_mappings.ndjson` (`REPD_REF`, `DUKES_NAME`), `asset_matches.ndjson`, `asset_parties.ndjson`
 - `asset_match_overrides.json` is hand-edited. Links and unlinks are applied before the automatic rules.
 - `asset_summary.json` is regenerated. `publish-check` rejects a summary that disagrees with the register.
 
@@ -159,15 +159,15 @@ Operational REPD renewables, including pumped storage and excluding batteries an
 
 The same site must not count twice. `src/lib/catalogue/assets/match.ts` matches on coordinates, then a distinctive name, then a name group. Renewables count the REPD megawatts. Gas, oil, nuclear, and pumped storage count DUKES. The other side is `counts: false`.
 
-Each import appends one immutable `source_releases.ndjson` line. `content` is the edition, publication time, download URL, byte length, and `extract_sha256` of the official file, plus the DUKES 5.11.A headline MW. `content_hash` is the canonical JSON of that descriptor, not of the station list. Do not edit a committed release line. A later quarter appends a new release and new `capacity_records.ndjson` rows. Rows from older releases stay. Capacity for the release being imported is replaced.
+Each import appends one immutable `source_releases.ndjson` line. `content` is the edition, publication time, download URL, byte length, and `extract_sha256` of the official file, plus the DUKES 5.11.A headline MW. `content_hash` is the canonical JSON of that descriptor, not of the station list. Do not edit a committed release line. A later quarter appends a new release and new `capacity_records.ndjson` rows. Rows from older releases stay. Capacity for the release being imported is replaced. When several lines share a dataset, the newest `published_at` wins, and an equal timestamp keeps the later line. Directory, map, and search totals use the latest capacity release for each source and project. The detail page still lists every capacity row.
 
 Each invocation also appends `ingestion_runs.ndjson` lines. `ingestion_run_id` is unique per run. `started_at` and `finished_at` are the import clock, not the publisher's `published_at`.
 
-`publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. The raw extracts stay out of git. The plant register stays in git. Map geometry is the Blob case, and only the basemap PMTiles.
+`publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. It also requires `asset_parties.ndjson`: unique party keys, and one party row for each current project. The raw extracts stay out of git. The plant register stays in git. Map geometry is the Blob case, and only the basemap PMTiles.
 
 ### P1A.2 Geometry and basemap
 
-No `/map` UI. `/` stays `force-static` with `revalidate` 300. This adds no Tinybird calls.
+P1A.2 ships the geometry and basemap and does not add a map page. `/` stays `force-static` with `revalidate` 300. This adds no Tinybird calls.
 
 `npm run catalogue:dno` downloads the NESO DNO licence-area GeoJSON (EPSG:27700), transforms it with proj4, simplifies at the tolerance stored on the layer, and writes `public/tiles/layers/dno/<edition>.geojson` when the file is under 1 MB. The checked-in edition is `20240503`, 338625 bytes, tolerance `0.001` degrees. DNO `default_visible` is false. The layer stores the NESO Open Data plus OGL v3 attribution and NESO's "not 100% accurate" warning.
 
@@ -176,6 +176,14 @@ No `/map` UI. `/` stays `force-static` with `revalidate` 300. This adds no Tinyb
 `npm run basemap` is manual, about twice a year, and not in CI. It exits immediately when `BLOB_READ_WRITE_TOKEN` is unset and never prints the token. With the token set it downloads OS Open Zoomstack vector tiles (OGL v3), drops zooms above 13, writes bounds into the MBTiles metadata when that row is missing, converts to one PMTiles file, uploads `tiles/basemap/<edition>.pmtiles`, and records bytes and sha256 on the basemap row. `BASEMAP_MBTILES` reuses a local archive only when its `edition` metadata (or a `YYYY-MM` `version`) matches the product API edition. The published edition is `2026-06`. The MBTiles download is about 2.9 GB. The published PMTiles file is `tiles/basemap/2026-06.pmtiles`, 1028871685 bytes, `sha256:c446a4d8fea34ff8a6ad143e0cebd22f3db799793c87f8882d3e1d2e4781bcc0`.
 
 `GET /api/v1/map/layers` is `force-static` and serves `layers.json`. `GET /api/cron-map-layers` (`20 5 * * *`) checks the NESO source by ETag and downloads only when the ETag misses, then sha256. A later run probes with the ETag stored on the Redis pointer. The checked-in edition, file URL, bytes, and sha256 stay the publication. An equal source hash is current even when the resource URL changes. A failure does not replace the Redis pointer `grid:map-layer:dno`. A changed source hash is flagged on `/data-health`. Page requests only read that flag.
+
+### P1A.3 Map, asset directory, and search
+
+`/map`, `/assets`, and `/assets/[id]` are `force-static`. `/map` draws the OS Open Zoomstack PMTiles basemap with MapLibre. The DNO layer starts off. The asset directory lists the register, and each station page includes the full capacity history.
+
+The header search button is on every page, including `/`. The dialog and `/search/assets.json` load on the first open. `/` does not load maplibre or pmtiles. `/` stays `force-static` with `revalidate` 300. These pages make no Tinybird calls.
+
+`asset_parties.ndjson` holds operator, region, and county from the same official editions. `prebuild` copies the MapLibre worker to `public/maplibre/`; that copy is not committed.
 
 ## Environment Variables
 

@@ -13,6 +13,7 @@ import {
   matchRecordSchema,
   projectRecordSchema,
 } from "@/lib/catalogue/assets/record-schema";
+import { partyKey, partyRecordSchema, type PartyRecord } from "@/lib/catalogue/assets/parties";
 import { summarizeRegister, type AssetSummary } from "@/lib/catalogue/assets/summary";
 import { DUKES_DATASET_ID, DUKES_SOURCE_ID, REPD_DATASET_ID, REPD_SOURCE_ID } from "@/lib/catalogue/assets/technologies";
 import type {
@@ -176,6 +177,34 @@ export function assetRegisterErrors(register: AssetRegister, releases: readonly 
     }
   }
   errors.push(...doubleCountErrors(register, releases));
+  return errors;
+}
+
+export function partyReferenceErrors(projects: readonly ProjectRecord[], parties: readonly PartyRecord[]): string[] {
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  const partyKeys = new Set<string>();
+  for (const party of parties) {
+    const key = partyKey(party);
+    if (seen.has(key)) {
+      errors.push(`duplicate party ${party.source_id} ${party.external_ref}`);
+    }
+    seen.add(key);
+    partyKeys.add(key);
+  }
+  const projectKeys = new Set<string>();
+  for (const project of projects) {
+    const key = partyKey(project);
+    projectKeys.add(key);
+    if (!partyKeys.has(key)) {
+      errors.push(`project ${project.project_id} has no party`);
+    }
+  }
+  for (const party of parties) {
+    if (!projectKeys.has(partyKey(party))) {
+      errors.push(`dangling party ${party.source_id} ${party.external_ref}`);
+    }
+  }
   return errors;
 }
 
@@ -359,12 +388,18 @@ export function checkAssetFiles(
     loaded.get(ASSET_REGISTER_FILES.matches) ?? "",
     matchRecordSchema,
   );
+  const parties = parseLines(
+    ASSET_REGISTER_FILES.parties,
+    loaded.get(ASSET_REGISTER_FILES.parties) ?? "",
+    partyRecordSchema,
+  );
   errors.push(
     ...assets.errors,
     ...projects.errors,
     ...capacity.errors,
     ...mappings.errors,
     ...matches.errors,
+    ...parties.errors,
   );
   let overridesJson: unknown;
   try {
@@ -387,6 +422,7 @@ export function checkAssetFiles(
   if (errors.length > 0 || !overrides.success) {
     return errors;
   }
+  errors.push(...partyReferenceErrors(projects.records, parties.records));
   const register: AssetRegister = {
     assets: assets.records,
     projects: projects.records,

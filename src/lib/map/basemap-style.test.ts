@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { validateStyleMin, type StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { describe, expect, it } from "vitest";
 import { basemapStyle, pointZoomstackSource, themeColor } from "@/lib/map/basemap-style";
 import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, osBasemapAttribution } from "@/lib/map/constants";
@@ -19,6 +20,7 @@ describe("basemap style", () => {
         expected.sources.zoomstack = pointZoomstackSource(expected.sources.zoomstack, basemap.url, 2026);
       }
       expect(checkedIn).toEqual(expected);
+      expect(validateStyleMin(checkedIn as unknown as StyleSpecification)).toEqual([]);
       expect(checkedIn.sources.zoomstack.url).toBe(basemap?.url ? `pmtiles://${basemap.url}` : BASEMAP_SOURCE_URL);
       expect(checkedIn.sources.zoomstack.attribution).toBe(osBasemapAttribution(2026));
       expect(JSON.stringify(checkedIn)).not.toMatch(/openstreetmap|osm\.org|tile\.openstreetmap/i);

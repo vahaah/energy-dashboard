@@ -34,6 +34,7 @@ export const ASSET_REGISTER_FILES = {
   capacity: "capacity_records.ndjson",
   mappings: "source_entity_mappings.ndjson",
   matches: "asset_matches.ndjson",
+  parties: "asset_parties.ndjson",
   overrides: "asset_match_overrides.json",
   summary: "asset_summary.json",
 } as const;

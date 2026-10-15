@@ -77,6 +77,24 @@ function fill(id: string, sourceLayer: string, color: string, minzoom: number, m
   };
 }
 
+function roadWidth(minzoom: number, width: [number, number, number]): unknown[] {
+  const stops: number[] = [];
+  const add = (zoom: number, value: number) => {
+    const previous = stops.length >= 2 ? stops[stops.length - 2] : -1;
+    if (zoom > previous) {
+      stops.push(zoom, value);
+      return;
+    }
+    if (zoom === previous) {
+      stops[stops.length - 1] = value;
+    }
+  };
+  add(minzoom, width[0]);
+  add(10, width[1]);
+  add(13, width[2]);
+  return ["interpolate", ["linear"], ["zoom"], ...stops];
+}
+
 function road(
   id: string,
   roadType: string,
@@ -94,7 +112,7 @@ function road(
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
       "line-color": color,
-      "line-width": ["interpolate", ["linear"], ["zoom"], minzoom, width[0], 10, width[1], 13, width[2]],
+      "line-width": roadWidth(minzoom, width),
       "line-opacity": 0.9,
     },
   };

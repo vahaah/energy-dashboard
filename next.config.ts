@@ -9,6 +9,12 @@ import {
 } from "./src/lib/plausible";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/map": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/assets": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/assets/[id]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/sitemap.xml": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+  },
   async headers() {
     return EDGE_CACHEABLE_API_PATHS.map((source) => ({
       source,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATALOGUE_SCHEMA_VERSION, httpUrlSchema, instantSchema } from "@/lib/catalogue/schema";
+import { LAYER_PRECISIONS, type LayerPrecision } from "@/lib/map/precision";
 
 /**
  * Layer catalogue. Not part of `CATALOGUE_FILES`: the base branch has no
@@ -11,12 +12,7 @@ export const LAYER_FILES = {
   watch: "layer_watch.json",
 } as const;
 
-export const LAYER_PRECISIONS = [
-  "surveyed",
-  "published_approximate",
-  "geocoded_approximate",
-  "schematic",
-] as const;
+export { LAYER_PRECISIONS, type LayerPrecision };
 
 export const LAYER_KINDS = ["basemap", "geojson", "pmtiles"] as const;
 
@@ -81,7 +77,6 @@ export const layerWatchFileSchema = z
   .strict();
 
 export type MapLayer = z.infer<typeof mapLayerSchema>;
-export type LayerPrecision = z.infer<typeof layerPrecisionSchema>;
 export type LayerKind = z.infer<typeof layerKindSchema>;
 export type LayerWatchEntry = z.infer<typeof layerWatchEntrySchema>;
 export type LayerWatchFile = z.infer<typeof layerWatchFileSchema>;

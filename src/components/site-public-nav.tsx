@@ -3,6 +3,8 @@ import { routeExists } from "@/lib/site-nav";
 
 export const SITE_NAV_LINKS = [
   { href: "/today", label: "Today" },
+  { href: "/map", label: "Map" },
+  { href: "/assets", label: "Assets" },
   { href: "/records", label: "Records" },
   { href: "/prices/gas", label: "Gas price" },
   { href: "/explained/price-cap", label: "Price cap" },

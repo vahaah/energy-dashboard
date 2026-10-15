@@ -8,6 +8,10 @@ import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-dema
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
+  ASSETS_DESCRIPTION,
+  ASSETS_TITLE,
+  MAP_DESCRIPTION,
+  MAP_TITLE,
   DATA_HEALTH_DESCRIPTION,
   DATA_HEALTH_TITLE,
   GAS_DESCRIPTION,
@@ -281,6 +285,26 @@ export function methodologyPageMetadata(): Metadata {
     path: "/methodology",
     imagePath: "/methodology/opengraph-image",
     imageAlt: METHODOLOGY_TITLE,
+  });
+}
+
+export function mapPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: MAP_TITLE,
+    description: MAP_DESCRIPTION,
+    path: "/map",
+    imagePath: "/og",
+    imageAlt: MAP_TITLE,
+  });
+}
+
+export function assetsPageMetadata(): Metadata {
+  return buildPageMetadata({
+    title: ASSETS_TITLE,
+    description: ASSETS_DESCRIPTION,
+    path: "/assets",
+    imagePath: "/og",
+    imageAlt: ASSETS_TITLE,
   });
 }
 

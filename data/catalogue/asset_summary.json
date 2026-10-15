@@ -113,6 +113,7 @@
   "files": {
     "asset_match_overrides.json": 1624,
     "asset_matches.ndjson": 235050,
+    "asset_parties.ndjson": 540396,
     "assets.ndjson": 587665,
     "capacity_records.ndjson": 1016387,
     "projects.ndjson": 648325,

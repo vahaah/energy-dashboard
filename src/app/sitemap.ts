@@ -3,6 +3,7 @@ import { getHeadlineSnapshotsQueryParams } from "@/lib/dashboard-data";
 import { latestObservedTimestamp } from "@/lib/health";
 import { parseUtcDateTime } from "@/lib/london-time";
 import { peekLatestPrices } from "@/lib/og/peek";
+import { loadAssetCatalogue } from "@/lib/assets/load";
 import { SITE_URL } from "@/lib/site";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
@@ -47,7 +48,7 @@ export function latestCommodityTimestamp(
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stamps = await sitemapStamps().catch(() => ({}));
-  return SITEMAP_PATHS.map((entry) => {
+  const pages = SITEMAP_PATHS.map((entry) => {
     const lastModified = lastModifiedForPath(entry.path, stamps);
     return {
       url: `${SITE_URL}${entry.path}`,
@@ -56,6 +57,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...(lastModified ? { lastModified } : {}),
     };
   });
+  const assets = loadAssetCatalogue().rows.map((row) => ({
+    url: `${SITE_URL}/assets/${row.id}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.4,
+  }));
+  return [...pages, ...assets];
 }
 
 async function sitemapStamps(): Promise<SitemapStamps> {

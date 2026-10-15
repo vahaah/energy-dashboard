@@ -169,14 +169,10 @@ async function main(): Promise<void> {
   writeFileSync(resolve(root, ASSET_REGISTER_FILES.mappings), files.mappings);
   writeFileSync(resolve(root, ASSET_REGISTER_FILES.matches), files.matches);
   const sizes: Record<string, number> = {};
-  for (const file of [
-    ASSET_REGISTER_FILES.assets,
-    ASSET_REGISTER_FILES.projects,
-    ASSET_REGISTER_FILES.capacity,
-    ASSET_REGISTER_FILES.mappings,
-    ASSET_REGISTER_FILES.matches,
-    ASSET_REGISTER_FILES.overrides,
-  ]) {
+  for (const file of Object.values(ASSET_REGISTER_FILES)) {
+    if (file === ASSET_REGISTER_FILES.summary) {
+      continue;
+    }
     sizes[file] = statSync(resolve(root, file)).size;
   }
   const summary = summarizeRegister(

@@ -26,6 +26,9 @@
 # production
 /build
 
+# Copied from maplibre-gl on predev/prebuild. The bundled chunk cannot resolve the worker.
+/public/maplibre/
+
 # misc
 .DS_Store
 *.pem

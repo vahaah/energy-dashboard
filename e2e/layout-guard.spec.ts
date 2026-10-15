@@ -13,6 +13,9 @@ const PAGES = [
   "/terms",
   "/data-sources",
   "/records",
+  "/map",
+  "/assets",
+  "/assets/ast_0003670fbf90f564",
 ] as const;
 
 const VIEWPORTS = [
@@ -491,8 +494,16 @@ for (const theme of THEMES) {
             body: JSON.stringify(PRICE_FIXTURE),
           })
         );
-        await page.goto(path, { waitUntil: "networkidle" });
+        await page.route(/pmtiles|blob\.vercel-storage\.com/i, (route) => route.abort());
+        const mapPage = path === "/map" || path.startsWith("/assets/");
+        await page.goto(path, { waitUntil: mapPage ? "domcontentloaded" : "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
+        if (path === "/map") {
+          await page.getByText("Contains OS data © Crown copyright and database right 2026").waitFor();
+        }
+        if (path === "/assets" || path.startsWith("/assets/")) {
+          await page.getByRole("heading", { level: 1 }).waitFor();
+        }
         if (path === "/") {
           await page.getByText("Henry Hub gas").waitFor();
         }
