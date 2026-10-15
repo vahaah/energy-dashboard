@@ -1,0 +1,12 @@
+{
+  "repd_source_release_id": "desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z",
+  "dukes_source_release_id": "desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z",
+  "dno_sha256": "sha256:45706a2dd90ea9f763df84fe916042074a113fa28da8597430d583f128398c89",
+  "edition": "REPD Q2 2026 · DUKES May 2026",
+  "count": 3321,
+  "width": 403,
+  "height": 720,
+  "light": "/today/map-light.png",
+  "dark": "/today/map-dark.png",
+  "alt": "Map of Great Britain showing 3,321 power stations, renewable and storage sites from published sources."
+}
