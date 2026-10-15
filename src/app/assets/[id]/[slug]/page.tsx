@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { AssetPageView } from "@/components/asset-page-view";
 import { SeoPage } from "@/components/seo-page";
-import { attachedFlows, WARMED_FLOW_REVALIDATE_SECONDS } from "@/lib/assets/cached-flows";
+import { attachedFlows } from "@/lib/assets/cached-flows";
 import { assetPageDescription } from "@/lib/assets/labels";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { assetPageModel, type AssetPageModel } from "@/lib/assets/page-model";
@@ -13,7 +13,8 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
-export const revalidate = WARMED_FLOW_REVALIDATE_SECONDS;
+/** Same interval as WARMED_FLOW_REVALIDATE_SECONDS. Next requires a literal here. */
+export const revalidate = 1_800;
 
 export function generateStaticParams(): { id: string; slug: string }[] {
   return loadAssetCatalogue().rows.map((row) => {

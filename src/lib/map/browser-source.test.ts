@@ -25,11 +25,12 @@ describe("map source and asset page review fixes", () => {
 
   it("revalidates canonical asset pages on the warmed flow cadence", () => {
     const now = new Date("2026-10-15T12:00:00Z");
+    expect(WARMED_FLOW_REVALIDATE_SECONDS).toBe(1_800);
     expect(getTinybirdCachePolicy({ pipeName: "interconnector_flows", range: "24h", now }).revalidateSeconds).toBe(
       WARMED_FLOW_REVALIDATE_SECONDS,
     );
     const page = source("src/app/assets/[id]/[slug]/page.tsx");
-    expect(page).toContain("export const revalidate = WARMED_FLOW_REVALIDATE_SECONDS");
+    expect(page).toContain("export const revalidate = 1_800");
     expect(page).toContain("citation={citation}");
     expect(source("src/components/asset-page-view.tsx")).toContain("<CiteButton text={citation} />");
   });
