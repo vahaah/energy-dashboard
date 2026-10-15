@@ -18,7 +18,9 @@ import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
 import { gasMetricLabel, gasReadingStale, latestObservedComponent, loadBundleReleases } from "@/lib/gas/query";
 import type { GasRelease } from "@/lib/ingest/national-gas/release";
 import { constraintMetricLabel, loadConstraintObservations } from "@/lib/constraints/health";
-import { CONSTRAINT_METRICS, GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type ConstraintMetricId, type GasMetricId, type MetricId } from "@/lib/metrics";
+import { loadNiObservations } from "@/lib/eirgrid/health";
+import { eirgridSeriesByMetric } from "@/lib/eirgrid/spec";
+import { CONSTRAINT_METRICS, EIRGRID_METRICS, GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type ConstraintMetricId, type EirgridMetricId, type GasMetricId, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
@@ -165,6 +167,10 @@ function lagAnchor(interval: IntervalConvention): string {
       return "the trading day";
     case "uk_settlement_period_half_open":
       return "the settlement period";
+    case "quarter_hour_half_open":
+      return "the quarter-hour";
+    case "half_hour_half_open":
+      return "the half-hour";
     default: {
       const exhaustive: never = interval;
       return exhaustive;
@@ -382,7 +388,12 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
       now,
     });
   });
-  return [...readings, ...(await loadGasReadings(now)), ...(await loadConstraintReadings(now))];
+  return [
+    ...readings,
+    ...(await loadGasReadings(now)),
+    ...(await loadConstraintReadings(now)),
+    ...(await loadNiReadings(now)),
+  ];
 }
 
 async function loadConstraintReadings(now: Date): Promise<DataHealthReading[]> {
@@ -422,6 +433,45 @@ async function loadConstraintReadings(now: Date): Promise<DataHealthReading[]> {
 
 export function constraintMetricIds(): ConstraintMetricId[] {
   return Object.keys(CONSTRAINT_METRICS) as ConstraintMetricId[];
+}
+
+export function eirgridMetricIds(): EirgridMetricId[] {
+  return Object.keys(EIRGRID_METRICS) as EirgridMetricId[];
+}
+
+async function loadNiReadings(now: Date): Promise<DataHealthReading[]> {
+  const observations = await loadNiObservations();
+  return observations.map((observed) => {
+    const metric = EIRGRID_METRICS[observed.metricId];
+    const assessed = assessPublication({
+      value: observed.value,
+      publishedAt: observed.publishedAt,
+      retrievedAt: observed.retrievedAt,
+      expectedCadence: metric.expected_cadence,
+      now,
+      formatValue: (number) => formatReadingValue(number, metric.unit),
+      schedule: "calendar",
+      publicationLag: staleGrace(metric),
+    });
+    return {
+      metric_id: observed.metricId,
+      label: eirgridSeriesByMetric(observed.metricId)?.label ?? observed.metricId,
+      unit: metric.unit,
+      source: metricSourceLabel(metric),
+      dataset_id: metric.dataset_id,
+      expected_cadence: metric.expected_cadence,
+      publication_lag: metric.publication_lag,
+      publication_lag_label: publicationLagLabel(metric.publication_lag, metric.interval_convention),
+      value: observed.value,
+      value_label: assessed.valueLabel,
+      published_at: observed.publishedAt,
+      retrieved_at: observed.retrievedAt,
+      published_label: assessed.publishedLabel,
+      retrieved_label: assessed.retrievedLabel,
+      stale: assessed.stale,
+      state: assessed.state,
+    };
+  });
 }
 
 async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {

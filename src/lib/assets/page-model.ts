@@ -1,3 +1,4 @@
+import { NI_FLOW_NOTE } from "@/lib/attribution";
 import {
   DURATION_TOOLTIP,
   IMPORT_FLOW_NOTE,
@@ -85,7 +86,7 @@ export type AssetPageModel = {
   identities: AssetIdentityRow[];
   output:
     | { attached: false; source: string }
-    | { attached: true; code: string; note: string };
+    | { attached: true; code: string; note: string; niNote: string | null };
   claims: AssetClaim[];
   projects: { name: string; detail: string }[];
   history: AssetHistoryRow[];
@@ -283,7 +284,12 @@ export function assetPageModel(detail: AssetDetail): AssetPageModel {
       ]
     : stationFacts(detail);
   const output = link?.fuelinstCode
-    ? { attached: true as const, code: link.fuelinstCode, note: IMPORT_FLOW_NOTE }
+    ? {
+        attached: true as const,
+        code: link.fuelinstCode,
+        note: IMPORT_FLOW_NOTE,
+        niNote: detail.row.country === "Northern Ireland" ? NI_FLOW_NOTE : null,
+      }
     : {
         attached: false as const,
         source: link ? "National Gas terminal flows" : "Elexon BMU metering",

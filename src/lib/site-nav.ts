@@ -13,6 +13,7 @@ export type SiteNavMenuItem = {
   id: string;
   label: string;
   href: string;
+  dividerBefore?: string;
 };
 
 export type SiteNavMenu = {
@@ -63,6 +64,7 @@ export const SHIPPED_PAGE_ROUTES = [
   "/records",
   "/system/storage",
   "/projects",
+  "/electricity/northern-ireland",
   "/terms",
   "/today",
 ] as const;

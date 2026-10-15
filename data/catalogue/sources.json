@@ -120,4 +120,16 @@
     "attribution": "Contains OS data © Crown copyright and database right 2026",
     "cadence": "P6M"
   }
+,
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "eirgrid-group",
+    "name": "EirGrid Group",
+    "url": "https://www.smartgriddashboard.com/",
+    "used_for": "Northern Ireland, Ireland, and all-island electricity from the Smart Grid Dashboard. SONI system figures and SEMO imbalance prices in euro. Northern Ireland stays outside Grid's GB totals.",
+    "licence": "EirGrid Group Open Data Licence. Worldwide, royalty-free, and perpetual. Covers SONI, the Smart Grid Dashboard, SEMO, and SEMOpx. EirGrid Group may revise the licence. Read on 15 Oct 2026.",
+    "licence_url": "https://www.smartgriddashboard.com/all/open-data-license/",
+    "attribution": "Supported by EirGrid Group Data",
+    "cadence": "PT1H"
+  }
 ]

@@ -391,4 +391,147 @@
     "metric_ids": [],
     "register": "projects"
   }
+,
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:demandactual",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "demandactual",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.demand.system",
+      "elec.ie.demand.system",
+      "elec.all_island.demand.system"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:generationactual",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "generationactual",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.generation.system",
+      "elec.ie.generation.system",
+      "elec.all_island.generation.system"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:windactual",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "windactual",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.generation.wind",
+      "elec.ie.generation.wind",
+      "elec.all_island.generation.wind"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:windforecast",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "windforecast",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.generation.wind_forecast",
+      "elec.ie.generation.wind_forecast",
+      "elec.all_island.generation.wind_forecast"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:solaractual",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "solaractual",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.generation.solar",
+      "elec.ie.generation.solar",
+      "elec.all_island.generation.solar"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:solarforecast",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "solarforecast",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.generation.solar_forecast",
+      "elec.ie.generation.solar_forecast",
+      "elec.all_island.generation.solar_forecast"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:co2intensity",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "co2intensity",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.carbon.intensity",
+      "elec.ie.carbon.intensity",
+      "elec.all_island.carbon.intensity"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:interconnection",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "interconnection",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.transfers.moyle",
+      "elec.ni.transfers.net",
+      "elec.ie.transfers.ewic",
+      "elec.ie.transfers.greenlink",
+      "elec.ie.transfers.net",
+      "elec.all_island.transfers.net"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:fuelmix",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "fuelmix",
+    "cadence": "PT15M",
+    "metric_ids": [
+      "elec.ni.fuel.gas",
+      "elec.ni.fuel.renewables",
+      "elec.ni.fuel.net_import",
+      "elec.ie.fuel.coal",
+      "elec.ie.fuel.gas",
+      "elec.ie.fuel.other_fossil",
+      "elec.ie.fuel.renewables",
+      "elec.ie.fuel.net_import",
+      "elec.all_island.fuel.coal",
+      "elec.all_island.fuel.gas",
+      "elec.all_island.fuel.other_fossil",
+      "elec.all_island.fuel.renewables",
+      "elec.all_island.fuel.net_import"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:SnspAll",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "SnspAll",
+    "cadence": "PT30M",
+    "metric_ids": [
+      "elec.all_island.snsp.share"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "eirgrid-group:marketPricing",
+    "source_id": "eirgrid-group",
+    "catalogue_key": "marketPricing",
+    "cadence": "PT30M",
+    "metric_ids": [
+      "elec.all_island.price.imbalance",
+      "elec.all_island.imbalance.volume"
+    ]
+  }
 ]

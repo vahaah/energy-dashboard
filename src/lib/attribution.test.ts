@@ -8,6 +8,8 @@ import {
   DATA_SOURCE_IDS,
   captionCarbon,
   captionGeneration,
+  EIRGRID_GROUP_ATTRIBUTION,
+  EIRGRID_GROUP_LICENCE_URL,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
@@ -74,6 +76,7 @@ describe("Elexon BMRS attribution", () => {
       "desnz-dukes",
       "neso-dno-areas",
       "os-open-zoomstack",
+      "eirgrid-group",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -106,6 +109,10 @@ describe("Elexon BMRS attribution", () => {
     const zoomstack = sources.find((source) => source.id === "os-open-zoomstack");
     expect(zoomstack?.attribution).toBe(osBasemapAttribution(2026));
     expect(zoomstack?.usedFor).toContain("2026-06");
+    const eirgrid = sources.find((source) => source.id === "eirgrid-group");
+    expect(eirgrid?.attribution).toBe(EIRGRID_GROUP_ATTRIBUTION);
+    expect(eirgrid?.licenceUrl).toBe(EIRGRID_GROUP_LICENCE_URL);
+    expect(eirgrid?.licence).toContain("15 Oct 2026");
     expect(JSON.stringify(sources)).not.toMatch(/OilPriceAPI|TTF/);
   });
 });

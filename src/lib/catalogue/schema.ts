@@ -23,6 +23,7 @@ export const CATALOGUE_SOURCE_IDS = [
   "desnz-dukes",
   "neso-dno-areas",
   "os-open-zoomstack",
+  "eirgrid-group",
 ] as const;
 
 /**

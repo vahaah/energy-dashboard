@@ -172,27 +172,33 @@ function SiteNavMenu({
           {items.map((item, itemIndex) => {
             const itemCurrent = isNavCurrent(item.href, pathname);
             return (
-              <Link
-                key={item.id}
-                href={item.href}
-                role="menuitem"
-                ref={(node) => {
-                  itemRefs.current[itemIndex] = node;
-                }}
-                aria-current={itemCurrent ? "page" : undefined}
-                tabIndex={itemIndex === index ? 0 : -1}
-                className={`flex min-h-11 items-center px-3 text-label-13 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none ${
-                  itemCurrent ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"
-                }`}
-                onClick={() => setOpen(false)}
-                onKeyDown={(event) => {
-                  if (applyKey(event.key, "item") && event.key !== "Tab") {
-                    event.preventDefault();
-                  }
-                }}
-              >
-                {item.label}
-              </Link>
+              <div key={item.id}>
+                {item.dividerBefore ? (
+                  <p className="border-t border-gray-alpha-400 px-3 pt-2 pb-1 text-label-12 text-gray-900">
+                    {item.dividerBefore}
+                  </p>
+                ) : null}
+                <Link
+                  href={item.href}
+                  role="menuitem"
+                  ref={(node) => {
+                    itemRefs.current[itemIndex] = node;
+                  }}
+                  aria-current={itemCurrent ? "page" : undefined}
+                  tabIndex={itemIndex === index ? 0 : -1}
+                  className={`flex min-h-11 items-center px-3 text-label-13 break-words focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none ${
+                    itemCurrent ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"
+                  }`}
+                  onClick={() => setOpen(false)}
+                  onKeyDown={(event) => {
+                    if (applyKey(event.key, "item") && event.key !== "Tab") {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  {item.label}
+                </Link>
+              </div>
             );
           })}
         </div>

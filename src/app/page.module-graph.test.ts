@@ -67,6 +67,9 @@ describe("homepage module graph", () => {
     expect(files.some((file) => file.includes(`${join("lib", "constraints")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "whole-energy")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "projects")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("lib", "eirgrid", "reader.ts")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("lib", "eirgrid", "pipeline.ts")}`))).toBe(false);
+    expect(joined).not.toContain("releases/eirgrid-ni");
     expect(joined).not.toContain("releases/neso-constraints");
     expect(joined).not.toContain("blob.vercel-storage");
     expect(joined).not.toContain("/api/v1/gas");

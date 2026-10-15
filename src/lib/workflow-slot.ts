@@ -8,6 +8,7 @@ export const SLOT_TTL_SECONDS = {
   gas: 50 * 60,
   constraints: 20 * 60 * 60,
   tec: 12 * 60 * 60,
+  eirgrid: 50 * 60,
 } as const;
 
 export type WorkflowJob = keyof typeof SLOT_TTL_SECONDS;
@@ -47,6 +48,13 @@ export function constraintsSlot(now: Date, bundle: "breakdown" | "day-ahead"): s
 /** TEC register cron fires at 06:15 UTC on Monday and Thursday. */
 export function tecSlot(now: Date): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 15, 0, 0)).toISOString();
+}
+
+/** Northern Ireland cron fires at minute 15 of every hour. */
+export function eirgridSlot(now: Date): string {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 15, 0, 0),
+  ).toISOString();
 }
 
 /** Gas cron fires at minute 5 of every hour. */

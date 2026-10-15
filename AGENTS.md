@@ -303,7 +303,21 @@ One path: natural gas primary supply, then gas used for power generation, then f
 
 Dataset `desnz-dukes:dukes-1.1` is on the existing `desnz-dukes` source, cadence `P1Y`. `WHOLE_ENERGY_METRICS` is not part of `METRICS` and is not listed on `/data-health`. Attribution is `OGL_V3_ATTRIBUTION` (`Contains public sector information licensed under the Open Government Licence v3.0.`).
 
-The System dropdown adds `{ id: "whole-energy", label: "Whole energy", href: "/system/whole-energy" }` at the end of `SYSTEM_NAV_ITEMS`. The route is in `SHIPPED_PAGE_ROUTES` and the sitemap. The open-graph image is a file route with an empty snapshot. Page id is `whole-energy`.
+The System dropdown adds `{ id: "whole-energy", label: "Whole energy", href: "/system/whole-energy" }` after Storage in `SYSTEM_NAV_ITEMS`. The route is in `SHIPPED_PAGE_ROUTES` and the sitemap. The open-graph image is a file route with an empty snapshot. Page id is `whole-energy`.
+
+### P1B.5 Northern Ireland
+
+`/electricity/northern-ireland` is `force-static` with `revalidate` 1800. `/` stays `force-static` with `revalidate` 300. The homepage does not import the EirGrid reader, the release, or `releases/eirgrid-ni`. No new Tinybird pipe. Tinybird budget **+0**. The scheduled success path stays 378. Workflow **+24** runs a day (1 run + 4 steps × 2 events × 24).
+
+Source is the EirGrid Smart Grid Dashboard. `eirgrid-group` cadence is `PT1H`. Licence URL is `EIRGRID_GROUP_LICENCE_URL`, read on `EIRGRID_GROUP_LICENCE_READ_ON` (`2026-10-15`). Attribution is `EIRGRID_GROUP_ATTRIBUTION` (`Supported by EirGrid Group Data`). Chart lines stay `SONI_SOURCE_LINE` (`Source: SONI.`) and `SEMO_SOURCE_LINE` (`Source: SEMO.`). The licence credit is once on the page, on the open-graph card, and on `/data-sources`.
+
+`/api/cron-northern-ireland` (`15 * * * *`) requires `CRON_SECRET` and fails closed. The route only calls `start(eirgridNi)`. It does not fetch EirGrid. `src/workflows/eirgrid-ni.ts` is four steps: the Redis `SET NX` slot lock (`eirgrid` slot, 50 minutes, floored to minute 15), the paced GETs, validate, then publish. `maxRetries` is 2. A 429 or 5xx throws `RetryableError`. The next failure is `FatalError` and leaves `releases/eirgrid-ni/latest.json` on the previous release.
+
+Blob layout, with `BLOB_READ_WRITE_TOKEN` (never logged): `releases/eirgrid-ni/<release_id>.json`, `releases/eirgrid-ni/latest.json`, `releases/eirgrid-ni/previous.json`, and the raw extract. Catalogue lines for each new release go under `releases/eirgrid-ni/catalogue/`. The checked-in catalogue already has one registration release per feed area. `EIRGRID_METRICS` is not part of `METRICS`. Geographies `GB`, `NI`, `IE`, and `ALL_ISLAND` stay distinct. `geography_id=UK` on an operational metric, and any request that combines GB and NI, returns `unsupported_dimension`. Nothing in the app adds a GB figure to an NI figure.
+
+The page title is `Northern Ireland electricity (outside GB) | Grid`. The H1 is `What's powering Northern Ireland?`. The scope banner, empty sentence, latest sentence, and partial sentence are the constants in `src/lib/eirgrid/copy.ts`. The scope switch is `Northern Ireland` and `All-island`. SEMO prices stay in euro. No sterling conversion is stored or shown. Shares use `displayedPercents`. A missing fuel entry omits the shares. Tests, CI, and local builds leave the Blob token unset and read `tests/fixtures/eirgrid/release.json`. Health reads Blob only, so a missing pointer is not yet available.
+
+The System dropdown adds `{ id: "northern-ireland", label: "Northern Ireland (outside GB)", href: "/electricity/northern-ireland", dividerBefore: "Outside GB" }` after whole energy. The header shows it because the route is in `SHIPPED_PAGE_ROUTES` and the sitemap. GB pages that show the Moyle link use `NI_FLOW_NOTE` (`Flows to and from Northern Ireland. NI figures are on a separate page.`). `/data-health#northern-ireland` lists the EirGrid series. The open-graph page id is `northern-ireland`. Success revalidates `/electricity/northern-ireland`, `/api/v1/northern-ireland`, and `/data-health`. It does not revalidate `/`.
 
 ### P1B.3 Projects, TEC, diffs
 

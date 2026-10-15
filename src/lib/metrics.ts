@@ -1,4 +1,5 @@
 import type { DataSourceId } from "@/lib/attribution";
+import { EIRGRID_SERIES, type EirgridSeriesSpec } from "@/lib/eirgrid/spec";
 import {
   CARBON_RECORD_BASIS,
   COAL_POWER_ENDED,
@@ -40,6 +41,8 @@ export const INTERVAL_CONVENTIONS = [
   "calendar_month_utc_half_open",
   "calendar_year_half_open",
   "gas_day_half_open",
+  "quarter_hour_half_open",
+  "half_hour_half_open",
 ] as const satisfies readonly IntervalConvention[];
 
 export const SIGN_CONVENTIONS = [
@@ -52,6 +55,7 @@ export const SIGN_CONVENTIONS = [
   "positive_price",
   "share_of_denominator",
   "negative_transformation_input",
+  "signed_as_published",
 ] as const satisfies readonly SignConvention[];
 
 const GEOGRAPHY_ID =
@@ -76,6 +80,7 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   "desnz-dukes": "DESNZ DUKES",
   "neso-dno-areas": "NESO DNO areas",
   "os-open-zoomstack": "OS Open Zoomstack",
+  "eirgrid-group": "EirGrid Group",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {
@@ -897,6 +902,37 @@ export const WHOLE_ENERGY_METRICS = {
 } satisfies Record<string, MetricDefinition>;
 
 export type WholeEnergyMetricId = keyof typeof WHOLE_ENERGY_METRICS;
+
+function eirgridMetric(series: EirgridSeriesSpec): MetricDefinition {
+  return {
+    metric_definition_version: 1,
+    metric_id: series.metric_id,
+    unit: series.unit,
+    quantity_kind: series.quantity_kind,
+    geography_id: series.geography_id,
+    interval_convention: series.interval_convention,
+    sign_convention: series.sign_convention,
+    aggregation: series.aggregation,
+    denominator: series.denominator,
+    source_id: "eirgrid-group",
+    dataset_id: series.area,
+    coverage: series.coverage,
+    expected_cadence: series.expected_cadence,
+    publication_lag: "PT0S",
+    stale_grace: "PT1H",
+  };
+}
+
+/**
+ * EirGrid Group series. Kept out of `METRICS` so the homepage registry stays
+ * on Great Britain. `/data-health` appends them from the Blob release.
+ * Northern Ireland, Ireland, and all-island stay on separate metric ids.
+ */
+export const EIRGRID_METRICS = Object.fromEntries(
+  EIRGRID_SERIES.map((series) => [series.metric_id, eirgridMetric(series)]),
+) as { [K in EirgridSeriesSpec["metric_id"]]: MetricDefinition };
+
+export type EirgridMetricId = keyof typeof EIRGRID_METRICS;
 
 /** Physical NTS series shown on /gas. Separate from the SAP price card. */
 export function physicalGasCoverage(): readonly {

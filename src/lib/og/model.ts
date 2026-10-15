@@ -19,7 +19,8 @@ import { generationMixFromSupplyShares, generationMixShares } from "@/lib/genera
 import { formatPlainSettlementWindow } from "@/lib/generation-desk-view";
 import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
-import { NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
+import { EIRGRID_GROUP_ATTRIBUTION, NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
+import { NI_H1, NI_SCOPE_BANNER } from "@/lib/eirgrid/copy";
 import { CONSTRAINTS_STANDFIRST } from "@/lib/constraints/copy";
 import { PROJECTS_STANDFIRST } from "@/lib/projects/copy";
 import { WHOLE_ENERGY_EDITION_YEAR, wholeEnergyStandfirst } from "@/lib/whole-energy/copy";
@@ -47,6 +48,7 @@ export const OG_PAGE_IDS = [
   "storage",
   "whole-energy",
   "projects",
+  "northern-ireland",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -260,6 +262,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: `${OGL_V3_ATTRIBUTION} ${NESO_OPEN_DATA_ATTRIBUTION}`,
   },
+  "northern-ireland": {
+    eyebrow: gridEyebrow("Northern Ireland"),
+    title: NI_H1,
+    kicker: NI_SCOPE_BANNER,
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: `${EIRGRID_GROUP_ATTRIBUTION}. Source: SONI. Source: SEMO.`,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -325,6 +336,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "storage":
     case "whole-energy":
     case "projects":
+    case "northern-ireland":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -748,6 +760,8 @@ function pageCacheControl(page: OgPageId): string {
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;
+    case "northern-ireland":
+      return OG_HOURLY_CACHE_CONTROL;
     default: {
       const exhaustive: never = page;
       return exhaustive;

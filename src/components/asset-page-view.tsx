@@ -138,6 +138,7 @@ function OutputSeries({ model, series }: { model: AssetPageModel; series: readon
         <p className="mt-1 text-mono-12 text-gray-900">{formatLondonDateTimeStamp(parseUtcDateTime(latest.timestamp))}</p>
       ) : null}
       <p className="mt-3 text-copy-14 text-gray-900">{model.output.note}</p>
+      {model.output.niNote ? <p className="mt-3 break-words text-copy-14 text-gray-900">{model.output.niNote}</p> : null}
       {values.length > 1 ? <Sparkline values={values} /> : null}
     </Card>
   );

@@ -6,7 +6,7 @@ import { checkStorageRecords } from "@/lib/storage/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
-import { CONSTRAINT_METRICS, GAS_METRICS, METRICS, WHOLE_ENERGY_METRICS } from "@/lib/metrics";
+import { CONSTRAINT_METRICS, EIRGRID_METRICS, GAS_METRICS, METRICS, WHOLE_ENERGY_METRICS } from "@/lib/metrics";
 import {
   CATALOGUE_SOURCE_IDS,
   catalogueDatasetId,
@@ -47,6 +47,7 @@ function registryMetrics(): CatalogueMetricRef[] {
     ...Object.values(GAS_METRICS),
     ...Object.values(CONSTRAINT_METRICS),
     ...Object.values(WHOLE_ENERGY_METRICS),
+    ...Object.values(EIRGRID_METRICS),
   ].map((metric) => ({
     metric_id: metric.metric_id,
     dataset_id: metric.dataset_id,

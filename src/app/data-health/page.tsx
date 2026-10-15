@@ -6,10 +6,12 @@ import { SeoPage } from "@/components/seo-page";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
 import {
   constraintMetricIds,
+  eirgridMetricIds,
   featuredMetricIds,
   loadDataHealth,
   type DataHealthReading as Reading,
 } from "@/lib/data-health";
+import { NI_PATH } from "@/lib/eirgrid/copy";
 import { physicalGasCoverage } from "@/lib/metrics";
 import { readDnoLayerFlag } from "@/lib/map/layer-flag";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -24,10 +26,15 @@ export default async function DataHealthPage() {
   const mapLayerFlag = await readDnoLayerFlag();
   const featuredIds = new Set<string>(featuredMetricIds());
   const constraintIds = new Set<string>(constraintMetricIds());
+  const northernIrelandIds = new Set<string>(eirgridMetricIds());
   const featured = featuredMetricIds().map((id) => readings.find((reading) => reading.metric_id === id));
   const constraints = readings.filter((reading) => constraintIds.has(reading.metric_id));
+  const northernIreland = readings.filter((reading) => northernIrelandIds.has(reading.metric_id));
   const rest = readings.filter(
-    (reading) => !featuredIds.has(reading.metric_id) && !constraintIds.has(reading.metric_id),
+    (reading) =>
+      !featuredIds.has(reading.metric_id) &&
+      !constraintIds.has(reading.metric_id) &&
+      !northernIrelandIds.has(reading.metric_id),
   );
 
   return (
@@ -101,6 +108,29 @@ export default async function DataHealthPage() {
           </p>
           <ul className="mt-4 flex flex-col">
             {constraints.map((reading) => (
+              <li
+                key={reading.metric_id}
+                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <SeriesRow reading={reading} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
+      <section id="northern-ireland" className="scroll-mt-28">
+        <h2 className="text-heading-24 text-gray-1000">Northern Ireland</h2>
+        <Card className="mt-4" title="SONI and SEMO">
+          <p className="break-words text-copy-14 text-gray-900">
+            Outside GB. Northern Ireland, Ireland, and all-island stay on separate series. A missing value stays —.
+          </p>
+          <p className="mt-3">
+            <Link href={NI_PATH} className="text-copy-14 text-blue-700 underline-offset-2 hover:underline">
+              Northern Ireland electricity
+            </Link>
+          </p>
+          <ul className="mt-4 flex flex-col">
+            {northernIreland.map((reading) => (
               <li
                 key={reading.metric_id}
                 className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
