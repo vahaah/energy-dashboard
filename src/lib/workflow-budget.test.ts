@@ -2,12 +2,21 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FatalError, RetryableError } from "workflow";
+import { EIRGRID_TINYBIRD_OPS } from "@/lib/eirgrid/budget";
 import { resetRedisClient, setRedisForTests, type RedisCommands } from "@/lib/redis-cache";
 import { TINYBIRD_OPS_LIMIT, reserveTinybirdOp, tinybirdOpsKey } from "@/lib/tinybird-ops";
 import { TinybirdHttpError } from "@/lib/tinybird";
 import * as tinybird from "@/lib/tinybird";
 import { LIVE_PIPES, LONG_PIPES, runWarmSeries, tinybirdRetryAfter, toTinybirdStepError, warmPipeById } from "@/lib/warm-pipes";
-import { eirgridSlot, halfHourSlot, takeWorkflowSlot } from "@/lib/workflow-slot";
+import {
+  constraintsSlot,
+  eirgridSlot,
+  gasSlot,
+  halfHourSlot,
+  pricesSlot,
+  yesterdaySlot,
+  takeWorkflowSlot,
+} from "@/lib/workflow-slot";
 import { publishStep } from "@/workflows/steps/publish";
 import { takeSlotStep } from "@/workflows/steps/slot";
 import { warmPipeStep } from "@/workflows/steps/warm";
@@ -82,6 +91,27 @@ describe("workflow budget", () => {
     expect(LONG_PIPES).toHaveLength(9);
     expect(queries + events).toBe(378);
     expect(TINYBIRD_OPS_LIMIT).toBe(450);
+    expect(EIRGRID_TINYBIRD_OPS).toBe(0);
+    const northernIreland = readFileSync(resolve(process.cwd(), "src/workflows/eirgrid-ni.ts"), "utf8");
+    expect(northernIreland).not.toContain("warmPipeStep");
+    expect(northernIreland).not.toContain("queryPipe");
+  });
+
+  it("keeps the existing workflow slots and floors an early Northern Ireland run to the previous slot", () => {
+    const now = new Date("2026-10-15T06:07:00.000Z");
+    expect(halfHourSlot(now)).toBe("2026-10-15T06:00:00.000Z");
+    expect(halfHourSlot(new Date("2026-10-15T06:37:00.000Z"))).toBe("2026-10-15T06:30:00.000Z");
+    expect(pricesSlot(now)).toBe("2026-10-15T06:30:00.000Z");
+    expect(pricesSlot(new Date("2026-10-15T05:00:00.000Z"))).toBe("2026-10-15T00:30:00.000Z");
+    expect(yesterdaySlot(now)).toBe("2026-10-15");
+    expect(constraintsSlot(now, "breakdown")).toBe("2026-10-15T04:40:00.000Z");
+    expect(constraintsSlot(now, "day-ahead")).toBe("2026-10-15T16:40:00.000Z");
+    expect(gasSlot(now)).toBe("2026-10-15T06:05:00.000Z");
+    expect(gasSlot(new Date("2026-10-15T06:01:00.000Z"))).toBe("2026-10-15T06:05:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:15:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:20:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:10:00.000Z"))).toBe("2026-10-15T05:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T00:05:00.000Z"))).toBe("2026-10-14T23:15:00.000Z");
   });
 
   it("sets Tinybird steps to one retry", () => {

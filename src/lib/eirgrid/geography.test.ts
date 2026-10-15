@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EIRGRID_GROUP_LICENCE_URL, NI_FLOW_NOTE } from "@/lib/attribution";
 import { cataloguePageSources } from "@/lib/catalogue/page-sources";
+import { EIRGRID_TINYBIRD_OPS } from "@/lib/eirgrid/budget";
+import { NI_PARTIAL } from "@/lib/eirgrid/copy";
 import {
   combineOperationalGeographies,
   readOperationalMetric,
@@ -11,7 +13,6 @@ import {
 import { buildNiPage, pageStatus, releaseContainsSterling, releaseGeographies } from "@/lib/eirgrid/page-model";
 import { queryNorthernIreland } from "@/lib/eirgrid/query";
 import { niReleaseSchema } from "@/lib/eirgrid/release";
-import { EIRGRID_TINYBIRD_OPS } from "@/lib/eirgrid/budget";
 
 const release = niReleaseSchema.parse(
   JSON.parse(readFileSync(resolve(process.cwd(), "tests/fixtures/eirgrid/release.json"), "utf8")),
@@ -121,9 +122,16 @@ describe("Northern Ireland page model", () => {
         };
       }),
     };
-    const fuels = buildNiPage(staggered, "Supported by EirGrid Group Data").scopes.find((scope) => scope.id === "ni")?.fuels ?? [];
+    const model = buildNiPage(staggered, "Supported by EirGrid Group Data");
+    const fuels = model.scopes.find((scope) => scope.id === "ni")?.fuels ?? [];
+    const older = release.series
+      .find((series) => series.metric_id === "elec.ni.fuel.gas")
+      ?.points.find((point) => point.time === "2026-10-15T11:45:00.000Z");
     expect(fuels.every((row) => row.share == null)).toBe(true);
     expect(fuels.find((row) => row.metricId === "elec.ni.fuel.gas")?.mwh).toBe("—");
+    expect(fuels.find((row) => row.metricId === "elec.ni.fuel.gas")?.mwh).not.toBe(String(older?.value));
+    expect(model.partial).toBe(true);
+    expect(pageStatus(model)).toBe(NI_PARTIAL);
   });
 
   it("uses the partial sentence when a Northern Ireland series is missing", () => {

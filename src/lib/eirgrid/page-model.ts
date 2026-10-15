@@ -80,7 +80,8 @@ export function buildNiPage(release: NiRelease | null, attribution: string): NiP
     };
   }
   const byId = new Map(release.series.map((series) => [series.metric_id, series]));
-  const partial = NI_FIGURES.some((metricId) => seriesMissing(byId.get(metricId)));
+  const partial =
+    NI_FIGURES.some((metricId) => seriesMissing(byId.get(metricId))) || fuelsNeedPartial(byId);
   const observed = latestSoniInstant(release);
   return {
     available: true,
@@ -140,13 +141,7 @@ function figure(metricId: string, series: NiSeries | undefined): NiFigure {
 }
 
 function fuelRows(geography: "NI" | "ALL_ISLAND", byId: Map<string, NiSeries>): NiFuelRow[] {
-  const specs = EIRGRID_SERIES.filter((series) => series.area === "fuelmix" && series.geography_id === geography);
-  const points = specs.map((spec) => byId.get(spec.metric_id)?.points ?? []);
-  const newest = newestFuelInstant(points);
-  const latest = specs.map((spec, index) => {
-    const point = newest ? points[index]?.find((row) => row.time === newest) : undefined;
-    return { spec, value: point?.value ?? null };
-  });
+  const latest = fuelLatest(geography, byId);
   const complete = latest.every((row) => row.value != null && row.value >= 0);
   const total = latest.reduce((sum, row) => sum + (row.value ?? 0), 0);
   const shares =
@@ -170,6 +165,25 @@ function hasNorthernIrelandPoint(release: NiRelease): boolean {
   return release.series.some(
     (series) => series.geography_id === "NI" && series.source_line === SONI_SOURCE_LINE && series.points.some((point) => point.value != null),
   );
+}
+
+function fuelsNeedPartial(byId: Map<string, NiSeries>): boolean {
+  return (["NI", "ALL_ISLAND"] as const).some((geography) =>
+    fuelLatest(geography, byId).some((row) => row.value == null),
+  );
+}
+
+function fuelLatest(
+  geography: "NI" | "ALL_ISLAND",
+  byId: Map<string, NiSeries>,
+): { spec: EirgridSeriesSpec; value: number | null }[] {
+  const specs = EIRGRID_SERIES.filter((series) => series.area === "fuelmix" && series.geography_id === geography);
+  const points = specs.map((spec) => byId.get(spec.metric_id)?.points ?? []);
+  const newest = newestFuelInstant(points);
+  return specs.map((spec, index) => {
+    const point = newest ? points[index]?.find((row) => row.time === newest) : undefined;
+    return { spec, value: point?.value ?? null };
+  });
 }
 
 function newestFuelInstant(series: readonly (readonly { time: string }[])[]): string | null {
