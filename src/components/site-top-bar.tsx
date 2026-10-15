@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { AssetSearchButton, AssetSearchDialogHost } from "@/components/asset-search";
 import { GridMark } from "@/components/grid-mark";
 import { ConnectedSitePrimaryNav } from "@/components/site-primary-nav";
 import { CARD_PAD_X } from "@/components/ui/card";
@@ -29,13 +30,19 @@ export function SiteTopBar({
           <div className="hidden min-w-0 flex-1 md:block">
             <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-desktop`} />
           </div>
-          {trailing ? <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div> : null}
+          <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
+            <AssetSearchButton />
+            {trailing}
+          </div>
+          {trailing ? <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">{trailing}</div> : null}
         </div>
-        <div className="border-t border-gray-alpha-400 py-2 md:hidden">
+        <div className="flex items-center gap-3 border-t border-gray-alpha-400 py-2 md:hidden">
+          <AssetSearchButton />
           <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-mobile`} />
         </div>
       </div>
       {footer}
+      <AssetSearchDialogHost />
     </header>
   );
 }

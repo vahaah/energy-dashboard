@@ -2,14 +2,17 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import sitemap, { lastModifiedForPath, latestCommodityTimestamp } from "@/app/sitemap";
+import { loadAssetCatalogue } from "@/lib/assets/load";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 
 describe("sitemap", () => {
   it("includes the new SEO routes and lastmod when cache has a stamp", async () => {
     const urls = (await sitemap()).map((entry) => entry.url);
-    expect(urls).toEqual([
+    const pages = [
       "https://grid.vahaah.com",
       "https://grid.vahaah.com/today",
+      "https://grid.vahaah.com/map",
+      "https://grid.vahaah.com/assets",
       "https://grid.vahaah.com/llms.txt",
       "https://grid.vahaah.com/records",
       "https://grid.vahaah.com/explained/price-cap",
@@ -20,9 +23,13 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/privacy",
       "https://grid.vahaah.com/terms",
       "https://grid.vahaah.com/data-sources",
-    ]);
+    ];
+    expect(urls.slice(0, pages.length)).toEqual(pages);
+    const assetUrls = urls.slice(pages.length);
+    expect(assetUrls).toHaveLength(loadAssetCatalogue().rows.length);
+    expect(assetUrls.every((url) => url.startsWith("https://grid.vahaah.com/assets/ast_"))).toBe(true);
     expect(SITEMAP_PATHS.length).toBeGreaterThanOrEqual(8);
-    expect(urls.length).toBe(SITEMAP_PATHS.length);
+    expect(urls.length).toBe(SITEMAP_PATHS.length + assetUrls.length);
   });
 
   it("assigns lastmod only to data-driven routes", () => {
@@ -41,6 +48,8 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/explained/price-cap", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/records", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/data-sources", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/map", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/assets", stamps)).toBeUndefined();
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
       "2026-10-09T00:00:00.000Z"
     );

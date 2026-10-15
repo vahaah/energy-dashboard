@@ -21,12 +21,13 @@ export type SiteNavMenu = {
 export type SiteNavEntry = SiteNavLink | SiteNavMenu;
 
 /**
- * Header order: Today, Map, System, Directory and tools, API.
+ * Header order: Today, Map, Assets, System, Directory and tools, API.
  * An item renders only when its page module is in SHIPPED_PAGE_ROUTES.
  */
 export const SITE_NAV_CATALOG: SiteNavEntry[] = [
   { kind: "link", id: "today", label: "Today", href: "/" },
   { kind: "link", id: "map", label: "Map", href: "/map" },
+  { kind: "link", id: "assets", label: "Assets", href: "/assets" },
   {
     kind: "menu",
     id: "system",
@@ -46,9 +47,11 @@ export const SITE_NAV_CATALOG: SiteNavEntry[] = [
 export const SHIPPED_PAGE_ROUTES = [
   "/",
   "/api",
+  "/assets",
   "/data-health",
   "/data-sources",
   "/explained/price-cap",
+  "/map",
   "/methodology",
   "/prices/gas",
   "/privacy",

@@ -13,6 +13,8 @@ export function SeoPage({
   cite,
   citation,
   updated,
+  skipHref,
+  skipLabel = "Skip to content",
   children,
 }: {
   section: string;
@@ -21,10 +23,20 @@ export function SeoPage({
   cite: ReactNode;
   citation: string;
   updated?: ReactNode;
+  skipHref?: string;
+  skipLabel?: string;
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
+      {skipHref ? (
+        <a
+          href={skipHref}
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
+        >
+          {skipLabel}
+        </a>
+      ) : null}
       <SitePageHeader section={section} />
       <main className={PAGE_STACK_CLASS}>
         <SiteBreadcrumb items={breadcrumb} />
