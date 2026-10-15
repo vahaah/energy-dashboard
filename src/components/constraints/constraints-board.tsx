@@ -47,7 +47,7 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
       ) : null}
       {model.latest ? (
         <Card title={`Settlement date ${model.latest.settlementDate}`}>
-          <div className="min-w-0 overflow-x-auto">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-copy-14">
               <thead>
                 <tr className="text-label-12 text-gray-900">
@@ -87,30 +87,38 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
           <p className="mt-2 break-words text-copy-14 text-gray-900">
             No boundary map is drawn. The file names constraint groups and does not carry coordinates.
           </p>
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="mt-4 flex min-w-0 flex-col gap-2">
             {model.dayAhead.boundaries.map((boundary) => (
-              <details key={boundary.boundary} className="rounded-lg border border-gray-alpha-400">
-                <summary className="cursor-pointer px-3 py-3 text-copy-14 text-gray-1000">
+              <details
+                key={boundary.boundary}
+                className="min-w-0 rounded-lg border border-gray-alpha-400 [&:not([open])>:not(summary)]:hidden"
+              >
+                <summary className="cursor-pointer px-3 py-3 text-copy-14 break-words text-gray-1000">
                   <span className="font-medium">{boundary.boundary}</span>
-                  <span className="mt-1 block text-copy-14 text-gray-900 sm:mt-0 sm:ml-3 sm:inline">
-                    {model.dayAhead?.settlementDate} {boundary.latestWall} · limit {integer(boundary.latestLimit)} MW ·
-                    flow {integer(boundary.latestFlow)} MW
+                  <span className="mt-1 block text-copy-14 break-words text-gray-900">
+                    {model.dayAhead?.settlementDate} {boundary.latestWall}
+                  </span>
+                  <span className="mt-1 block text-copy-14 text-gray-900">
+                    Limit {integer(boundary.latestLimit)} MW
+                  </span>
+                  <span className="mt-1 block text-copy-14 text-gray-900">
+                    Flow {integer(boundary.latestFlow)} MW
                   </span>
                 </summary>
-                <div className="min-w-0 overflow-x-auto px-3 pb-3">
-                  <table className="w-full min-w-[20rem] text-left text-copy-14">
+                <div className="min-w-0 max-w-full overflow-x-auto px-3 pb-3">
+                  <table className="w-full table-fixed text-left text-copy-14">
                     <thead>
                       <tr className="text-label-12 text-gray-900">
-                        <th className="py-2 pr-4 font-normal">Time</th>
-                        <th className="py-2 pr-4 font-normal">Limit MW</th>
+                        <th className="py-2 pr-2 font-normal">Time</th>
+                        <th className="py-2 pr-2 font-normal">Limit MW</th>
                         <th className="py-2 font-normal">Flow MW</th>
                       </tr>
                     </thead>
                     <tbody>
                       {boundary.intervals.map((interval) => (
                         <tr key={`${boundary.boundary}-${interval.wall}`} className="border-t border-gray-alpha-400">
-                          <th className="py-2 pr-4 text-left font-normal tabular-nums text-gray-1000">{interval.wall}</th>
-                          <td className="py-2 pr-4 tabular-nums text-gray-1000">{integer(interval.limit)}</td>
+                          <th className="py-2 pr-2 text-left font-normal tabular-nums text-gray-1000">{interval.wall}</th>
+                          <td className="py-2 pr-2 tabular-nums text-gray-1000">{integer(interval.limit)}</td>
                           <td className="py-2 tabular-nums text-gray-1000">{integer(interval.flow)}</td>
                         </tr>
                       ))}
