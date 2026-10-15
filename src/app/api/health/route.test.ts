@@ -160,6 +160,7 @@ describe("/api/health", () => {
     expect(sap.retrieved_at).toEqual(expect.any(String));
     expect(sap.stale).toBe(true);
     expect(sap.publication_lag).toBe("P1D");
+    expect(sap).not.toHaveProperty("stale_grace");
   });
 
   it("flags embedded from the older feed and from a missing feed", async () => {

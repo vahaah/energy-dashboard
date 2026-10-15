@@ -78,32 +78,42 @@ describe("data health clocks", () => {
     expect(reading.state).toBeNull();
   });
 
-  it("keeps a gas day fresh on the day it is published", () => {
-    const now = new Date("2026-10-14T21:02:00.000Z");
+  it("keeps a gas day fresh until the afternoon after National Gas publishes", () => {
+    const publishedDay = new Date("2026-10-14T21:02:00.000Z");
+    const beforeNextPublish = new Date("2026-10-15T12:00:00.000Z");
     const fresh = buildReading({
       metricId: "commodity.gb_gas_sap.price",
       value: 7.072,
       publishedAt: "2026-10-13T00:00:00.000Z",
-      retrievedAt: now.toISOString(),
-      now,
+      retrievedAt: publishedDay.toISOString(),
+      now: publishedDay,
+    });
+    const stillWaiting = buildReading({
+      metricId: "commodity.gb_gas_sap.price",
+      value: 7.072,
+      publishedAt: "2026-10-13T00:00:00.000Z",
+      retrievedAt: beforeNextPublish.toISOString(),
+      now: beforeNextPublish,
     });
     const overdue = buildReading({
       metricId: "commodity.gb_gas_sap.price",
       value: 7.072,
-      publishedAt: "2026-10-12T00:00:00.000Z",
-      retrievedAt: now.toISOString(),
-      now,
+      publishedAt: "2026-10-11T00:00:00.000Z",
+      retrievedAt: publishedDay.toISOString(),
+      now: publishedDay,
     });
 
     expect(fresh.published_label).toBe("13 Oct 2026");
     expect(fresh.publication_lag).toBe("P1D");
     expect(fresh.publication_lag_label).toBe("Published about 1 day after the gas day");
+    expect(fresh).not.toHaveProperty("stale_grace");
     expect(fresh.stale).toBe(false);
     expect(fresh.state).toBeNull();
+    expect(stillWaiting.stale).toBe(false);
     expect(overdue.stale).toBe(true);
-    expect(renderToStaticMarkup(<DataHealthReading reading={fresh} featured />)).toContain(
-      "Published about 1 day after the gas day"
-    );
+    const html = renderToStaticMarkup(<DataHealthReading reading={fresh} featured />);
+    expect(html).toContain("Published about 1 day after the gas day");
+    expect(html).not.toContain("2 days");
   });
 
   it("keeps the prior World Bank month fresh in early month+1", () => {
@@ -132,30 +142,43 @@ describe("data health clocks", () => {
     expect(august.stale).toBe(true);
   });
 
-  it("keeps the latest EIA weekly spot print fresh until the next Wednesday release", () => {
-    const now = new Date("2026-10-14T21:02:00.000Z");
-    const afterReleaseDay = new Date("2026-10-15T00:00:01.000Z");
+  it("keeps a 6 Oct EIA spot print fresh until the weekly release has landed", () => {
+    const releaseDay = new Date("2026-10-14T21:02:00.000Z");
+    const thursdayMidnight = new Date("2026-10-15T00:00:01.000Z");
+    const afterLag = new Date("2026-10-17T00:00:01.000Z");
     for (const metricId of ["commodity.brent.spot", "commodity.wti.spot", "commodity.henry_hub.spot"] as const) {
       const fresh = buildReading({
         metricId,
         value: 3.03,
         publishedAt: "2026-10-06T00:00:00.000Z",
-        retrievedAt: now.toISOString(),
-        now,
+        retrievedAt: releaseDay.toISOString(),
+        now: releaseDay,
+      });
+      const beforeRelease = buildReading({
+        metricId,
+        value: 3.03,
+        publishedAt: "2026-10-06T00:00:00.000Z",
+        retrievedAt: thursdayMidnight.toISOString(),
+        now: thursdayMidnight,
       });
       const overdue = buildReading({
         metricId,
         value: 3.03,
         publishedAt: "2026-10-06T00:00:00.000Z",
-        retrievedAt: afterReleaseDay.toISOString(),
-        now: afterReleaseDay,
+        retrievedAt: afterLag.toISOString(),
+        now: afterLag,
       });
       expect(fresh.published_label).toBe("6 Oct 2026");
       expect(fresh.publication_lag).toBe("P8D");
       expect(fresh.publication_lag_label).toBe("Published about 8 days after the trading day");
+      expect(fresh).not.toHaveProperty("stale_grace");
       expect(fresh.stale).toBe(false);
       expect(fresh.state).toBeNull();
+      expect(beforeRelease.stale).toBe(false);
       expect(overdue.stale).toBe(true);
+      const html = renderToStaticMarkup(<DataHealthReading reading={fresh} />);
+      expect(html).toContain("Published about 8 days after the trading day");
+      expect(html).not.toContain("10 days");
     }
   });
 
@@ -184,6 +207,10 @@ describe("data health clocks", () => {
     );
     expect(publicationLagLabel("PT0S", "uk_settlement_period_half_open")).toBeNull();
     expect(publicationLagLabel("P1D", "gas_day_half_open")).toBe("Published about 1 day after the gas day");
+    expect(publicationLagLabel("P2D", "gas_day_half_open")).toBe("Published about 2 days after the gas day");
+    expect(publicationLagLabel("P10D", "calendar_day_utc_half_open")).toBe(
+      "Published about 10 days after the trading day"
+    );
   });
 
   it("renders battery discharge with no FUELINST row as not yet available", () => {

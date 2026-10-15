@@ -5,7 +5,8 @@ import { loadDataHealth } from "@/lib/data-health";
 /**
  * GET /api/v1/data-health
  *
- * Per-metric freshness from warmed Redis envelopes, expected_cadence, and publication_lag.
+ * Per-metric freshness from warmed Redis envelopes and expected_cadence.
+ * `stale` uses stale_grace when a metric has one. The body still reports publication_lag.
  * published_at is the source time on the row. retrieved_at is when Grid stored
  * the envelope. No Tinybird query.
  */

@@ -321,7 +321,10 @@ export const METRICS = {
     coverage:
       "EIA Europe Brent spot price FOB (PET.RBRTE.D), a global marker. Stored ingest unit is $/BBL. EIA releases the daily series weekly, usually Wednesday, through the prior Tuesday. A US holiday can move that release to Thursday.",
     expected_cadence: "P1D",
+    // Wednesday is 8 days after the prior Tuesday. A US holiday makes it 9.
     publication_lag: "P8D",
+    // P8D alone expires Thursday 00:00 UTC, before a holiday-delayed Thursday release.
+    stale_grace: "P10D",
   },
   "commodity.wti.spot": {
     metric_id: "commodity.wti.spot",
@@ -339,6 +342,7 @@ export const METRICS = {
       "Cushing, OK WTI spot price FOB. Stored ingest unit is $/BBL. Same weekly Wednesday EIA spot release as Brent.",
     expected_cadence: "P1D",
     publication_lag: "P8D",
+    stale_grace: "P10D",
   },
   "commodity.henry_hub.spot": {
     metric_id: "commodity.henry_hub.spot",
@@ -356,6 +360,7 @@ export const METRICS = {
       "Henry Hub spot gas, Louisiana. Stored ingest unit is $/MMBTU. EIA releases this daily series weekly with the petroleum spots, usually Wednesday through the prior Tuesday.",
     expected_cadence: "P1D",
     publication_lag: "P8D",
+    stale_grace: "P10D",
   },
   "commodity.eu_natural_gas.spot": {
     metric_id: "commodity.eu_natural_gas.spot",
@@ -404,9 +409,11 @@ export const METRICS = {
     source_id: "national-gas",
     dataset_id: "PUBOB603",
     coverage:
-      "National Gas System Average Price for the GB transmission system, pence per kWh. Gas day D is published on D+1.",
+      "National Gas System Average Price for the GB transmission system, pence per kWh. Gas day D is published on D+1, about 12:30 UTC.",
     expected_cadence: "P1D",
     publication_lag: "P1D",
+    // P1D marks gas day D stale from D+2 00:00 UTC, about 12.5 hours before the 12:30 UTC print.
+    stale_grace: "P2D",
   },
 } satisfies Record<string, MetricDefinition>;
 
@@ -414,6 +421,11 @@ export type MetricId = keyof typeof METRICS;
 
 export function metricById(id: MetricId): MetricDefinition {
   return METRICS[id];
+}
+
+/** Duration the stale clock waits. The public lag stays `publication_lag`. */
+export function staleGrace(metric: Pick<MetricDefinition, "publication_lag" | "stale_grace">): string {
+  return metric.stale_grace ?? metric.publication_lag;
 }
 
 /** Homepage Demand figure. The megawatt path is unchanged; GW is MW / 1000. */

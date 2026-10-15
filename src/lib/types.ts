@@ -45,8 +45,16 @@ export type MetricDefinition = {
   dataset_id: string;
   coverage: string;
   expected_cadence: string;
-  /** Extra wait after one cadence interval before a missing newer print is stale. */
+  /**
+   * How long after the interval the publisher normally releases it.
+   * Shown on /data-health and returned by /api/v1/data-health. Not the stale clock.
+   */
   publication_lag: string;
+  /**
+   * Wider window used only when deciding stale. Omitted when staleness uses publication_lag.
+   * Not shown in the UI or the data-health API.
+   */
+  stale_grace?: string;
 };
 
 /**
