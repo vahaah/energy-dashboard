@@ -11,10 +11,16 @@ describe("checked-in asset catalogue", () => {
   const catalogue = loadAssetCatalogue();
 
   it("places stations in DNO areas and keeps operators searchable", () => {
-    expect(catalogue.rows).toHaveLength(3321);
+    expect(catalogue.rows).toHaveLength(3339);
     expect(catalogue.points.length).toBe(3319);
-    const missingCoordinates = catalogue.rows.filter((row) => row.latitude === null || row.longitude === null);
+    expect(catalogue.lines).toHaveLength(10);
+    const plants = catalogue.rows.filter((row) => row.technology !== "interconnector" && row.technology !== "gas_terminal");
+    expect(plants).toHaveLength(3321);
+    const missingCoordinates = plants.filter((row) => row.latitude === null || row.longitude === null);
     expect(missingCoordinates).toHaveLength(2);
+    const gas = catalogue.rows.filter((row) => row.technology === "gas_terminal");
+    expect(gas).toHaveLength(8);
+    expect(gas.every((row) => row.latitude === null && row.longitude === null && row.location === "Location unavailable")).toBe(true);
     const unlocated = catalogue.rows.filter((row) => row.region === "Not located");
     expect(unlocated.map((row) => row.id)).toEqual(["ast_ee6e8059dff48c01"]);
     expect(missingCoordinates.find((row) => row.country === "England")?.region).not.toBe("Not located");

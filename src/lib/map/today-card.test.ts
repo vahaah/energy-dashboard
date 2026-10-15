@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadAssetCatalogue } from "@/lib/assets/load";
+import { isCatalogueStation } from "@/lib/assets/types";
 import {
   TODAY_MAP_LINK,
   TODAY_MAP_MAX_BYTES,
@@ -41,12 +42,14 @@ describe("today map card", () => {
     expect(card).not.toContain('from "next/link"');
   });
 
-  it("sets the alt count to the station total /map prints", () => {
+  it("sets the alt count to the station register, not interconnectors or gas terminals", () => {
     const catalogue = loadAssetCatalogue();
+    const stations = catalogue.rows.filter((row) => isCatalogueStation(row.technology));
     const map = source("src/app/map/page.tsx");
-    expect(map).toContain('All {catalogue.rows.length.toLocaleString("en-GB")} stations');
-    expect(manifest.count).toBe(catalogue.rows.length);
-    expect(manifest.alt).toBe(todayMapAlt(catalogue.rows.length));
+    expect(map).toContain('All {catalogue.rows.length.toLocaleString("en-GB")} assets');
+    expect(stations.length).toBeLessThan(catalogue.rows.length);
+    expect(manifest.count).toBe(stations.length);
+    expect(manifest.alt).toBe(todayMapAlt(stations.length));
     expect(manifest.alt).toBe(
       "Map of Great Britain showing 3,321 power stations, renewable and storage sites from published sources.",
     );

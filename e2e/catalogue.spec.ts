@@ -45,9 +45,10 @@ test("asset filters stay in the URL and the detail page shows capacity", async (
   const link = page.getByRole("link", { name: /Sizewell|Hinkley|Heysham|Hartlepool|Torness/ }).first();
   await expect(link).toBeVisible();
   await link.click();
-  await expect(page.getByRole("heading", { name: "Capacity history" })).toBeVisible();
-  await expect(page.getByText("Contains OS data © Crown copyright and database right 2026")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source records" })).toBeVisible();
+  await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
+  await expect(page.getByRole("heading", { name: "Change history" })).toBeVisible();
+  await expect(page.getByText("Contains public sector information licensed under the Open Government Licence v3.0.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Source record" }).first()).toBeVisible();
 });
 
 test("search opens from the keyboard and links to an asset", async ({ page }) => {
@@ -67,7 +68,7 @@ test("search opens from the keyboard and links to an asset", async ({ page }) =>
   await expect(option).toBeVisible();
   await input.press("ArrowDown");
   await input.press("Enter");
-  await expect(page).toHaveURL(/\/assets\/ast_/);
+  await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Sizewell/i);
 });
 
@@ -80,6 +81,41 @@ test("clicking a search result closes the dialog", async ({ page }) => {
   const option = dialog.getByRole("option").first();
   await expect(option).toBeVisible();
   await option.click();
-  await expect(page).toHaveURL(/\/assets\/ast_/);
+  await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
   await expect(page.getByRole("dialog", { name: "Search assets" })).toHaveCount(0);
+});
+
+test("asset pages do not request maplibre or tiles", async ({ page }) => {
+  const urls: string[] = [];
+  page.on("request", (request) => urls.push(request.url()));
+  await page.goto("/assets/ast_0003670fbf90f564/cuckoo-grove-farm", { waitUntil: "networkidle" });
+  const joined = urls.join("\n");
+  expect(joined).not.toMatch(/maplibre/i);
+  expect(joined).not.toMatch(/pmtiles/i);
+  expect(joined).not.toMatch(/blob\.vercel-storage\.com/i);
+});
+
+test("a wrong slug redirects and an unknown id is missing", async ({ request }) => {
+  const wrong = await request.get("/assets/ast_5c5dc7c6656c3f93/not-ifa", { maxRedirects: 0 });
+  expect(wrong.status()).toBe(308);
+  expect(wrong.headers().location ?? "").toContain("/assets/ast_5c5dc7c6656c3f93/ifa");
+  const bare = await request.get("/assets/ast_5c5dc7c6656c3f93", { maxRedirects: 0 });
+  expect(bare.status()).toBe(308);
+  expect(bare.headers().location ?? "").toContain("/assets/ast_5c5dc7c6656c3f93/ifa");
+  const missing = await request.get("/assets/ast_0000000000000000/missing", { maxRedirects: 0 });
+  expect(missing.status()).toBe(404);
+});
+
+test("the map inspector links to the canonical asset and counts the list", async ({ page }) => {
+  await page.goto("/map?sel=ast_5c5dc7c6656c3f93&layers=ic", { waitUntil: "domcontentloaded" });
+  const inspector = page.locator("[data-map-inspector]");
+  await expect(inspector.getByRole("link", { name: "Asset page →" })).toHaveAttribute(
+    "href",
+    "/assets/ast_5c5dc7c6656c3f93/ifa",
+  );
+  await expect(page.getByText("Schematic link, not the cable route.")).toBeVisible();
+  await expect(page.locator("[data-map-counts]")).toContainText("in view · ");
+  await expect(page.locator("[data-map-counts]")).toContainText("matching filters · ");
+  await expect(page.locator("[data-map-counts]")).toContainText("without a location");
+  await expect(page.getByRole("checkbox", { name: /Interconnectors/ })).toBeChecked();
 });

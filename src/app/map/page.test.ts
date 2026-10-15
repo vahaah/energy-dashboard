@@ -13,6 +13,7 @@ describe("map and asset pages", () => {
     const map = source("src/app/map/page.tsx");
     const assets = source("src/app/assets/page.tsx");
     const detail = source("src/app/assets/[id]/page.tsx");
+    const slug = source("src/app/assets/[id]/[slug]/page.tsx");
     const power = source("src/components/power-map.tsx");
     const header = source("src/components/site-top-bar.tsx");
     expect(home).toContain('export const dynamic = "force-static"');
@@ -20,6 +21,11 @@ describe("map and asset pages", () => {
     expect(map).toContain('export const dynamic = "force-static"');
     expect(assets).toContain('export const dynamic = "force-static"');
     expect(detail).toContain('export const dynamic = "force-static"');
+    expect(detail).toContain("permanentRedirect");
+    expect(slug).toContain('export const dynamic = "force-static"');
+    expect(slug).toContain("permanentRedirect");
+    expect(slug).not.toContain("maplibre-gl");
+    expect(slug).not.toContain("power-map");
     expect(map).toContain("MAP_COVERAGE_COPY");
     const search = source("src/components/asset-search.tsx");
     const dialog = source("src/components/asset-search-dialog.tsx");
@@ -41,6 +47,9 @@ describe("map and asset pages", () => {
       search,
       dialog,
       source("src/components/asset-directory.tsx"),
+      slug,
+      source("src/components/asset-page-view.tsx"),
+      source("src/components/copy-link-button.tsx"),
     ]) {
       expect(containsLiveWord(file)).toBe(false);
     }

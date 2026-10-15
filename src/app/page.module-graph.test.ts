@@ -65,4 +65,16 @@ describe("homepage module graph", () => {
     expect(joined).not.toContain("blob.vercel-storage");
     expect(joined).not.toContain("/tiles/");
   });
+
+  it("does not import maplibre-gl or pmtiles from an asset page", () => {
+    for (const entry of ["src/app/assets/[id]/page.tsx", "src/app/assets/[id]/[slug]/page.tsx"]) {
+      const files = moduleGraph(resolve(process.cwd(), entry));
+      expect(files.some((file) => file === "maplibre-gl" || file === "pmtiles" || file.startsWith("maplibre-gl/") || file.startsWith("pmtiles/"))).toBe(false);
+      const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
+      expect(joined).not.toMatch(/from ["']maplibre-gl["']/);
+      expect(joined).not.toMatch(/from ["']pmtiles["']/);
+      expect(joined).not.toMatch(/import\(\s*["']maplibre-gl["']/);
+      expect(joined).not.toMatch(/import\(\s*["']pmtiles["']/);
+    }
+  });
 });

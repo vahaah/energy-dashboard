@@ -1,4 +1,5 @@
-import { TECHNOLOGIES, type Technology } from "@/lib/catalogue/assets/technologies";
+import { TECHNOLOGIES } from "@/lib/catalogue/assets/technologies";
+import type { AssetTechnology } from "@/lib/assets/types";
 import { technologyColor } from "@/lib/assets/labels";
 import type { MapPoint } from "@/lib/assets/types";
 
@@ -13,7 +14,7 @@ export type AssetFeature = {
   properties: {
     id: string;
     name: string;
-    technology: Technology;
+    technology: AssetTechnology;
     mw: number | null;
     region: string;
   };

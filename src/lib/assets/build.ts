@@ -1,3 +1,4 @@
+import { isOrigin } from "@/lib/map/origin";
 import { roundMw } from "@/lib/catalogue/assets/parse";
 import { partyKey, type PartyRecord } from "@/lib/catalogue/assets/parties";
 import { currentCapacityRecords } from "@/lib/catalogue/assets/releases";
@@ -80,7 +81,7 @@ function primarySource(
 export function mapPoints(rows: readonly AssetIndexRow[]): MapPoint[] {
   const points: MapPoint[] = [];
   for (const row of rows) {
-    if (row.latitude === null || row.longitude === null) {
+    if (row.latitude === null || row.longitude === null || isOrigin(row.longitude, row.latitude)) {
       continue;
     }
     points.push({
@@ -174,6 +175,7 @@ export function buildAssetDirectory(input: {
           downloadUrl: meta.downloadUrl,
           mw: record.mw,
           counts: record.counts,
+          current: headlineIds.has(record.capacity_record_id),
         };
       })
       .sort((left, right) => {
@@ -253,7 +255,7 @@ export function buildAssetDirectory(input: {
       aka: aliases.join(" "),
     };
     rows.push(row);
-    details.set(row.id, { row, projects: projectViews, capacity: capacityViews, matches });
+    details.set(row.id, { row, projects: projectViews, capacity: capacityViews, matches, link: null });
   }
 
   rows.sort((left, right) => left.id.localeCompare(right.id));

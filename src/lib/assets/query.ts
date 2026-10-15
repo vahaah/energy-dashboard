@@ -132,7 +132,7 @@ function compareRows(left: AssetIndexRow, right: AssetIndexRow, sort: AssetSort,
   }
 }
 
-export function queryAssets(rows: readonly AssetIndexRow[], query: AssetListQuery): AssetListResult {
+export function matchingAssets(rows: readonly AssetIndexRow[], query: AssetListQuery): AssetIndexRow[] {
   const filtered = rows.filter((row) => {
     if (query.technology && row.technology !== query.technology) {
       return false;
@@ -148,7 +148,11 @@ export function queryAssets(rows: readonly AssetIndexRow[], query: AssetListQuer
     }
     return matchScore(row, query.q) !== null;
   });
-  const sorted = filtered.slice().sort((left, right) => compareRows(left, right, query.sort, query.dir));
+  return filtered.slice().sort((left, right) => compareRows(left, right, query.sort, query.dir));
+}
+
+export function queryAssets(rows: readonly AssetIndexRow[], query: AssetListQuery): AssetListResult {
+  const sorted = matchingAssets(rows, query);
   const pageSize = query.pageSize > 0 ? query.pageSize : ASSET_PAGE_SIZE;
   const pages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const page = Math.min(Math.max(1, query.page), pages);

@@ -27,7 +27,7 @@ describe("sitemap", () => {
     expect(urls.slice(0, pages.length)).toEqual(pages);
     const assetUrls = urls.slice(pages.length);
     expect(assetUrls).toHaveLength(loadAssetCatalogue().rows.length);
-    expect(assetUrls.every((url) => url.startsWith("https://grid.vahaah.com/assets/ast_"))).toBe(true);
+    expect(assetUrls.every((url) => /^https:\/\/grid\.vahaah\.com\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/.test(url))).toBe(true);
     expect(SITEMAP_PATHS.length).toBeGreaterThanOrEqual(8);
     expect(urls.length).toBe(SITEMAP_PATHS.length + assetUrls.length);
   });

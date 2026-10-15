@@ -13,13 +13,18 @@ import {
   projectRecordSchema,
 } from "@/lib/catalogue/assets/record-schema";
 import type { AssetRecord, CapacityRecord, MatchRecord, ProjectRecord } from "@/lib/catalogue/assets/types";
+import { readLinkCatalogue } from "@/lib/catalogue/links/catalogue";
 import { parseFeatureCollection } from "@/lib/map/geojson";
+import type { InterconnectorLine } from "@/lib/map/interconnector-layer";
 
 export type AssetCatalogue = BuiltDirectory & {
   points: MapPoint[];
+  lines: InterconnectorLine[];
   basemap: MapLayerView;
   dno: MapLayerView;
   regions: string[];
+  elexonAttribution: string;
+  nationalGasAttribution: string;
 };
 
 function readLines<T>(file: string, text: string, parse: (value: unknown) => T): T[] {
@@ -93,13 +98,24 @@ export function readAssetCatalogue(root: string): AssetCatalogue {
     releases,
     dnoFeatures: collection.features,
   });
+  const links = readLinkCatalogue(root);
+  for (const row of links.rows) {
+    built.rows.push(row);
+  }
+  for (const [id, detail] of links.details) {
+    built.details.set(id, detail);
+  }
+  built.rows.sort((left, right) => left.id.localeCompare(right.id));
   const regions = [...new Set(built.rows.map((row) => row.region))].sort((left, right) => left.localeCompare(right, "en"));
   return {
     ...built,
     points: mapPoints(built.rows),
+    lines: links.lines,
     basemap: layerView(basemap),
     dno: layerView(dno),
     regions,
+    elexonAttribution: links.elexonAttribution,
+    nationalGasAttribution: links.nationalGasAttribution,
   };
 }
 

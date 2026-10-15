@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { technologyColor } from "@/lib/assets/labels";
 import { loadAssetCatalogue } from "@/lib/assets/load";
+import { isCatalogueStation } from "@/lib/assets/types";
 import { layersFileSchema } from "@/lib/catalogue/layers";
 import { sourceReleaseSchema, type SourceRelease } from "@/lib/catalogue/schema";
 import type { GeoJsonGeometry } from "@/lib/map/geojson";
@@ -50,6 +51,8 @@ export function todayMapOutputsCurrent(): boolean {
 export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: StaticMapImage; dark: StaticMapImage } {
   const stamp = readTodayMapStamp();
   const catalogue = loadAssetCatalogue();
+  const stations = catalogue.rows.filter((row) => isCatalogueStation(row.technology));
+  const stationIds = new Set(stations.map((row) => row.id));
   const rings = readOutlineRings();
   const coordinates: LngLat[] = [];
   for (const ring of rings) {
@@ -58,11 +61,14 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
     }
   }
   for (const point of catalogue.points) {
+    if (!stationIds.has(point.id)) {
+      continue;
+    }
     coordinates.push([point.longitude, point.latitude]);
   }
   const bbox = padStaticMapBbox(staticMapExtent(coordinates), TODAY_MAP_PAD_RATIO);
   const { width, height } = staticMapDimensions(bbox, TODAY_MAP_HEIGHT);
-  const points = catalogue.points.map((point) => ({
+  const points = catalogue.points.filter((point) => stationIds.has(point.id)).map((point) => ({
     longitude: point.longitude,
     latitude: point.latitude,
     color: technologyColor(point.technology),
@@ -80,12 +86,12 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
   const manifest: TodayMapCardFile = {
     ...stamp,
     edition,
-    count: catalogue.rows.length,
+    count: stations.length,
     width,
     height,
     light: TODAY_MAP_LIGHT_PATH,
     dark: TODAY_MAP_DARK_PATH,
-    alt: todayMapAlt(catalogue.rows.length),
+    alt: todayMapAlt(stations.length),
   };
   return {
     manifest,
