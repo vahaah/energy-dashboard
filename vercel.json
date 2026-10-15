@@ -16,6 +16,10 @@
     {
       "path": "/api/cron-yesterday",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/cron-map-layers",
+      "schedule": "20 5 * * *"
     }
   ]
 }

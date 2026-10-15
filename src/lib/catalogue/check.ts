@@ -1,5 +1,6 @@
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
 import { checkAssetFiles } from "@/lib/catalogue/assets/check";
+import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
 import { METRICS } from "@/lib/metrics";
@@ -321,6 +322,7 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
       loaded.datasets.data,
     ),
   );
+  errors.push(...checkLayerCatalogue(dir, { required: fullRegistry }));
 
   if (errors.length > 0) {
     return fail(errors);

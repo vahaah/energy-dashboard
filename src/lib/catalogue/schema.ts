@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 /**
- * Checked-in catalogue. Version 1 is git JSON only: no database, no blob store.
+ * Checked-in catalogue. Version 1 is git JSON only: no database.
+ * Large geometry is a URL on the layer row (Vercel Blob for PMTiles). The
+ * bytes are not in this schema.
  * `dataset_id` is `{source_id}:{catalogue_key}`.
  * `source_release_id` is `{dataset_id}:{published_at}` when the publisher
  * timestamps the extract, otherwise `{dataset_id}:{content_hash}`.

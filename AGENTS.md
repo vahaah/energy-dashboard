@@ -128,7 +128,9 @@ data/catalogue/
 ├── sources.json              # one object per source_id
 ├── datasets.json             # one object per dataset_id
 ├── source_releases.ndjson    # append-only releases
-└── ingestion_runs.ndjson     # append-only runs (empty until an import records one)
+├── ingestion_runs.ndjson     # append-only runs (empty until an import records one)
+├── layers.json               # basemap and DNO geometry pointers
+└── layer_watch.json          # NESO DNO source ETag and sha256 the daily check compares
 ```
 
 Zod schemas live in `src/lib/catalogue/schema.ts` (`catalogue_schema_version` 1). `npm run publish-check` validates them. CI runs that script. On a pull request it compares each existing release to the committed NDJSON line on `GITHUB_BASE_REF`. A reformatted or reordered line fails. Removing a line fails. Instants must round-trip through `Date`.
@@ -161,7 +163,19 @@ Each import appends one immutable `source_releases.ndjson` line. `content` is th
 
 Each invocation also appends `ingestion_runs.ndjson` lines. `ingestion_run_id` is unique per run. `started_at` and `finished_at` are the import clock, not the publisher's `published_at`.
 
-`publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. The raw extracts stay out of git. Publishing the register to Blob is P1A.2. Do not add Blob in this change.
+`publish-check` checks referential integrity, unique ids, MW in 0..5000, no (0, 0), and that a matched pair does not add both sides. The raw extracts stay out of git. The plant register stays in git. Map geometry is the Blob case, and only the basemap PMTiles.
+
+### P1A.2 Geometry and basemap
+
+No `/map` UI. `/` stays `force-static` with `revalidate` 300. This adds no Tinybird calls.
+
+`npm run catalogue:dno` downloads the NESO DNO licence-area GeoJSON (EPSG:27700), transforms it with proj4, simplifies at the tolerance stored on the layer, and writes `public/tiles/layers/dno/<edition>.geojson` when the file is under 1 MB. The checked-in edition is `20240503`, 338625 bytes, tolerance `0.001` degrees. DNO `default_visible` is false. The layer stores the NESO Open Data plus OGL v3 attribution and NESO's "not 100% accurate" warning.
+
+`npm run basemap:style` writes `public/basemap/style-light.json`, `style-dark.json`, Geist Sans glyph PBFs, and empty sprites. The style source stays `pmtiles://catalogue:basemap` until the upload script rewrites it. No OSM tile server.
+
+`npm run basemap` is manual, about twice a year, and not in CI. It exits immediately when `BLOB_READ_WRITE_TOKEN` is unset and never prints the token. With the token set it downloads OS Open Zoomstack vector tiles (OGL v3), drops zooms above 13, converts to one PMTiles file, uploads `tiles/basemap/<edition>.pmtiles`, and records bytes and sha256 on the basemap row. The product edition at the time of this change was `2026-06`. The MBTiles download is about 2.9 GB; the trimmed PMTiles size is whatever that run prints.
+
+`GET /api/v1/map/layers` is `force-static` and serves `layers.json`. `GET /api/cron-map-layers` (`20 5 * * *`) checks the NESO source by ETag and downloads only when the ETag misses, then sha256. A later run probes with the ETag stored on the Redis pointer. The checked-in edition, file URL, bytes, and sha256 stay the publication. An equal source hash is current even when the resource URL changes. A failure does not replace the Redis pointer `grid:map-layer:dno`. A changed source hash is flagged on `/data-health`. Page requests only read that flag.
 
 ## Environment Variables
 
@@ -176,6 +190,7 @@ OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 UPSTASH_REDIS_REST_URL=<optional — Upstash REST URL, https:// only>
 UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
+BLOB_READ_WRITE_TOKEN=<optional — basemap upload script only, never log it>
 # Also accepted: KV_REST_API_URL / KV_REST_API_TOKEN from the Marketplace integration
 ```
 
