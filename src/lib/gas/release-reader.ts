@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
-import { gasReleasePath } from "@/lib/ingest/national-gas/check";
+import { join } from "node:path";
 import { gasReleaseSchema, type GasRelease } from "@/lib/ingest/national-gas/release";
+
+function fixtureReleasePath(cwd: string): string {
+  return join(cwd, "tests/fixtures/gas/release.json");
+}
 
 /**
  * Latest National Gas NTS release and the recent gas days the page compares.
@@ -16,7 +20,7 @@ export function fixtureGasReleaseReader(cwd = process.cwd()): GasReleaseReader {
   let history: readonly GasRelease[] | undefined;
   const readHistory = (): readonly GasRelease[] => {
     if (!history) {
-      const parsed = gasReleaseSchema.parse(JSON.parse(readFileSync(gasReleasePath(cwd), "utf8"))) as GasRelease;
+      const parsed = gasReleaseSchema.parse(JSON.parse(readFileSync(fixtureReleasePath(cwd), "utf8"))) as GasRelease;
       history = [parsed];
     }
     return history;

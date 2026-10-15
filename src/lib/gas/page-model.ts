@@ -248,7 +248,6 @@ function seriesFor(release: GasRelease, basis: GasPageBasis, now: Date): GasSeri
   }
   const nowMs = now.getTime();
   const supplyId = supplySeriesId(basis);
-  const demandId = basis === "completed" ? DEMAND_VOLUME : null;
   const points = new Map<string, GasSeriesPoint>();
   const touch = (at: string): GasSeriesPoint => {
     const existing = points.get(at);
@@ -282,9 +281,6 @@ function seriesFor(release: GasRelease, basis: GasPageBasis, now: Date): GasSeri
     }
     if (supplyId && row.publication_id === supplyId && row.quantity_kind !== "stock") {
       touch(row.applicable_at).supply = row.value;
-    }
-    if (demandId && row.publication_id === demandId) {
-      touch(row.applicable_at).demand = row.value;
     }
   }
 

@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
+import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { GAS_UNIT_DAY } from "@/lib/gas/copy";
 import type { GasSeriesPoint } from "@/lib/gas/view";
 import { formatDisplay } from "@/lib/display-rounding";
@@ -51,9 +52,10 @@ export function GasSeriesChart({
   const showDemand = data.some((row) => row.demand != null || row.demandForecast != null);
 
   return (
-    <div className="mt-4 h-[200px] w-full min-w-0 md:h-[280px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
+    <div className="mt-4 min-w-0">
+      <ResponsiveChartFrame className="h-[200px] md:h-[280px]">
+        <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="var(--gray-alpha-400)" vertical={false} />
           <XAxis
             dataKey="time"
@@ -71,7 +73,7 @@ export function GasSeriesChart({
             tickFormatter={(value: number) => formatDisplay(value, 0.1)}
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={52}
           />
           <Tooltip content={<GasSeriesTooltip />} />
           {Number.isFinite(nowMs) ? (
@@ -115,7 +117,8 @@ export function GasSeriesChart({
             />
           ) : null}
         </LineChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </ResponsiveChartFrame>
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-label-12 text-gray-900">
         <Key swatch={SUPPLY} label="Supply" />
         {showDemand ? <Key swatch={DEMAND} label="Demand" /> : null}
