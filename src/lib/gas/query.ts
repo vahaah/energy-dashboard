@@ -1,3 +1,4 @@
+import { blobReadOrNull } from "@/lib/blob-read";
 import { isUtcInstant } from "@/lib/catalogue/schema";
 import {
   GAS_LATEST_PATH,
@@ -9,6 +10,7 @@ import {
   gasStore,
   parsePointer,
   type GasPointer,
+  type GasStoredObject,
 } from "@/lib/gas/blob";
 import { gasDayBounds } from "@/lib/ingest/national-gas/gas-day";
 import { gasReleaseSchema, type GasComponent, type GasRelease } from "@/lib/ingest/national-gas/release";
@@ -144,7 +146,7 @@ export async function loadGasRelease(gasDay: string | null): Promise<LoadedRelea
   if (!pointer) {
     return null;
   }
-  const stored = await gasStore().get(gasReleasePath(pointer.release_id), true);
+  const stored = await readStored(gasReleasePath(pointer.release_id), true);
   if (!stored) {
     return null;
   }
@@ -278,8 +280,12 @@ async function readDayPointer(label: string): Promise<GasPointer | null> {
   return readBlobPointer(gasDayPointerPath(label));
 }
 
+async function readStored(pathname: string, cache: boolean): Promise<GasStoredObject | null> {
+  return blobReadOrNull(() => gasStore().get(pathname, cache));
+}
+
 async function readBlobPointer(pathname: string): Promise<GasPointer | null> {
-  const stored = await gasStore().get(pathname, false);
+  const stored = await readStored(pathname, false);
   if (!stored) {
     return null;
   }
@@ -291,7 +297,7 @@ async function readPointedRelease(pathname: string): Promise<GasRelease | null> 
   if (!pointer) {
     return null;
   }
-  const stored = await gasStore().get(gasReleasePath(pointer.release_id), true);
+  const stored = await readStored(gasReleasePath(pointer.release_id), true);
   if (!stored) {
     return null;
   }
@@ -306,7 +312,7 @@ async function readPointedRelease(pathname: string): Promise<GasRelease | null> 
 }
 
 async function readSeriesPoints(metricId: string): Promise<GasSeriesPoint[]> {
-  const stored = await gasStore().get(gasSeriesPath(metricId), false);
+  const stored = await readStored(gasSeriesPath(metricId), false);
   if (!stored) {
     return [];
   }

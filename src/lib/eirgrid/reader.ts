@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { blobReadOrNull } from "@/lib/blob-read";
 import { NI_LATEST_PATH, niReleasePath, niStore, parseNiPointer } from "@/lib/eirgrid/blob";
 import { niReleaseSchema, type NiRelease } from "@/lib/eirgrid/release";
 
@@ -21,12 +22,12 @@ export async function readNiRelease(): Promise<NiRelease | null> {
 }
 
 async function readBlobRelease(): Promise<NiRelease | null> {
-  const pointerText = await niStore().get(NI_LATEST_PATH, true);
+  const pointerText = await blobReadOrNull(() => niStore().get(NI_LATEST_PATH, true));
   const pointer = pointerText ? parseNiPointer(pointerText.body) : null;
   if (!pointer) {
     return null;
   }
-  const file = await niStore().get(niReleasePath(pointer.release_id), true);
+  const file = await blobReadOrNull(() => niStore().get(niReleasePath(pointer.release_id), true));
   if (!file) {
     return null;
   }

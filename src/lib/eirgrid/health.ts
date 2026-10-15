@@ -1,3 +1,4 @@
+import { blobReadOrNull } from "@/lib/blob-read";
 import { NI_LATEST_PATH, niReleasePath, niStore, parseNiPointer } from "@/lib/eirgrid/blob";
 import { niReleaseSchema, type NiRelease } from "@/lib/eirgrid/release";
 import { EIRGRID_SERIES, type EirgridMetricId } from "@/lib/eirgrid/spec";
@@ -26,12 +27,12 @@ export async function loadNiObservations(): Promise<NiObservation[]> {
 
 async function readStoredRelease(): Promise<NiRelease | null> {
   try {
-    const pointerText = await niStore().get(NI_LATEST_PATH, false);
+    const pointerText = await blobReadOrNull(() => niStore().get(NI_LATEST_PATH, false));
     const pointer = pointerText ? parseNiPointer(pointerText.body) : null;
     if (!pointer) {
       return null;
     }
-    const file = await niStore().get(niReleasePath(pointer.release_id), false);
+    const file = await blobReadOrNull(() => niStore().get(niReleasePath(pointer.release_id), false));
     if (!file) {
       return null;
     }

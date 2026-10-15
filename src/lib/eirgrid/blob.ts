@@ -1,4 +1,5 @@
-import { BlobNotFoundError, del, get, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
+import { readBlobResponse } from "@/lib/blob-read";
 
 export const NI_LATEST_PATH = "releases/eirgrid-ni/latest.json";
 export const NI_PREVIOUS_PATH = "releases/eirgrid-ni/previous.json";
@@ -90,19 +91,7 @@ class VercelNiStore implements NiObjectStore {
   }
 
   async get(pathname: string, cache: boolean): Promise<{ body: string; uploadedAt: Date; size: number } | null> {
-    try {
-      const result = await get(pathname, { access: "public", useCache: cache });
-      if (!result || result.statusCode !== 200 || !result.stream) {
-        return null;
-      }
-      const body = await new Response(result.stream).text();
-      return { body, uploadedAt: result.blob.uploadedAt, size: result.blob.size };
-    } catch (error) {
-      if (error instanceof BlobNotFoundError) {
-        return null;
-      }
-      throw error;
-    }
+    return readBlobResponse(() => get(pathname, { access: "public", useCache: cache }));
   }
 
   async del(pathnames: readonly string[]): Promise<void> {
