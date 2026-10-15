@@ -1,0 +1,8 @@
+ISDEntity45,MarketParticipantRole,1,F
+Company Registration Number,Market Participant ID,Market Participant Role Code,Effective From Date {MPR},Effective To Date {MPR},Distributor Short Code,Trading Party ID
+11111111,NPOW,X,2010-01-01,2020-01-01,0,
+11111111,NPOW,8,2020-01-02,,0,
+22222222,NPO2,X,2015-06-01,,0,
+44444444,NPOW,X,2021-01-01,,0,
+33333333,BAD1,X,not-a-date,,0,
+33333333,BAD2,Z,2010-01-01,,0,

@@ -32,6 +32,10 @@
     {
       "path": "/api/cron-constraints?bundle=day-ahead",
       "schedule": "40 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron-directory",
+      "schedule": "15 6 * * 1"
     }
   ]
 }

@@ -1,6 +1,22 @@
 export const ELEXON_BMRS_LICENCE_URL =
   "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/";
 
+export const ELEXON_ISD_URL = "https://www.elexon.co.uk/bsc/data/industry-standing-data/";
+
+export const ELEXON_ISD_API_URL = "https://datastore.helix.elexon.co.uk/api/ISD";
+
+export const ELEXON_BSC_OPEN_DATA_LICENCE_URL =
+  "https://www.elexon.co.uk/bsc/data/open-data-requests/bsc-open-data-licence/";
+
+/**
+ * The ISD Data Store is publicly available. The BSC Open Data Licence covers
+ * only information Elexon identifies as open data, and the ISD page does not
+ * make that identification. Display of lookup fields stays. Redistribution of
+ * an extract stays source-blocked.
+ */
+export const ELEXON_ISD_ATTRIBUTION =
+  "Industry Standing Data from the Elexon ISD Data Store. The store is publicly available. Grid shows the fields needed to look up a code. Elexon has not identified ISD under the BSC Open Data Licence, so Grid does not offer a download of the extract.";
+
 export const ELEXON_BMRS_ATTRIBUTION_PREFIX =
   "Contains BMRS data © Elexon Limited copyright and database right";
 

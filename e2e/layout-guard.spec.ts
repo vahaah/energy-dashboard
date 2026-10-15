@@ -19,6 +19,8 @@ const PAGES = [
   "/records",
   "/map",
   "/assets",
+  "/directory",
+  "/directory/identifiers",
   "/assets/ast_0003670fbf90f564/cuckoo-grove-farm",
   "/assets/ast_5c5dc7c6656c3f93/ifa",
   "/assets/ast_0789b8c8f94ec14a/bacton-ips",
