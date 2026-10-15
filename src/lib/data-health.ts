@@ -15,7 +15,7 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { METRICS, metricSourceLabel, type MetricId } from "@/lib/metrics";
+import { METRICS, metricSourceLabel, staleGrace, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
@@ -248,7 +248,7 @@ export function buildReading(input: {
     publicationStatus: input.publicationStatus,
     formatValue: (value) => formatReadingValue(value, metric.unit),
     schedule: stalenessSchedule(metric),
-    publicationLag: metric.publication_lag,
+    publicationLag: staleGrace(metric),
   });
   return {
     metric_id: input.metricId,

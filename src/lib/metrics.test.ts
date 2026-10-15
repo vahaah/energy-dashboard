@@ -7,6 +7,7 @@ import {
   metricProvenance,
   metricSourceIds,
   RECORD_METRICS,
+  staleGrace,
 } from "@/lib/metrics";
 import type { MetricDefinition, Observation } from "@/lib/types";
 
@@ -148,16 +149,25 @@ describe("geography enum", () => {
     }
   });
 
-  it("waits out each publisher's lag before calling a price stale", () => {
-    expect(METRICS["commodity.gb_gas_sap.price"].publication_lag).toBe("P2D");
+  it("keeps publication lag factual and uses a wider stale grace for EIA and SAP", () => {
+    expect(METRICS["commodity.gb_gas_sap.price"]).toMatchObject({
+      publication_lag: "P1D",
+      stale_grace: "P2D",
+    });
     expect(METRICS["commodity.eu_natural_gas.spot"].publication_lag).toBe("P1M");
+    expect("stale_grace" in METRICS["commodity.eu_natural_gas.spot"]).toBe(false);
     expect(METRICS["commodity.lng_asia.spot"].publication_lag).toBe("P1M");
-    expect(METRICS["commodity.brent.spot"].publication_lag).toBe("P10D");
-    expect(METRICS["commodity.wti.spot"].publication_lag).toBe("P10D");
-    expect(METRICS["commodity.henry_hub.spot"].publication_lag).toBe("P10D");
+    expect("stale_grace" in METRICS["commodity.lng_asia.spot"]).toBe(false);
+    for (const metricId of ["commodity.brent.spot", "commodity.wti.spot", "commodity.henry_hub.spot"] as const) {
+      expect(METRICS[metricId]).toMatchObject({ publication_lag: "P8D", stale_grace: "P10D" });
+      expect(staleGrace(METRICS[metricId])).toBe("P10D");
+    }
+    expect(staleGrace(METRICS["commodity.gb_gas_sap.price"])).toBe("P2D");
     expect(METRICS["elec.gb.demand.itsdo"].publication_lag).toBe("PT0S");
+    expect(staleGrace(METRICS["elec.gb.demand.itsdo"])).toBe("PT0S");
     expect(METRICS["elec.gb.generation.battery"].publication_lag).toBe("PT0S");
     expect(METRICS["elec.gb.price.imbalance"].publication_lag).toBe("PT30M");
+    expect(staleGrace(METRICS["elec.gb.price.imbalance"])).toBe("PT30M");
   });
 
   it("tags commodity markets with their own geography", () => {

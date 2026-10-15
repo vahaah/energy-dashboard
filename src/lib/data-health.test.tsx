@@ -104,15 +104,16 @@ describe("data health clocks", () => {
     });
 
     expect(fresh.published_label).toBe("13 Oct 2026");
-    expect(fresh.publication_lag).toBe("P2D");
-    expect(fresh.publication_lag_label).toBe("Published about 2 days after the gas day");
+    expect(fresh.publication_lag).toBe("P1D");
+    expect(fresh.publication_lag_label).toBe("Published about 1 day after the gas day");
+    expect(fresh).not.toHaveProperty("stale_grace");
     expect(fresh.stale).toBe(false);
     expect(fresh.state).toBeNull();
     expect(stillWaiting.stale).toBe(false);
     expect(overdue.stale).toBe(true);
-    expect(renderToStaticMarkup(<DataHealthReading reading={fresh} featured />)).toContain(
-      "Published about 2 days after the gas day"
-    );
+    const html = renderToStaticMarkup(<DataHealthReading reading={fresh} featured />);
+    expect(html).toContain("Published about 1 day after the gas day");
+    expect(html).not.toContain("2 days");
   });
 
   it("keeps the prior World Bank month fresh in early month+1", () => {
@@ -168,12 +169,16 @@ describe("data health clocks", () => {
         now: afterLag,
       });
       expect(fresh.published_label).toBe("6 Oct 2026");
-      expect(fresh.publication_lag).toBe("P10D");
-      expect(fresh.publication_lag_label).toBe("Published about 10 days after the trading day");
+      expect(fresh.publication_lag).toBe("P8D");
+      expect(fresh.publication_lag_label).toBe("Published about 8 days after the trading day");
+      expect(fresh).not.toHaveProperty("stale_grace");
       expect(fresh.stale).toBe(false);
       expect(fresh.state).toBeNull();
       expect(beforeRelease.stale).toBe(false);
       expect(overdue.stale).toBe(true);
+      const html = renderToStaticMarkup(<DataHealthReading reading={fresh} />);
+      expect(html).toContain("Published about 8 days after the trading day");
+      expect(html).not.toContain("10 days");
     }
   });
 
