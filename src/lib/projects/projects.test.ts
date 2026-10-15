@@ -450,6 +450,9 @@ describe("projects API and TEC cron", () => {
       crons: Array<{ path: string; schedule: string }>;
     };
     expect(vercel.crons.find((job) => job.path === "/api/cron-tec")?.schedule).toBe("15 6 * * 1,4");
+    const docs = readFileSync(join(process.cwd(), "src/app/api/page.tsx"), "utf8");
+    expect(docs).toContain("/api/v1/projects?limit=100&offset=0");
+    expect(docs).toContain("cannot exceed 500");
     const page = readFileSync(join(process.cwd(), "src/app/projects/page.tsx"), "utf8");
     expect(page).toContain('export const dynamic = "force-static"');
     expect(page).not.toContain("queryPipe");
