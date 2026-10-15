@@ -61,6 +61,11 @@ export function gasReleasePath(releaseId: string): string {
   return `releases/gas/${releaseId}.json`;
 }
 
+/** Latest pointer for one bundle. `latest.json` stays the newest release of either bundle. */
+export function gasBundlePointerPath(bundle: "intraday" | "completed-day"): string {
+  return `releases/gas/latest/${bundle}.json`;
+}
+
 export function gasRawPath(hex: string): string {
   return `releases/gas/raw/${hex}.csv`;
 }

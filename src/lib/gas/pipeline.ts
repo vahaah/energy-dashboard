@@ -20,6 +20,7 @@ import {
   GAS_POINTER_TTL_SECONDS,
   GAS_PREVIOUS_PATH,
   GAS_QUARANTINE_DAYS,
+  gasBundlePointerPath,
   gasDayPointerPath,
   gasQuarantinePath,
   gasRawPath,
@@ -178,31 +179,30 @@ export async function publishGasBundle(
   const path = gasReleasePath(releaseId);
   const existing = await gasStore().get(path, true);
   const pointer = await readPointer(GAS_LATEST_PATH);
-  if (existing && pointer?.release_id === releaseId) {
+  const bundlePointer = await readPointer(gasBundlePointerPath(bundle));
+  if (
+    existing &&
+    bundlePointer?.release_id === releaseId &&
+    (pointer?.release_id === releaseId || (pointer != null && !(await releaseIsNewer(release, pointer))))
+  ) {
     return { ok: true, rows, bytes: existing.size, hash, releaseId };
   }
   if (!existing) {
     await putIfAbsent(path, `${JSON.stringify(release)}\n`, "application/json");
   }
-  if (pointer?.release_id === releaseId) {
-    return { ok: true, rows, bytes, hash, releaseId };
-  }
-  if (pointer && existing && !(await releaseIsNewer(release, pointer))) {
-    return { ok: true, rows, bytes: existing.size, hash, releaseId };
-  }
   await recordCatalogue(bundle, release, releaseId, hash, bytes, now, catalogueDir);
   await mergeSeries(release);
   const next: GasPointer = { release_id: releaseId, generated_at: now.toISOString() };
-  if (pointer) {
-    await gasStore().put(GAS_PREVIOUS_PATH, `${JSON.stringify(pointer)}\n`, mutablePut("application/json"));
+  await writePointerIfNewer(gasDayPointerPath(release.gas_day.label), release, next);
+  await writePointerIfNewer(gasBundlePointerPath(bundle), release, next);
+  const ownsLatest = pointer == null || pointer.release_id === releaseId || (await releaseIsNewer(release, pointer));
+  if (ownsLatest && pointer?.release_id !== releaseId) {
+    if (pointer) {
+      await gasStore().put(GAS_PREVIOUS_PATH, `${JSON.stringify(pointer)}\n`, mutablePut("application/json"));
+    }
+    await gasStore().put(GAS_LATEST_PATH, `${JSON.stringify(next)}\n`, mutablePut("application/json"));
+    await writeCachedPointer(next);
   }
-  await gasStore().put(
-    gasDayPointerPath(release.gas_day.label),
-    `${JSON.stringify(next)}\n`,
-    mutablePut("application/json"),
-  );
-  await gasStore().put(GAS_LATEST_PATH, `${JSON.stringify(next)}\n`, mutablePut("application/json"));
-  await writeCachedPointer(next);
   revalidateGasPaths();
   return { ok: true, rows, bytes, hash, releaseId };
 }
@@ -349,6 +349,17 @@ function quarantineDay(pathname: string): string | null {
   return match?.[1] ?? null;
 }
 
+async function writePointerIfNewer(pathname: string, release: GasRelease, next: GasPointer): Promise<void> {
+  const current = await readPointer(pathname);
+  if (current?.release_id === next.release_id) {
+    return;
+  }
+  if (current && !(await releaseIsNewer(release, current))) {
+    return;
+  }
+  await gasStore().put(pathname, `${JSON.stringify(next)}\n`, mutablePut("application/json"));
+}
+
 async function releaseIsNewer(release: GasRelease, pointer: GasPointer): Promise<boolean> {
   const current = await gasStore().get(gasReleasePath(pointer.release_id), true);
   if (!current) {
@@ -448,13 +459,14 @@ async function recordCatalogue(
   now: Date,
   catalogueDir?: string,
 ): Promise<void> {
+  const publicationIds: string[] = [...gasBundlePublicationIds(bundle)];
   const content = {
     bundle,
     gas_day: release.gas_day.label,
     extract_sha256: extractHash,
     bytes,
     release_id: releaseId,
-    publication_ids: [...gasBundlePublicationIds(bundle)],
+    publication_ids: publicationIds,
   };
   const contentHash = sha256Prefixed(content);
   const datasetId = catalogueDatasetId("national-gas", spinePublication(bundle));

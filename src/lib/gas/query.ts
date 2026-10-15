@@ -2,6 +2,7 @@ import { isUtcInstant } from "@/lib/catalogue/schema";
 import {
   GAS_LATEST_PATH,
   GAS_POINTER_KEY,
+  gasBundlePointerPath,
   gasDayPointerPath,
   gasReleasePath,
   gasSeriesPath,
@@ -215,6 +216,32 @@ export async function gasSeriesResponse(
   };
 }
 
+export function latestObservedComponent(releases: readonly GasRelease[], metricId: string): GasComponent | null {
+  let chosen: GasComponent | null = null;
+  for (const release of releases) {
+    const component = latestComponent(release, metricId);
+    if (!component) {
+      continue;
+    }
+    if (
+      !chosen ||
+      component.applicable_at > chosen.applicable_at ||
+      (component.applicable_at === chosen.applicable_at && component.published_at >= chosen.published_at)
+    ) {
+      chosen = component;
+    }
+  }
+  return chosen;
+}
+
+export async function loadBundleReleases(): Promise<GasRelease[]> {
+  const releases = await Promise.all([
+    readPointedRelease(gasBundlePointerPath("intraday")),
+    readPointedRelease(gasBundlePointerPath("completed-day")),
+  ]);
+  return releases.filter((release): release is GasRelease => release != null);
+}
+
 export function latestComponent(release: GasRelease, metricId: string): GasComponent | null {
   let chosen: GasComponent | null = null;
   for (const component of release.components) {
@@ -235,9 +262,13 @@ export function latestComponent(release: GasRelease, metricId: string): GasCompo
 async function readLatestPointer(): Promise<GasPointer | null> {
   const redis = getRedis();
   if (redis) {
-    const cached = await redis.get<GasPointer>(GAS_POINTER_KEY);
-    if (cached && typeof cached.release_id === "string" && typeof cached.generated_at === "string") {
-      return { release_id: cached.release_id, generated_at: cached.generated_at };
+    try {
+      const cached = await redis.get<GasPointer>(GAS_POINTER_KEY);
+      if (cached && typeof cached.release_id === "string" && typeof cached.generated_at === "string") {
+        return { release_id: cached.release_id, generated_at: cached.generated_at };
+      }
+    } catch {
+      // The pointer cache is optional. Blob remains the source.
     }
   }
   return readBlobPointer(GAS_LATEST_PATH);
@@ -253,6 +284,25 @@ async function readBlobPointer(pathname: string): Promise<GasPointer | null> {
     return null;
   }
   return parsePointer(stored.body);
+}
+
+async function readPointedRelease(pathname: string): Promise<GasRelease | null> {
+  const pointer = await readBlobPointer(pathname);
+  if (!pointer) {
+    return null;
+  }
+  const stored = await gasStore().get(gasReleasePath(pointer.release_id), true);
+  if (!stored) {
+    return null;
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(stored.body);
+  } catch {
+    return null;
+  }
+  const parsed = gasReleaseSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
 }
 
 async function readSeriesPoints(metricId: string): Promise<GasSeriesPoint[]> {

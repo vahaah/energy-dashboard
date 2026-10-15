@@ -229,6 +229,7 @@ describe("data-sources catalogue", () => {
     expect(sourceRefreshLabel("desnz-repd")).toBe("Quarterly");
     expect(sourceRefreshLabel("desnz-dukes")).toBe("Annual");
     expect(sourceRefreshLabel("elexon-bmrs")).toBe("Hourly");
+    expect(sourceRefreshLabel("national-gas")).toBe("Hourly");
     expect(sourceRefreshLabel("eia")).toBe("Every 6 hours");
   });
 });

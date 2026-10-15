@@ -15,7 +15,8 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { gasMetricLabel, gasReadingStale, latestComponent, loadGasRelease } from "@/lib/gas/query";
+import { gasMetricLabel, gasReadingStale, latestObservedComponent, loadBundleReleases } from "@/lib/gas/query";
+import type { GasRelease } from "@/lib/ingest/national-gas/release";
 import { GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type GasMetricId, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
@@ -382,21 +383,18 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
 }
 
 async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {
-  let release = null;
-  let retrievedAt: string | null = null;
+  let releases: GasRelease[] = [];
   try {
-    const loaded = await loadGasRelease(null);
-    release = loaded?.release ?? null;
-    retrievedAt = loaded?.pointer.generated_at ?? null;
+    releases = await loadBundleReleases();
   } catch {
-    release = null;
+    releases = [];
   }
   return (Object.keys(GAS_METRICS) as GasMetricId[]).map((metricId) => {
     const metric = GAS_METRICS[metricId];
-    const component = release ? latestComponent(release, metricId) : null;
+    const component = latestObservedComponent(releases, metricId);
     const value = component && component.value != null && Number.isFinite(component.value) ? component.value : null;
     const publishedAt = component?.published_at ?? null;
-    const retrieved = component?.retrieved_at ?? retrievedAt;
+    const retrieved = component?.retrieved_at ?? null;
     const assessed = assessPublication({
       value,
       publishedAt,

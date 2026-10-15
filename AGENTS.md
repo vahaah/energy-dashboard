@@ -235,11 +235,11 @@ Blob layout, with `BLOB_READ_WRITE_TOKEN` (never logged):
 
 An optional Redis key `grid:gas:latest` caches the latest pointer for 300s.
 
-`/data-health` and `/api/v1/data-health` append `GAS_METRICS` from the latest release. Intraday is stale when `now - published_at` is over 3 hours. A completed gas day is not stale. A missing value is not yet available. The figure is the latest component. Rates are not summed. A parent and its children do not both count.
+`/data-health` and `/api/v1/data-health` append `GAS_METRICS` from both bundle pointers, `releases/gas/latest/intraday.json` and `releases/gas/latest/completed-day.json`. `releases/gas/latest.json` stays the newest release of either bundle. Intraday is stale when `now - published_at` is over 3 hours. A completed gas day is not stale. A missing value is not yet available. The figure is the latest component. Rates are not summed. A parent and its children do not both count. The national-gas source cadence is `PT1H` because the intraday cron is hourly. SAP and the completed gas day stay on the 6-hour prices cron.
 
 Budget: Tinybird **+0** (the scheduled success path stays 378, under the 450 cap). About 216 Vercel Workflow events a day (1 run + 4 steps × 2 events × 24 hourly runs). National Gas: about 24 intraday GETs, about 4–5 completed-day GETs, and 1 catalogue GET a day. No bursts and no backfill.
 
-Rollback: read `releases/gas/previous.json`, overwrite `releases/gas/latest.json` with that pointer, and delete Redis key `grid:gas:latest`. Leave the immutable release file in place.
+Rollback: read `releases/gas/previous.json`, overwrite `releases/gas/latest.json` with that pointer, and delete Redis key `grid:gas:latest`. Leave the immutable release file and the per-bundle pointers in place. A Redis read error falls through to the Blob pointer.
 
 ## Environment Variables
 

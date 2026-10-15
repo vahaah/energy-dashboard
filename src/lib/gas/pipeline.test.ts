@@ -14,8 +14,10 @@ import {
   GAS_POINTER_KEY,
   GAS_PREVIOUS_PATH,
   MemoryGasStore,
+  gasBundlePointerPath,
   gasQuarantinePath,
   gasReleasePath,
+  gasSeriesPath,
   gasStore,
   immutablePut,
   mutablePut,
@@ -427,6 +429,70 @@ describe("gas publish", () => {
       release_id: releaseId,
       generated_at: COMPLETED_NOW.toISOString(),
     });
+  });
+
+  it("keeps both bundles when the older completed day publishes second", async () => {
+    const intraday = await publishFixture("intraday", INTRADAY_PUBLISH);
+    await publishFixture("completed-day", COMPLETED_NOW);
+    expect(await readPointer(GAS_LATEST_PATH)).toEqual({
+      release_id: intraday.releaseId,
+      generated_at: INTRADAY_PUBLISH.toISOString(),
+    });
+    const health = await loadDataHealth(INTRADAY_NOW);
+    expect(health.find((reading) => reading.metric_id === "gas.gb_nts.demand.actual_volume")).toMatchObject({
+      value: DEMAND_PARENT,
+      stale: false,
+      state: null,
+    });
+    const national = health.find((reading) => reading.metric_id === "gas.gb_nts.entry.physical.national");
+    expect(national?.value).not.toBeNull();
+    expect(national?.state).toBe("stale");
+  });
+
+  it("replays catalogue and series without moving a newer pointer", async () => {
+    const intraday = await publishFixture("intraday", INTRADAY_PUBLISH);
+    const completed = await publishFixture("completed-day", COMPLETED_NOW);
+    store.files.delete(gasSeriesPath("gas.gb_nts.demand.actual_volume"));
+    store.files.delete(gasBundlePointerPath("completed-day"));
+    store.files.delete(GAS_CATALOGUE_RELEASES_PATH);
+    revalidated.length = 0;
+    const again = await publishGasBundle(completed.hash, "completed-day", COMPLETED_NOW);
+    expect(again.releaseId).toBe(completed.releaseId);
+    expect(await readPointer(GAS_LATEST_PATH)).toEqual({
+      release_id: intraday.releaseId,
+      generated_at: INTRADAY_PUBLISH.toISOString(),
+    });
+    expect(store.files.has(gasSeriesPath("gas.gb_nts.demand.actual_volume"))).toBe(true);
+    const lines = store.files.get(GAS_CATALOGUE_RELEASES_PATH)?.body.trim().split("\n") ?? [];
+    expect(lines).toHaveLength(1);
+    expect(revalidated).toEqual(["/gas", "/api/v1/gas/overview", "/api/v1/gas/series"]);
+  });
+
+  it("reads the Blob pointer when the Redis cache rejects", async () => {
+    const { releaseId } = await publishFixture("completed-day", COMPLETED_NOW);
+    const redis: RedisCommands = {
+      async get<T>(): Promise<T | null> {
+        throw new Error("redis unavailable");
+      },
+      async set(): Promise<"OK"> {
+        return "OK";
+      },
+      async del(): Promise<number> {
+        return 0;
+      },
+      async incr(): Promise<number> {
+        return 1;
+      },
+      async expire(): Promise<number> {
+        return 1;
+      },
+    };
+    setRedisForTests(redis);
+    const overview = await gasOverviewResponse(null);
+    expect(overview.status).toBe(200);
+    if (overview.status === 200) {
+      expect(overview.body.release_id).toBe(releaseId);
+    }
   });
 
   it("marks intraday stale after 3 hours and leaves a completed gas day current", async () => {

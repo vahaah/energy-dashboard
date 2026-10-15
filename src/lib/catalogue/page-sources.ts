@@ -32,7 +32,6 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
   switch (id) {
     case "eia":
     case "world-bank-pink-sheet":
-    case "national-gas":
       return "Every 6 hours";
     case "desnz-repd":
       return "Quarterly";
@@ -42,6 +41,7 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
     case "neso-open-data":
     case "carbon-intensity":
     case "sheffield-pv-live":
+    case "national-gas":
       return "Hourly";
     default: {
       const neverId: never = id;
