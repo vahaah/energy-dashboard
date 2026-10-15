@@ -3,7 +3,14 @@ import { resolve as resolvePath } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LookupResults } from "@/components/directory/lookup-result";
-import { MemoryDirectoryStore } from "@/lib/directory/blob";
+import {
+  DIRECTORY_BLOB_ACCESS,
+  DIRECTORY_LATEST_PATH,
+  DIRECTORY_PREVIOUS_PATH,
+  directoryBlobWriteOptions,
+  directoryImmutablePut,
+  MemoryDirectoryStore,
+} from "@/lib/directory/blob";
 import { buildDirectory, sameCodeDifferentScheme } from "@/lib/directory/build";
 import { checkDirectoryFixtures } from "@/lib/directory/check";
 import {
@@ -14,7 +21,8 @@ import {
   roleStanding,
 } from "@/lib/directory/copy";
 import { ingestDirectory, isdEntityUrl, ISD_LOOKUP_FILTERS } from "@/lib/directory/ingest";
-import { lookupByCode, parseResolveBody, resolveLogFields } from "@/lib/directory/lookup";
+import { lookupByCode, lookupByName, parseLookupSearch, parseResolveBody, resolveLogFields } from "@/lib/directory/lookup";
+import type { DirectorySnapshot } from "@/lib/directory/schema";
 import { fixtureDirectoryExtracts, fixtureDirectorySnapshot } from "@/lib/directory/reader";
 import { GET as exportGet, POST as exportPost } from "@/app/api/v1/identifiers/export/route";
 import { GET as lookupGet } from "@/app/api/v1/identifiers/route";
@@ -46,6 +54,19 @@ describe("directory lookup", () => {
     expect(bm.matches[0]?.organisation?.name).toBe("North Power Limited");
     expect(bm.matches[0]?.identifiers[0]?.current).toBe(false);
     expect(bm.matches[0]?.identifiers[0]?.roles[0]?.current).toBe(false);
+
+    const moved = lookupByCode(snapshot, "BM_UNIT_ID", "T_ABCD-1", ON);
+    expect(moved.matches).toHaveLength(1);
+    expect(moved.matches[0]?.organisation?.organisation_id).toBe("org_44444444");
+    expect(moved.matches[0]?.identifiers[0]?.current).toBe(true);
+
+    const duringGap = lookupByCode(snapshot, "MPID", "GAP1", "2021-06-01");
+    expect(duringGap.matches).toHaveLength(2);
+    expect(duringGap.matches.flatMap((match) => match.identifiers).every((identifier) => identifier.current === false)).toBe(true);
+    const afterGap = lookupByCode(snapshot, "MPID", "GAP1", "2022-06-01");
+    const open = afterGap.matches.flatMap((match) => match.identifiers).filter((identifier) => identifier.current);
+    expect(open.map((identifier) => identifier.effective_from)).toEqual(["2022-01-01"]);
+    expect(open[0]?.effective_to).toBeNull();
 
     const gsp = lookupByCode(snapshot, "GSP_GROUP", "_A", ON);
     expect(gsp.matches[0]?.organisation).toBeNull();
@@ -120,6 +141,96 @@ describe("directory lookup", () => {
     expect(second.unchanged).toBe(true);
     expect(second.releaseId).toBe(first.releaseId);
     expect([...store.files.keys()].filter((path) => path.endsWith(".json")).length).toBe(2);
+  });
+
+  it("repoints at an existing immutable release instead of writing it again", async () => {
+    const extracts = fixtureDirectoryExtracts();
+    const renamed = {
+      ...extracts,
+      organisations: extracts.organisations.replace("South Power Limited", "South Power plc"),
+    };
+    const store = new MemoryDirectoryStore();
+    const fetchFor = (source: typeof extracts) => async (url: string) => {
+      const filter = new URL(url).searchParams.get("Filter");
+      const body =
+        filter === "ISDEntity1"
+          ? source.organisations
+          : filter === "ISDEntity18"
+            ? source.gspGroups
+            : filter === "ISDEntity21"
+              ? source.marketRoles
+              : filter === "ISDEntity45"
+                ? source.participantRoles
+                : source.bmUnits;
+      return { status: 200, body };
+    };
+    const first = await ingestDirectory({ now: new Date(RECORDED_AT), fetchText: fetchFor(extracts), store });
+    const second = await ingestDirectory({
+      now: new Date("2026-10-22T06:15:00.000Z"),
+      fetchText: fetchFor(renamed),
+      store,
+    });
+    const third = await ingestDirectory({
+      now: new Date("2026-10-29T06:15:00.000Z"),
+      fetchText: fetchFor(extracts),
+      store,
+    });
+    expect(first.ok && second.ok && third.ok).toBe(true);
+    expect(second.releaseId).not.toBe(first.releaseId);
+    expect(third.releaseId).toBe(first.releaseId);
+    expect(third.unchanged).toBe(false);
+    const releases = [...store.files.keys()].filter(
+      (path) => path !== DIRECTORY_LATEST_PATH && path !== DIRECTORY_PREVIOUS_PATH,
+    );
+    expect(releases).toHaveLength(2);
+    const latest = JSON.parse(store.files.get(DIRECTORY_LATEST_PATH)?.body ?? "") as { release_id: string };
+    expect(latest.release_id).toBe(first.releaseId);
+  });
+
+  it("keeps every identifier on a name match and accepts a hyphenated BM Unit", () => {
+    const organisations = Array.from({ length: 21 }, (_, index) => ({
+      organisation_id: `org_${index}`,
+      name: `Wide ${index} Power`,
+      recorded_at: RECORDED_AT,
+    }));
+    const identifiers = Array.from({ length: 21 }, (_, index) => ({
+      identifier_id: `idn_${index.toString(16).padStart(16, "0")}`,
+      organisation_id: "org_0",
+      scheme: "BM_UNIT_ID" as const,
+      code: `T_UNIT-${index}`,
+      label: null,
+      effective_from: "2010-01-01",
+      effective_to: null,
+      recorded_at: RECORDED_AT,
+    }));
+    const snapshot: DirectorySnapshot = {
+      catalogue_schema_version: 1,
+      source_id: "elexon-isd",
+      release_id: "elexon-isd:directory:sha256:abc",
+      content_hash: "sha256:abc",
+      retrieved_at: RECORDED_AT,
+      organisations,
+      identifiers,
+      role_assignments: [],
+    };
+    const named = lookupByName(snapshot, "Wide", ON);
+    expect(named.truncated).toBe(true);
+    expect(named.matches).toHaveLength(20);
+    expect(named.matches.find((match) => match.organisation?.organisation_id === "org_0")?.identifiers).toHaveLength(21);
+
+    const hyphen = parseLookupSearch(new URLSearchParams({ scheme: "BM_UNIT_ID", code: "T_ABCD-1", effective_on: ON }));
+    expect(hyphen.ok).toBe(true);
+    const dotted = parseLookupSearch(new URLSearchParams({ scheme: "BM_UNIT_ID", code: "T_ABCD.1", effective_on: ON }));
+    expect(dotted.ok).toBe(false);
+    const resolved = parseResolveBody({
+      effective_on: ON,
+      queries: [{ scheme: "BM_UNIT_ID", code: "T_ABCD-1" }],
+    });
+    expect(resolved.ok).toBe(true);
+    expect(directoryBlobWriteOptions(directoryImmutablePut()).access).toBe("private");
+    expect(DIRECTORY_BLOB_ACCESS).toBe("private");
+    const blobSource = readFileSync(resolvePath(process.cwd(), "src/lib/directory/blob.ts"), "utf8");
+    expect(blobSource).not.toContain('access: "public"');
   });
 
   it("returns 403 for an export and caps resolve without logging codes", async () => {

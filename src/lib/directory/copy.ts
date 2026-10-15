@@ -20,6 +20,9 @@ export const RESOLVE_CODE_LIMIT = 20;
 
 export const IDENTIFIER_SCHEMES = ["MPID", "BM_UNIT_ID", "GSP_GROUP"] as const;
 
+/** Lookup alphabet. BM Unit IDs include a hyphen (`T_ABCD-1`). */
+export const IDENTIFIER_CODE_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
+
 export type IdentifierScheme = (typeof IDENTIFIER_SCHEMES)[number];
 
 export const SCHEME_LABEL: Record<IdentifierScheme, string> = {

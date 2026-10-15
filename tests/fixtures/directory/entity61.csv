@@ -2,3 +2,4 @@ ISDEntity61,BMUnitforSupplierinGSPGroup,1,F
 GSP Group ID,Market Participant (Supplier) ID,Market Participant Role Code,Effective From Date {MPR},BM Unit ID,Effective From Settlement Date {BMU ID},Effective To Settlement Date {BMU ID}
 _A,NPOW,X,2010-01-01,2__ANPOW000,2010-01-01,2024-01-01
 _A,NPO2,X,2015-06-01,2__ANPO2000,2015-06-01,
+_A,NPOW,X,2021-01-01,T_ABCD-1,2023-01-01,

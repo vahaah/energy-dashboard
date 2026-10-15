@@ -128,7 +128,7 @@ async function publishSnapshot(
     }
   }
   const body = `${JSON.stringify(snapshot)}\n`;
-  await store.put(directoryReleasePath(snapshot.content_hash), body, directoryImmutablePut());
+  await putReleaseIfAbsent(store, directoryReleasePath(snapshot.content_hash), body);
   const pointer = `${JSON.stringify({
     release_id: snapshot.release_id,
     generated_at: now.toISOString(),
@@ -138,6 +138,21 @@ async function publishSnapshot(
   }
   await store.put(DIRECTORY_LATEST_PATH, pointer, directoryMutablePut());
   return { ...base, bytes: Buffer.byteLength(body) };
+}
+
+async function putReleaseIfAbsent(store: DirectoryObjectStore, pathname: string, body: string): Promise<void> {
+  const existing = await store.get(pathname);
+  if (existing) {
+    return;
+  }
+  try {
+    await store.put(pathname, body, directoryImmutablePut());
+  } catch (error) {
+    const again = await store.get(pathname);
+    if (!again) {
+      throw error;
+    }
+  }
 }
 
 function emptyResult(): DirectoryIngestResult {

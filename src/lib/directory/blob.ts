@@ -23,6 +23,25 @@ export type DirectoryObjectStore = {
 const IMMUTABLE_CACHE_SECONDS = 60 * 60 * 24 * 365;
 const MUTABLE_CACHE_SECONDS = 60;
 
+/** ISD lookup snapshots are not a public download. The API is the read path. */
+export const DIRECTORY_BLOB_ACCESS = "private" as const;
+
+export function directoryBlobWriteOptions(options: DirectoryPutOptions): {
+  access: typeof DIRECTORY_BLOB_ACCESS;
+  addRandomSuffix: false;
+  allowOverwrite: boolean;
+  contentType: string;
+  cacheControlMaxAge: number;
+} {
+  return {
+    access: DIRECTORY_BLOB_ACCESS,
+    addRandomSuffix: false,
+    allowOverwrite: options.allowOverwrite,
+    contentType: options.contentType,
+    cacheControlMaxAge: options.cacheControlMaxAge,
+  };
+}
+
 export function directoryImmutablePut(): DirectoryPutOptions {
   return {
     allowOverwrite: false,
@@ -65,18 +84,12 @@ export class MemoryDirectoryStore implements DirectoryObjectStore {
 
 class VercelDirectoryStore implements DirectoryObjectStore {
   async put(pathname: string, body: string, options: DirectoryPutOptions): Promise<void> {
-    await put(pathname, body, {
-      access: "public",
-      addRandomSuffix: false,
-      allowOverwrite: options.allowOverwrite,
-      contentType: options.contentType,
-      cacheControlMaxAge: options.cacheControlMaxAge,
-    });
+    await put(pathname, body, directoryBlobWriteOptions(options));
   }
 
   async get(pathname: string): Promise<DirectoryStoredObject | null> {
     try {
-      const result = await get(pathname, { access: "public", useCache: true });
+      const result = await get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true });
       if (!result || result.statusCode !== 200 || !result.stream) {
         return null;
       }

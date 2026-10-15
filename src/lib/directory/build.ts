@@ -3,7 +3,7 @@ import { CATALOGUE_SCHEMA_VERSION } from "@/lib/catalogue/schema";
 import { canonicalJson, sha256Prefixed } from "@/lib/catalogue/canonical";
 import { isIsoDate, type DirectoryIdentifier, type DirectoryOrganisation, type DirectoryRoleAssignment, type DirectorySnapshot } from "@/lib/directory/schema";
 import { cell, columnIndex, parseIsdCsv } from "@/lib/directory/csv";
-import type { IdentifierScheme } from "@/lib/directory/copy";
+import { IDENTIFIER_CODE_PATTERN, intervalCovers, type IdentifierScheme } from "@/lib/directory/copy";
 
 const ORGANISATION_HEADER = [
   "Company Registration Number",
@@ -72,27 +72,28 @@ export function buildDirectory(extracts: DirectoryExtracts, recordedAt: string):
   const identifiers: DirectoryIdentifier[] = [];
   const roles: DirectoryRoleAssignment[] = [];
   for (const group of grouped.values()) {
-    const identifier = identifierForGroup(group, recordedAt);
-    identifiers.push(identifier);
-    for (const row of group.rows) {
-      roles.push({
-        role_assignment_id: stableId("rol", [identifier.identifier_id, row.roleCode, row.from, row.to ?? ""]),
-        identifier_id: identifier.identifier_id,
-        role_code: row.roleCode,
-        role_name: roleNames.get(row.roleCode) ?? "",
-        effective_from: row.from,
-        effective_to: row.to,
-        recorded_at: recordedAt,
-      });
+    for (const span of coverages(group.rows)) {
+      const identifier = identifierForSpan(group, span, recordedAt);
+      identifiers.push(identifier);
+      for (const row of span.rows) {
+        roles.push({
+          role_assignment_id: stableId("rol", [identifier.identifier_id, row.roleCode, row.from, row.to ?? ""]),
+          identifier_id: identifier.identifier_id,
+          role_code: row.roleCode,
+          role_name: roleNames.get(row.roleCode) ?? "",
+          effective_from: row.from,
+          effective_to: row.to,
+          recorded_at: recordedAt,
+        });
+      }
     }
   }
-  const mpidIdentifiers = identifiers.filter((item) => item.scheme === "MPID");
   for (const gsp of readGspGroups(extracts.gspGroups, recordedAt, () => {
     quarantined += 1;
   })) {
     identifiers.push(gsp);
   }
-  const bm = readBmUnits(extracts.bmUnits, mpidIdentifiers, roleNames, recordedAt, () => {
+  const bm = readBmUnits(extracts.bmUnits, identifiers, roles, roleNames, recordedAt, () => {
     quarantined += 1;
   });
   identifiers.push(...bm.identifiers);
@@ -203,32 +204,77 @@ function groupRoles(rows: readonly RoleRow[]): Map<string, { company: string; co
   return groups;
 }
 
-function identifierForGroup(
-  group: { company: string; code: string; rows: RoleRow[] },
+type CoverageSpan = {
+  from: string;
+  to: string | null;
+  rows: RoleRow[];
+};
+
+/** Merge overlapping or next-day role windows. A calendar gap stays a separate identifier. */
+function coverages(rows: readonly RoleRow[]): CoverageSpan[] {
+  const sorted = [...rows].sort(
+    (left, right) => left.from.localeCompare(right.from) || compareEnd(left.to, right.to),
+  );
+  const spans: CoverageSpan[] = [];
+  for (const row of sorted) {
+    const last = spans[spans.length - 1];
+    if (!last || gapBefore(last.to, row.from)) {
+      spans.push({ from: row.from, to: row.to, rows: [row] });
+      continue;
+    }
+    last.rows.push(row);
+    last.to = mergeEnd(last.to, row.to);
+  }
+  return spans;
+}
+
+function gapBefore(end: string | null, nextStart: string): boolean {
+  if (end === null) {
+    return false;
+  }
+  return nextStart > dayAfter(end);
+}
+
+function dayAfter(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function mergeEnd(left: string | null, right: string | null): string | null {
+  if (left === null || right === null) {
+    return null;
+  }
+  return left > right ? left : right;
+}
+
+function compareEnd(left: string | null, right: string | null): number {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null) {
+    return 1;
+  }
+  if (right === null) {
+    return -1;
+  }
+  return left.localeCompare(right);
+}
+
+function identifierForSpan(
+  group: { company: string; code: string },
+  span: CoverageSpan,
   recordedAt: string,
 ): DirectoryIdentifier {
-  let from = group.rows[0]?.from ?? "";
-  let open = false;
-  let to: string | null = null;
-  for (const row of group.rows) {
-    if (row.from < from) {
-      from = row.from;
-    }
-    if (row.to === null) {
-      open = true;
-    } else if (!open && (to === null || row.to > to)) {
-      to = row.to;
-    }
-  }
   const organisationId = `org_${group.company}`;
   return {
-    identifier_id: stableId("idn", ["MPID", group.code, organisationId, from]),
+    identifier_id: stableId("idn", ["MPID", group.code, organisationId, span.from]),
     organisation_id: organisationId,
     scheme: "MPID",
     code: group.code,
     label: null,
-    effective_from: from,
-    effective_to: open ? null : to,
+    effective_from: span.from,
+    effective_to: span.to,
     recorded_at: recordedAt,
   };
 }
@@ -267,7 +313,8 @@ function readGspGroups(csv: string, recordedAt: string, quarantine: () => void):
 
 function readBmUnits(
   csv: string,
-  mpids: readonly DirectoryIdentifier[],
+  identifiers: readonly DirectoryIdentifier[],
+  assignments: readonly DirectoryRoleAssignment[],
   roleNames: Map<string, string>,
   recordedAt: string,
   quarantine: () => void,
@@ -277,8 +324,8 @@ function readBmUnits(
   if (!index) {
     throw new Error("ISD BM unit columns changed");
   }
-  const identifiers: DirectoryIdentifier[] = [];
-  const roles: DirectoryRoleAssignment[] = [];
+  const bmIdentifiers: DirectoryIdentifier[] = [];
+  const bmRoles: DirectoryRoleAssignment[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
     const supplier = cell(row, index, "Market Participant (Supplier) ID");
@@ -286,19 +333,37 @@ function readBmUnits(
     const code = cell(row, index, "BM Unit ID");
     const from = parseDate(cell(row, index, "Effective From Settlement Date {BMU ID}"));
     const to = parseDate(cell(row, index, "Effective To Settlement Date {BMU ID}"));
+    const roleFrom = parseDate(cell(row, index, "Effective From Date {MPR}"));
     const roleName = roleNames.get(roleCode);
-    if (!/^[A-Za-z0-9_]{1,32}$/.test(code) || !from || to === undefined || (to !== null && to < from) || !roleName) {
+    if (
+      !IDENTIFIER_CODE_PATTERN.test(code) ||
+      !from ||
+      to === undefined ||
+      (to !== null && to < from) ||
+      !roleName ||
+      !roleFrom
+    ) {
       quarantine();
       continue;
     }
-    const holders = mpids.filter(
-      (item) => item.code === supplier && item.effective_from !== null && item.effective_from <= from && (item.effective_to === null || item.effective_to >= from),
-    );
+    const holders = assignments.filter((role) => {
+      const identifier = identifiers.find((item) => item.identifier_id === role.identifier_id);
+      return (
+        identifier?.scheme === "MPID" &&
+        identifier.code === supplier &&
+        role.role_code === roleCode &&
+        role.effective_from === roleFrom &&
+        intervalCovers(role.effective_from, role.effective_to, from)
+      );
+    });
     if (holders.length !== 1) {
       quarantine();
       continue;
     }
-    const holder = holders[0];
+    const holderRole = holders[0];
+    const holder = holderRole
+      ? identifiers.find((item) => item.identifier_id === holderRole.identifier_id)
+      : undefined;
     if (!holder) {
       quarantine();
       continue;
@@ -319,8 +384,8 @@ function readBmUnits(
       effective_to: to,
       recorded_at: recordedAt,
     };
-    identifiers.push(identifier);
-    roles.push({
+    bmIdentifiers.push(identifier);
+    bmRoles.push({
       role_assignment_id: stableId("rol", [identifier.identifier_id, roleCode, from, to ?? ""]),
       identifier_id: identifier.identifier_id,
       role_code: roleCode,
@@ -330,7 +395,7 @@ function readBmUnits(
       recorded_at: recordedAt,
     });
   }
-  return { identifiers, roles };
+  return { identifiers: bmIdentifiers, roles: bmRoles };
 }
 
 function finishSnapshot(

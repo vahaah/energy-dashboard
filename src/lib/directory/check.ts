@@ -56,6 +56,15 @@ export function checkDirectoryFixtures(cwd = process.cwd()): string[] {
   if (gsp.matches.length !== 1 || mpid.matches.length !== 0) {
     errors.push("GSP group namespace collided with MPID");
   }
+  const gap = lookupByCode(snapshot, "MPID", "GAP1", "2021-06-01");
+  const gapCurrent = gap.matches.flatMap((match) => match.identifiers).filter((identifier) => identifier.current);
+  if (gap.matches.length !== 2 || gapCurrent.length !== 0) {
+    errors.push("a gap between role windows is current");
+  }
+  const unit = lookupByCode(snapshot, "BM_UNIT_ID", "T_ABCD-1", EFFECTIVE_ON);
+  if (unit.matches[0]?.organisation?.organisation_id !== "org_44444444") {
+    errors.push("BM unit owner ignored the participant role date");
+  }
   if (built.quarantined < 2) {
     errors.push("directory fixture accepted a bad role row");
   }

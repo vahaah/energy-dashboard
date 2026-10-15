@@ -1,4 +1,5 @@
 import {
+  IDENTIFIER_CODE_PATTERN,
   intervalCovers,
   isIdentifierScheme,
   REDISTRIBUTION_NOT_PERMITTED,
@@ -38,7 +39,6 @@ export type LookupResult = {
 };
 
 const NAME_LIMIT = 20;
-const IDENTIFIER_LIMIT = 20;
 
 export function lookupByCode(
   snapshot: DirectorySnapshot,
@@ -55,22 +55,14 @@ export function lookupByName(snapshot: DirectorySnapshot, name: string, effectiv
   const needle = name.trim().toLocaleLowerCase("en-GB");
   const organisations = snapshot.organisations.filter((org) => org.name.toLocaleLowerCase("en-GB").includes(needle));
   const truncated = organisations.length > NAME_LIMIT;
-  const matches = organisations.slice(0, NAME_LIMIT).map((org) => {
-    const identifiers = snapshot.identifiers
+  const matches = organisations.slice(0, NAME_LIMIT).map((org) => ({
+    organisation: { organisation_id: org.organisation_id, name: org.name },
+    identifiers: snapshot.identifiers
       .filter((item) => item.organisation_id === org.organisation_id)
-      .sort(identifierOrder);
-    const capped = identifiers.slice(0, IDENTIFIER_LIMIT);
-    return {
-      organisation: { organisation_id: org.organisation_id, name: org.name },
-      identifiers: capped.map((identifier) => presentIdentifier(snapshot, identifier, effectiveOn)),
-      truncatedIdentifiers: identifiers.length > IDENTIFIER_LIMIT,
-    };
-  });
-  return {
-    effective_on: effectiveOn,
-    truncated: truncated || matches.some((match) => match.truncatedIdentifiers),
-    matches: matches.map(({ organisation, identifiers }) => ({ organisation, identifiers })),
-  };
+      .sort(identifierOrder)
+      .map((identifier) => presentIdentifier(snapshot, identifier, effectiveOn)),
+  }));
+  return { effective_on: effectiveOn, truncated, matches };
 }
 
 export type ResolveQuery = {
@@ -118,7 +110,7 @@ export function parseLookupSearch(params: URLSearchParams): ParsedLookup {
   if (!schemeRaw || !isIdentifierScheme(schemeRaw)) {
     return { ok: false, status: 400, error: "scheme must be MPID, BM_UNIT_ID, or GSP_GROUP" };
   }
-  if (!code || !/^[A-Za-z0-9_]{1,32}$/.test(code)) {
+  if (!code || !IDENTIFIER_CODE_PATTERN.test(code)) {
     return { ok: false, status: 400, error: "code is required" };
   }
   return { ok: true, kind: "code", scheme: schemeRaw, code, effectiveOn };
@@ -156,7 +148,7 @@ export function parseResolveBody(body: unknown): ParsedResolve {
     if (typeof item.scheme !== "string" || !isIdentifierScheme(item.scheme)) {
       return { ok: false, status: 400, error: "scheme must be MPID, BM_UNIT_ID, or GSP_GROUP" };
     }
-    if (typeof item.code !== "string" || !/^[A-Za-z0-9_]{1,32}$/.test(item.code)) {
+    if (typeof item.code !== "string" || !IDENTIFIER_CODE_PATTERN.test(item.code)) {
       return { ok: false, status: 400, error: "code is required" };
     }
     parsed.push({ scheme: item.scheme, code: item.code });
