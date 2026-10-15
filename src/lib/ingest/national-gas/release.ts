@@ -7,7 +7,14 @@ import {
   type NationalGasCatalogue,
 } from "@/lib/ingest/national-gas/catalogue";
 import type { GasObservation } from "@/lib/ingest/national-gas/parse";
-import { DEFERRED_PUBLICATION_IDS, GAS_FAMILIES } from "@/lib/ingest/national-gas/publications";
+import { gasDayBounds } from "@/lib/ingest/national-gas/gas-day";
+import {
+  DEFERRED_PUBLICATION_IDS,
+  GAS_FAMILIES,
+  GAS_PUBLICATION_IDS,
+  gasPublication,
+  parentPublicationId,
+} from "@/lib/ingest/national-gas/publications";
 import { GAS_BASES, GAS_QUANTITY_KINDS, type GasQuarantine } from "@/lib/ingest/national-gas/quantity";
 import { applyExclusiveCounts } from "@/lib/ingest/national-gas/total";
 
@@ -36,16 +43,44 @@ export const gasComponentSchema = z
     published_at: instantSchema,
     retrieved_at: instantSchema,
     forecast_issued_at: instantSchema.nullable(),
-    parent_publication_id: z.string().regex(/^PUB[A-Z0-9]+$/).nullable(),
+    parent_publication_id: z.string().nullable(),
   })
   .strict()
-  .refine(
-    (component) =>
-      component.quantity_kind === "forecast"
-        ? component.forecast_issued_at != null
-        : component.forecast_issued_at == null,
-    "forecast rows carry forecast_issued_at and other rows do not",
-  );
+  .superRefine((component, ctx) => {
+    if (component.quantity_kind === "forecast" ? component.forecast_issued_at == null : component.forecast_issued_at != null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "forecast rows carry forecast_issued_at and other rows do not",
+      });
+    }
+    if (!isGasPublicationId(component.publication_id)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${component.publication_id} is not a validated publication`,
+      });
+      return;
+    }
+    const publication = gasPublication(component.publication_id);
+    if (publication && component.metric_id !== publication.metric_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${component.publication_id} metric_id must be ${publication.metric_id}`,
+      });
+    }
+    const parent = parentPublicationId(component.publication_id);
+    if (component.parent_publication_id !== parent) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${component.publication_id} parent must be ${parent ?? "empty"}`,
+      });
+    }
+    if (component.parent_publication_id && !isGasPublicationId(component.parent_publication_id)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${component.parent_publication_id} is not a validated publication`,
+      });
+    }
+  });
 
 export const gasDaySchema = z
   .object({
@@ -53,7 +88,16 @@ export const gasDaySchema = z
     start: instantSchema,
     end: instantSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((day, ctx) => {
+    const expected = gasDayBounds(day.label);
+    if (!expected || day.start !== expected.start || day.end !== expected.end) {
+      ctx.addIssue({
+        code: "custom",
+        message: `gas_day ${day.label} must run ${expected?.start ?? "an invalid label"} to ${expected?.end ?? "an invalid label"}`,
+      });
+    }
+  });
 
 export const gasCoverageSchema = z
   .object({
@@ -122,7 +166,40 @@ export const gasReleaseSchema = z
     if (bases.join() !== sorted.join() || new Set(bases).size !== bases.length) {
       ctx.addIssue({ code: "custom", message: "bases must be the sorted validated set" });
     }
+    const countsById = new Map<string, boolean>();
+    for (const component of release.components) {
+      const previous = countsById.get(component.publication_id);
+      if (previous != null && previous !== component.counts) {
+        ctx.addIssue({ code: "custom", message: `${component.publication_id} has mixed counts` });
+      }
+      countsById.set(component.publication_id, component.counts);
+    }
+    const countedIds = [...countsById.entries()].filter((entry) => entry[1]).map(([id]) => id).sort();
+    const uncountedIds = [...countsById.entries()].filter((entry) => !entry[1]).map(([id]) => id).sort();
+    if (!sameIds(release.coverage.counted_publication_ids, countedIds) || !sameIds(release.coverage.uncounted_publication_ids, uncountedIds)) {
+      ctx.addIssue({ code: "custom", message: "coverage must match the components" });
+    }
+    if (!sameIds(release.coverage.deferred_publication_ids, [...DEFERRED_PUBLICATION_IDS])) {
+      ctx.addIssue({ code: "custom", message: "deferred publication ids must be the validated deferred list" });
+    }
+    for (const id of [
+      ...release.coverage.counted_publication_ids,
+      ...release.coverage.uncounted_publication_ids,
+      ...release.coverage.deferred_publication_ids,
+    ]) {
+      if (!isGasPublicationId(id)) {
+        ctx.addIssue({ code: "custom", message: `${id} is not a validated publication` });
+      }
+    }
   });
+
+function isGasPublicationId(id: string): boolean {
+  return (GAS_PUBLICATION_IDS as readonly string[]).includes(id);
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
 
 export type GasRelease = z.infer<typeof gasReleaseSchema>;
 export type GasComponent = z.infer<typeof gasComponentSchema>;

@@ -550,7 +550,8 @@ export const GAS_METRICS = {
     unit: "kWh",
     sign_convention: "positive_generation",
     dataset_id: "PUBOB4424",
-    coverage: "Storage withdrawal for the gas day, kWh. One value per gas day. The portal publishes withdrawal negative.",
+    coverage:
+      "Storage withdrawal for the gas day, kWh. One value per gas day. The portal publishes withdrawal negative; the stored value is positive generation.",
   },
   "gas.gb_nts.demand.actual_volume": {
     ...GAS_DAY_TOTAL,

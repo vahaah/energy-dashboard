@@ -1,5 +1,5 @@
 import { parseGasCsvTable } from "@/lib/ingest/national-gas/csv";
-import { gasDayContaining, gasDayFromLabel, gasDayLabelFromWall, parseLondonWallTime, type GasDay } from "@/lib/ingest/national-gas/gas-day";
+import { gasDayContaining, gasDayFromLabel, gasDayLabelFromWall, resolveLondonWallSequence, type GasDay } from "@/lib/ingest/national-gas/gas-day";
 import type { NationalGasCatalogue } from "@/lib/ingest/national-gas/catalogue";
 import {
   gasPublication,
@@ -46,7 +46,9 @@ export function parseGasCsv(text: string, catalogue: NationalGasCatalogue): GasP
   }
 
   const observations: GasObservation[] = [];
-  for (const row of table.rows) {
+  const applicableAt = resolvedColumn(table.rows, "Applicable At");
+  const publishedAt = resolvedColumn(table.rows, "Generated Time");
+  for (const [index, row] of table.rows.entries()) {
     const name = row["Data Item"] ?? "";
     const catalogueRow = byName.get(name);
     if (!catalogueRow) {
@@ -60,7 +62,14 @@ export function parseGasCsv(text: string, catalogue: NationalGasCatalogue): GasP
       );
       continue;
     }
-    const parsed = parseRow(row, publication, catalogueRow.unitOfMeasure, quarantined);
+    const parsed = parseRow(
+      row,
+      publication,
+      catalogueRow.unitOfMeasure,
+      applicableAt[index] ?? null,
+      publishedAt[index] ?? null,
+      quarantined,
+    );
     if (!parsed) {
       continue;
     }
@@ -76,14 +85,32 @@ export function parseGasCsv(text: string, catalogue: NationalGasCatalogue): GasP
   return { observations, quarantine: quarantined };
 }
 
+function resolvedColumn(rows: readonly Record<string, string>[], column: "Applicable At" | "Generated Time"): (Date | null)[] {
+  const resolved: (Date | null)[] = rows.map(() => null);
+  const groups = new Map<string, number[]>();
+  rows.forEach((row, index) => {
+    const key = row["Data Item"] ?? "";
+    const indexes = groups.get(key) ?? [];
+    indexes.push(index);
+    groups.set(key, indexes);
+  });
+  for (const indexes of groups.values()) {
+    const instants = resolveLondonWallSequence(indexes.map((index) => rows[index]?.[column] ?? ""));
+    indexes.forEach((rowIndex, index) => {
+      resolved[rowIndex] = instants[index] ?? null;
+    });
+  }
+  return resolved;
+}
+
 function parseRow(
   row: Record<string, string>,
   publication: GasPublication,
   unit: string,
+  applicableAt: Date | null,
+  publishedAt: Date | null,
   quarantined: GasQuarantine[],
 ): GasObservation | null {
-  const applicableAt = parseLondonWallTime(row["Applicable At"] ?? "");
-  const publishedAt = parseLondonWallTime(row["Generated Time"] ?? "");
   if (!applicableAt || !publishedAt) {
     quarantined.push(
       quarantine(
@@ -111,7 +138,7 @@ function parseRow(
       quarantined.push(quarantine("unparsed_value", publication.publication_id, "Value", rawValue));
       return null;
     }
-    value = parsed;
+    value = publication.negate_portal_value ? -parsed : parsed;
   }
 
   const quality = takeQuality(row["Quality Indicator"] ?? "", publication.publication_id);

@@ -3,11 +3,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { addUtcDays } from "@/lib/london-time";
 import { loadNationalGasCatalogue } from "@/lib/ingest/national-gas/catalogue";
-import { checkGasRelease, checkNationalGasSpike, gasFixtureDir } from "@/lib/ingest/national-gas/check";
-import { gasDayContaining, gasDayFromLabel } from "@/lib/ingest/national-gas/gas-day";
+import { checkDateFormatText, checkGasRelease, checkInstantaneousFlowText, checkNationalGasSpike, gasFixtureDir } from "@/lib/ingest/national-gas/check";
+import { gasDayContaining, gasDayFromLabel, parseLondonWallTime, resolveLondonWallSequence } from "@/lib/ingest/national-gas/gas-day";
 import { parseGasCsv, type GasObservation } from "@/lib/ingest/national-gas/parse";
 import { GAS_PUBLICATION_IDS } from "@/lib/ingest/national-gas/publications";
 import { takeGasBasis, takeGasQuantityKind } from "@/lib/ingest/national-gas/quantity";
+import { GAS_METRICS } from "@/lib/metrics";
 import { buildGasRelease, GAS_SPIKE_RETRIEVED_AT, gasReleaseSchema } from "@/lib/ingest/national-gas/release";
 import { partsReconcile, sumDayTotals } from "@/lib/ingest/national-gas/total";
 
@@ -49,6 +50,37 @@ describe("gas day", () => {
     });
     expect(gasDayContaining(new Date("2026-10-25T04:30:00.000Z"))).toEqual(gasDayFromLabel("2026-10-24"));
     expect(gasDayContaining(new Date("2026-10-25T05:00:00.000Z")).label).toBe("2026-10-25");
+  });
+
+  it("keeps both occurrences of the fallback hour and rejects impossible clocks", () => {
+    const resolved = resolveLondonWallSequence([
+      "25/10/2026 02:00:00",
+      "25/10/2026 01:30:00",
+      "25/10/2026 01:00:00",
+      "25/10/2026 01:30:00",
+      "25/10/2026 01:00:00",
+      "25/10/2026 00:30:00",
+    ]);
+    expect(resolved.map((instant) => instant?.toISOString())).toEqual([
+      "2026-10-25T02:00:00.000Z",
+      "2026-10-25T01:30:00.000Z",
+      "2026-10-25T01:00:00.000Z",
+      "2026-10-25T00:30:00.000Z",
+      "2026-10-25T00:00:00.000Z",
+      "2026-10-24T23:30:00.000Z",
+    ]);
+    expect(parseLondonWallTime("25/10/2026 01:30:00+01:00")?.toISOString()).toBe("2026-10-25T00:30:00.000Z");
+    expect(parseLondonWallTime("25/10/2026 01:30:00+00:00")?.toISOString()).toBe("2026-10-25T01:30:00.000Z");
+    expect(parseLondonWallTime("25/10/2026 01:30:00")).toBeNull();
+    expect(parseLondonWallTime("31/02/2026 00:00:00")).toBeNull();
+    expect(parseLondonWallTime("14/10/2026 24:00:00")).toBeNull();
+    expect(parseLondonWallTime("14/10/2026 12:60:00")).toBeNull();
+    expect(parseLondonWallTime("14/10/2026 12:00:60")).toBeNull();
+    expect(parseLondonWallTime("29/03/2026 01:30:00")).toBeNull();
+    expect(resolveLondonWallSequence(["25/10/2026 01:30:00", "25/10/2026 01:30:00"]).map((instant) => instant?.toISOString())).toEqual([
+      "2026-10-25T01:30:00.000Z",
+      "2026-10-25T00:30:00.000Z",
+    ]);
   });
 
   it("puts a rate before 05:00 on the previous gas day and 05:00 on the new one", () => {
@@ -182,7 +214,10 @@ describe("national gas parsers", () => {
       expect([...byDay.values()].every((count) => count === 1)).toBe(true);
     }
     expect(observations("PUBOB4423").every((row) => (row.value ?? 0) > 0)).toBe(true);
-    expect(observations("PUBOB4424").every((row) => (row.value ?? 0) < 0)).toBe(true);
+    expect(observations("PUBOB4424").every((row) => (row.value ?? 0) > 0)).toBe(true);
+    expect(observations("PUBOB4424")[0]?.value).toBe(61792034);
+    expect(readFixture("PUBOB4424")).toContain(",-61792034,");
+    expect(GAS_METRICS["gas.gb_nts.storage.withdrawal"].sign_convention).toBe("positive_generation");
     const both = [...observations("PUBOB4423").slice(0, 1), ...observations("PUBOB4424").slice(0, 1)];
     expect(sumDayTotals(both).ok).toBe(false);
   });
@@ -223,6 +258,12 @@ describe("national gas parsers", () => {
     expect(parsed.observations.map((row) => row.name)).not.toContain("Not a series");
   });
 
+  it("accepts quality indicator A on a finished-day supply row", () => {
+    const parsed = parseGasCsv(readFixture("PUBOBJ635"), catalogue);
+    expect(parsed.quarantine).toEqual([]);
+    expect(parsed.observations).toHaveLength(3);
+  });
+
   it("stores a blank value as null", () => {
     const header = readFixture("PUBOB2042").split("\n").slice(0, 6).join("\n");
     const text = `${header}\nApplicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator\n14/10/2026 06:00:10,14/10/2026,"System Entry Flows, National, Physical",,14/10/2026 06:05:00,\n`;
@@ -254,6 +295,64 @@ describe("gas release contract", () => {
     expect(release.coverage.counted_publication_ids).toContain("PUBOB637");
     expect(release.coverage.uncounted_publication_ids).toContain("PUBOBJ1015");
     expect(release.components.every((component) => component.retrieved_at === GAS_SPIKE_RETRIEVED_AT)).toBe(true);
+  });
+
+  it("rejects a publication outside the validated list", () => {
+    const broken = structuredClone(release);
+    const component = broken.components[0];
+    expect(component).toBeDefined();
+    if (component) {
+      component.publication_id = "PUBSYNTH";
+    }
+    expect(checkGasRelease(JSON.stringify(broken)).join("\n")).toMatch(/PUBSYNTH/);
+  });
+
+  it("rejects a metric id that does not belong to the publication", () => {
+    const broken = structuredClone(release);
+    const component = broken.components.find((row) => row.publication_id === "PUBOB2042");
+    expect(component).toBeDefined();
+    if (component) {
+      component.metric_id = "gas.gb_nts.entry.physical.north";
+    }
+    expect(checkGasRelease(JSON.stringify(broken)).join("\n")).toMatch(/metric_id/);
+  });
+
+  it("rejects coverage that does not match the components", () => {
+    const broken = structuredClone(release);
+    broken.coverage.counted_publication_ids = [];
+    expect(checkGasRelease(JSON.stringify(broken)).join("\n")).toMatch(/coverage must match the components/);
+  });
+
+  it("rejects a gas day interval that does not match its label", () => {
+    const broken = structuredClone(release);
+    broken.gas_day.end = gasDayFromLabel("2026-10-14").end;
+    expect(checkGasRelease(JSON.stringify(broken)).join("\n")).toMatch(/gas_day/);
+  });
+
+  it("requires both date probes and an anonymous instantaneous-flow success", () => {
+    const dates = JSON.parse(readFileSync(join(process.cwd(), "data/catalogue/national-gas/date-format.json"), "utf8")) as {
+      results: { format: string; works: boolean }[];
+    };
+    const calendar = dates.results.find((result) => result.format === "YYYY-MM-DD");
+    expect(calendar).toBeDefined();
+    if (calendar) {
+      calendar.works = false;
+    }
+    expect(checkDateFormatText(JSON.stringify(dates)).join("\n")).toMatch(/YYYY-MM-DD/);
+
+    const flow = JSON.parse(readFileSync(join(process.cwd(), "data/catalogue/national-gas/instantaneous-flow.json"), "utf8")) as {
+      needs_login: boolean;
+      endpoints: { http: number; url: string }[];
+    };
+    flow.needs_login = true;
+    const sites = flow.endpoints.find((endpoint) => endpoint.url.endsWith("/sites"));
+    expect(sites).toBeDefined();
+    if (sites) {
+      sites.http = 401;
+    }
+    const errors = checkInstantaneousFlowText(JSON.stringify(flow)).join("\n");
+    expect(errors).toMatch(/needs_login/);
+    expect(errors).toMatch(/sites GET/);
   });
 
   it("rejects a release that counts a rate", () => {

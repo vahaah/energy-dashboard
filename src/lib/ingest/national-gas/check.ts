@@ -191,16 +191,7 @@ function checkFixture(
 
 function checkDateFormat(gasDir: string): string[] {
   try {
-    const parsed = dateFormatSchema.parse(JSON.parse(readFileSync(join(gasDir, "date-format.json"), "utf8")));
-    const timestamp = parsed.results.find((result) => result.length === 19);
-    if (!timestamp?.works) {
-      return ["date-format.json: the 19-character timestamp probe did not work"];
-    }
-    const calendar = parsed.results.find((result) => result.format === "YYYY-MM-DD");
-    if (!calendar) {
-      return ["date-format.json: missing the YYYY-MM-DD probe"];
-    }
-    return [];
+    return checkDateFormatText(readFileSync(join(gasDir, "date-format.json"), "utf8"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [`date-format.json: ${message}`];
@@ -209,12 +200,28 @@ function checkDateFormat(gasDir: string): string[] {
 
 function checkInstantaneousFlow(gasDir: string): string[] {
   try {
-    instantaneousFlowSchema.parse(JSON.parse(readFileSync(join(gasDir, "instantaneous-flow.json"), "utf8")));
-    return [];
+    return checkInstantaneousFlowText(readFileSync(join(gasDir, "instantaneous-flow.json"), "utf8"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [`instantaneous-flow.json: ${message}`];
   }
+}
+
+function instantaneousFlowErrors(parsed: z.infer<typeof instantaneousFlowSchema>): string[] {
+  const errors: string[] = [];
+  if (parsed.needs_login) {
+    errors.push("instantaneous-flow.json: needs_login must be false");
+  }
+  const sites = parsed.endpoints.find((endpoint) => endpoint.url.endsWith("/instantaneousflow/sites"));
+  if (!sites || sites.http !== 200) {
+    errors.push("instantaneous-flow.json: sites GET must succeed without credentials");
+  }
+  for (const endpoint of parsed.endpoints) {
+    if (endpoint.http !== 200) {
+      errors.push(`instantaneous-flow.json: ${endpoint.url} returned ${endpoint.http}`);
+    }
+  }
+  return errors;
 }
 
 export function checkReleaseFile(releasePath: string): string[] {
@@ -223,6 +230,37 @@ export function checkReleaseFile(releasePath: string): string[] {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return [`gas release: ${message}`];
+  }
+}
+
+export function checkDateFormatText(text: string): string[] {
+  try {
+    const parsed = dateFormatSchema.parse(JSON.parse(text));
+    const timestamp = parsed.results.find((result) => result.length === 19);
+    if (!timestamp?.works) {
+      return ["date-format.json: the 19-character timestamp probe did not work"];
+    }
+    const calendar = parsed.results.find((result) => result.format === "YYYY-MM-DD");
+    if (!calendar) {
+      return ["date-format.json: missing the YYYY-MM-DD probe"];
+    }
+    if (!calendar.works) {
+      return ["date-format.json: the YYYY-MM-DD probe did not work"];
+    }
+    return [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [`date-format.json: ${message}`];
+  }
+}
+
+export function checkInstantaneousFlowText(text: string): string[] {
+  try {
+    const parsed = instantaneousFlowSchema.parse(JSON.parse(text));
+    return instantaneousFlowErrors(parsed);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [`instantaneous-flow.json: ${message}`];
   }
 }
 

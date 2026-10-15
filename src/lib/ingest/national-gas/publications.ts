@@ -11,6 +11,8 @@ export type GasPublication = {
   /** False for rates, forecasts, stocks, and the deferred demand series. */
   counts: boolean;
   verified: boolean;
+  /** Portal sign is the opposite of the metric. PUBOB4424 withdrawals are published negative. */
+  negate_portal_value: boolean;
 };
 
 export type GasFamily = {
@@ -24,6 +26,7 @@ const FLOW = {
   gas_day_from: "applicable_at",
   counts: false,
   verified: true,
+  negate_portal_value: false,
 } as const satisfies Omit<GasPublication, "publication_id" | "metric_id">;
 
 const FORECAST = {
@@ -32,6 +35,7 @@ const FORECAST = {
   gas_day_from: "applicable_for",
   counts: false,
   verified: true,
+  negate_portal_value: false,
 } as const satisfies Omit<GasPublication, "publication_id" | "metric_id">;
 
 const DAY = {
@@ -40,6 +44,7 @@ const DAY = {
   gas_day_from: "applicable_for",
   counts: true,
   verified: true,
+  negate_portal_value: false,
 } as const satisfies Omit<GasPublication, "publication_id" | "metric_id">;
 
 const STOCK = {
@@ -48,6 +53,7 @@ const STOCK = {
   gas_day_from: "applicable_for",
   counts: false,
   verified: true,
+  negate_portal_value: false,
 } as const satisfies Omit<GasPublication, "publication_id" | "metric_id">;
 
 function publication(
@@ -67,12 +73,16 @@ export const GAS_PUBLICATIONS = [
   publication("PUBOB2043", "gas.gb_nts.entry.physical.north", FLOW),
   publication("PUBOB2044", "gas.gb_nts.entry.physical.south", FLOW),
   publication("PUBOB19", "gas.gb_nts.entry.forecast", FORECAST),
-  publication("PUBOB4422", "gas.gb_nts.demand.actual_energy", { ...DAY, counts: false, verified: false }),
+  publication("PUBOB4422", "gas.gb_nts.demand.actual_energy", {
+    ...DAY,
+    counts: false,
+    verified: false,
+  }),
   publication("PUBOB29", "gas.gb_nts.linepack.opening_interim", STOCK),
   publication("PUBOB30", "gas.gb_nts.linepack.pclp1", STOCK),
   publication("PUBOB31", "gas.gb_nts.linepack.pclp2", STOCK),
   publication("PUBOB4423", "gas.gb_nts.storage.injection", DAY),
-  publication("PUBOB4424", "gas.gb_nts.storage.withdrawal", DAY),
+  publication("PUBOB4424", "gas.gb_nts.storage.withdrawal", { ...DAY, negate_portal_value: true }),
   publication("PUBOB637", "gas.gb_nts.demand.actual_volume", DAY),
   publication("PUBOBJ635", "gas.gb_nts.supply.physical_volume", DAY),
   publication("PUBOBJ636", "gas.gb_nts.supply.physical_energy", DAY),

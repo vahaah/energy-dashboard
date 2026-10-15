@@ -16,7 +16,7 @@ export type GasBasis = (typeof GAS_BASES)[number];
 export const GAS_NULL_BEHAVIOUR =
   "A blank Value is null, never 0. A blank Quality Indicator is null.";
 
-const KNOWN_QUALITY = new Set(["", "L"]);
+const KNOWN_QUALITY = new Set(["", "A", "L"]);
 
 export type GasQuarantineReason =
   | "unknown_publication"
