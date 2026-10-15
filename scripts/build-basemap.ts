@@ -59,6 +59,33 @@ function requireToken(): void {
   process.exit(2);
 }
 
+/**
+ * MBTiles can store tiles as a plain table or as a deduplicated map/images
+ * pair behind a tiles view. OS Open Zoomstack ships the second, where the
+ * view cannot be deleted from.
+ */
+function mbtilesTilesKind(file: string): "table" | "view" {
+  const kind = execFileSync("sqlite3", [file, "SELECT type FROM sqlite_master WHERE name = 'tiles';"], {
+    encoding: "utf8",
+  }).trim();
+  if (kind === "table" || kind === "view") {
+    return kind;
+  }
+  throw new Error(`MBTiles has no tiles table or view (found ${kind || "nothing"})`);
+}
+
+function trimZoomSql(kind: "table" | "view", maxZoom: number): string {
+  const zoom = Math.trunc(maxZoom);
+  const remove =
+    kind === "table"
+      ? `DELETE FROM tiles WHERE zoom_level > ${zoom};`
+      : `DELETE FROM map WHERE zoom_level > ${zoom};
+       DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map);`;
+  return `${remove}
+       UPDATE metadata SET value = '${zoom}' WHERE name = 'maxzoom';
+       VACUUM;`;
+}
+
 function pmtilesAsset(): { name: string; url: string } {
   const platform = process.platform;
   const arch = process.arch === "arm64" ? "arm64" : "x86_64";
@@ -119,9 +146,39 @@ function mbtilesBounds(file: string): [number, number, number, number] {
   }).trim();
   const parts = output.split(",").map((part) => Number(part.trim()));
   if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
-    throw new Error(`MBTiles bounds were ${output || "missing"}`);
+    // OS Open Zoomstack ships no bounds row, so derive them from the tile grid.
+    return tileGridBounds(file);
   }
   return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0, parts[3] ?? 0];
+}
+
+function tileGridBounds(file: string): [number, number, number, number] {
+  const output = execFileSync(
+    "sqlite3",
+    [
+      file,
+      "SELECT zoom_level, MIN(tile_column), MAX(tile_column), MIN(tile_row), MAX(tile_row) FROM tiles WHERE zoom_level = (SELECT MAX(zoom_level) FROM tiles);",
+    ],
+    { encoding: "utf8" },
+  ).trim();
+  const [z, minX, maxX, minRow, maxRow] = output.split("|").map((part) => Number(part));
+  if ([z, minX, maxX, minRow, maxRow].some((part) => part === undefined || !Number.isFinite(part))) {
+    throw new Error(`MBTiles bounds were missing and the tile grid was ${output || "empty"}`);
+  }
+  const n = 2 ** (z as number);
+  const lon = (x: number) => (x / n) * 360 - 180;
+  // MBTiles rows are TMS, counted from the south.
+  const lat = (row: number) => {
+    const y = n - row;
+    return (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI;
+  };
+  const round = (value: number) => Math.round(value * 1e4) / 1e4;
+  return [
+    round(lon(minX as number)),
+    round(lat(minRow as number)),
+    round(lon((maxX as number) + 1)),
+    round(lat((maxRow as number) + 1)),
+  ];
 }
 
 function readLayers(dir: string): MapLayer[] {
@@ -169,19 +226,15 @@ async function main(): Promise<void> {
     throw new Error(`OS Open Zoomstack edition was ${edition || "missing"}`);
   }
   const year = Number(edition.slice(0, 4));
-  const mbtiles = join(work, "OS_Open_Zoomstack.mbtiles");
-  console.log(`downloading OS Open Zoomstack ${edition}`);
-  await downloadTo(OS_ZOOMSTACK_DOWNLOAD_URL, mbtiles);
-  execFileSync(
-    "sqlite3",
-    [
-      mbtiles,
-      `DELETE FROM tiles WHERE zoom_level > ${BASEMAP_ZOOM_MAX};
-       UPDATE metadata SET value = '${BASEMAP_ZOOM_MAX}' WHERE name = 'maxzoom';
-       VACUUM;`,
-    ],
-    { stdio: "inherit" },
-  );
+  const reuse = process.env.BASEMAP_MBTILES;
+  const mbtiles = reuse && reuse.length > 0 ? resolve(reuse) : join(work, "OS_Open_Zoomstack.mbtiles");
+  if (reuse && reuse.length > 0) {
+    console.log(`reusing ${mbtiles} for OS Open Zoomstack ${edition}`);
+  } else {
+    console.log(`downloading OS Open Zoomstack ${edition}`);
+    await downloadTo(OS_ZOOMSTACK_DOWNLOAD_URL, mbtiles);
+  }
+  execFileSync("sqlite3", [mbtiles, trimZoomSql(mbtilesTilesKind(mbtiles), BASEMAP_ZOOM_MAX)], { stdio: "inherit" });
   const bin = pmtilesBin(work);
   const pmtiles = join(work, `${edition}.pmtiles`);
   execFileSync(bin, ["convert", mbtiles, pmtiles], { stdio: "inherit" });
