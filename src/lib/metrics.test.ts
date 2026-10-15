@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
+import { GAS_PUBLICATIONS } from "@/lib/ingest/national-gas/publications";
 import {
+  GAS_METRICS,
   homepageDemandFigureInputs,
   isGeographyId,
   METRICS,
@@ -197,6 +199,34 @@ describe("geography enum", () => {
       aggregation: "last",
     });
     expect(METRICS["elec.gb.price.imbalance"].coverage).toContain("price_gbp_mwh");
+  });
+});
+
+describe("gas metrics", () => {
+  it("registers GB_NTS physical series outside the surfaced registry", () => {
+    expect(Object.keys(GAS_METRICS).sort()).toEqual(
+      GAS_PUBLICATIONS.map((row) => row.metric_id).sort(),
+    );
+    for (const metric of Object.values(GAS_METRICS)) {
+      expect(metric.geography_id).toBe("GB_NTS");
+      expect(Object.hasOwn(METRICS, metric.metric_id)).toBe(false);
+      expect(metric.dataset_id).toMatch(/^PUB[A-Z0-9]+$/);
+      expect(metric.interval_convention).toBe("gas_day_half_open");
+      if (metric.quantity_kind === "instantaneous_rate") {
+        expect(metric.aggregation).not.toBe("sum");
+      }
+      if (metric.quantity_kind === "interval_total" || metric.quantity_kind === "stock") {
+        expect(metric.aggregation).toBe("last");
+      }
+      const publication = GAS_PUBLICATIONS.find((row) => row.metric_id === metric.metric_id);
+      expect(publication?.publication_id).toBe(metric.dataset_id);
+      expect(publication && metric.unit.length).toBeGreaterThan(0);
+      expect(metric.expected_cadence.length).toBeGreaterThan(0);
+      expect(metric.publication_lag.length).toBeGreaterThan(0);
+    }
+    expect(GAS_METRICS["commodity.gb_gas_sap.price" as keyof typeof GAS_METRICS]).toBeUndefined();
+    expect(METRICS["commodity.gb_gas_sap.price"].publication_lag).toBe("P1D");
+    expect(METRICS["commodity.gb_gas_sap.price"].stale_grace).toBe("P2D");
   });
 });
 

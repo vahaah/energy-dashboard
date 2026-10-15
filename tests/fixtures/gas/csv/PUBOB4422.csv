@@ -1,0 +1,39 @@
+# publication_id: PUBOB4422
+# catalogue_version: API Data Item List v2.3.7
+# unit: kWh
+# quantity_kind: day total
+# gas_day: Applicable For is the gas day label. The gas day runs 05:00–05:00 Europe/London. Applicable At and Generated Time are publication stamps, not the gas-day start.
+# null_behaviour: A blank Value is null, never 0. A blank Quality Indicator is null.
+# verification: Not an intraday cumulative: the January 2025 gasday extract has one row per gas day. All 31 values were 199.057290731661. The catalogue unit is kWh, which is not an NTS-scale throughput. The CSV download for 2026-09-01 to 2026-10-15 was empty (1 byte). Deferred from totals.
+Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator
+13/02/2025 15:55:00,01/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:01,
+13/02/2025 15:55:00,02/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:01,
+13/02/2025 15:55:00,03/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:01,
+13/02/2025 15:55:00,04/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:01,
+13/02/2025 15:55:00,05/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:01,
+13/02/2025 15:55:00,06/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,07/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,08/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,09/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,10/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,11/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,12/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,13/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,14/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,15/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,16/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,17/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,18/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,19/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,20/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,21/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,22/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,23/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,24/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,25/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:02,
+13/02/2025 15:55:00,26/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,
+13/02/2025 15:55:00,27/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,
+13/02/2025 15:55:00,28/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,
+13/02/2025 15:55:00,29/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,
+13/02/2025 15:55:00,30/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,
+13/02/2025 15:55:00,31/01/2025,"Demand Actual, NTS, Energy",199.057290731661,13/02/2025 15:55:03,

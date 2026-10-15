@@ -1,0 +1,32 @@
+# publication_id: PUBOB2043
+# catalogue_version: API Data Item List v2.3.7
+# unit: mscm/d
+# quantity_kind: rate
+# gas_day: Applicable At is the London wall clock of the rate. The gas day runs 05:00–05:00 Europe/London and is computed from that instant. Applicable For on this extract is the calendar date, so it disagrees before 05:00.
+# null_behaviour: A blank Value is null, never 0. A blank Quality Indicator is null.
+Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator
+15/10/2026 01:00:08,15/10/2026,"System Entry Flows, North, Physical",91.809180528856814244,15/10/2026 01:05:00,
+15/10/2026 00:00:08,15/10/2026,"System Entry Flows, North, Physical",79.776025328785181616,15/10/2026 00:05:00,
+14/10/2026 23:00:06,14/10/2026,"System Entry Flows, North, Physical",73.28896900266408832,14/10/2026 23:05:00,
+14/10/2026 22:00:07,14/10/2026,"System Entry Flows, North, Physical",69.856661183759569747,14/10/2026 22:05:00,
+14/10/2026 21:00:07,14/10/2026,"System Entry Flows, North, Physical",69.903254577890035928,14/10/2026 21:05:00,
+14/10/2026 20:00:07,14/10/2026,"System Entry Flows, North, Physical",70.006619676947592994,14/10/2026 20:05:00,
+14/10/2026 19:00:07,14/10/2026,"System Entry Flows, North, Physical",69.815845690667629484,14/10/2026 19:05:00,
+14/10/2026 18:00:11,14/10/2026,"System Entry Flows, North, Physical",70.856989440508186056,14/10/2026 18:05:00,
+14/10/2026 17:00:07,14/10/2026,"System Entry Flows, North, Physical",70.78560532350093181,14/10/2026 17:05:00,
+14/10/2026 16:00:08,14/10/2026,"System Entry Flows, North, Physical",71.073445300571621058,14/10/2026 16:05:00,
+14/10/2026 15:00:08,14/10/2026,"System Entry Flows, North, Physical",70.762115196324885368,14/10/2026 15:05:00,
+14/10/2026 14:00:06,14/10/2026,"System Entry Flows, North, Physical",70.825911793857814281,14/10/2026 14:05:00,
+14/10/2026 13:00:07,14/10/2026,"System Entry Flows, North, Physical",71.199573016725479002,14/10/2026 13:05:00,
+14/10/2026 12:00:07,14/10/2026,"System Entry Flows, North, Physical",71.422817240469158202,14/10/2026 12:05:00,
+14/10/2026 11:00:05,14/10/2026,"System Entry Flows, North, Physical",72.589489018544553851,14/10/2026 11:05:00,
+14/10/2026 10:00:07,14/10/2026,"System Entry Flows, North, Physical",71.401026865467429874,14/10/2026 10:05:00,
+14/10/2026 09:00:04,14/10/2026,"System Entry Flows, North, Physical",72.066444958560168923,14/10/2026 09:05:00,
+14/10/2026 08:00:06,14/10/2026,"System Entry Flows, North, Physical",71.729960807599127754,14/10/2026 08:05:00,
+14/10/2026 07:00:06,14/10/2026,"System Entry Flows, North, Physical",71.64388924930244728,14/10/2026 07:05:00,
+14/10/2026 06:00:10,14/10/2026,"System Entry Flows, North, Physical",71.198958896100520725,14/10/2026 06:05:00,
+14/10/2026 05:00:12,14/10/2026,"System Entry Flows, North, Physical",71.425705541856586578,14/10/2026 05:05:00,
+14/10/2026 04:00:05,14/10/2026,"System Entry Flows, North, Physical",71.29945872351527091,14/10/2026 04:05:00,
+14/10/2026 03:00:23,14/10/2026,"System Entry Flows, North, Physical",81.610081772319973106,14/10/2026 03:05:00,
+14/10/2026 02:00:10,14/10/2026,"System Entry Flows, North, Physical",81.423619852401315213,14/10/2026 02:05:00,
+14/10/2026 01:00:09,14/10/2026,"System Entry Flows, North, Physical",71.710650932043790094,14/10/2026 01:05:00,

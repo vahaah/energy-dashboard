@@ -1,0 +1,10 @@
+# publication_id: PUBOBJ1020
+# catalogue_version: API Data Item List v2.3.7
+# unit: mscm
+# quantity_kind: day total
+# gas_day: Applicable For is the gas day label. The gas day runs 05:00–05:00 Europe/London. Applicable At and Generated Time are publication stamps, not the gas-day start.
+# null_behaviour: A blank Value is null, never 0. A blank Quality Indicator is null.
+Applicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator
+14/10/2026 15:20:00,13/10/2026,"NTS Volume Offtaken, Interconnector Exports Total",30.2398,14/10/2026 15:20:00,
+13/10/2026 12:20:01,12/10/2026,"NTS Volume Offtaken, Interconnector Exports Total",37.9795,13/10/2026 12:20:01,
+12/10/2026 12:20:01,11/10/2026,"NTS Volume Offtaken, Interconnector Exports Total",35.6052,12/10/2026 12:20:01,

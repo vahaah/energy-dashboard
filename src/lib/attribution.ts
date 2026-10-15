@@ -54,10 +54,10 @@ export const WORLD_BANK_PINK_SHEET_ATTRIBUTION =
 export const NATIONAL_GAS_PORTAL_URL = "https://data.nationalgas.com";
 
 export const NATIONAL_GAS_ATTRIBUTION =
-  "Contains National Gas Transmission operational data from the Gas Data Portal (PUBOB603, System Average Price).";
+  "Data sourced from the National Gas Transmission Data Portal.";
 
 export const NATIONAL_GAS_LICENCE =
-  "Published as open operational data under the National Gas System Operator licence.";
+  "National Gas Transmission confirmed in writing on 14 Oct 2026 that Grid may reuse Gas Data Portal and API data. Published as open operational data under the National Gas System Operator licence.";
 
 export const OGL_V3_LICENCE_URL =
   "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/";

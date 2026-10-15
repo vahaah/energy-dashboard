@@ -40,7 +40,7 @@ export default function DataSourcesPage() {
               source.licence
             )}
             . Source:{" "}
-            <a href={source.url} className="text-blue-700 underline-offset-2 hover:underline">
+            <a href={source.url} className="break-all text-blue-700 underline-offset-2 hover:underline">
               {source.url.replace(/^https?:\/\//, "")}
             </a>
             .
