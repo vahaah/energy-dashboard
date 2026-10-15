@@ -7,6 +7,7 @@ vi.mock("workflow/api", () => ({
 }));
 
 import { GET as cron } from "@/app/api/cron/route";
+import { GET as gas } from "@/app/api/cron-gas/route";
 import { GET as prices } from "@/app/api/cron-prices/route";
 import { GET as warm } from "@/app/api/cron-warm/route";
 import { GET as yesterday } from "@/app/api/cron-yesterday/route";
@@ -30,6 +31,7 @@ describe("cron starters", () => {
     ["cron-warm", warm],
     ["cron-prices", prices],
     ["cron-yesterday", yesterday],
+    ["cron-gas", gas],
   ] as const)("%s only authenticates and starts a run", async (name, handler) => {
     const denied = await handler(new Request(`http://localhost/api/${name}`));
     expect(denied.status).toBe(401);

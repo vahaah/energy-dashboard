@@ -15,13 +15,14 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { METRICS, metricSourceLabel, staleGrace, type MetricId } from "@/lib/metrics";
+import { gasMetricLabel, gasReadingStale, latestComponent, loadGasRelease } from "@/lib/gas/query";
+import { GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type GasMetricId, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
 
 export type DataHealthReading = {
-  metric_id: MetricId;
+  metric_id: string;
   label: string;
   unit: string;
   source: string;
@@ -367,7 +368,7 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
   observed.set("elec.gb.generation.balance", aligned.balance);
   observed.set("elec.gb.share.wind_solar_hydro", aligned.share);
 
-  return (Object.keys(METRICS) as MetricId[]).map((metricId) => {
+  const readings = (Object.keys(METRICS) as MetricId[]).map((metricId) => {
     const row = observed.get(metricId) ?? { value: null, publishedAt: null, retrievedAt: null };
     return buildReading({
       metricId,
@@ -376,6 +377,55 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
       retrievedAt: row.retrievedAt,
       now,
     });
+  });
+  return [...readings, ...(await loadGasReadings(now))];
+}
+
+async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {
+  let release = null;
+  let retrievedAt: string | null = null;
+  try {
+    const loaded = await loadGasRelease(null);
+    release = loaded?.release ?? null;
+    retrievedAt = loaded?.pointer.generated_at ?? null;
+  } catch {
+    release = null;
+  }
+  return (Object.keys(GAS_METRICS) as GasMetricId[]).map((metricId) => {
+    const metric = GAS_METRICS[metricId];
+    const component = release ? latestComponent(release, metricId) : null;
+    const value = component && component.value != null && Number.isFinite(component.value) ? component.value : null;
+    const publishedAt = component?.published_at ?? null;
+    const retrieved = component?.retrieved_at ?? retrievedAt;
+    const assessed = assessPublication({
+      value,
+      publishedAt,
+      retrievedAt: retrieved,
+      expectedCadence: metric.expected_cadence,
+      now,
+      formatValue: (number) => formatReadingValue(number, metric.unit),
+      schedule: "calendar",
+      publicationLag: staleGrace(metric),
+    });
+    const stale = value != null && gasReadingStale(metric.expected_cadence, publishedAt, now);
+    return {
+      metric_id: metricId,
+      label: gasMetricLabel(metricId),
+      unit: metric.unit,
+      source: metricSourceLabel(metric),
+      dataset_id: metric.dataset_id,
+      expected_cadence: metric.expected_cadence,
+      publication_lag: metric.publication_lag,
+      publication_lag_label: publicationLagLabel(metric.publication_lag, metric.interval_convention),
+      value,
+      value_label: assessed.valueLabel,
+      published_at: publishedAt,
+      retrieved_at: retrieved,
+      published_label: assessed.publishedLabel,
+      retrieved_label: assessed.retrievedLabel,
+      stale,
+      state: value == null ? "not_yet_available" : stale ? "stale" : null,
+    };
   });
 }
 

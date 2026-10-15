@@ -70,7 +70,7 @@
     "source_id": "national-gas",
     "name": "National Gas",
     "url": "https://data.nationalgas.com",
-    "used_for": "Great Britain System Average Price (PUBOB603) in p/kWh. The asset directory lists NTS terminal names and does not store terminal flows or coordinates. Physical NTS publications are catalogued and not shown.",
+    "used_for": "Great Britain System Average Price (PUBOB603) in p/kWh. The asset directory lists NTS terminal names and does not store terminal flows or coordinates. Physical NTS flows and completed gas-day totals are published to Blob and listed on data health.",
     "licence": "National Gas Transmission confirmed in writing on 14 Oct 2026 that Grid may reuse Gas Data Portal and API data. Published as open operational data under the National Gas System Operator licence.",
     "licence_url": "https://data.nationalgas.com",
     "attribution": "Data sourced from the National Gas Transmission Data Portal.",

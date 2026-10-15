@@ -49,7 +49,7 @@ External APIs
 1. **On-demand revalidation** — Cron calls `revalidatePath("/")` and `revalidateTag("dashboard")` after a successful ingest. ISR alone is stale-while-revalidate and goes stale on a low-traffic site.
 2. **Half-hourly snapshots** — One wide row per UK settlement period (46/48/50 on clock-change days). Missing metrics are `null`, never `0`.
 3. **ReplacingMergeTree + query-time dedup** — Safe to re-run ingest, but pipes must use `FINAL` / `argMax` / `GROUP BY` because merges are not immediate.
-4. **Public API with rate limiting** — All `/api/*` endpoints are public, CORS-enabled, rate-limited to 60 req/min per IP via `src/proxy.ts`. `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
+4. **Public API with rate limiting** — All `/api/*` endpoints are public, CORS-enabled, rate-limited to 60 req/min per IP via `src/proxy.ts`. `/api/health`, `/api/cron`, `/api/cron-prices`, and `/api/cron-gas` are excluded.
 5. **Dark-mode first** — Hardcoded `className="dark"` on `<html>`. Class-based dark mode via `@custom-variant dark (&:is(.dark *))` in Tailwind v4.
 
 ## Project Structure
@@ -63,6 +63,7 @@ src/
 │   └── api/
 │       ├── cron/route.ts        # Hourly GB grid ingest
 │       ├── cron-prices/route.ts # 6-hourly commodity ingest
+│       ├── cron-gas/route.ts    # Hourly NTS intraday start; no upstream fetch
 │       ├── health/route.ts      # Freshness probe for uptime monitors
 │       ├── snapshots/route.ts   # Public API: grid data by time range
 │       ├── generation/route.ts  # Public API: FUELINST + embedded + PV Live
@@ -118,7 +119,7 @@ ARCHITECTURE.md      # Detailed data model and architecture docs
 | Sheffield Solar PV Live | `api.pvlive.uk` | None | National GB solar including embedded (30-min) |
 | US EIA | `api.eia.gov/v2` | `EIA_API_KEY` (required, no DEMO_KEY) | Brent, WTI, Henry Hub |
 | World Bank Pink Sheet | `worldbank.org` commodity-markets monthly xlsx | None | EU natural gas + Japan LNG (CC BY 4.0) |
-| National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh**. Physical NTS parsers are offline fixtures only. |
+| National Gas | `data.nationalgas.com` | None | GB System Average Price (`gb_gas_sap`, PUBOB603) in **p/kWh**. Physical NTS flows and completed gas-day totals publish to Blob. Not Tinybird. |
 
 ## File catalogue
 
@@ -206,13 +207,39 @@ Flow series attach only by exact INT* code, including the lowercased code the in
 
 ### P1A.6 National Gas physical spike
 
-Offline parsers and fixtures only. No page, no cron, nothing on Blob, and no Tinybird. The success path stays 378.
+Parsers and fixtures. No `/gas` page. The Blob publish path and the hourly cron are P1A.7. The Tinybird success path stays 378.
 
 `data/catalogue/national-gas/catalogue.json` keeps the sha256, `catalogueVersion`, `lastChangeDate`, and the publication rows from one GET of `https://api.nationalgas.com/operationaldata/v1/publications/catalogue`. The full 10.9 MB catalogue stays out of git. CSV fixtures live in `tests/fixtures/gas/csv/`, one file per publication id, with a header comment for id, catalogue version, unit, quantity kind, gas-day timestamps, and null behaviour. `tests/fixtures/gas/release.json` is the `GasRelease` contract (`gasReleaseSchema` in `src/lib/ingest/national-gas/release.ts`). P1A.7 produces that document and P1A.8 renders it.
 
-Parsers are in `src/lib/ingest/national-gas/`. Gas days are 05:00–05:00 Europe/London via `src/lib/london-time.ts`, including the 23-hour and 25-hour 2026 clock changes. On the 25-hour day the repeated hour is kept as two instants, using a stated offset or row order. Impossible wall times are quarantined. Quality indicators `A` and `L` are accepted. `PUBOB4424` is published negative and stored as positive generation. A parent and its children never both count. Unknown publication ids, columns, and enum values are quarantined. Rates and cumulative readings are not summed. `GAS_METRICS` in `src/lib/metrics.ts` registers the series at geography `GB_NTS` and is not part of `METRICS`, so `/data-health` does not list them. SAP `PUBOB603` is unchanged (`publication_lag` `P1D`, `stale_grace` `P2D`).
+Parsers are in `src/lib/ingest/national-gas/`. Gas days are 05:00–05:00 Europe/London via `src/lib/london-time.ts`, including the 23-hour and 25-hour 2026 clock changes. On the 25-hour day the repeated hour is kept as two instants, using a stated offset or row order. Impossible wall times are quarantined. Quality indicators `A` and `L` are accepted. `PUBOB4424` is published negative and stored as positive generation. A parent and its children never both count. Unknown publication ids, columns, and enum values are quarantined. Rates and cumulative readings are not summed. `GAS_METRICS` in `src/lib/metrics.ts` registers the series at geography `GB_NTS` and is not part of `METRICS`. `/api/health` does not list them. `/data-health` lists them from the Blob release. SAP `PUBOB603` is unchanged (`publication_lag` `P1D`, `stale_grace` `P2D`).
 
 `publish-check` rejects a publication id outside that list. The portal documents `dateFrom` and `dateTo` as 19-character timestamps; `YYYY-MM-DD` also returned CSV for `PUBOB2042`. Both results are in `date-format.json`. The Instantaneous Flow API answered `GET /operationaldata/v1/instantaneousflow/sites` without a login. This spike does not parse it.
+
+### P1A.7 Gas publish path
+
+`/api/cron-gas` runs hourly at `5 * * * *`. It requires `CRON_SECRET` and fails closed. The route only calls `start(gasIntraday)`. It does not fetch National Gas.
+
+`src/workflows/gas-intraday.ts` is four steps: the Redis `SET NX` slot lock (`gas` slot, 50 minutes, floored to minute 05), one CSV GET for the intraday publication list, validate and normalise with the P1A.6 parsers, then publish. `maxRetries` is 2. A 429 or 5xx throws `RetryableError` with `retryAfter` of 30s, then 120s, plus up to 10s of jitter. The next failure is `FatalError` and leaves `releases/gas/latest.json` on the previous release. Step results are `{ok, rows, bytes, hash, releaseId}`.
+
+The completed gas day is one extra step on the existing prices workflow (`30 */6 * * *`), not a new cron. One CSV GET. SAP `PUBOB603` is not in either bundle and its ingest is unchanged. A fatal completed-day step returns `{ok:false}` so the prices run still finishes.
+
+Blob layout, with `BLOB_READ_WRITE_TOKEN` (never logged):
+
+- `releases/gas/<release_id>.json` is immutable and matches `GasRelease`. The id hashes the release with `retrieved_at` fixed, so the same CSV does not mint a second release.
+- `releases/gas/latest.json` is `{release_id, generated_at}`. It is written only after validation. `releases/gas/previous.json` is the pointer that write replaced.
+- `quarantine/<YYYY-MM-DD>/<sha256>.csv` keeps a rejected body. Files older than 90 days are deleted.
+- The portal catalogue is fetched at most once per UTC day. `releases/gas/catalogue-hash.json` stores `{sha256, fetched_at}` and not the body.
+- Each new release appends one `source_releases` line and one `ingestion_runs` line under `releases/gas/catalogue/`. The checked-in catalogue already has one registration release per publication, so `publish-check` passes. No database.
+
+`GET /api/v1/gas/overview?gas_day=` and `GET /api/v1/gas/series?metric=&from=&to=` read those Blob files. An unknown metric is 400. Timestamps are UTC `Z`, and each point also carries a gas-day label. There is no `/gas` page and no Gas nav item. Success calls `revalidatePath` for `/gas`, `/api/v1/gas/overview`, and `/api/v1/gas/series`. It does not revalidate `/`. `/` stays `force-static` with `revalidate` 300 and makes no gas or Tinybird request.
+
+An optional Redis key `grid:gas:latest` caches the latest pointer for 300s.
+
+`/data-health` and `/api/v1/data-health` append `GAS_METRICS` from the latest release. Intraday is stale when `now - published_at` is over 3 hours. A completed gas day is not stale. A missing value is not yet available. The figure is the latest component. Rates are not summed. A parent and its children do not both count.
+
+Budget: Tinybird **+0** (the scheduled success path stays 378, under the 450 cap). About 216 Vercel Workflow events a day (1 run + 4 steps × 2 events × 24 hourly runs). National Gas: about 24 intraday GETs, about 4–5 completed-day GETs, and 1 catalogue GET a day. No bursts and no backfill.
+
+Rollback: read `releases/gas/previous.json`, overwrite `releases/gas/latest.json` with that pointer, and delete Redis key `grid:gas:latest`. Leave the immutable release file in place.
 
 ## Environment Variables
 
@@ -227,7 +254,7 @@ OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 UPSTASH_REDIS_REST_URL=<optional — Upstash REST URL, https:// only>
 UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
-BLOB_READ_WRITE_TOKEN=<optional — basemap upload script only, never log it>
+BLOB_READ_WRITE_TOKEN=<optional — basemap upload and gas Blob publish, never log it>
 # Also accepted: KV_REST_API_URL / KV_REST_API_TOKEN from the Marketplace integration
 ```
 
@@ -239,7 +266,7 @@ BLOB_READ_WRITE_TOKEN=<optional — basemap upload script only, never log it>
 
 ### Redis is optional
 
-Production sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the Marketplace `KV_REST_API_*` pair). That is what holds the slot lock, the 450/day Tinybird counter, workflow step bodies, and the warmed envelopes. The scheduled success path stays **378** Tinybird ops.
+Production sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the Marketplace `KV_REST_API_*` pair). That is what holds the slot lock, the 450/day Tinybird counter, workflow step bodies, the warmed envelopes, and the optional gas pointer `grid:gas:latest`. The scheduled success path stays **378** Tinybird ops. Gas publish is Tinybird +0.
 
 When neither pair is set (local `next dev`, or a deploy without Upstash):
 
@@ -269,6 +296,8 @@ When neither pair is set (local `next dev`, or a deploy without Upstash):
 - All public, CORS-enabled via middleware
 - Rate-limited: 60 req/min per IP
 - `/api/cron` and `/api/cron-prices` — fail closed without `CRON_SECRET`, return per-source status, 503 if a required source fails
+- `/api/cron-gas` — fail closed without `CRON_SECRET`, starts the intraday workflow, no National Gas fetch in the route
+- `/api/v1/gas/overview` and `/api/v1/gas/series` — Blob reads; unknown metric is 400
 - `/api/health` — freshness of snapshots / generation / embedded / prices; 503 if a critical grid stream is stale
 - `/api/interconnectors` — public interconnector flows (`24h` / `7d`)
 - Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
