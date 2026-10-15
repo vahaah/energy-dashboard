@@ -96,6 +96,17 @@ describe("constraint publish", () => {
     expect(revalidated).toContain("/system/constraints");
     expect(revalidated).not.toContain("/");
     expect(store.files.has(CONSTRAINTS_LATEST_PATH)).toBe(true);
+    const catalogue = store.files.get("releases/neso-constraints/catalogue/source_releases.ndjson")?.body ?? "";
+    expect(catalogue).toContain("2026-10-09T12:32:21.000Z");
+    expect(catalogue).not.toContain('"published_at":null');
+    store.files.delete("releases/neso-constraints/catalogue/source_releases.ndjson");
+    store.files.delete("releases/neso-constraints/catalogue/ingestion_runs.ndjson");
+    await publishConstraintsBundle(secondHash, "breakdown", NOW);
+    const restored = store.files.get("releases/neso-constraints/catalogue/source_releases.ndjson")?.body ?? "";
+    expect(restored).toContain(second.releaseId);
+    expect(JSON.parse(store.files.get(constraintsBundlePointerPath("breakdown"))?.body ?? "{}")).toMatchObject({
+      release_id: second.releaseId,
+    });
     const releaseBody = store.files.get(constraintsReleasePath(first.releaseId))?.body ?? "";
     expect(constraintReleaseId(JSON.parse(releaseBody))).toBe(first.releaseId);
   });

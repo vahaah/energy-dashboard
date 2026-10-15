@@ -1,9 +1,9 @@
 import { isConstraintBoundary } from "@/lib/constraints/boundaries";
 import { CONSTRAINTS_ALLOCATION, CONSTRAINTS_API_DESCRIPTION } from "@/lib/constraints/copy";
-import { readPublishedHistory } from "@/lib/constraints/reader";
 import type { BreakdownRow, DayAheadRow } from "@/lib/constraints/parse";
+import { readPublishedHistory } from "@/lib/constraints/reader";
+import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ALLOWED = new Set(["from", "to", "boundary"]);
 
 export type ConstraintsQueryBody = {
@@ -28,7 +28,7 @@ export async function constraintsQueryResponse(
   const from = params.get("from");
   const to = params.get("to");
   const boundary = params.get("boundary");
-  if (!from || !to || !DATE.test(from) || !DATE.test(to) || from > to) {
+  if (!from || !to || !isValidDashboardDate(from) || !isValidDashboardDate(to) || from > to) {
     return { status: 400, body: { error: "invalid date" } };
   }
   if (boundary != null && boundary.length > 0 && !isConstraintBoundary(boundary)) {

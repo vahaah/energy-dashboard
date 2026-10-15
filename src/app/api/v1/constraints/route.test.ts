@@ -4,6 +4,12 @@ import { CONSTRAINTS_ALLOCATION, CONSTRAINTS_API_DESCRIPTION } from "@/lib/const
 
 describe("GET /api/v1/constraints", () => {
   it("rejects an unsupported filter and does not allocate national cost to a boundary", async () => {
+    const impossible = await GET(
+      new Request("http://localhost/api/v1/constraints?from=2026-02-31&to=2026-03-01"),
+    );
+    expect(impossible.status).toBe(400);
+    expect(await impossible.json()).toEqual({ error: "invalid date" });
+
     const missing = await GET(new Request("http://localhost/api/v1/constraints"));
     expect(missing.status).toBe(400);
     expect(await missing.json()).toEqual({ error: "invalid date" });

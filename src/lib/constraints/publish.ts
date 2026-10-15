@@ -128,8 +128,8 @@ export async function publishConstraintsBundle(
   const existing = await constraintsStore().get(path, true);
   if (!existing) {
     await putIfAbsent(path, `${JSON.stringify(release)}\n`, "application/json");
-    await recordCatalogue(release, releaseId, now);
   }
+  await recordCatalogue(release, releaseId, now);
   const pointer = await readConstraintsPointer(constraintsBundlePointerPath(bundle));
   if (pointer?.release_id === releaseId) {
     return { ok: true, rows, bytes: existing?.size ?? bytes, hash, releaseId };
@@ -217,12 +217,12 @@ async function recordCatalogue(release: ConstraintRelease, releaseId: string, no
   };
   const contentHash = sha256Prefixed(content);
   const datasetId = release.dataset_id;
-  const sourceReleaseId = catalogueReleaseId(datasetId, null, contentHash);
+  const sourceReleaseId = catalogueReleaseId(datasetId, release.issued_at, contentHash);
   const sourceRelease: SourceRelease = {
     catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
     source_release_id: sourceReleaseId,
     dataset_id: datasetId,
-    published_at: null,
+    published_at: release.issued_at,
     content_hash: contentHash,
     content,
   };
