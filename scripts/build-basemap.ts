@@ -9,7 +9,7 @@
  * pinned pmtiles CLI when it is not on PATH.
  */
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Readable } from "node:stream";
@@ -18,6 +18,13 @@ import { execFileSync } from "node:child_process";
 import { put } from "@vercel/blob";
 import { CATALOGUE_SCHEMA_VERSION } from "../src/lib/catalogue/schema";
 import { LAYER_FILES, type MapLayer } from "../src/lib/catalogue/layers";
+import {
+  assertReusedArchiveEdition,
+  editionFromDownloadUrl,
+  ensureMbtilesBounds,
+  readArchiveEdition,
+  stampArchiveEdition,
+} from "../src/lib/map/basemap-archive";
 import { pointZoomstackSource } from "../src/lib/map/basemap-style";
 import {
   BASEMAP_LAYER_ID,
@@ -118,12 +125,28 @@ function pmtilesBin(work: string): string {
   return join(work, "pmtiles");
 }
 
-async function downloadTo(url: string, file: string): Promise<void> {
-  const response = await fetch(url, { headers: { "user-agent": USER_AGENT }, redirect: "follow" });
+async function downloadZoomstack(file: string, apiEdition: string): Promise<void> {
+  const first = await fetch(OS_ZOOMSTACK_DOWNLOAD_URL, {
+    headers: { "user-agent": USER_AGENT },
+    redirect: "manual",
+  });
+  let response = first;
+  if (first.status >= 300 && first.status < 400) {
+    const location = first.headers.get("location");
+    if (!location?.startsWith("https://")) {
+      throw new Error("OS download redirect was not https");
+    }
+    const pathEdition = editionFromDownloadUrl(location);
+    if (pathEdition !== null && pathEdition !== apiEdition) {
+      throw new Error(`OS download path edition ${pathEdition} does not match the product edition ${apiEdition}`);
+    }
+    response = await fetch(location, { headers: { "user-agent": USER_AGENT }, redirect: "error" });
+  }
   if (!response.ok || !response.body) {
     throw new Error(`download returned ${response.status}`);
   }
   await pipeline(Readable.fromWeb(response.body), createWriteStream(file));
+  stampArchiveEdition(file, apiEdition);
 }
 
 function sha256File(file: string): Promise<string> {
@@ -138,47 +161,6 @@ function sha256File(file: string): Promise<string> {
       resolveHash(`sha256:${hash.digest("hex")}`);
     });
   });
-}
-
-function mbtilesBounds(file: string): [number, number, number, number] {
-  const output = execFileSync("sqlite3", [file, "SELECT value FROM metadata WHERE name = 'bounds';"], {
-    encoding: "utf8",
-  }).trim();
-  const parts = output.split(",").map((part) => Number(part.trim()));
-  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
-    // OS Open Zoomstack ships no bounds row, so derive them from the tile grid.
-    return tileGridBounds(file);
-  }
-  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0, parts[3] ?? 0];
-}
-
-function tileGridBounds(file: string): [number, number, number, number] {
-  const output = execFileSync(
-    "sqlite3",
-    [
-      file,
-      "SELECT zoom_level, MIN(tile_column), MAX(tile_column), MIN(tile_row), MAX(tile_row) FROM tiles WHERE zoom_level = (SELECT MAX(zoom_level) FROM tiles);",
-    ],
-    { encoding: "utf8" },
-  ).trim();
-  const [z, minX, maxX, minRow, maxRow] = output.split("|").map((part) => Number(part));
-  if ([z, minX, maxX, minRow, maxRow].some((part) => part === undefined || !Number.isFinite(part))) {
-    throw new Error(`MBTiles bounds were missing and the tile grid was ${output || "empty"}`);
-  }
-  const n = 2 ** (z as number);
-  const lon = (x: number) => (x / n) * 360 - 180;
-  // MBTiles rows are TMS, counted from the south.
-  const lat = (row: number) => {
-    const y = n - row;
-    return (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI;
-  };
-  const round = (value: number) => Math.round(value * 1e4) / 1e4;
-  return [
-    round(lon(minX as number)),
-    round(lat(minRow as number)),
-    round(lon((maxX as number) + 1)),
-    round(lat((maxRow as number) + 1)),
-  ];
 }
 
 function readLayers(dir: string): MapLayer[] {
@@ -229,18 +211,22 @@ async function main(): Promise<void> {
   const reuse = process.env.BASEMAP_MBTILES;
   const mbtiles = reuse && reuse.length > 0 ? resolve(reuse) : join(work, "OS_Open_Zoomstack.mbtiles");
   if (reuse && reuse.length > 0) {
+    if (!existsSync(mbtiles)) {
+      throw new Error(`BASEMAP_MBTILES is not a file (${mbtiles})`);
+    }
+    assertReusedArchiveEdition(readArchiveEdition(mbtiles), edition);
     console.log(`reusing ${mbtiles} for OS Open Zoomstack ${edition}`);
   } else {
     console.log(`downloading OS Open Zoomstack ${edition}`);
-    await downloadTo(OS_ZOOMSTACK_DOWNLOAD_URL, mbtiles);
+    await downloadZoomstack(mbtiles, edition);
   }
   execFileSync("sqlite3", [mbtiles, trimZoomSql(mbtilesTilesKind(mbtiles), BASEMAP_ZOOM_MAX)], { stdio: "inherit" });
+  const bbox = ensureMbtilesBounds(mbtiles);
   const bin = pmtilesBin(work);
   const pmtiles = join(work, `${edition}.pmtiles`);
   execFileSync(bin, ["convert", mbtiles, pmtiles], { stdio: "inherit" });
   const bytes = statSync(pmtiles).size;
   const sha = await sha256File(pmtiles);
-  const bbox = mbtilesBounds(mbtiles);
   const blob = await put(`tiles/basemap/${edition}.pmtiles`, createReadStream(pmtiles), {
     access: "public",
     multipart: true,
