@@ -105,6 +105,67 @@ describe("asset directory build", () => {
     const decoded = decodeAssetIndex(JSON.parse(encodeAssetIndex(built.rows)));
     expect(decoded).toEqual(built.rows);
   });
+
+  it("counts only the latest capacity release for a project and keeps older rows in the history", () => {
+    const olderRelease = "desnz-dukes:dukes-5.11:2026-04-01T00:00:00.000Z";
+    const newerRelease = "desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z";
+    const built = buildAssetDirectory({
+      assets: [asset({ asset_id: "ast_aaaaaaaaaaaaaaaa", name: "London Plant", technology: "ccgt" })],
+      projects: [
+        {
+          project_id: "prj_aaaaaaaaaaaaaaaa",
+          asset_id: "ast_aaaaaaaaaaaaaaaa",
+          name: "London Plant",
+          source_id: "desnz-dukes",
+          external_ref: "CCGT-1",
+        },
+      ],
+      capacity: [
+        {
+          capacity_record_id: "cap_aaaaaaaaaaaaaaaa",
+          asset_id: "ast_aaaaaaaaaaaaaaaa",
+          project_id: "prj_aaaaaaaaaaaaaaaa",
+          source_id: "desnz-dukes",
+          source_release_id: olderRelease,
+          mw: 200,
+          counts: true,
+        },
+        {
+          capacity_record_id: "cap_aaaaaaaaaaaaaaab",
+          asset_id: "ast_aaaaaaaaaaaaaaaa",
+          project_id: "prj_aaaaaaaaaaaaaaaa",
+          source_id: "desnz-dukes",
+          source_release_id: newerRelease,
+          mw: 110,
+          counts: true,
+        },
+      ],
+      matches: [],
+      parties: [{ source_id: "desnz-dukes", external_ref: "CCGT-1", operator: "RWE", region: "London", county: null }],
+      releases: [
+        {
+          catalogue_schema_version: 1,
+          source_release_id: olderRelease,
+          dataset_id: "desnz-dukes:dukes-5.11",
+          published_at: "2026-04-01T00:00:00.000Z",
+          content_hash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          content: { edition: "April 2026" },
+        },
+        {
+          catalogue_schema_version: 1,
+          source_release_id: newerRelease,
+          dataset_id: "desnz-dukes:dukes-5.11",
+          published_at: "2026-07-30T00:00:00.000Z",
+          content_hash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          content: { edition: "May 2026" },
+        },
+      ] as SourceRelease[],
+      dnoFeatures: [],
+    });
+    const london = built.details.get("ast_aaaaaaaaaaaaaaaa");
+    expect(london?.row.mw).toBe(110);
+    expect(london?.capacity.map((record) => record.mw)).toEqual([200, 110]);
+  });
 });
 
 describe("party extracts", () => {

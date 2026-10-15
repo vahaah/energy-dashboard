@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { cleanCountry, cleanName, parseCsv } from "@/lib/catalogue/assets/parse";
+import { ASSET_REGISTER_FILES } from "@/lib/catalogue/schema";
 import { DUKES_SOURCE_ID, REPD_SOURCE_ID } from "@/lib/catalogue/assets/technologies";
 
-export const PARTY_FILE = "asset_parties.ndjson";
+export const PARTY_FILE = ASSET_REGISTER_FILES.parties;
 
 const text = z.string();
 

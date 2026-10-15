@@ -21,6 +21,7 @@ import {
   type PartyDraft,
 } from "../../src/lib/catalogue/assets/parties";
 import { projectRecordSchema } from "../../src/lib/catalogue/assets/record-schema";
+import { newestExtractSha256 } from "../../src/lib/catalogue/assets/releases";
 import { sourceReleaseSchema } from "../../src/lib/catalogue/schema";
 
 function readFlag(name: string): string {
@@ -42,17 +43,14 @@ function releaseHash(datasetId: string): string {
   if (!parsed.ok) {
     throw new Error(parsed.errors.join("\n"));
   }
-  for (const value of parsed.data) {
-    const release = sourceReleaseSchema.parse(value);
-    if (release.dataset_id !== datasetId || !release.content || typeof release.content !== "object") {
-      continue;
-    }
-    const hash = (release.content as { extract_sha256?: unknown }).extract_sha256;
-    if (typeof hash === "string") {
-      return hash;
-    }
+  const hash = newestExtractSha256(
+    parsed.data.map((value) => sourceReleaseSchema.parse(value)),
+    datasetId,
+  );
+  if (!hash) {
+    throw new Error(`no extract_sha256 for ${datasetId}`);
   }
-  throw new Error(`no extract_sha256 for ${datasetId}`);
+  return hash;
 }
 
 function cellText(value: unknown): string {

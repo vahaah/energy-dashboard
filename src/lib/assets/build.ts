@@ -1,5 +1,6 @@
 import { roundMw } from "@/lib/catalogue/assets/parse";
 import { partyKey, type PartyRecord } from "@/lib/catalogue/assets/parties";
+import { currentCapacityRecords } from "@/lib/catalogue/assets/releases";
 import type {
   AssetRecord,
   CapacityRecord,
@@ -158,6 +159,9 @@ export function buildAssetDirectory(input: {
       };
     });
     const capacityRecords = capacityByAsset.get(asset.asset_id) ?? [];
+    const headlineIds = new Set(
+      currentCapacityRecords(capacityRecords, input.releases).map((record) => record.capacity_record_id),
+    );
     const capacityViews: AssetCapacityView[] = capacityRecords
       .map((record) => {
         const meta = releaseMeta(releasesById.get(record.source_release_id));
@@ -180,9 +184,10 @@ export function buildAssetDirectory(input: {
     const present = [...new Set(projectViews.map((project) => project.source))].sort((left, right) =>
       left.localeCompare(right),
     );
-    const source = primarySource(capacityViews, present);
-    const counted = capacityViews.filter((record) => record.counts).reduce((sum, record) => sum + record.mw, 0);
-    const hasCounted = capacityViews.some((record) => record.counts);
+    const headlineViews = capacityViews.filter((record) => headlineIds.has(record.capacityId));
+    const source = primarySource(headlineViews, present);
+    const counted = headlineViews.filter((record) => record.counts).reduce((sum, record) => sum + record.mw, 0);
+    const hasCounted = headlineViews.some((record) => record.counts);
     const dno =
       asset.latitude !== null && asset.longitude !== null
         ? areaAt(input.dnoFeatures, asset.longitude, asset.latitude)

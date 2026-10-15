@@ -12,6 +12,7 @@ test("homepage does not request maplibre or pmtiles", async ({ page }) => {
   expect(joined).not.toMatch(/maplibre/i);
   expect(joined).not.toMatch(/pmtiles/i);
   expect(joined).not.toMatch(/blob\.vercel-storage\.com/i);
+  expect(joined).not.toMatch(/\/search\/assets\.json/);
 });
 
 test("map page lists coverage, attribution, and a DNO layer that starts off", async ({ page }) => {
@@ -68,4 +69,17 @@ test("search opens from the keyboard and links to an asset", async ({ page }) =>
   await input.press("Enter");
   await expect(page).toHaveURL(/\/assets\/ast_/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Sizewell/i);
+});
+
+test("clicking a search result closes the dialog", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Search assets" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Search assets" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("combobox").fill("Sizewell");
+  const option = dialog.getByRole("option").first();
+  await expect(option).toBeVisible();
+  await option.click();
+  await expect(page).toHaveURL(/\/assets\/ast_/);
+  await expect(page.getByRole("dialog", { name: "Search assets" })).toHaveCount(0);
 });

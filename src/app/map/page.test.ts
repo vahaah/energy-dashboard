@@ -21,11 +21,27 @@ describe("map and asset pages", () => {
     expect(assets).toContain('export const dynamic = "force-static"');
     expect(detail).toContain('export const dynamic = "force-static"');
     expect(map).toContain("MAP_COVERAGE_COPY");
+    const search = source("src/components/asset-search.tsx");
+    const dialog = source("src/components/asset-search-dialog.tsx");
     expect(power).toContain('import("@/lib/map/browser")');
     expect(power).not.toContain('from "maplibre-gl"');
     expect(header).not.toContain("maplibre-gl");
     expect(header).not.toContain("pmtiles");
-    for (const file of [map, assets, detail, power, source("src/components/map-explorer.tsx"), source("src/components/asset-search.tsx"), source("src/components/asset-directory.tsx")]) {
+    expect(search).toContain('import("@/components/asset-search-dialog")');
+    expect(search).not.toContain('from "@/components/asset-search-dialog"');
+    expect(search).not.toContain('from "@/lib/assets/index-file"');
+    expect(search).not.toContain('from "@/lib/assets/search-index"');
+    expect(dialog).toContain("onClick={() => onClose()}");
+    for (const file of [
+      map,
+      assets,
+      detail,
+      power,
+      source("src/components/map-explorer.tsx"),
+      search,
+      dialog,
+      source("src/components/asset-directory.tsx"),
+    ]) {
       expect(containsLiveWord(file)).toBe(false);
     }
   });
