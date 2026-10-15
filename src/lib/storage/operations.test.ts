@@ -3,7 +3,7 @@ import type { Generation5min } from "@/lib/types";
 import { buildStorageDocument } from "@/lib/storage/page-model";
 import { storageOperations } from "@/lib/storage/operations";
 import { buildStorageInventory, type StorageInput } from "@/lib/storage/inventory";
-import { STORAGE_SIGN } from "@/lib/storage/copy";
+import { STORAGE_BATTERIES_UNREPORTED, STORAGE_SIGN } from "@/lib/storage/copy";
 
 const NOW = new Date("2026-10-10T12:00:00.000Z");
 
@@ -66,7 +66,8 @@ describe("FUELINST storage population", () => {
     }
     expect(document.monitored.discharge.totalLabel).toBeNull();
     expect(document.monitored.charge.totalLabel).toBeNull();
-    expect(document.monitored.charge.missing).toEqual(["Battery"]);
+    expect(document.monitored.charge.missing).toEqual([]);
+    expect(document.monitored.charge.unreported).toEqual([STORAGE_BATTERIES_UNREPORTED]);
     expect(document.monitored.charge.rows.map((row) => row.mwLabel)).toEqual(["200.0"]);
   });
 

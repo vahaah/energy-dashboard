@@ -76,8 +76,8 @@ export function readStorageInputs(root = process.cwd()): StorageInput[] {
   return inputs;
 }
 
-export function loadStorageInventory(root = process.cwd(), coveredIds: ReadonlySet<string> = new Set()): StorageInventory {
-  return buildStorageInventory(readStorageInputs(root), coveredIds);
+export function loadStorageInventory(root = process.cwd()): StorageInventory {
+  return buildStorageInventory(readStorageInputs(root));
 }
 
 export function readStorageRecords(root = process.cwd()): StorageRecord[] {

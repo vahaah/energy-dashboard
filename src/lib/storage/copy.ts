@@ -12,8 +12,10 @@ export const NOMINAL_DURATION = "Nominal duration";
 export { DURATION_TOOLTIP };
 
 export const STORAGE_FLEET_COVERED = "Storage fleet covered";
-export const STORAGE_FLEET_COVERED_HELP =
-  "of storage assets in Grid's inventory that Grid has operational data for";
+export const STORAGE_COVERAGE_FOOTNOTE =
+  "FUELINST publishes national totals by fuel type for transmission-connected generation. The pumped-storage megawatts are the operating capacity of that population in the plant register, not a figure for each station.";
+export const STORAGE_NATIONAL_ONLY = "FUELINST publishes national totals only.";
+export const STORAGE_BATTERIES_UNREPORTED = "Batteries are not reported separately by the source.";
 
 export const STORAGE_SIGN =
   "A positive FUELINST sample is discharge. A negative sample is charging.";
@@ -27,10 +29,9 @@ export const INVENTORY_INTRO =
   "DESNZ REPD and DUKES list pumped storage and batteries. A station that appears in both registers counts once, on the counted megawatts. Projects that are not operating stay out of the operating total.";
 
 export const MONITORED_INTRO =
-  "The monitored fleet is the FUELINST pumped storage and battery population already in the electricity snapshot. These national totals are separate from the inventory.";
+  "The monitored fleet is the FUELINST pumped-storage total for transmission-connected generation. These national totals are separate from the inventory.";
 
-export const ENERGY_ABSENT =
-  "REPD and DUKES publish rated capacity in megawatts. Grid has no energy capacity figure for these records.";
+export const ENERGY_POWER_ONLY = "The registers publish rated power only.";
 
 export const COVERAGE_HREF = "/data-health#storage";
 export const SOURCES_HREF = "/data-sources";

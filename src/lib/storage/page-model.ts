@@ -3,9 +3,11 @@ import { displayedPercents, formatDisplay, largestRemainder, roundDisplay } from
 import {
   CHARGING,
   DISCHARGING,
-  ENERGY_ABSENT,
+  ENERGY_POWER_ONLY,
+  STORAGE_BATTERIES_UNREPORTED,
+  STORAGE_COVERAGE_FOOTNOTE,
   STORAGE_FLEET_COVERED,
-  STORAGE_FLEET_COVERED_HELP,
+  STORAGE_NATIONAL_ONLY,
 } from "@/lib/storage/copy";
 import type { StorageAsset, StorageInventory } from "@/lib/storage/inventory";
 import type { StorageTechnology } from "@/lib/storage/records";
@@ -28,8 +30,8 @@ export type StorageRow = {
   technology: StorageTechnology;
   technologyLabel: string;
   ratedLabel: string;
-  energyLabel: string;
-  durationLabel: string;
+  energyLabel: string | null;
+  durationLabel: string | null;
 };
 
 export type StorageMagnitudeRow = {
@@ -43,7 +45,22 @@ export type StorageMagnitude = {
   totalLabel: string | null;
   shares: { id: string; label: string; percent: number }[] | null;
   missing: string[];
+  unreported: string[];
 };
+
+export type StorageCoverageLine =
+  | {
+      kind: "mw";
+      id: "pumped_storage";
+      label: string;
+      coveredLabel: string;
+      totalLabel: string;
+    }
+  | {
+      kind: "unreported";
+      id: "battery";
+      text: string;
+    };
 
 export type StorageDocument = {
   operatingCount: number;
@@ -57,14 +74,14 @@ export type StorageDocument = {
     totalLabel: string;
     omitted: number;
   } | null;
-  energyNote: string;
+  showEnergy: boolean;
+  showDuration: boolean;
+  energyNote: string | null;
   coverage: {
     label: string;
-    help: string;
-    percentLabel: string;
-    covered: number;
-    total: number;
-    fractionLabel: string;
+    lines: StorageCoverageLine[];
+    footnote: string | null;
+    nationalOnly: string | null;
   };
   rows: StorageRow[];
   monitored:
@@ -136,6 +153,8 @@ export function buildStorageDocument(
     energyByRow.set(item.index, mwLabel(energyShown[index] ?? 0));
   });
 
+  const showEnergy = energyKnown.length > 0;
+  const showDuration = operating.some((asset) => asset.durationHours !== null);
   const rows: StorageRow[] = operating.map((asset, index) => ({
     id: asset.id,
     name: asset.name,
@@ -143,19 +162,14 @@ export function buildStorageDocument(
     technology: asset.technology,
     technologyLabel: technologyLabel(asset.technology),
     ratedLabel: ratedByRow.get(index) ?? NOT_AVAILABLE,
-    energyLabel: energyByRow.get(index) ?? NOT_AVAILABLE,
+    energyLabel: showEnergy ? (energyByRow.get(index) ?? NOT_AVAILABLE) : null,
     durationLabel:
-      asset.durationHours === null ? NOT_AVAILABLE : `${mwLabel(asset.durationHours)} h`,
+      showDuration && asset.durationHours !== null ? `${mwLabel(asset.durationHours)} h` : null,
   }));
 
-  const covered = operating.filter((asset) => asset.covered).length;
-  const total = operating.length;
-  const percent =
-    total === 0 ? null : (displayedPercents([(covered / total) * 100, ((total - covered) / total) * 100])[0] ?? 0);
-
   return {
-    operatingCount: total,
-    notOperatingCount: inventory.assets.length - total,
+    operatingCount: operating.length,
+    notOperatingCount: inventory.assets.length - operating.length,
     rated: ratedBlock(operating, ratedKnown, ratedShown),
     energy:
       energyKnown.length === 0
@@ -164,19 +178,51 @@ export function buildStorageDocument(
             totalLabel: mwLabel(roundDisplay(energyKnown.reduce((sum, item) => sum + item.value, 0), MW_QUANTUM)),
             omitted: operating.length - energyKnown.length,
           },
-    energyNote: ENERGY_ABSENT,
-    coverage: {
-      label: STORAGE_FLEET_COVERED,
-      help: STORAGE_FLEET_COVERED_HELP,
-      percentLabel: percent === null ? NOT_AVAILABLE : `${percent}%`,
-      covered,
-      total,
-      fractionLabel: `${covered} of ${total}`,
-    },
+    showEnergy,
+    showDuration,
+    energyNote: showEnergy ? null : ENERGY_POWER_ONLY,
+    coverage: populationCoverage(operating, ratedKnown, ratedShown),
     rows,
     monitored: monitoredBlock(operations),
     inventoryAttribution: OGL_V3_ATTRIBUTION,
     monitoredAttribution: elexonBmrsAttribution(year),
+  };
+}
+
+function populationCoverage(
+  operating: readonly StorageAsset[],
+  known: readonly Known[],
+  shown: readonly number[],
+): StorageDocument["coverage"] {
+  let pumpedMw = 0;
+  let anyPumped = false;
+  known.forEach((item, index) => {
+    if (item.asset.technology !== "pumped_storage" || !item.asset.transmissionConnected) {
+      return;
+    }
+    anyPumped = true;
+    pumpedMw += shown[index] ?? 0;
+  });
+  const lines: StorageCoverageLine[] = [];
+  if (anyPumped) {
+    const label = mwLabel(pumpedMw);
+    lines.push({
+      kind: "mw",
+      id: "pumped_storage",
+      label: technologyLabel("pumped_storage"),
+      coveredLabel: label,
+      totalLabel: label,
+    });
+  }
+  if (operating.some((asset) => asset.technology === "battery")) {
+    lines.push({ kind: "unreported", id: "battery", text: STORAGE_BATTERIES_UNREPORTED });
+  }
+  const claimed = lines.some((line) => line.kind === "mw");
+  return {
+    label: STORAGE_FLEET_COVERED,
+    lines,
+    footnote: claimed ? STORAGE_COVERAGE_FOOTNOTE : null,
+    nationalOnly: claimed ? null : STORAGE_NATIONAL_ONLY,
   };
 }
 
@@ -224,6 +270,7 @@ function ratedBlock(
 function fuelParts(operations: Extract<StorageOperations, { available: true }>, read: (fuel: StorageFuelReading) => number) {
   const parts: { id: string; label: string; mw: number }[] = [];
   const missing: string[] = [];
+  const unreported: string[] = [];
   if (operations.pumped) {
     parts.push({ id: "pumped_storage", label: technologyLabel("pumped_storage"), mw: read(operations.pumped) });
   } else {
@@ -232,15 +279,15 @@ function fuelParts(operations: Extract<StorageOperations, { available: true }>, 
   if (operations.battery) {
     parts.push({ id: "battery", label: technologyLabel("battery"), mw: read(operations.battery) });
   } else {
-    missing.push(technologyLabel("battery"));
+    unreported.push(STORAGE_BATTERIES_UNREPORTED);
   }
-  return { parts, missing };
+  return { parts, missing, unreported };
 }
 
 function magnitude(title: string, operations: Extract<StorageOperations, { available: true }>, read: (fuel: StorageFuelReading) => number): StorageMagnitude {
-  const { parts, missing } = fuelParts(operations, read);
+  const { parts, missing, unreported } = fuelParts(operations, read);
   const shown = displayMagnitudes(parts.map((part) => part.mw));
-  const complete = missing.length === 0 && parts.length > 0;
+  const complete = missing.length === 0 && unreported.length === 0 && parts.length > 0;
   const exactTotal = parts.reduce((sum, part) => sum + part.mw, 0);
   const percents =
     complete && exactTotal > 0 ? displayedPercents(parts.map((part) => (part.mw / exactTotal) * 100)) : null;
@@ -260,6 +307,7 @@ function magnitude(title: string, operations: Extract<StorageOperations, { avail
             percent: percents[index] ?? 0,
           })),
     missing,
+    unreported,
   };
 }
 

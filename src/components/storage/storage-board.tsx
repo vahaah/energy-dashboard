@@ -18,12 +18,18 @@ import {
   SOURCES_HREF,
   STORAGE_SIGN,
 } from "@/lib/storage/copy";
-import type { StorageDocument, StorageMagnitude, StorageRow, StorageShare } from "@/lib/storage/page-model";
+import type {
+  StorageCoverageLine,
+  StorageDocument,
+  StorageMagnitude,
+  StorageRow,
+  StorageShare,
+} from "@/lib/storage/page-model";
 
 export function StorageBoard({ document }: { document: StorageDocument }) {
   return (
     <div className="grid grid-cols-12 gap-4">
-      <div className="col-span-12 sm:col-span-6">
+      <div className={document.showEnergy ? "col-span-12 sm:col-span-6" : "col-span-12"}>
         <Card size="stat" title={RATED_CAPACITY} className="h-full">
           <StatValue
             value={document.rated?.totalLabel ?? NOT_AVAILABLE}
@@ -37,20 +43,16 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
           ) : null}
         </Card>
       </div>
-      <div className="col-span-12 sm:col-span-6">
-        <Card size="stat" title={ENERGY_CAPACITY} className="h-full">
-          <StatValue value={document.energy?.totalLabel ?? NOT_AVAILABLE} unit={document.energy ? "MWh" : null} />
-          <p className="mt-2 break-words text-label-12 text-gray-900">{document.energyNote}</p>
-        </Card>
-      </div>
+      {document.energy ? (
+        <div className="col-span-12 sm:col-span-6">
+          <Card size="stat" title={ENERGY_CAPACITY} className="h-full">
+            <StatValue value={document.energy.totalLabel} unit="MWh" />
+          </Card>
+        </div>
+      ) : null}
       <div className="col-span-12">
-        <Card size="stat" title={document.coverage.label} tooltip={document.coverage.help} className="h-full">
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-sans text-heading-24 tabular-nums text-gray-1000">{document.coverage.percentLabel}</span>
-            <span className="text-copy-14 tabular-nums text-gray-900" data-coverage-fraction>
-              {document.coverage.fractionLabel}
-            </span>
-          </p>
+        <Card size="stat" title={document.coverage.label} className="h-full">
+          <Coverage coverage={document.coverage} />
         </Card>
       </div>
 
@@ -63,11 +65,16 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
             </p>
           ) : null}
           <ShareList shares={document.rated?.shares ?? []} unit="MW" />
-          <p className="mt-4 flex flex-wrap items-center gap-1 text-label-12 text-gray-900 md:hidden">
-            {NOMINAL_DURATION}
-            <InfoTooltip text={DURATION_TOOLTIP} label={`What is ${NOMINAL_DURATION}?`} />
-          </p>
-          <InventoryTable rows={document.rows} />
+          {document.showDuration ? (
+            <p className="mt-4 flex flex-wrap items-center gap-1 text-label-12 text-gray-900 md:hidden">
+              {NOMINAL_DURATION}
+              <InfoTooltip text={DURATION_TOOLTIP} label={`What is ${NOMINAL_DURATION}?`} />
+            </p>
+          ) : null}
+          <InventoryTable rows={document.rows} showEnergy={document.showEnergy} showDuration={document.showDuration} />
+          {document.energyNote ? (
+            <p className="mt-4 break-words text-copy-14 text-gray-900">{document.energyNote}</p>
+          ) : null}
         </Card>
       </div>
 
@@ -76,9 +83,16 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
           <p className="break-words text-copy-14 text-gray-900">{MONITORED_INTRO}</p>
           <p className="mt-3 break-words text-copy-14 text-gray-900">{STORAGE_SIGN}</p>
           {document.monitored.available ? (
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Magnitude title={DISCHARGING} block={document.monitored.discharge} periodLabel={document.monitored.periodLabel} periodStart={document.monitored.periodStart} />
-              <Magnitude title={CHARGING} block={document.monitored.charge} periodLabel={document.monitored.periodLabel} periodStart={document.monitored.periodStart} />
+            <div className="mt-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Magnitude title={DISCHARGING} block={document.monitored.discharge} periodLabel={document.monitored.periodLabel} periodStart={document.monitored.periodStart} />
+                <Magnitude title={CHARGING} block={document.monitored.charge} periodLabel={document.monitored.periodLabel} periodStart={document.monitored.periodStart} />
+              </div>
+              {document.monitored.discharge.unreported.map((text) => (
+                <p key={text} className="mt-3 break-words text-copy-14 text-gray-900">
+                  {text}
+                </p>
+              ))}
             </div>
           ) : (
             <div className="mt-4">
@@ -114,6 +128,48 @@ function StatValue({ value, unit }: { value: string; unit: string | null }) {
   );
 }
 
+function Coverage({ coverage }: { coverage: StorageDocument["coverage"] }) {
+  return (
+    <div className="mt-2">
+      {coverage.nationalOnly ? (
+        <p className="break-words text-copy-14 text-gray-1000">{coverage.nationalOnly}</p>
+      ) : null}
+      {coverage.lines.length > 0 ? (
+        <ul className={`flex flex-col gap-3 ${coverage.nationalOnly ? "mt-3" : ""}`}>
+          {coverage.lines.map((line) => (
+            <CoverageLine key={line.id} line={line} />
+          ))}
+        </ul>
+      ) : null}
+      {coverage.footnote ? <p className="mt-3 break-words text-label-12 text-gray-900">{coverage.footnote}</p> : null}
+    </div>
+  );
+}
+
+function CoverageLine({ line }: { line: StorageCoverageLine }) {
+  switch (line.kind) {
+    case "mw":
+      return (
+        <li>
+          <p className="break-words text-copy-14 text-gray-900">{line.label}</p>
+          <p className="mt-1 break-words font-sans text-heading-24 tabular-nums text-gray-1000">
+            {line.coveredLabel} of {line.totalLabel} <span className="text-label-13 text-gray-900">MW</span>
+          </p>
+        </li>
+      );
+    case "unreported":
+      return (
+        <li>
+          <p className="break-words text-copy-14 text-gray-1000">{line.text}</p>
+        </li>
+      );
+    default: {
+      const exhaustive: never = line;
+      return exhaustive;
+    }
+  }
+}
+
 function ShareList({ shares, unit }: { shares: readonly StorageShare[]; unit: string }) {
   if (!shares || shares.length === 0) {
     return null;
@@ -138,25 +194,49 @@ function ShareList({ shares, unit }: { shares: readonly StorageShare[]; unit: st
   );
 }
 
-function InventoryTable({ rows }: { rows: readonly StorageRow[] }) {
+const TABLE_GRID = {
+  rated: "md:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)]",
+  energy: "md:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]",
+  duration: "md:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_repeat(3,minmax(0,1fr))]",
+} as const;
+
+function tableGrid(showEnergy: boolean, showDuration: boolean): string {
+  if (showDuration) {
+    return TABLE_GRID.duration;
+  }
+  if (showEnergy) {
+    return TABLE_GRID.energy;
+  }
+  return TABLE_GRID.rated;
+}
+
+function InventoryTable({
+  rows,
+  showEnergy,
+  showDuration,
+}: {
+  rows: readonly StorageRow[];
+  showEnergy: boolean;
+  showDuration: boolean;
+}) {
+  const grid = tableGrid(showEnergy, showDuration);
   return (
     <div className="mt-4">
-      <div className="hidden min-w-0 grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-alpha-400 py-2 text-label-12 text-gray-900 md:grid">
+      <div className={`hidden min-w-0 ${grid} gap-3 border-b border-gray-alpha-400 py-2 text-label-12 text-gray-900 md:grid`}>
         <p className="min-w-0 break-words">Station</p>
         <p className="min-w-0 break-words">Technology</p>
         <p className="min-w-0 break-words">{RATED_CAPACITY} (MW)</p>
-        <p className="min-w-0 break-words">{ENERGY_CAPACITY} (MWh)</p>
-        <p className="flex min-w-0 flex-wrap items-center gap-1 break-words">
-          {NOMINAL_DURATION}
-          <InfoTooltip text={DURATION_TOOLTIP} label={`What is ${NOMINAL_DURATION}?`} align="end" />
-        </p>
+        {showEnergy ? <p className="min-w-0 break-words">{ENERGY_CAPACITY} (MWh)</p> : null}
+        {showDuration ? (
+          <p className="flex min-w-0 flex-wrap items-center gap-1 break-words">
+            {NOMINAL_DURATION}
+            <InfoTooltip text={DURATION_TOOLTIP} label={`What is ${NOMINAL_DURATION}?`} align="end" />
+          </p>
+        ) : null}
       </div>
       <ul>
         {rows.map((row) => (
-          <li
-            key={row.id}
-            className="grid grid-cols-1 gap-1 border-b border-gray-alpha-400 py-3 md:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_repeat(3,minmax(0,1fr))] md:gap-3"
-          >
+          <li key={row.id} className={`grid grid-cols-1 gap-1 border-b border-gray-alpha-400 py-3 ${grid} md:gap-3`}>
             <p className="min-w-0 break-words text-copy-14 text-gray-1000">
               {row.href ? (
                 <Link href={row.href} className="text-blue-700 underline-offset-2 hover:underline">
@@ -168,13 +248,20 @@ function InventoryTable({ rows }: { rows: readonly StorageRow[] }) {
             </p>
             <Field label="Technology" value={row.technologyLabel} />
             <Field label={`${RATED_CAPACITY} (MW)`} value={row.ratedLabel} numeric />
-            <Field label={`${ENERGY_CAPACITY} (MWh)`} value={row.energyLabel} numeric />
-            <Field label={NOMINAL_DURATION} value={row.durationLabel} numeric />
+            {showEnergy ? <OptionalField label={`${ENERGY_CAPACITY} (MWh)`} value={row.energyLabel} /> : null}
+            {showDuration ? <OptionalField label={NOMINAL_DURATION} value={row.durationLabel} /> : null}
           </li>
         ))}
       </ul>
     </div>
   );
+}
+
+function OptionalField({ label, value }: { label: string; value: string | null }) {
+  if (value === null) {
+    return <p className="hidden md:block" />;
+  }
+  return <Field label={label} value={value} numeric />;
 }
 
 function Field({ label, value, numeric = false }: { label: string; value: string; numeric?: boolean }) {

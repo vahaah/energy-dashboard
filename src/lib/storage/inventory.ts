@@ -27,7 +27,8 @@ export type StorageAsset = {
   energyMwh: number | null;
   durationHours: number | null;
   href: string | null;
-  covered: boolean;
+  /** Plant-register pumped storage: the transmission-connected fleet FUELINST reports as PS. */
+  transmissionConnected: boolean;
 };
 
 export type StorageInventory = {
@@ -106,10 +107,7 @@ function groupStatus(group: readonly StorageInput[]): StorageStatus {
  * Counted megawatts win when a REPD row and a DUKES row share an asset.
  * A co-located pair with the same figure counts once.
  */
-export function buildStorageInventory(
-  rows: readonly StorageInput[],
-  coveredIds: ReadonlySet<string> = new Set(),
-): StorageInventory {
+export function buildStorageInventory(rows: readonly StorageInput[]): StorageInventory {
   const parent = rows.map((_, index) => index);
   const byAsset = new Map<string, number>();
   const byRef = new Map<string, number>();
@@ -162,19 +160,20 @@ export function buildStorageInventory(
       assetId ??
       [...group].sort((left, right) => left.id.localeCompare(right.id))[0]?.id ??
       "";
+    const technology = group[0]?.technology ?? "battery";
     const ratedMw = ratedMwOf(group);
     const energyMwh = energyMwhOf(group);
     assets.push({
       id,
       name,
-      technology: group[0]?.technology ?? "battery",
+      technology,
       status: groupStatus(group),
       country: group.find((row) => row.assetId)?.country ?? group[0]?.country ?? "",
       ratedMw,
       energyMwh,
       durationHours: durationHours(ratedMw, energyMwh),
       href: assetId ? assetPath(assetId, name) : null,
-      covered: coveredIds.has(id),
+      transmissionConnected: technology === "pumped_storage" && assetId !== null,
     });
   }
   assets.sort((left, right) => {
