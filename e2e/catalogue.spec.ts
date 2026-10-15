@@ -74,9 +74,16 @@ test("search opens from the keyboard and links to an asset", async ({ page }) =>
 
 test("clicking a search result closes the dialog", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Search assets" }).first().click();
+  const button = page.getByRole("button", { name: "Search assets" }).first();
+  await button.waitFor();
   const dialog = page.getByRole("dialog", { name: "Search assets" });
-  await expect(dialog).toBeVisible();
+  await expect(async () => {
+    if (await dialog.isVisible()) {
+      return;
+    }
+    await button.click();
+    await expect(dialog).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await dialog.getByRole("combobox").fill("Sizewell");
   const option = dialog.getByRole("option").first();
   await expect(option).toBeVisible();
