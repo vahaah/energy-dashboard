@@ -101,7 +101,8 @@ tinybird/
 
 scripts/
 ├── backfill.ts                 # Historical grid + EIA price backfill
-└── backfill-commodities.ts     # Commodity desk healer (EIA + World Bank + SAP)
+├── backfill-commodities.ts     # Commodity desk healer (EIA + World Bank + SAP)
+└── build-today-map.ts          # Static Today-page map card (light and dark PNG)
 
 vercel.json          # Cron config: /api/cron runs at minute 0 every hour
 ARCHITECTURE.md      # Detailed data model and architecture docs
@@ -184,6 +185,12 @@ P1A.2 ships the geometry and basemap and does not add a map page. `/` stays `for
 The header search button is on every page, including `/`. The dialog and `/search/assets.json` load on the first open. `/` does not load maplibre or pmtiles. `/` stays `force-static` with `revalidate` 300. These pages make no Tinybird calls.
 
 `asset_parties.ndjson` holds operator, region, and county from the same official editions. `prebuild` copies the MapLibre worker to `public/maplibre/`; that copy is not committed.
+
+### P1A.5 Today map card
+
+`/` stays `force-static` with `revalidate` 300. Below the answer and the headline balance, a static card links to `/map`. The card does not import maplibre, pmtiles, the catalogue loader, or `renderStaticMap`. A page request does not read the register and does not add a Tinybird call. The only map bytes on `/` are the two committed PNGs.
+
+`npm run map:today` (`scripts/build-today-map.ts`, also `predev` / `prebuild`) draws those images from the checked-in register and the DNO outline. `renderStaticMap` in `src/lib/map/static-map.ts` takes a bbox and points so a later asset-page thumbnail can call it. Light and dark PNGs are `public/today/map-light.png` and `public/today/map-dark.png`, swapped with the `html.dark` class inside a fixed aspect box. The script rewrites them only when the REPD release, the DUKES release, or the DNO sha256 changes; pass `--force` after a renderer change. The alt count is `catalogue.rows.length`, the same total `/map` prints as "All N stations". The footer uses `OGL_V3_ATTRIBUTION` and `NESO_OPEN_DATA_ATTRIBUTION`. The outline is the DNO silhouette, not Zoomstack, so the card does not carry the OS basemap credit. No OSM.
 
 ## Environment Variables
 

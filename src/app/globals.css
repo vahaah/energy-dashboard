@@ -149,6 +149,18 @@ html.dark {
   color-scheme: dark;
 }
 
+.today-map-dark {
+  display: none;
+}
+
+html.dark .today-map-light {
+  display: none;
+}
+
+html.dark .today-map-dark {
+  display: block;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -75,6 +75,7 @@ import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
+import { TodayMapCard } from "@/components/today-map-card";
 import { SectionBlock } from "@/components/section-block";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SiteHeader } from "@/components/site-header";
@@ -421,6 +422,8 @@ export function Dashboard({
             </Card>
           </section>
         )}
+
+        <TodayMapCard />
 
         <SectionBlock
           id="section-price"
