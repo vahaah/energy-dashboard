@@ -48,6 +48,7 @@ describe("site nav shell", () => {
       "/assets",
       "/system/constraints",
       "/system/storage",
+      "/system/whole-energy",
       "/api",
     ]);
     expect(visibleHeaderNav().map((item) => item.label)).toEqual(["Today", "Gas", "Map", "Assets", "System", "API"]);
@@ -82,6 +83,7 @@ describe("site nav shell", () => {
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/assets");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/constraints");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/storage");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/whole-energy");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).not.toContain("/directory");
     expect(urls).toContain("/api");
     expect(urls).toContain("/");

@@ -16,6 +16,7 @@ export type IntervalConvention =
   | "uk_settlement_period_half_open"
   | "calendar_day_utc_half_open"
   | "calendar_month_utc_half_open"
+  | "calendar_year_half_open"
   | "gas_day_half_open";
 
 export type SignConvention =
@@ -26,7 +27,8 @@ export type SignConvention =
   | "positive_storage_charging"
   | "positive_intensity"
   | "positive_price"
-  | "share_of_denominator";
+  | "share_of_denominator"
+  | "negative_transformation_input";
 
 /** Measured series are post-event. Forecast series are a snapshot issued ahead of the interval. */
 export type SeriesKind = "measured" | "forecast";

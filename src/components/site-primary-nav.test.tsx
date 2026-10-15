@@ -18,6 +18,7 @@ describe("primary nav", () => {
     expect(home).toContain(">System<");
     expect(home).not.toContain('href="/system/constraints"');
     expect(home).not.toContain('href="/system/storage"');
+    expect(home).not.toContain('href="/system/whole-energy"');
     expect(home).not.toContain('href="/system/generation"');
     expect(home).not.toContain('href="/system/demand"');
     expect(home).not.toContain('href="/system/carbon"');

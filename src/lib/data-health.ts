@@ -159,6 +159,8 @@ function lagAnchor(interval: IntervalConvention): string {
       return "the gas day";
     case "calendar_month_utc_half_open":
       return "the month";
+    case "calendar_year_half_open":
+      return "the year";
     case "calendar_day_utc_half_open":
       return "the trading day";
     case "uk_settlement_period_half_open":

@@ -19,6 +19,7 @@
     "test:layout": "playwright test",
     "publish-check": "tsx scripts/publish-check.ts",
     "catalogue:assets": "tsx scripts/catalogue/build-assets.ts",
+    "catalogue:whole-energy": "tsx scripts/catalogue/whole-energy.ts",
     "catalogue:dno": "tsx scripts/build-dno-layer.ts",
     "basemap": "tsx scripts/build-basemap.ts",
     "basemap:style": "tsx scripts/build-basemap-style.ts",
