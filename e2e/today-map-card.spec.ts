@@ -62,7 +62,7 @@ for (const theme of THEMES) {
       await link.scrollIntoViewIfNeeded();
       await link.evaluate((element) => {
         if (element instanceof HTMLElement) {
-          element.focus({ focusVisible: true });
+          element.focus({ focusVisible: true } as FocusOptions);
         }
       });
       await page.keyboard.press("Tab");
