@@ -18,6 +18,7 @@ import { execFileSync } from "node:child_process";
 import { put } from "@vercel/blob";
 import { CATALOGUE_SCHEMA_VERSION } from "../src/lib/catalogue/schema";
 import { LAYER_FILES, type MapLayer } from "../src/lib/catalogue/layers";
+import { pointZoomstackSource } from "../src/lib/map/basemap-style";
 import {
   BASEMAP_LAYER_ID,
   BASEMAP_PRECISION,
@@ -131,17 +132,23 @@ function readLayers(dir: string): MapLayer[] {
   }
 }
 
-function pointStylesAt(blobUrl: string): void {
+function pointStylesAt(blobUrl: string, copyrightYear: number): void {
   for (const name of ["style-light.json", "style-dark.json"]) {
     const path = resolve(process.cwd(), "public/basemap", name);
     const style = JSON.parse(readFileSync(path, "utf8")) as {
-      sources?: { zoomstack?: { url?: string } };
+      sources?: { zoomstack?: { url?: string; attribution?: string } };
     };
     const source = style.sources?.zoomstack;
-    if (!source) {
+    if (!source?.url) {
       throw new Error(`${name} has no zoomstack source`);
     }
-    source.url = `pmtiles://${blobUrl}`;
+    const pointed = pointZoomstackSource(
+      { ...source, url: source.url, attribution: source.attribution ?? "" },
+      blobUrl,
+      copyrightYear,
+    );
+    source.url = pointed.url;
+    source.attribution = pointed.attribution;
     writeFileSync(path, `${JSON.stringify(style, null, 2)}\n`);
   }
 }
@@ -213,7 +220,7 @@ async function main(): Promise<void> {
   layers.push(layer);
   layers.sort((left, right) => left.id.localeCompare(right.id));
   writeFileSync(join(catalogueDir, LAYER_FILES.layers), `${JSON.stringify(layers, null, 2)}\n`);
-  pointStylesAt(blob.url);
+  pointStylesAt(blob.url, year);
   console.log(JSON.stringify({ edition, zoom: `${BASEMAP_ZOOM_MIN}-${BASEMAP_ZOOM_MAX}`, bytes, sha256: sha, url: blob.url }, null, 2));
 }
 

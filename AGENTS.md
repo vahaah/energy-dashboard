@@ -175,7 +175,7 @@ No `/map` UI. `/` stays `force-static` with `revalidate` 300. This adds no Tinyb
 
 `npm run basemap` is manual, about twice a year, and not in CI. It exits immediately when `BLOB_READ_WRITE_TOKEN` is unset and never prints the token. With the token set it downloads OS Open Zoomstack vector tiles (OGL v3), drops zooms above 13, converts to one PMTiles file, uploads `tiles/basemap/<edition>.pmtiles`, and records bytes and sha256 on the basemap row. The product edition at the time of this change was `2026-06`. The MBTiles download is about 2.9 GB; the trimmed PMTiles size is whatever that run prints.
 
-`GET /api/v1/map/layers` is `force-static` and serves `layers.json`. `GET /api/cron-map-layers` (`20 5 * * *`) checks the NESO source by ETag and downloads only when the ETag misses, then sha256. A failure does not replace the Redis pointer `grid:map-layer:dno`. A changed source hash is flagged on `/data-health`. Page requests only read that flag.
+`GET /api/v1/map/layers` is `force-static` and serves `layers.json`. `GET /api/cron-map-layers` (`20 5 * * *`) checks the NESO source by ETag and downloads only when the ETag misses, then sha256. A later run probes with the ETag stored on the Redis pointer. The checked-in edition, file URL, bytes, and sha256 stay the publication. An equal source hash is current even when the resource URL changes. A failure does not replace the Redis pointer `grid:map-layer:dno`. A changed source hash is flagged on `/data-health`. Page requests only read that flag.
 
 ## Environment Variables
 

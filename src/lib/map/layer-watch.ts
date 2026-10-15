@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { layerWatchFileSchema, layersFileSchema, type MapLayer } from "@/lib/catalogue/layers";
 import { DNO_LAYER_ID, NESO_DNO_PACKAGE_URL, REDIS_DNO_POINTER_KEY } from "@/lib/map/constants";
-import type { LayerPointer } from "@/lib/map/layer-flag";
+import { parseLayerPointer, type LayerPointer } from "@/lib/map/layer-flag";
 import { getRedis, type RedisCommands } from "@/lib/redis-cache";
 
 const USER_AGENT = "grid-catalogue/1.0 (energy-dashboard; DNO layer watch)";
@@ -105,35 +105,60 @@ export function editionFromResource(resource: CkanResource): string {
 }
 
 /**
- * `published` is the checked-in layer, not the Redis flag. The published URL,
- * edition, bytes, and sha256 stay put. A new source hash flags the layer. An
- * ETag or sha256 that still matches the checked-in watch only refreshes
- * `checked_at` and clears a stale flag.
+ * Source observation from the last successful check, with the checked-in
+ * publication fields kept. A pointer for another layer is ignored.
+ */
+export function watchBaseline(published: LayerPointer, persisted: LayerPointer | null): LayerPointer {
+  if (!persisted || persisted.layer_id !== published.layer_id) {
+    return published;
+  }
+  return {
+    ...published,
+    source_url: persisted.source_url,
+    source_etag: persisted.source_etag,
+    source_sha256: persisted.source_sha256,
+    status: persisted.status,
+    checked_at: persisted.checked_at,
+  };
+}
+
+/**
+ * `baseline` is the source ETag and source hash to probe against. Its
+ * edition, file URL, bytes, and sha256 are the checked-in publication.
+ * `publishedSourceSha256` is the checked-in source hash. A download with that
+ * hash is current even when NESO serves it from a new URL. An ETag match
+ * counts only for the same URL, and a conditional hit stays changed when the
+ * stored source hash is not the checked-in one.
  */
 export function decideLayerWatch(
-  published: LayerPointer,
+  baseline: LayerPointer,
   observation: SourceObservation,
   checkedAt: string,
+  publishedSourceSha256: string = baseline.source_sha256,
 ): WatchDecision {
-  const sameUrl = observation.sourceUrl === published.source_url;
+  const sameUrl = observation.sourceUrl === baseline.source_url;
   const etagMatches =
     sameUrl &&
     !observation.downloaded &&
     observation.etag !== null &&
-    published.source_etag !== null &&
-    normalizeEtag(observation.etag) === normalizeEtag(published.source_etag);
-  const shaMatches = sameUrl && observation.sha256 !== null && observation.sha256 === published.source_sha256;
+    baseline.source_etag !== null &&
+    normalizeEtag(observation.etag) === normalizeEtag(baseline.source_etag);
+  const shaMatches = observation.sha256 !== null && observation.sha256 === publishedSourceSha256;
   if (!observation.downloaded && !etagMatches && observation.sha256 === null) {
     throw new Error("NESO source was not downloaded and did not match the stored ETag");
   }
+  const sourceMatchesPublished = shaMatches || (etagMatches && baseline.source_sha256 === publishedSourceSha256);
   if (etagMatches || shaMatches) {
+    const status = sourceMatchesPublished ? "current" : "changed";
     return {
-      action: "keep",
+      action: status === "current" ? "keep" : "flag",
       downloaded: observation.downloaded,
       pointer: {
-        ...published,
-        source_etag: observation.etag ?? published.source_etag,
-        status: "current",
+        ...baseline,
+        source_url: shaMatches && observation.sourceUrl ? observation.sourceUrl : baseline.source_url,
+        source_etag: observation.etag ?? baseline.source_etag,
+        source_sha256: shaMatches && observation.sha256 ? observation.sha256 : baseline.source_sha256,
+        status,
         checked_at: checkedAt,
       },
     };
@@ -145,7 +170,7 @@ export function decideLayerWatch(
     action: "flag",
     downloaded: true,
     pointer: {
-      ...published,
+      ...baseline,
       source_url: observation.sourceUrl,
       source_etag: observation.etag,
       source_sha256: observation.sha256,
@@ -285,36 +310,43 @@ export async function runDnoLayerWatch(options: {
   let previous: LayerPointer | null = null;
   try {
     const catalogue = readCatalogue();
-    previous = seedPointer(catalogue);
+    const published = seedPointer(catalogue);
+    previous = published;
+    let persistedPointer: LayerPointer | null = null;
+    if (redis) {
+      try {
+        persistedPointer = parseLayerPointer(await redis.get(REDIS_DNO_POINTER_KEY));
+      } catch (error) {
+        return failed(redact(error instanceof Error ? error.message : String(error)), published);
+      }
+    }
+    const baseline = watchBaseline(published, persistedPointer);
+    previous = baseline;
     const packageResponse = await fetchImpl(NESO_DNO_PACKAGE_URL, {
       headers: { "user-agent": USER_AGENT, accept: "application/json" },
     });
     if (!packageResponse.ok) {
-      return failed(`NESO package returned ${packageResponse.status}`, previous);
+      return failed(`NESO package returned ${packageResponse.status}`, baseline);
     }
     const resource = selectDnoGeoJsonResource(
       ckanPackageSchema.parse(await packageResponse.json()).result.resources,
     );
-    const probed = await probeDnoSource(resource.url ?? "", previous.source_etag, fetchImpl);
+    const probed = await probeDnoSource(resource.url ?? "", baseline.source_etag, fetchImpl);
     const decision = decideLayerWatch(
-      previous,
+      baseline,
       { sourceUrl: resource.url ?? "", etag: probed.etag, sha256: probed.sha256, downloaded: probed.downloaded },
       now.toISOString(),
+      published.source_sha256,
     );
     let persisted = false;
     if (redis) {
-      try {
-        await redis.get(REDIS_DNO_POINTER_KEY);
-      } catch (error) {
-        return failed(redact(error instanceof Error ? error.message : String(error)), previous);
-      }
       const wrote = await redis.set(REDIS_DNO_POINTER_KEY, JSON.stringify(decision.pointer));
       persisted = wrote === "OK";
       if (!persisted) {
-        return failed("pointer write did not succeed", previous);
+        return failed("pointer write did not succeed", baseline);
       }
     }
-    const status = decision.action === "flag" ? "changed" : "current";
+    const status = decision.pointer.status;
     return {
       ok: true,
       status,

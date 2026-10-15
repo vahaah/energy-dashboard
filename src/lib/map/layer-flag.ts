@@ -22,7 +22,7 @@ export const layerPointerSchema = z
 
 export type LayerPointer = z.infer<typeof layerPointerSchema>;
 
-function parsePointer(value: unknown): LayerPointer | null {
+export function parseLayerPointer(value: unknown): LayerPointer | null {
   const parsed = layerPointerSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
@@ -33,7 +33,7 @@ export async function readDnoLayerFlag(redis: RedisCommands | null = getRedis())
     return null;
   }
   try {
-    const pointer = parsePointer(await redis.get(REDIS_DNO_POINTER_KEY));
+    const pointer = parseLayerPointer(await redis.get(REDIS_DNO_POINTER_KEY));
     if (!pointer || pointer.status !== "changed") {
       return null;
     }

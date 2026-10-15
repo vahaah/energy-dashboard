@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { basemapStyle, themeColor } from "@/lib/map/basemap-style";
+import { basemapStyle, pointZoomstackSource, themeColor } from "@/lib/map/basemap-style";
 import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, osBasemapAttribution } from "@/lib/map/constants";
 import { decodeGlyphRange } from "@/lib/map/glyph-pbf";
 
@@ -38,5 +38,25 @@ describe("basemap style", () => {
     const sprite = readFileSync(resolve(process.cwd(), "public/basemap/sprites/light.json"), "utf8");
     expect(sprite.trim()).toBe("{}");
     expect(readFileSync(resolve(process.cwd(), "public/basemap/sprites/dark.png"))[0]).toBe(137);
+  });
+
+  it("stamps the edition year onto the style source when the PMTiles URL changes", () => {
+    const source = {
+      type: "vector" as const,
+      url: BASEMAP_SOURCE_URL,
+      attribution: osBasemapAttribution(2026),
+      minzoom: 0,
+      maxzoom: 13,
+    };
+    expect(
+      pointZoomstackSource(source, "https://blob.example/tiles/basemap/2027-03.pmtiles", 2027),
+    ).toEqual({
+      ...source,
+      url: "pmtiles://https://blob.example/tiles/basemap/2027-03.pmtiles",
+      attribution: osBasemapAttribution(2027),
+    });
+    const script = readFileSync(resolve(process.cwd(), "scripts/build-basemap.ts"), "utf8");
+    expect(script).toContain("pointStylesAt(blob.url, year)");
+    expect(script).toContain("source.attribution = pointed.attribution");
   });
 });

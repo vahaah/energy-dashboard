@@ -188,6 +188,19 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
   };
 }
 
+/** Point a checked-in style at a published PMTiles archive and that edition's crown year. */
+export function pointZoomstackSource<T extends { url: string; attribution: string }>(
+  source: T,
+  blobUrl: string,
+  copyrightYear: number,
+): T {
+  return {
+    ...source,
+    url: `pmtiles://${blobUrl}`,
+    attribution: osBasemapAttribution(copyrightYear),
+  };
+}
+
 export function basemapStyleJson(theme: BasemapTheme, copyrightYear: number): string {
   return `${JSON.stringify(basemapStyle(theme, copyrightYear), null, 2)}\n`;
 }

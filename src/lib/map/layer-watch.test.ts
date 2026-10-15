@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readDnoLayerFlag, type LayerPointer } from "@/lib/map/layer-flag";
-import { decideLayerWatch, runDnoLayerWatch, selectDnoGeoJsonResource } from "@/lib/map/layer-watch";
+import { decideLayerWatch, runDnoLayerWatch, selectDnoGeoJsonResource, watchBaseline } from "@/lib/map/layer-watch";
 import { REDIS_DNO_POINTER_KEY } from "@/lib/map/constants";
 import { resetRedisClient, setRedisForTests, type RedisCommands } from "@/lib/redis-cache";
 
@@ -84,6 +84,79 @@ describe("DNO layer watch", () => {
     expect(decision.pointer.status).toBe("current");
   });
 
+  it("treats an equal source hash as current when the resource URL changes", () => {
+    const nextUrl = "https://api.neso.energy/dataset/dno/download/gb-dno-republished.geojson";
+    const decision = decideLayerWatch(
+      PUBLISHED,
+      {
+        sourceUrl: nextUrl,
+        etag: '"other-resource"',
+        sha256: PUBLISHED.source_sha256,
+        downloaded: true,
+      },
+      "2026-10-16T05:20:00.000Z",
+    );
+    expect(decision.action).toBe("keep");
+    expect(decision.pointer.status).toBe("current");
+    expect(decision.pointer.source_url).toBe(nextUrl);
+    expect(decision.pointer.source_sha256).toBe(PUBLISHED.source_sha256);
+    expect(decision.pointer.url).toBe(PUBLISHED.url);
+    expect(decision.pointer.sha256).toBe(PUBLISHED.sha256);
+    expect(decision.pointer.edition).toBe(PUBLISHED.edition);
+  });
+
+  it("does not treat an ETag as a match for a different resource URL", () => {
+    expect(() =>
+      decideLayerWatch(
+        PUBLISHED,
+        {
+          sourceUrl: "https://api.neso.energy/dataset/dno/download/other.geojson",
+          etag: PUBLISHED.source_etag,
+          sha256: null,
+          downloaded: false,
+        },
+        "2026-10-16T05:20:00.000Z",
+      ),
+    ).toThrow(/did not match the stored ETag/);
+  });
+
+  it("keeps a pending change on a conditional hit against the persisted source hash", () => {
+    const pendingSha = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    const baseline = watchBaseline(PUBLISHED, {
+      ...PUBLISHED,
+      edition: "19990101",
+      url: "https://example.invalid/stale.geojson",
+      sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      bytes: 12,
+      source_url: "https://api.neso.energy/dataset/dno/download/gb-dno-new.geojson",
+      source_etag: '"persisted-etag"',
+      source_sha256: pendingSha,
+      status: "changed",
+    });
+    expect(baseline.edition).toBe(PUBLISHED.edition);
+    expect(baseline.url).toBe(PUBLISHED.url);
+    expect(baseline.sha256).toBe(PUBLISHED.sha256);
+    expect(baseline.bytes).toBe(PUBLISHED.bytes);
+    expect(baseline.source_etag).toBe('"persisted-etag"');
+    const decision = decideLayerWatch(
+      baseline,
+      {
+        sourceUrl: baseline.source_url,
+        etag: '"persisted-etag"',
+        sha256: null,
+        downloaded: false,
+      },
+      "2026-10-17T05:20:00.000Z",
+      PUBLISHED.source_sha256,
+    );
+    expect(decision.action).toBe("flag");
+    expect(decision.downloaded).toBe(false);
+    expect(decision.pointer.status).toBe("changed");
+    expect(decision.pointer.source_sha256).toBe(pendingSha);
+    expect(decision.pointer.sha256).toBe(PUBLISHED.sha256);
+    expect(decision.pointer.url).toBe(PUBLISHED.url);
+  });
+
   it("flags a new source hash and leaves the published url in place", () => {
     const decision = decideLayerWatch(
       PUBLISHED,
@@ -151,6 +224,71 @@ describe("DNO layer watch", () => {
     expect(result.ok).toBe(false);
     expect(result.persisted).toBe(false);
     expect(redis.sets).toBe(0);
+  });
+
+  it("probes with the persisted ETag and keeps the checked-in publication", async () => {
+    const catalogue = JSON.parse(readFileSync(resolve(process.cwd(), "data/catalogue/layers.json"), "utf8")) as Array<{
+      id: string;
+      edition: string;
+      url: string;
+      sha256: string;
+      bytes: number;
+    }>;
+    const published = catalogue.find((layer) => layer.id === "dno");
+    const sourceUrl = "https://api.neso.energy/dataset/dno/download/gb-dno-pending.geojson";
+    const persistedEtag = '"persisted-etag"';
+    const pendingSha = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    const redis = memoryRedis({
+      ...PUBLISHED,
+      edition: "19990101",
+      url: "https://example.invalid/stale.geojson",
+      sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      bytes: 12,
+      source_url: sourceUrl,
+      source_etag: persistedEtag,
+      source_sha256: pendingSha,
+      status: "changed",
+    });
+    const conditional: string[] = [];
+    const result = await runDnoLayerWatch({
+      now: new Date("2026-10-17T05:20:00.000Z"),
+      redis,
+      fetchImpl: async (input, init) => {
+        const url = String(input);
+        if (url.includes("package_show")) {
+          return Response.json({
+            success: true,
+            result: {
+              resources: [
+                {
+                  format: "GeoJSON",
+                  name: "GB DNO Licence Areas 20240503 with GeoJson",
+                  url: sourceUrl,
+                },
+              ],
+            },
+          });
+        }
+        if (url === sourceUrl) {
+          return new Response(null, { status: 302, headers: { location: "https://files.example/dno.geojson" } });
+        }
+        conditional.push(new Headers(init?.headers).get("if-none-match") ?? "");
+        return new Response(null, { status: 304 });
+      },
+    });
+    expect(conditional).toEqual([persistedEtag]);
+    expect(result.ok).toBe(true);
+    expect(result.downloaded).toBe(false);
+    expect(result.status).toBe("changed");
+    expect(redis.sets).toBe(1);
+    const written = JSON.parse(redis.value ?? "{}") as LayerPointer;
+    expect(written.edition).toBe(published?.edition);
+    expect(written.url).toBe(published?.url);
+    expect(written.sha256).toBe(published?.sha256);
+    expect(written.bytes).toBe(published?.bytes);
+    expect(written.source_etag).toBe(persistedEtag);
+    expect(written.source_sha256).toBe(pendingSha);
+    expect(written.status).toBe("changed");
   });
 
   it("reads a changed flag and never writes on that read", async () => {
