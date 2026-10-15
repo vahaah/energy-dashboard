@@ -18,10 +18,12 @@ export function SitePrimaryNav({
   pathname,
   idPrefix,
   className = "",
+  compact = false,
 }: {
   pathname: string;
   idPrefix: string;
   className?: string;
+  compact?: boolean;
 }) {
   const items = visibleHeaderNav();
   return (
@@ -37,7 +39,7 @@ export function SitePrimaryNav({
                 aria-current={current ? "page" : undefined}
                 className={`${LINK_CLASS} ${current ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"}`}
               >
-                {item.label}
+                {compact && item.compactLabel ? item.compactLabel : item.label}
               </Link>
             );
           }
@@ -64,12 +66,14 @@ export function SitePrimaryNav({
 export function ConnectedSitePrimaryNav({
   idPrefix,
   className = "",
+  compact = false,
 }: {
   idPrefix: string;
   className?: string;
+  compact?: boolean;
 }) {
   const pathname = usePathname() || "/";
-  return <SitePrimaryNav pathname={pathname} idPrefix={idPrefix} className={className} />;
+  return <SitePrimaryNav pathname={pathname} idPrefix={idPrefix} className={className} compact={compact} />;
 }
 
 function SiteNavMenu({

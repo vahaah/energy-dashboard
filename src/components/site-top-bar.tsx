@@ -21,7 +21,7 @@ export function SiteTopBar({
   return (
     <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
       <div className={`mx-auto max-w-[1200px] ${CARD_PAD_X}`}>
-        <div className="flex h-16 items-center gap-3">
+        <div className="flex min-h-16 items-center gap-3">
           <Link href="/" className="flex h-11 shrink-0 items-center gap-2 text-gray-1000">
             <GridMark />
             <span className="text-heading-16">Grid</span>
@@ -38,7 +38,7 @@ export function SiteTopBar({
         </div>
         <div className="flex items-center gap-3 border-t border-gray-alpha-400 py-2 md:hidden">
           <AssetSearchButton />
-          <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-mobile`} />
+          <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-mobile`} compact />
         </div>
       </div>
       {footer}

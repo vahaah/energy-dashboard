@@ -4,6 +4,8 @@ export type SiteNavLink = {
   kind: "link";
   id: string;
   label: string;
+  /** Short header label below the md breakpoint. */
+  compactLabel?: string;
   href: string;
 };
 
@@ -37,7 +39,7 @@ export const SITE_NAV_CATALOG: SiteNavEntry[] = [
     label: "System",
     items: SYSTEM_NAV_ITEMS.map((item) => ({ ...item })),
   },
-  { kind: "link", id: "directory", label: "Directory and tools", href: "/directory" },
+  { kind: "link", id: "directory", label: "Directory and tools", compactLabel: "Directory", href: "/directory" },
   { kind: "link", id: "api", label: "API", href: "/api" },
 ];
 
@@ -48,6 +50,8 @@ export const SHIPPED_PAGE_ROUTES = [
   "/assets",
   "/data-health",
   "/data-sources",
+  "/directory",
+  "/directory/identifiers",
   "/explained/price-cap",
   "/gas",
   "/map",

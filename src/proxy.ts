@@ -26,6 +26,7 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-map-layers",
   "/api/cron-gas",
   "/api/cron-constraints",
+  "/api/cron-directory",
   "/api/health",
 ]);
 
@@ -58,10 +59,11 @@ function checkLimit(ip: string): { allowed: boolean; remaining: number } {
   };
 }
 
-function corsHeaders(): Headers {
+function corsHeaders(pathname: string): Headers {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  const methods = pathname === "/api/v1/identifiers/resolve" ? "GET, POST, OPTIONS" : "GET, OPTIONS";
+  headers.set("Access-Control-Allow-Methods", methods);
   headers.set("Access-Control-Allow-Headers", "Content-Type");
   return headers;
 }
@@ -97,7 +99,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const headers = corsHeaders();
+  const headers = corsHeaders(pathname);
 
   if (request.method === "OPTIONS") {
     return new NextResponse(null, { status: 204, headers });
