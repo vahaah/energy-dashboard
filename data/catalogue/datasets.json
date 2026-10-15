@@ -334,5 +334,33 @@
     "cadence": "P1Y",
     "metric_ids": [],
     "register": "assets"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "neso-open-data:constraint-breakdown",
+    "source_id": "neso-open-data",
+    "catalogue_key": "constraint-breakdown",
+    "cadence": "P1D",
+    "metric_ids": [
+      "elec.gb.constraints.cost.reducing_largest_loss",
+      "elec.gb.constraints.cost.increasing_system_inertia",
+      "elec.gb.constraints.cost.voltage",
+      "elec.gb.constraints.cost.thermal",
+      "elec.gb.constraints.volume.reducing_largest_loss",
+      "elec.gb.constraints.volume.increasing_system_inertia",
+      "elec.gb.constraints.volume.voltage",
+      "elec.gb.constraints.volume.thermal"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "neso-open-data:day-ahead-constraint-flows-and-limits",
+    "source_id": "neso-open-data",
+    "catalogue_key": "day-ahead-constraint-flows-and-limits",
+    "cadence": "P1D",
+    "metric_ids": [
+      "elec.gb.constraints.day_ahead.flow",
+      "elec.gb.constraints.day_ahead.limit"
+    ]
   }
 ]

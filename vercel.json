@@ -24,6 +24,14 @@
     {
       "path": "/api/cron-gas",
       "schedule": "5 * * * *"
+    },
+    {
+      "path": "/api/cron-constraints?bundle=breakdown",
+      "schedule": "40 4 * * *"
+    },
+    {
+      "path": "/api/cron-constraints?bundle=day-ahead",
+      "schedule": "40 16 * * 1-5"
     }
   ]
 }

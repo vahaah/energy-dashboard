@@ -261,6 +261,22 @@ Open-graph images for `/gas`, `/map`, `/assets`, and `/assets/[id]/[slug]` are f
 
 Tinybird budget for this step: **+0**. The scheduled success path stays 378.
 
+### P1B.1 Constraints
+
+`/system/constraints` is `force-static` with `revalidate` 3600. `/` stays `force-static` with `revalidate` 300. The homepage does not import `src/lib/constraints`, the NESO parser, or `releases/neso-constraints`. No new Tinybird pipe. Tinybird budget **+0**. The scheduled success path stays 378.
+
+Two datasets on the existing `neso-open-data` source: `constraint-breakdown` (measured, weekly, revised) and `day-ahead-constraint-flows-and-limits` (forecast, weekdays). Attribution is `NESO_OPEN_DATA_ATTRIBUTION` (`Supported by National Energy SO Open Data`). Dataset URLs are `NESO_CONSTRAINT_BREAKDOWN_URL` and `NESO_DAY_AHEAD_CONSTRAINTS_URL`. The licence URL stays `NESO_OPEN_DATA_LICENCE_URL`.
+
+`CONSTRAINT_METRICS` is not part of `METRICS`. `kind` is `"measured"` for the breakdown and `"forecast"` for the day-ahead snapshot. A measured chart accepts only `kind: "measured"` and one unit. `measuredCostChart` is £. `measuredVolumeChart` is MWh. A forecast series throws. £ and MWh never share an axis. Cost shares use `displayedPercents` only when every published category is present and non-negative.
+
+The System dropdown is `SYSTEM_NAV_ITEMS` in `src/lib/nav.ts`. A later page adds one object. The header shows an item only when its href is in `SHIPPED_PAGE_ROUTES`. This step ships Constraints. Generation, demand, carbon, and transfers stay in the array and stay out of the header and the sitemap.
+
+Ingest is `nesoConstraints` from `/api/cron-constraints`. Breakdown is `40 4 * * *`. Day-ahead is `40 16 * * 1-5`. The route does not fetch NESO. Each run is a package lookup and one CSV, paced at 30 seconds (`NESO_DATASTORE_MAX_PER_MINUTE` is 2). About 2 workflow runs a day, 9 events per run. A changed hash for an already-published period writes a new `releases/neso-constraints/{releaseId}.json` and moves the bundle pointer. The previous file stays. A bad file or a new enum (unknown column or a boundary outside `CONSTRAINT_BOUNDARIES`) is quarantined under `quarantine/neso-constraints/` and the previous pointer stays. Add a new constraint group to that allowlist or the file quarantines. The day-ahead JSON keeps the latest 16 settlement dates. The raw CSV is stored by sha256. Reporting dates are the source settlement dates and the NESO financial year (April–March, Europe/London).
+
+`GET /api/v1/constraints?from=&to=&boundary=` reads the Blob release. `from` and `to` are required inclusive settlement dates. An unsupported filter is 400. No national cost is allocated to a boundary. With `BLOB_READ_WRITE_TOKEN` unset, the page and the API use `tests/fixtures/constraints`. Health reads Blob only, so a missing pointer is `not_yet_available`. Success revalidates `/system/constraints`, `/api/v1/constraints`, and `/data-health`. It does not revalidate `/`.
+
+No boundary map is drawn. The day-ahead explorer is a table. Labels stay the sentences in `src/lib/constraints/copy.ts`.
+
 ## Environment Variables
 
 ```env

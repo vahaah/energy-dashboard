@@ -47,6 +47,12 @@ const ENDPOINTS = [
     fields: "Derived cleanest-window answer from the NESO carbon forecast.",
   },
   {
+    path: "/api/v1/constraints?from=2026-10-01&to=2026-10-08",
+    name: "Constraints",
+    fields:
+      "Published constraint activity. Only the breakdowns the source publishes. from and to are inclusive settlement dates. boundary is optional. An unsupported filter returns 400.",
+  },
+  {
     path: "/api/v1/data-health",
     name: "Data health",
     fields:

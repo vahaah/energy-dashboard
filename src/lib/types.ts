@@ -28,6 +28,9 @@ export type SignConvention =
   | "positive_price"
   | "share_of_denominator";
 
+/** Measured series are post-event. Forecast series are a snapshot issued ahead of the interval. */
+export type SeriesKind = "measured" | "forecast";
+
 export type MetricSourceId = DataSourceId | readonly DataSourceId[];
 
 export type MetricDefinition = {

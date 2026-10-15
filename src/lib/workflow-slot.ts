@@ -6,6 +6,7 @@ export const SLOT_TTL_SECONDS = {
   prices: 6 * 60 * 60,
   yesterday: 24 * 60 * 60,
   gas: 50 * 60,
+  constraints: 20 * 60 * 60,
 } as const;
 
 export type WorkflowJob = keyof typeof SLOT_TTL_SECONDS;
@@ -34,6 +35,12 @@ export function pricesSlot(now: Date): string {
 
 export function yesterdaySlot(now: Date): string {
   return now.toISOString().slice(0, 10);
+}
+
+/** Breakdown at 04:40 UTC. Day-ahead at 16:40 UTC on weekdays. */
+export function constraintsSlot(now: Date, bundle: "breakdown" | "day-ahead"): string {
+  const hour = bundle === "breakdown" ? 4 : 16;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 40, 0, 0)).toISOString();
 }
 
 /** Gas cron fires at minute 5 of every hour. */
