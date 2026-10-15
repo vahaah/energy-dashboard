@@ -6,6 +6,7 @@ const PAGES = [
   "/today",
   "/gas",
   "/system/constraints",
+  "/system/storage",
   "/prices/gas",
   "/explained/price-cap",
   "/methodology",

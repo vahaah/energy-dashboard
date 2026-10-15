@@ -42,6 +42,7 @@ export const OG_PAGE_IDS = [
   "map",
   "assets",
   "constraints",
+  "storage",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -228,6 +229,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: NESO_OPEN_DATA_ATTRIBUTION,
   },
+  storage: {
+    eyebrow: gridEyebrow("Storage"),
+    title: "Electricity storage in Britain",
+    kicker: "Pumped storage and batteries, with the coverage of each figure shown.",
+    metrics: [{ label: "Cadence", value: "Half-hourly" }],
+    mix: [],
+    stamp: null,
+    source: `${OGL_V3_ATTRIBUTION} ${elexonBmrsAttribution(2026)}`,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -290,6 +300,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "map":
     case "assets":
     case "constraints":
+    case "storage":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -709,6 +720,8 @@ function pageCacheControl(page: OgPageId): string {
     case "map":
     case "assets":
       return OG_CACHE_CONTROL;
+    case "storage":
+      return OG_SETTLEMENT_CACHE_CONTROL;
     default: {
       const exhaustive: never = page;
       return exhaustive;
