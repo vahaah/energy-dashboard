@@ -16,6 +16,24 @@ import type { Generation5min } from "@/lib/types";
 
 const NOW = new Date("2026-10-15T06:52:00.000Z");
 
+function rateAt(applicableAt: string): GasComponent {
+  return {
+    publication_id: "PUBOB2042",
+    metric_id: "gas.gb_nts.entry.physical.national",
+    name: "System Entry Flows, National, Physical",
+    unit: "mscm/d",
+    quantity_kind: "rate",
+    basis: "flow",
+    value: 100,
+    counts: false,
+    applicable_at: applicableAt,
+    published_at: applicableAt,
+    retrieved_at: applicableAt,
+    forecast_issued_at: null,
+    parent_publication_id: null,
+  };
+}
+
 function fixtureRelease(): GasRelease {
   return gasReleaseSchema.parse(JSON.parse(readFileSync(gasReleasePath(), "utf8")));
 }
@@ -67,12 +85,16 @@ describe("gas page model", () => {
     expect(completed?.storage.notice).toBe(GAS_STORAGE_NOTICE);
     expect(completed?.linepack.description).toBe("Gas held in the pipelines");
     expect(completed?.linepack.opening).not.toBe("—");
+    expect(completed?.demand.every((row) => row.unit === "million m³")).toBe(true);
+    expect(flow?.entry.every((row) => row.unit === "million m³/day")).toBe(true);
     expect(completed?.stats.map((stat) => stat.unit)).toEqual([
-      "million m³/day",
-      "million m³/day",
       "million m³",
-      "million m³/day",
+      "million m³",
+      "million m³",
+      "million m³",
     ]);
+    expect(completed?.storage.unit).toBe("million m³");
+    expect(completed?.staleText).toBeNull();
   });
 
   it("never compares a partial day with a complete day on a different basis", () => {
@@ -149,17 +171,140 @@ describe("gas page model", () => {
       { timestamp: "2026-10-13 13:00:00", fuel_type: "wind", generation_mw: 9000, source: "fuelinst" },
     ];
     expect(generationSamples(inside)).toEqual([{ at: "2026-10-13T12:00:00.000Z", mw: 6400 }]);
-    const shown = buildGasDocument([release], NOW, inside);
+    const fragment = buildGasDocument([release], NOW, inside);
+    if (!fragment.available) {
+      throw new Error("fixture release missing");
+    }
+    expect(fragment.slices.every((slice) => slice.bridge == null)).toBe(true);
+
+    const covered: Generation5min[] = [];
+    for (let at = Date.parse(release.gas_day.start); at < Date.parse(release.gas_day.end); at += 30 * 60 * 1000) {
+      const timestamp = new Date(at).toISOString();
+      covered.push(
+        { timestamp, fuel_type: "ccgt", generation_mw: 6000, source: "fuelinst" },
+        { timestamp, fuel_type: "ocgt", generation_mw: 400, source: "fuelinst" },
+      );
+    }
+    const shown = buildGasDocument([release], NOW, covered);
     if (!shown.available) {
       throw new Error("fixture release missing");
     }
     const bridge = shown.slices.find((slice) => slice.basis === "completed")?.bridge;
-    expect(bridge?.offtake.unit).toBe("million m³/day");
+    expect(bridge?.offtake.unit).toBe("million m³");
     expect(bridge?.generation.unit).toBe("GW");
     expect(bridge?.generation.valueLabel).toBe("6.4");
     expect(bridge?.offtake.at).not.toBe(bridge?.generation.at);
     expect(bridge?.period).toContain("Gas day");
     expect(JSON.stringify(bridge)).not.toMatch(/\befficiency\b|\bratio\b/i);
+  });
+
+  it("labels both zones on a 23-hour and a 25-hour gas day", () => {
+    const release = fixtureRelease();
+    const spring = buildGasDocument(
+      [{ ...release, gas_day: gasDayFromLabel("2026-03-28"), bases: ["completed"], components: [] }],
+      NOW,
+      null,
+    );
+    const autumn = buildGasDocument(
+      [{ ...release, gas_day: gasDayFromLabel("2026-10-24"), bases: ["completed"], components: [] }],
+      NOW,
+      null,
+    );
+    if (!spring.available || !autumn.available) {
+      throw new Error("clock-change release missing");
+    }
+    expect(spring.slices[0]?.dayLabel).toBe("Gas day 28 Mar 2026, 05:00 GMT–05:00 BST");
+    expect(autumn.slices[0]?.dayLabel).toBe("Gas day 24 Oct 2026, 05:00 BST–05:00 GMT");
+  });
+
+  it("treats the last hourly sample as coverage and still requires the whole day", () => {
+    const release = fixtureRelease();
+    const start = Date.parse(release.gas_day.start);
+    const end = Date.parse(release.gas_day.end);
+    const rates: GasComponent[] = [];
+    for (let at = start; at < end; at += 60 * 60 * 1000) {
+      rates.push(rateAt(new Date(at + 5_000).toISOString()));
+    }
+    const full: GasRelease = { ...release, bases: ["flow"], components: rates };
+    expect(basisState(full, "flow", NOW)).toBe("complete");
+    const withoutLast = rates.filter((row) => Date.parse(row.applicable_at) < end - 60 * 60 * 1000);
+    expect(basisState({ ...full, components: withoutLast }, "flow", NOW)).toBe("partial");
+    expect(basisState(release, "flow", NOW)).toBe("partial");
+  });
+
+  it("keeps a completed day partial until both headline totals exist", () => {
+    const release = fixtureRelease();
+    const childOnly: GasRelease = {
+      ...release,
+      components: release.components.filter((row) => row.publication_id === "PUBOBJ1016"),
+    };
+    expect(basisState(childOnly, "completed", NOW)).toBe("partial");
+  });
+
+  it("uses the day-total cadence for completed staleness and the hourly cadence for flow", () => {
+    const release = fixtureRelease();
+    const recent = new Date("2026-10-14T16:00:00.000Z");
+    const document = buildGasDocument([release], recent, null);
+    if (!document.available) {
+      throw new Error("fixture release missing");
+    }
+    const completed = document.slices.find((slice) => slice.basis === "completed");
+    const flow = document.slices.find((slice) => slice.basis === "flow");
+    expect(completed?.staleText).toBeNull();
+    expect(completed?.stats.find((stat) => stat.id === "demand")?.state).toBeNull();
+    expect(flow?.staleText).toMatch(/Grid checks every hour/);
+  });
+
+  it("falls back to the next linepack publication when the preferred value is null", () => {
+    const release = fixtureRelease();
+    const cleared = release.components.map((row) =>
+      row.publication_id === "PUBOB693" || row.publication_id === "PUBOB30" ? { ...row, value: null } : row,
+    );
+    const opening = cleared.find((row) => row.publication_id === "PUBOB693");
+    if (!opening) {
+      throw new Error("opening linepack missing");
+    }
+    const interim: GasComponent = {
+      ...opening,
+      publication_id: "PUBOB29",
+      metric_id: "gas.gb_nts.linepack.opening_interim",
+      name: "Opening linepack, interim",
+      value: 320.4,
+      applicable_at: "2026-10-13T12:00:00.000Z",
+    };
+    const predicted: GasComponent = {
+      ...opening,
+      publication_id: "PUBOB31",
+      metric_id: "gas.gb_nts.linepack.pclp2",
+      name: "Predicted closing linepack",
+      quantity_kind: "stock",
+      value: 330,
+      applicable_at: "2026-10-13T18:00:00.000Z",
+      forecast_issued_at: null,
+    };
+    const document = buildGasDocument([{ ...release, components: [...cleared, interim, predicted] }], NOW, null);
+    if (!document.available) {
+      throw new Error("fixture release missing");
+    }
+    const linepack = document.slices[0]?.linepack;
+    expect(linepack?.opening).toBe("320.4");
+    expect(linepack?.predictedClose).toBe("330.0");
+  });
+
+  it("does not rescale an incomplete component set to 100", () => {
+    const release = fixtureRelease();
+    const document = buildGasDocument(
+      [{ ...release, components: release.components.filter((row) => row.publication_id !== "PUBOBJ1018") }],
+      NOW,
+      null,
+    );
+    if (!document.available) {
+      throw new Error("fixture release missing");
+    }
+    const completed = document.slices.find((slice) => slice.basis === "completed");
+    const flow = document.slices.find((slice) => slice.basis === "flow");
+    expect(completed?.demand).toEqual([]);
+    expect(flow?.entry.reduce((total, row) => total + row.percent, 0)).toBe(100);
   });
 
   it("names an entry by its terminal and keeps production countries out of the page", () => {

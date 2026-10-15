@@ -1,4 +1,4 @@
-import { ABSENT_FIGURE, isBeyondCadence, type DataState } from "@/lib/data-state";
+import { ABSENT_FIGURE, cadenceDeadline, isBeyondCadence, type DataState } from "@/lib/data-state";
 import { displayedPercents, formatDisplay } from "@/lib/display-rounding";
 import {
   GAS_ATTRIBUTION,
@@ -29,6 +29,7 @@ import type {
   GasStat,
   GasStorage,
 } from "@/lib/gas/view";
+import type { GasQuantityKind } from "@/lib/ingest/national-gas/quantity";
 import type { GasComponent, GasRelease } from "@/lib/ingest/national-gas/release";
 import {
   formatLondonClock,
@@ -39,6 +40,7 @@ import {
   parseUtcDateTime,
   utcIsoFromTimestamp,
 } from "@/lib/london-time";
+import { GAS_METRICS, staleGrace } from "@/lib/metrics";
 import type { Generation5min } from "@/lib/types";
 
 const SUPPLY_RATE = "PUBOB2042";
@@ -59,6 +61,11 @@ const POWER_OFFTAKE = "PUBOBJ1017";
 const DEMAND_PARTS = [GAS_LDZ_PUBLICATION_ID, POWER_OFFTAKE, "PUBOBJ1018", STORAGE_INJECTION, "PUBOBJ1020"] as const;
 
 const ENTRY_PARTS = [SUPPLY_NORTH, SUPPLY_SOUTH] as const;
+
+/** FUELINST half-hour. A shorter fragment is not a gas day. */
+const GENERATION_STEP_MS = 30 * 60 * 1000;
+
+const GAS_METRIC_BY_PUBLICATION = new Map(Object.values(GAS_METRICS).map((metric) => [metric.dataset_id, metric]));
 
 export type GasGenerationSample = {
   at: string;
@@ -118,7 +125,8 @@ function buildSlice(
   const rows = componentsFor(release, basis);
   const stampSource = rows.length > 0 ? rows : release.components;
   const stamp = stampFrom(stampSource);
-  const stale = stamp.publishedAt ? isBeyondCadence(stamp.publishedAt, now, "PT1H") : false;
+  const published = latestPublished(stampSource);
+  const stale = published ? isStalePublication(published, now) : false;
   const coverage = coverageBounds(rows);
   const dayLabel = gasDayLabel(release);
   const partialText =
@@ -155,25 +163,21 @@ function buildSlice(
 
 export function basisState(release: GasRelease, basis: GasPageBasis, now: Date): GasDayState {
   const end = Date.parse(release.gas_day.end);
-  const rows = componentsFor(release, basis).filter((row) => row.quantity_kind !== "forecast");
   switch (basis) {
     case "completed": {
-      const totals = rows.filter((row) => row.quantity_kind === "day total" && row.value != null);
-      if (totals.length > 0 && now.getTime() >= end) {
+      const supply = latestValue(release, SUPPLY_VOLUME, "completed");
+      const demand = latestValue(release, DEMAND_VOLUME, "completed");
+      if (supply?.value != null && demand?.value != null && now.getTime() >= end) {
         return "complete";
       }
       return "partial";
     }
     case "flow":
     case "to-date": {
-      const measured = rows.filter(
-        (row) => (row.quantity_kind === "rate" || row.quantity_kind === "cumulative") && row.value != null,
-      );
-      const latest = latestInstant(measured);
-      if (latest != null && latest >= end - 60_000 && now.getTime() >= end) {
-        return "complete";
+      if (now.getTime() < end || !hourlySeriesCoversDay(release, basis)) {
+        return "partial";
       }
-      return "partial";
+      return "complete";
     }
     default: {
       const exhaustive: never = basis;
@@ -186,19 +190,19 @@ function supplyStat(release: GasRelease, now: Date): GasStat {
   const completed = latestValue(release, SUPPLY_VOLUME, "completed");
   const flow = latestValue(release, SUPPLY_RATE, "flow");
   const chosen =
-    basisState(release, "completed", now) === "complete" && completed
+    basisState(release, "completed", now) === "complete" && completed?.value != null
       ? completed
       : (flow ?? completed);
-  return stat("supply", "Supply (NTS entry)", chosen, GAS_UNIT_DAY, release, now);
+  return stat("supply", "Supply (NTS entry)", chosen, unitFor(chosen), release, now);
 }
 
 function demandStat(release: GasRelease, now: Date): GasStat {
   const completed = latestValue(release, DEMAND_VOLUME, "completed");
-  return stat("demand", "Demand (NTS exit)", completed, GAS_UNIT_DAY, release, now);
+  return stat("demand", "Demand (NTS exit)", completed, GAS_UNIT_STOCK, release, now);
 }
 
 function linepackStat(release: GasRelease, now: Date): GasStat {
-  const opening = latestAny(release, LINEPACK_OPEN) ?? latestAny(release, LINEPACK_INTERIM);
+  const opening = firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]);
   return stat("linepack", "Linepack", opening, GAS_UNIT_STOCK, release, now);
 }
 
@@ -209,7 +213,7 @@ function storageStat(release: GasRelease, now: Date): GasStat {
     injection?.value != null && withdrawal?.value != null
       ? { ...withdrawal, value: withdrawal.value - injection.value, basis: "completed" as const }
       : null;
-  return stat("storage", "Storage net flow", net, GAS_UNIT_DAY, release, now);
+  return stat("storage", "Storage net flow", net, GAS_UNIT_STOCK, release, now);
 }
 
 function stat(
@@ -331,7 +335,10 @@ function entryShares(release: GasRelease, basis: GasPageBasis): GasShareRow[] {
     }
     return [{ id, label: entryLabel(row), value: row.value, note: null }];
   });
-  return shareRows(parts);
+  if (parts.length !== ENTRY_PARTS.length) {
+    return [];
+  }
+  return shareRows(parts, GAS_UNIT_DAY);
 }
 
 function demandShares(release: GasRelease, basis: GasPageBasis): GasShareRow[] {
@@ -352,11 +359,15 @@ function demandShares(release: GasRelease, basis: GasPageBasis): GasShareRow[] {
       },
     ];
   });
-  return shareRows(parts);
+  if (parts.length !== DEMAND_PARTS.length) {
+    return [];
+  }
+  return shareRows(parts, GAS_UNIT_STOCK);
 }
 
 function shareRows(
   parts: readonly { id: string; label: string; value: number; note: string | null }[],
+  unit: string,
 ): GasShareRow[] {
   const usable = parts.filter((part) => part.value > 0);
   if (usable.length === 0) {
@@ -368,7 +379,7 @@ function shareRows(
     publicationId: part.id,
     label: part.label,
     valueLabel: formatQuantity(part.value),
-    unit: GAS_UNIT_DAY,
+    unit,
     percent: percents[index] ?? 0,
     note: part.note,
   }));
@@ -385,12 +396,12 @@ function terminalName(name: string): string | null {
 }
 
 function linepackFigures(release: GasRelease): GasLinepack {
-  const opening = latestAny(release, LINEPACK_OPEN) ?? latestAny(release, LINEPACK_INTERIM);
-  const interim = latestAny(release, LINEPACK_INTERIM);
+  const opening = firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]);
+  const interim = finiteValue(release, LINEPACK_INTERIM);
   const current =
     interim && opening && interim.applicable_at > opening.applicable_at ? interim : null;
-  const predicted = latestAny(release, LINEPACK_PCLP1) ?? latestAny(release, LINEPACK_PCLP2);
-  const close = latestAny(release, LINEPACK_CLOSE);
+  const predicted = firstFinite(release, [LINEPACK_PCLP1, LINEPACK_PCLP2]);
+  const close = finiteValue(release, LINEPACK_CLOSE);
   return {
     description: GAS_LINEPACK_DESCRIPTION,
     opening: formatQuantity(opening?.value ?? null),
@@ -405,7 +416,7 @@ function storageFigures(release: GasRelease): GasStorage {
   return {
     injection: formatQuantity(latestAny(release, STORAGE_INJECTION)?.value ?? null),
     withdrawal: formatQuantity(latestAny(release, STORAGE_WITHDRAWAL)?.value ?? null),
-    unit: GAS_UNIT_DAY,
+    unit: GAS_UNIT_STOCK,
     notice: GAS_STORAGE_NOTICE,
   };
 }
@@ -421,7 +432,7 @@ function bridgeFor(release: GasRelease, generation: readonly GasGenerationSample
     const at = Date.parse(sample.at);
     return at >= start && at < end;
   });
-  if (inside.length === 0) {
+  if (!coversHalfOpenRange(inside.map((sample) => Date.parse(sample.at)), start, end, GENERATION_STEP_MS)) {
     return null;
   }
   const latest = [...inside].sort((left, right) => left.at.localeCompare(right.at)).at(-1);
@@ -433,7 +444,7 @@ function bridgeFor(release: GasRelease, generation: readonly GasGenerationSample
     period: gasDayLabel(release),
     offtake: {
       valueLabel: formatQuantity(offtake.value),
-      unit: GAS_UNIT_DAY,
+      unit: GAS_UNIT_STOCK,
       at: offtake.applicable_at,
       atLabel: formatLondonDateTimeStamp(parseUtcDateTime(offtake.applicable_at)),
     },
@@ -521,15 +532,114 @@ function latestOf(rows: readonly GasComponent[]): GasComponent | null {
   return best;
 }
 
-function latestInstant(rows: readonly GasComponent[]): number | null {
-  let latest = Number.NEGATIVE_INFINITY;
-  for (const row of rows) {
-    const at = Date.parse(row.applicable_at);
-    if (at > latest) {
-      latest = at;
+function finiteValue(release: GasRelease, publicationId: string): GasComponent | null {
+  const row = latestAny(release, publicationId);
+  if (!row || row.value == null || !Number.isFinite(row.value)) {
+    return null;
+  }
+  return row;
+}
+
+function firstFinite(release: GasRelease, publicationIds: readonly string[]): GasComponent | null {
+  for (const publicationId of publicationIds) {
+    const row = finiteValue(release, publicationId);
+    if (row) {
+      return row;
     }
   }
-  return Number.isFinite(latest) ? latest : null;
+  return null;
+}
+
+function latestPublished(rows: readonly GasComponent[]): GasComponent | null {
+  let best: GasComponent | null = null;
+  for (const row of rows) {
+    if (!best || row.published_at > best.published_at) {
+      best = row;
+    }
+  }
+  return best;
+}
+
+function isStalePublication(component: GasComponent, now: Date): boolean {
+  const metric = GAS_METRIC_BY_PUBLICATION.get(component.publication_id);
+  if (!metric) {
+    return false;
+  }
+  return isBeyondCadence(component.published_at, now, metric.expected_cadence, "calendar", staleGrace(metric));
+}
+
+function hourlySeriesCoversDay(release: GasRelease, basis: GasPageBasis): boolean {
+  const start = Date.parse(release.gas_day.start);
+  const end = Date.parse(release.gas_day.end);
+  const headline = supplySeriesId(basis);
+  const groups = new Map<string, number[]>();
+  for (const row of componentsFor(release, basis)) {
+    if (row.value == null || !Number.isFinite(row.value)) {
+      continue;
+    }
+    if (row.quantity_kind !== "rate" && row.quantity_kind !== "cumulative") {
+      continue;
+    }
+    if (headline && row.publication_id !== headline) {
+      continue;
+    }
+    const times = groups.get(row.publication_id) ?? [];
+    times.push(Date.parse(row.applicable_at));
+    groups.set(row.publication_id, times);
+  }
+  for (const [publicationId, times] of groups) {
+    const step = cadenceMs(GAS_METRIC_BY_PUBLICATION.get(publicationId)?.expected_cadence ?? "");
+    if (step != null && coversHalfOpenRange(times, start, end, step)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function coversHalfOpenRange(times: readonly number[], start: number, end: number, step: number): boolean {
+  if (!(step > 0) || end <= start || (end - start) % step !== 0) {
+    return false;
+  }
+  const slots = (end - start) / step;
+  const present = new Set<number>();
+  for (const time of times) {
+    if (time < start || time >= end) {
+      continue;
+    }
+    present.add(Math.floor((time - start) / step));
+  }
+  for (let slot = 0; slot < slots; slot += 1) {
+    if (!present.has(slot)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function cadenceMs(cadence: string): number | null {
+  const origin = new Date(Date.UTC(2026, 0, 1));
+  const next = cadenceDeadline(origin, cadence);
+  return next ? next.getTime() - origin.getTime() : null;
+}
+
+function unitFor(component: GasComponent | null): string {
+  return component ? displayUnit(component.quantity_kind) : GAS_UNIT_DAY;
+}
+
+function displayUnit(kind: GasQuantityKind): string {
+  switch (kind) {
+    case "rate":
+    case "forecast":
+      return GAS_UNIT_DAY;
+    case "cumulative":
+    case "day total":
+    case "stock":
+      return GAS_UNIT_STOCK;
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
 }
 
 function stampFrom(rows: readonly GasComponent[]): GasSlice["stamp"] {
@@ -567,12 +677,12 @@ function coverageBounds(rows: readonly GasComponent[]): { start: string; latest:
 }
 
 function gasDayLabel(release: GasRelease): string {
-  const zone = zoneLabel(release.gas_day.start);
   return gasDayLabelText(
     formatLondonDayMonthYear(release.gas_day.label),
     clock(release.gas_day.start),
     clock(release.gas_day.end),
-    zone,
+    zoneLabel(release.gas_day.start),
+    zoneLabel(release.gas_day.end),
   );
 }
 
@@ -602,7 +712,7 @@ function componentState(component: GasComponent, day: GasDayState, now: Date): D
   if (component.quantity_kind === "forecast") {
     return "forecast";
   }
-  if (isBeyondCadence(component.published_at, now, "PT1H")) {
+  if (isStalePublication(component, now)) {
     return "stale";
   }
   if (day === "partial") {

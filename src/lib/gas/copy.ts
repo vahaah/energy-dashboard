@@ -13,7 +13,7 @@ export const GAS_SCOPE = "National Transmission System";
 
 export const GAS_COVERAGE_LABEL = "Coverage";
 
-export const GAS_COVERAGE_HREF = "/data-health#gas";
+export const GAS_COVERAGE_HREF = "/data-health#nts";
 
 export const GAS_PRICES_LABEL = "Gas prices";
 
@@ -51,8 +51,16 @@ export const GAS_UNIT_STOCK = "million m³";
 
 export const GAS_ATTRIBUTION = NATIONAL_GAS_ATTRIBUTION;
 
-export function gasDayLabelText(date: string, start: string, end: string, zone: string): string {
-  return `Gas day ${date}, ${start}–${end} ${zone}`;
+export function gasDayLabelText(
+  date: string,
+  start: string,
+  end: string,
+  startZone: string,
+  endZone: string,
+): string {
+  const range =
+    startZone === endZone ? `${start}–${end} ${startZone}` : `${start} ${startZone}–${end} ${endZone}`;
+  return `Gas day ${date}, ${range}`;
 }
 
 export function gasStaleText(observedAt: string): string {

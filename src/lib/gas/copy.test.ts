@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GAS_ATTRIBUTION,
+  GAS_COVERAGE_HREF,
   GAS_LDZ_NOTE,
   GAS_SAP_DEFINITION,
   GAS_SYSTEM_H1,
@@ -24,6 +25,7 @@ describe("gas page copy", () => {
   it("uses the National Gas attribution and the required sentences", () => {
     expect(GAS_ATTRIBUTION).toBe("Data sourced from the National Gas Transmission Data Portal.");
     expect(GAS_ATTRIBUTION).toBe(NATIONAL_GAS_ATTRIBUTION);
+    expect(GAS_COVERAGE_HREF).toBe("/data-health#nts");
     expect(GAS_SYSTEM_TITLE).toBe("Britain's gas system: supply, demand and storage | Grid");
     expect(GAS_SYSTEM_H1).toBe("Where is Britain's gas coming from, and where is it going?");
     expect(GAS_SYSTEM_STANDFIRST).toContain("Updated hourly.");

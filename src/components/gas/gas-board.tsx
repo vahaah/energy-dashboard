@@ -20,6 +20,8 @@ import {
   GAS_PRICES_LABEL,
   GAS_SAP_DEFINITION,
   GAS_SCOPE,
+  GAS_UNIT_DAY,
+  GAS_UNIT_STOCK,
   type GasPageBasis,
 } from "@/lib/gas/copy";
 import { selectGasSlice, type GasDocument, type GasShareRow, type GasSlice, type GasStat } from "@/lib/gas/view";
@@ -306,7 +308,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
         ) : null}
       </div>
       <ChartBoundary>
-        <GasSeriesChart points={slice.series} now={slice.now} />
+        <GasSeriesChart points={slice.series} now={slice.now} unit={seriesUnit(slice.basis)} />
       </ChartBoundary>
     </Card>
   );
@@ -372,6 +374,20 @@ function BridgeFigure({
       </p>
     </div>
   );
+}
+
+function seriesUnit(basis: GasPageBasis): string {
+  switch (basis) {
+    case "flow":
+      return GAS_UNIT_DAY;
+    case "to-date":
+    case "completed":
+      return GAS_UNIT_STOCK;
+    default: {
+      const exhaustive: never = basis;
+      return exhaustive;
+    }
+  }
 }
 
 function quantityCell(value: number | null): string {

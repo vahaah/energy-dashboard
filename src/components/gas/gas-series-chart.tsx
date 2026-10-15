@@ -32,9 +32,11 @@ type ChartRow = {
 export function GasSeriesChart({
   points,
   now,
+  unit = GAS_UNIT_DAY,
 }: {
   points: readonly GasSeriesPoint[];
   now: string | null;
+  unit?: string;
 }) {
   if (points.length === 0) {
     return null;
@@ -75,7 +77,7 @@ export function GasSeriesChart({
             axisLine={false}
             width={52}
           />
-          <Tooltip content={<GasSeriesTooltip />} />
+          <Tooltip content={<GasSeriesTooltip unit={unit} />} />
           {Number.isFinite(nowMs) ? (
             <ReferenceLine
               x={nowMs}
@@ -144,9 +146,11 @@ function Key({ swatch, label, dashed = false }: { swatch: string; label: string;
 function GasSeriesTooltip({
   active,
   payload,
+  unit,
 }: {
   active?: boolean;
   payload?: ReadonlyArray<{ name?: string; value?: number | string | null; color?: string; payload?: ChartRow }>;
+  unit: string;
 }) {
   const row = payload?.[0]?.payload;
   if (!active || !row || !payload) {
@@ -160,7 +164,7 @@ function GasSeriesTooltip({
             key={entry.name}
             color={entry.color ?? SUPPLY}
             label={entry.name}
-            value={`${formatDisplay(Number(entry.value), 0.1)} ${GAS_UNIT_DAY}`}
+            value={`${formatDisplay(Number(entry.value), 0.1)} ${unit}`}
           />
         ),
       )}

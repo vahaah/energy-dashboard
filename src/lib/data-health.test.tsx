@@ -525,6 +525,9 @@ describe("loadDataHealth", () => {
     expect(html).toContain("Demand");
     expect(html).toContain("GB gas SAP");
     expect(html).toContain("Gas generation");
+    expect(html).toContain('id="nts"');
+    expect(html).toContain("Physical gas");
+    expect(html).not.toContain('id="gas"');
     const demandCard = html.slice(html.indexOf(">Demand<"), html.indexOf(">GB gas SAP<"));
     expect(demandCard).toContain("28,000");
     expect(demandCard).not.toContain("Not yet available");
