@@ -1,0 +1,11 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "desnz-repd:repd-quarterly",
+    "source_id": "desnz-repd",
+    "catalogue_key": "repd-quarterly",
+    "cadence": "P3M",
+    "metric_ids": [],
+    "register": "assets"
+  }
+]

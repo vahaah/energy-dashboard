@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DATA_SOURCE_IDS, elexonBmrsAttribution } from "@/lib/attribution";
+import { DATA_SOURCE_IDS, elexonBmrsAttribution, OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { checkCatalogue, type CatalogueMetricRef } from "@/lib/catalogue/check";
-import { cataloguePageSources, dataSources } from "@/lib/catalogue/page-sources";
+import { cataloguePageSources, dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
 import { catalogueRoot } from "@/lib/catalogue/publish-check";
 import { CATALOGUE_SOURCE_IDS } from "@/lib/catalogue/schema";
 
@@ -110,6 +110,14 @@ describe("publish-check", () => {
     expect(result.errors.join("\n")).toMatch(/real UTC instant/);
   });
 
+  it("fails when an asset dataset has no register files", () => {
+    const result = checkCatalogue(resolve(FIXTURES, "missing-asset-register"), { ...PARTIAL, metrics: [] });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("missing assets.ndjson");
+    expect(result.errors).toContain("missing capacity_records.ndjson");
+    expect(result.errors).toContain("missing asset_matches.ndjson");
+  });
+
   it("accepts a second extract of the same dataset when the hash covers that extract", () => {
     expect(
       checkCatalogue(resolve(FIXTURES, "second-extract"), { ...PARTIAL, metrics: GAS_METRIC }),
@@ -139,5 +147,14 @@ describe("data-sources catalogue", () => {
       expect(source.attribution.trim().length).toBeGreaterThan(0);
     }
     expect(dataSources(2026)).toEqual(sources);
+    for (const id of ["desnz-repd", "desnz-dukes"] as const) {
+      const source = sources.find((item) => item.id === id);
+      expect(source?.licenceUrl).toBe(OGL_V3_LICENCE_URL);
+      expect(source?.attribution).toBe(OGL_V3_ATTRIBUTION);
+    }
+    expect(sourceRefreshLabel("desnz-repd")).toBe("Quarterly");
+    expect(sourceRefreshLabel("desnz-dukes")).toBe("Annual");
+    expect(sourceRefreshLabel("elexon-bmrs")).toBe("Hourly");
+    expect(sourceRefreshLabel("eia")).toBe("Every 6 hours");
   });
 });

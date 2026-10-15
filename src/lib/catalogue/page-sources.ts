@@ -27,6 +27,29 @@ export function cataloguePageSources(): CataloguePageSource[] {
   }));
 }
 
+/** Methodology table label. The catalogue cadence stays ISO-8601. */
+export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
+  switch (id) {
+    case "eia":
+    case "world-bank-pink-sheet":
+    case "national-gas":
+      return "Every 6 hours";
+    case "desnz-repd":
+      return "Quarterly";
+    case "desnz-dukes":
+      return "Annual";
+    case "elexon-bmrs":
+    case "neso-open-data":
+    case "carbon-intensity":
+    case "sheffield-pv-live":
+      return "Hourly";
+    default: {
+      const neverId: never = id;
+      return neverId;
+    }
+  }
+}
+
 /** Same rows, with the Elexon copyright year restamped for callers that pass one. */
 export function dataSources(year = new Date().getUTCFullYear()): DataSourceRecord[] {
   return cataloguePageSources().map((source) => ({

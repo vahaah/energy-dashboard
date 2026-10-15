@@ -12,6 +12,8 @@ import {
   elexonBmrsAttributionBlock,
   EIA_ATTRIBUTION,
   NATIONAL_GAS_ATTRIBUTION,
+  OGL_V3_ATTRIBUTION,
+  OGL_V3_LICENCE_URL,
   NESO_EMBEDDED_FORECAST_RESOURCE_ID,
   NESO_EMBEDDED_FORECAST_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
@@ -67,6 +69,8 @@ describe("Elexon BMRS attribution", () => {
       "eia",
       "world-bank-pink-sheet",
       "national-gas",
+      "desnz-repd",
+      "desnz-dukes",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -80,5 +84,10 @@ describe("Elexon BMRS attribution", () => {
     expect(sources.find((source) => source.id === "national-gas")?.attribution).toBe(
       "Data sourced from the National Gas Transmission Data Portal.",
     );
+    for (const id of ["desnz-repd", "desnz-dukes"] as const) {
+      const source = sources.find((item) => item.id === id);
+      expect(source?.licenceUrl).toBe(OGL_V3_LICENCE_URL);
+      expect(source?.attribution).toBe(OGL_V3_ATTRIBUTION);
+    }
   });
 });

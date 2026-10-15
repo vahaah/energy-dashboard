@@ -1,0 +1,51 @@
+{
+  "catalogue_schema_version": 1,
+  "links": [
+    {
+      "dukes_site_codes": ["HNF-000005"],
+      "repd_refs": ["10995"],
+      "note": "Tummel Bridge is the DUKES Tummel station. The DUKES northing sits about 178 km south of the REPD point."
+    },
+    {
+      "dukes_site_codes": ["HNF-000028"],
+      "repd_refs": ["466"],
+      "note": "Lussa hydro. Same 2.4 MW station; the published grids are 64 km apart."
+    },
+    {
+      "dukes_site_codes": ["WON-000534"],
+      "repd_refs": ["4039", "4409"],
+      "note": "Pant y Wal plus its extension. DUKES 52.5 MW against REPD 25 + 20."
+    },
+    {
+      "dukes_site_codes": ["WON-000950"],
+      "repd_refs": ["4331"],
+      "note": "A'Chruach phase 1. About 5 km and 12% apart, outside the automatic bands."
+    },
+    {
+      "dukes_site_codes": ["SOL-001415"],
+      "repd_refs": ["7258"],
+      "note": "Streetfield. Same grid point; DUKES 50.0 MW, REPD 18.3 MW."
+    },
+    {
+      "dukes_site_codes": ["SOL-000770"],
+      "repd_refs": ["1765", "4830"],
+      "note": "Crundale is Fenton Home Farm plus the Crundale extension."
+    },
+    {
+      "dukes_site_codes": ["SOL-001017"],
+      "repd_refs": ["1735"],
+      "note": "DUKES Swindon is the Wroughton Airfield solar park, 101 m away."
+    },
+    {
+      "dukes_site_codes": ["SOL-000858"],
+      "repd_refs": ["1769"],
+      "note": "Waterloo Farm and Waterloo solar park, 630 m apart."
+    },
+    {
+      "dukes_site_codes": ["SOL-000800"],
+      "repd_refs": ["2211"],
+      "note": "Pitchford solar, 910 m apart. Condover Airfield is a different site and stays unlinked."
+    }
+  ],
+  "unlinks": []
+}

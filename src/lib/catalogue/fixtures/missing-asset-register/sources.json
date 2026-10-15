@@ -1,0 +1,13 @@
+[
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "desnz-repd",
+    "name": "DESNZ Renewable Energy Planning Database",
+    "url": "https://www.gov.uk/government/publications/renewable-energy-planning-database-quarterly-extract",
+    "used_for": "Operational renewable power stations.",
+    "licence": "Open Government Licence v3.0",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "Contains public sector information licensed under the Open Government Licence v3.0.",
+    "cadence": "P3M"
+  }
+]

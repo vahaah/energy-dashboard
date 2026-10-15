@@ -69,6 +69,8 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   eia: "U.S. Energy Information Administration",
   "world-bank-pink-sheet": "World Bank Pink Sheet",
   "national-gas": "National Gas",
+  "desnz-repd": "DESNZ REPD",
+  "desnz-dukes": "DESNZ DUKES",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {

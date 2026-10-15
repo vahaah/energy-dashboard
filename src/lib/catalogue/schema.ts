@@ -17,7 +17,24 @@ export const CATALOGUE_SOURCE_IDS = [
   "eia",
   "world-bank-pink-sheet",
   "national-gas",
+  "desnz-repd",
+  "desnz-dukes",
 ] as const;
+
+/**
+ * Asset register written by the REPD / DUKES adapters. These files are not part
+ * of `CATALOGUE_FILES`: a pull request baseline only freezes `source_releases`,
+ * and the base branch does not have the register until this import lands.
+ */
+export const ASSET_REGISTER_FILES = {
+  assets: "assets.ndjson",
+  projects: "projects.ndjson",
+  capacity: "capacity_records.ndjson",
+  mappings: "source_entity_mappings.ndjson",
+  matches: "asset_matches.ndjson",
+  overrides: "asset_match_overrides.json",
+  summary: "asset_summary.json",
+} as const;
 
 export const CATALOGUE_FILES = {
   sources: "sources.json",
@@ -86,9 +103,16 @@ export const datasetSchema = z
     source_id: sourceIdSchema,
     catalogue_key: requiredText,
     cadence: isoDurationSchema,
-    metric_ids: z.array(requiredText).min(1),
+    metric_ids: z.array(requiredText),
+    /** Plant register. Empty `metric_ids`. Not a homepage series. */
+    register: z.literal("assets").optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (dataset) =>
+      dataset.register === "assets" ? dataset.metric_ids.length === 0 : dataset.metric_ids.length > 0,
+    "series datasets list metric_ids; asset datasets do not",
+  );
 
 /**
  * Snapshot of the extracted payload. `content_hash` is the canonical JSON of

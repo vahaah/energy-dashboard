@@ -1,4 +1,5 @@
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
+import { checkAssetFiles } from "@/lib/catalogue/assets/check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { catalogueErrors, loadCatalogue, type CatalogueReleaseLine } from "@/lib/catalogue/load";
 import { METRICS } from "@/lib/metrics";
@@ -312,6 +313,14 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
       errors.push(...releaseChanges(baseline.releases.data, loaded.releases.data));
     }
   }
+
+  errors.push(
+    ...checkAssetFiles(
+      dir,
+      loaded.releases.data.map((record) => record.release),
+      loaded.datasets.data,
+    ),
+  );
 
   if (errors.length > 0) {
     return fail(errors);

@@ -59,6 +59,12 @@ export const NATIONAL_GAS_ATTRIBUTION =
 export const NATIONAL_GAS_LICENCE =
   "Published as open operational data under the National Gas System Operator licence.";
 
+export const OGL_V3_LICENCE_URL =
+  "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/";
+
+export const OGL_V3_ATTRIBUTION =
+  "Contains public sector information licensed under the Open Government Licence v3.0.";
+
 export const DATA_SOURCE_IDS = [
   "elexon-bmrs",
   "neso-open-data",
@@ -67,6 +73,8 @@ export const DATA_SOURCE_IDS = [
   "eia",
   "world-bank-pink-sheet",
   "national-gas",
+  "desnz-repd",
+  "desnz-dukes",
 ] as const;
 
 export type DataSourceId = (typeof DATA_SOURCE_IDS)[number];

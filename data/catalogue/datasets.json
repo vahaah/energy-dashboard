@@ -124,5 +124,23 @@
     "catalogue_key": "PUBOB603",
     "cadence": "P1D",
     "metric_ids": ["commodity.gb_gas_sap.price"]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "desnz-repd:repd-quarterly",
+    "source_id": "desnz-repd",
+    "catalogue_key": "repd-quarterly",
+    "cadence": "P3M",
+    "metric_ids": [],
+    "register": "assets"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "desnz-dukes:dukes-5.11",
+    "source_id": "desnz-dukes",
+    "catalogue_key": "dukes-5.11",
+    "cadence": "P1Y",
+    "metric_ids": [],
+    "register": "assets"
   }
 ]
