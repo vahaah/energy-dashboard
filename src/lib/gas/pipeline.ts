@@ -31,6 +31,10 @@ import {
   parsePointer,
   type GasPointer,
 } from "@/lib/gas/blob";
+import {
+  GAS_MAX_RETRIES,
+  type GasStepStatus,
+} from "@/lib/gas/budget";
 import { revalidateGasPaths } from "@/lib/gas/revalidate";
 import {
   GAS_CATALOGUE_URL,
@@ -50,33 +54,22 @@ import { buildGasRelease, gasReleaseSchema, type GasRelease } from "@/lib/ingest
 import { addUtcDays } from "@/lib/london-time";
 import { getRedis } from "@/lib/redis-cache";
 
-/** One initial attempt plus two retries. The next failure is fatal and leaves the pointer. */
-export const GAS_MAX_RETRIES = 2;
-
-/**
- * Intraday workflow events on the success path.
- * One run plus four steps, and each step records a start and a result: 9.
- * 24 hourly runs is 216. Completed-day is one step on the existing prices workflow.
- */
-export const GAS_WORKFLOW_STEPS = 4;
-export const GAS_WORKFLOW_EVENTS_PER_RUN = 1 + GAS_WORKFLOW_STEPS * 2;
-export const GAS_INTRADAY_RUNS_PER_DAY = 24;
-export const GAS_WORKFLOW_EVENTS_PER_DAY = GAS_WORKFLOW_EVENTS_PER_RUN * GAS_INTRADAY_RUNS_PER_DAY;
-export const GAS_COMPLETED_DAY_RUNS_PER_DAY = 4;
-export const GAS_TINYBIRD_OPS = 0;
+export {
+  emptyGasStatus,
+  GAS_COMPLETED_DAY_RUNS_PER_DAY,
+  GAS_INTRADAY_RUNS_PER_DAY,
+  GAS_MAX_RETRIES,
+  GAS_TINYBIRD_OPS,
+  GAS_WORKFLOW_EVENTS_PER_DAY,
+  GAS_WORKFLOW_EVENTS_PER_RUN,
+  GAS_WORKFLOW_STEPS,
+  type GasStepStatus,
+} from "@/lib/gas/budget";
 
 const RETRY_BASE_MS = [30_000, 120_000] as const;
 const RETRY_JITTER_MS = 10_000;
 const CSV_TIMEOUT_MS = 20_000;
 const CATALOGUE_TIMEOUT_MS = 30_000;
-
-export type GasStepStatus = {
-  ok: boolean;
-  rows: number;
-  bytes: number;
-  hash: string;
-  releaseId: string;
-};
 
 export class GasHttpError extends Error {
   readonly status: number;
@@ -100,10 +93,6 @@ type PreparedRelease = {
   bytes: number;
   rows: number;
 };
-
-export function emptyGasStatus(): GasStepStatus {
-  return { ok: false, rows: 0, bytes: 0, hash: "", releaseId: "" };
-}
 
 export function gasRetryAfter(attempt: number, now = Date.now()): Date {
   const index = Math.min(Math.max(attempt, 1), RETRY_BASE_MS.length) - 1;
@@ -465,7 +454,7 @@ async function recordCatalogue(
     extract_sha256: extractHash,
     bytes,
     release_id: releaseId,
-    publication_ids: gasBundlePublicationIds(bundle),
+    publication_ids: [...gasBundlePublicationIds(bundle)],
   };
   const contentHash = sha256Prefixed(content);
   const datasetId = catalogueDatasetId("national-gas", spinePublication(bundle));

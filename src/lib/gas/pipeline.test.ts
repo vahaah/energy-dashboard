@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -113,6 +113,8 @@ class MemoryRedis implements RedisCommands {
 
 const COMPLETED_NOW = new Date("2026-10-14T16:00:00.000Z");
 const INTRADAY_NOW = new Date("2026-10-15T06:05:00.000Z");
+/** 04:05 London, still gas day 2026-10-14, which is the day the rate fixtures cover. */
+const INTRADAY_PUBLISH = new Date("2026-10-15T03:05:00.000Z");
 const DEMAND_PARENT = 165.302;
 const SUPPLY_PARENT = 165.45767;
 const DEMAND_CHILDREN = [66.99963, 43.31715, 22.44785, 2.18238, 30.2398] as const;
@@ -250,9 +252,9 @@ describe("gas publish", () => {
   });
 
   it("does not sum intraday rates", async () => {
-    const { releaseId } = await publishFixture("intraday", INTRADAY_NOW);
+    const { releaseId } = await publishFixture("intraday", INTRADAY_PUBLISH);
     const release = await readRelease(releaseId);
-    expect(release.gas_day.label).toBe("2026-10-15");
+    expect(release.gas_day.label).toBe("2026-10-14");
     expect(countedDayTotals(release)).toEqual([]);
     const national = release.components.filter((row) => row.publication_id === "PUBOB2042");
     expect(national.length).toBeGreaterThan(1);
@@ -443,7 +445,7 @@ describe("gas publish", () => {
 
     store.files.clear();
     revalidated.length = 0;
-    await publishFixture("intraday", INTRADAY_NOW);
+    await publishFixture("intraday", INTRADAY_PUBLISH);
     const fresh = await loadDataHealth(INTRADAY_NOW);
     const national = fresh.find((reading) => reading.metric_id === "gas.gb_nts.entry.physical.national");
     expect(national?.value).not.toBeNull();
@@ -452,8 +454,14 @@ describe("gas publish", () => {
   });
 
   it("records a publish-check release without a second line on replay", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "gas-catalogue-"));
+    const root = mkdtempSync(join(tmpdir(), "gas-repo-"));
+    const dir = join(root, "data", "catalogue");
     cpSync(join(process.cwd(), "data/catalogue"), dir, { recursive: true });
+    mkdirSync(join(root, "public/tiles/layers/dno"), { recursive: true });
+    cpSync(
+      join(process.cwd(), "public/tiles/layers/dno/20240503.geojson"),
+      join(root, "public/tiles/layers/dno/20240503.geojson"),
+    );
     const first = await publishFixture("completed-day", COMPLETED_NOW, dir);
     const checked = checkCatalogue(dir);
     expect(checked.ok, checked.errors.join("\n")).toBe(true);

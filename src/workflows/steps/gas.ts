@@ -1,12 +1,6 @@
 import { RetryableError } from "workflow";
-import {
-  emptyGasStatus,
-  fetchGasBundle,
-  GAS_MAX_RETRIES,
-  publishGasBundle,
-  validateGasBundle,
-  type GasStepStatus,
-} from "@/lib/gas/pipeline";
+import { emptyGasStatus, GAS_MAX_RETRIES, type GasStepStatus } from "@/lib/gas/budget";
+import { fetchGasBundle, publishGasBundle, validateGasBundle } from "@/lib/gas/pipeline";
 import { stepAttempt } from "@/lib/step-attempt";
 import { takeWorkflowSlot } from "@/lib/workflow-slot";
 
