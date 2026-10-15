@@ -5,11 +5,16 @@ import { describe, expect, it } from "vitest";
 describe("gas system page", () => {
   it("stays static for 900s and does not call Tinybird", () => {
     const page = readFileSync(resolve(import.meta.dirname, "./page.tsx"), "utf8");
+    const reader = readFileSync(resolve(process.cwd(), "src/lib/gas/release-reader.ts"), "utf8");
     const generation = readFileSync(resolve(process.cwd(), "src/lib/gas/generation.ts"), "utf8");
     const home = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
     expect(page).toContain('export const dynamic = "force-static"');
     expect(page).toContain("export const revalidate = 900");
     expect(page).toContain("getGasReleaseReader");
+    expect(page).not.toContain("fixtureGasReleaseReader");
+    expect(reader).toContain("loadGasRelease");
+    expect(reader).toContain("loadBundleReleases");
+    expect(reader).toContain("fixtureGasReleaseReader");
     expect(page).toContain("loadWarmedGasGeneration");
     expect(page).not.toContain("queryPipe");
     expect(generation).toContain("peekWarmedPipe");

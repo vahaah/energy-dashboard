@@ -597,13 +597,18 @@ describe("gas publish", () => {
     expect(cron).not.toContain("find-gas-data");
     expect(cron).not.toContain("data.nationalgas.com");
     expect(cron).toContain("start(gasIntraday");
-    expect(existsSync(join(process.cwd(), "src/app/gas/page.tsx"))).toBe(false);
-    expect(SHIPPED_PAGE_ROUTES).not.toContain("/gas");
-    expect(visibleNavHrefs()).not.toContain("/gas");
+    const gasPagePath = join(process.cwd(), "src/app/gas/page.tsx");
+    expect(existsSync(gasPagePath)).toBe(true);
+    const gasPage = readFileSync(gasPagePath, "utf8");
+    expect(gasPage).toContain('export const dynamic = "force-static"');
+    expect(gasPage).toContain("export const revalidate = 900");
+    expect(gasPage).not.toContain("queryPipe");
+    expect(SHIPPED_PAGE_ROUTES).toContain("/gas");
+    expect(visibleNavHrefs()).toContain("/gas");
     const labels = SITE_NAV_CATALOG.flatMap((entry) =>
       entry.kind === "link" ? [entry.label] : [entry.label, ...entry.items.map((item) => item.label)],
     );
-    expect(labels).not.toContain("Gas");
+    expect(labels).toContain("Gas");
     const vercel = JSON.parse(readFileSync(join(process.cwd(), "vercel.json"), "utf8")) as {
       crons: Array<{ path: string; schedule: string }>;
     };
