@@ -337,6 +337,25 @@
   },
   {
     "catalogue_schema_version": 1,
+    "dataset_id": "desnz-dukes:dukes-1.1",
+    "source_id": "desnz-dukes",
+    "catalogue_key": "dukes-1.1",
+    "cadence": "P1Y",
+    "metric_ids": [
+      "energy.uk.primary_supply.total",
+      "energy.uk.primary_supply.natural_gas",
+      "energy.uk.statistical_difference.total",
+      "energy.uk.primary_demand.total",
+      "energy.uk.transformation.natural_gas",
+      "energy.uk.final_consumption.total",
+      "energy.uk.final_consumption.electricity",
+      "energy.uk.final_consumption.domestic",
+      "energy.uk.final_consumption.transport",
+      "energy.uk.final_consumption.industry"
+    ]
+  },
+  {
+    "catalogue_schema_version": 1,
     "dataset_id": "neso-open-data:constraint-breakdown",
     "source_id": "neso-open-data",
     "catalogue_key": "constraint-breakdown",

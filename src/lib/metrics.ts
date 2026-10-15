@@ -38,6 +38,7 @@ export const INTERVAL_CONVENTIONS = [
   "uk_settlement_period_half_open",
   "calendar_day_utc_half_open",
   "calendar_month_utc_half_open",
+  "calendar_year_half_open",
   "gas_day_half_open",
 ] as const satisfies readonly IntervalConvention[];
 
@@ -801,6 +802,100 @@ export const CONSTRAINT_METRICS = {
 } satisfies Record<string, ConstraintMetricDefinition>;
 
 export type ConstraintMetricId = keyof typeof CONSTRAINT_METRICS;
+
+const WHOLE_ENERGY_YEAR = {
+  metric_definition_version: 1,
+  geography_id: "UK",
+  interval_convention: "calendar_year_half_open",
+  denominator: null,
+  source_id: "desnz-dukes",
+  dataset_id: "dukes-1.1",
+  quantity_kind: "interval_total",
+  aggregation: "sum",
+  expected_cadence: "P1Y",
+  publication_lag: "P7M",
+  stale_grace: "P1Y",
+} as const;
+
+/**
+ * DUKES table 1.1, UK annual energy balance. Kept out of `METRICS` so
+ * `/data-health` does not treat a yearly statistic as a missing half-hour.
+ */
+export const WHOLE_ENERGY_METRICS = {
+  "energy.uk.primary_supply.total": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.primary_supply.total",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Primary energy supply, TWh, the DUKES table 1.1 total for the calendar year. UK.",
+  },
+  "energy.uk.primary_supply.natural_gas": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.primary_supply.natural_gas",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Natural gas in primary energy supply, TWh, for the calendar year. UK. Not the gas used later in power generation.",
+  },
+  "energy.uk.statistical_difference.total": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.statistical_difference.total",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Statistical difference, primary supply minus primary demand, TWh. The sign is the one DUKES publishes. Kept as its own row.",
+  },
+  "energy.uk.primary_demand.total": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.primary_demand.total",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Primary demand, TWh, the DUKES table 1.1 total for the calendar year. UK.",
+  },
+  "energy.uk.transformation.natural_gas": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.transformation.natural_gas",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage:
+      "Natural gas input to electricity generation, TWh. An input is negative, the sign DUKES publishes. Already inside primary supply.",
+  },
+  "energy.uk.final_consumption.total": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.final_consumption.total",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Final consumption, TWh, the DUKES table 1.1 total for the calendar year. UK.",
+  },
+  "energy.uk.final_consumption.electricity": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.final_consumption.electricity",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Electricity in final consumption, TWh, every source. Not the output of the gas used for power generation.",
+  },
+  "energy.uk.final_consumption.domestic": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.final_consumption.domestic",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Domestic final consumption, TWh. Included in Other, so it is not added to the Other row.",
+  },
+  "energy.uk.final_consumption.transport": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.final_consumption.transport",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Transport final consumption, TWh, for the calendar year. UK.",
+  },
+  "energy.uk.final_consumption.industry": {
+    ...WHOLE_ENERGY_YEAR,
+    metric_id: "energy.uk.final_consumption.industry",
+    unit: "TWh",
+    sign_convention: "positive_demand",
+    coverage: "Industry final consumption, TWh, for the calendar year. UK.",
+  },
+} satisfies Record<string, MetricDefinition>;
+
+export type WholeEnergyMetricId = keyof typeof WHOLE_ENERGY_METRICS;
 
 /** Physical NTS series shown on /gas. Separate from the SAP price card. */
 export function physicalGasCoverage(): readonly {

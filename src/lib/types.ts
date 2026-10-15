@@ -16,6 +16,7 @@ export type IntervalConvention =
   | "uk_settlement_period_half_open"
   | "calendar_day_utc_half_open"
   | "calendar_month_utc_half_open"
+  | "calendar_year_half_open"
   | "gas_day_half_open";
 
 export type SignConvention =

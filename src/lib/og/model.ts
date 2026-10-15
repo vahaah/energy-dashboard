@@ -21,6 +21,7 @@ import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
 import { NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
 import { CONSTRAINTS_STANDFIRST } from "@/lib/constraints/copy";
+import { WHOLE_ENERGY_EDITION_YEAR, wholeEnergyStandfirst } from "@/lib/whole-energy/copy";
 import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { DNO_ATTRIBUTION, osBasemapAttribution } from "@/lib/map/constants";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
@@ -43,6 +44,7 @@ export const OG_PAGE_IDS = [
   "assets",
   "constraints",
   "storage",
+  "whole-energy",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -238,6 +240,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: `${OGL_V3_ATTRIBUTION} ${elexonBmrsAttribution(2026)}`,
   },
+  "whole-energy": {
+    eyebrow: gridEyebrow("Whole energy"),
+    title: "How Britain's energy fits together",
+    kicker: wholeEnergyStandfirst(WHOLE_ENERGY_EDITION_YEAR),
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: OGL_V3_ATTRIBUTION,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -301,6 +312,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "assets":
     case "constraints":
     case "storage":
+    case "whole-energy":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -719,6 +731,7 @@ function pageCacheControl(page: OgPageId): string {
     case "api":
     case "map":
     case "assets":
+    case "whole-energy":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

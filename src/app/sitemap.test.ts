@@ -14,6 +14,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/gas",
       "https://grid.vahaah.com/system/constraints",
       "https://grid.vahaah.com/system/storage",
+      "https://grid.vahaah.com/system/whole-energy",
       "https://grid.vahaah.com/map",
       "https://grid.vahaah.com/assets",
       "https://grid.vahaah.com/llms.txt",
@@ -55,6 +56,7 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/gas", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/system/constraints", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/system/storage", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/system/whole-energy", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/assets", stamps)).toBeUndefined();
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
       "2026-10-09T00:00:00.000Z"
@@ -72,6 +74,7 @@ describe("sitemap", () => {
     }
     expect(urls).toContain("https://grid.vahaah.com/system/constraints");
     expect(urls).toContain("https://grid.vahaah.com/system/storage");
+    expect(urls).toContain("https://grid.vahaah.com/system/whole-energy");
     for (const hidden of ["/system/generation", "/system/demand", "/system/carbon", "/system/transfers", "/directory"]) {
       expect(urls.some((url) => new URL(url).pathname === hidden || new URL(url).pathname.startsWith(`${hidden}/`))).toBe(false);
     }

@@ -65,6 +65,7 @@ describe("homepage module graph", () => {
     expect(files.some((file) => file.includes(`${join("ingest", "national-gas")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "gas")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "constraints")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("lib", "whole-energy")}`))).toBe(false);
     expect(joined).not.toContain("releases/neso-constraints");
     expect(joined).not.toContain("blob.vercel-storage");
     expect(joined).not.toContain("/api/v1/gas");

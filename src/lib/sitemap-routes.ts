@@ -6,6 +6,7 @@ const SITEMAP_CANDIDATES = [
   { path: "/gas", changeFrequency: "hourly" as const, priority: 0.8 },
   { path: "/system/constraints", changeFrequency: "daily" as const, priority: 0.7 },
   { path: "/system/storage", changeFrequency: "hourly" as const, priority: 0.7 },
+  { path: "/system/whole-energy", changeFrequency: "yearly" as const, priority: 0.7 },
   { path: "/map", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/assets", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },

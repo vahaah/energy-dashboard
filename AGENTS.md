@@ -289,6 +289,22 @@ The monitored fleet is the FUELINST `PS` fuel: transmission-connected pumped sto
 
 The System nav item is `{ id: "storage", label: "Storage", href: "/system/storage" }` in `SYSTEM_NAV_ITEMS` (`src/lib/nav.ts`). The header shows it because the route is in `SHIPPED_PAGE_ROUTES`. Generation, demand, carbon, and transfers stay in that array and stay out of the header and the sitemap. `/data-sources` mentions the inventory on the REPD and DUKES rows and the FUELINST read on the Elexon row. `/data-health#storage` lists pumped storage, battery discharge, and storage charging. The open-graph page id is `storage`.
 
+### P1B.4 Whole energy
+
+`/system/whole-energy` is `force-static` with `revalidate` 86400. `/` stays `force-static` with `revalidate` 300. The homepage does not import `src/lib/whole-energy`. No cron. No new Tinybird pipe. Tinybird budget **+0**. The scheduled success path stays 378.
+
+One edition is checked in at `data/catalogue/whole-energy.json`. `npm run catalogue:whole-energy` (`scripts/catalogue/whole-energy.ts`) is the one-shot. `--offline` reads `data/catalogue/raw/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script appends one immutable `source_releases.ndjson` line and one `ingestion_runs.ndjson` line. A committed release line is not rewritten.
+
+The value source is DUKES 2026 table 1.1, ktoe, gross calorific values, published 30 July 2026. `1 toe = 11,630 kWh, so 1 ktoe = 0.01163 TWh.` Cells are stored at 0.01 ktoe. Shown to 0.1 TWh. Geography is UK, an annual statistic. The page says `UK, annual statistic.`
+
+The label is `Whole energy flows` and `TWh, year {year}.` The title is `How Britain's energy fits together | Grid`. The H1 is `How do electricity, gas, oil, heat and transport fit together?` The standfirst is `Annual figures for {year} from the official energy balance. These are not today's figures.`
+
+One path: natural gas primary supply, then gas used for power generation, then final electricity. The transformation input is already inside primary supply and is not added again. Statistical difference is kept as its own row. Homes, transport, and industry are selectable. Homes is included in Other. A percent names `of primary energy supply` or `of final consumption`. Displayed parts use `reconcileSignedDisplay` so each shown group sums to its shown total. A single share uses `displayedPercents` and is not rescaled against a different base.
+
+Dataset `desnz-dukes:dukes-1.1` is on the existing `desnz-dukes` source, cadence `P1Y`. `WHOLE_ENERGY_METRICS` is not part of `METRICS` and is not listed on `/data-health`. Attribution is `OGL_V3_ATTRIBUTION` (`Contains public sector information licensed under the Open Government Licence v3.0.`).
+
+The System dropdown adds `{ id: "whole-energy", label: "Whole energy", href: "/system/whole-energy" }` at the end of `SYSTEM_NAV_ITEMS`. The route is in `SHIPPED_PAGE_ROUTES` and the sitemap. The open-graph image is a file route with an empty snapshot. Page id is `whole-energy`.
+
 ## Environment Variables
 
 ```env
