@@ -11,6 +11,7 @@ import { GET as gas } from "@/app/api/cron-gas/route";
 import { GET as prices } from "@/app/api/cron-prices/route";
 import { GET as warm } from "@/app/api/cron-warm/route";
 import { GET as yesterday } from "@/app/api/cron-yesterday/route";
+import { GET as tec } from "@/app/api/cron-tec/route";
 
 const SECRET = "cron-test-secret";
 
@@ -32,6 +33,7 @@ describe("cron starters", () => {
     ["cron-prices", prices],
     ["cron-yesterday", yesterday],
     ["cron-gas", gas],
+    ["cron-tec", tec],
   ] as const)("%s only authenticates and starts a run", async (name, handler) => {
     const denied = await handler(new Request(`http://localhost/api/${name}`));
     expect(denied.status).toBe(401);

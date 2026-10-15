@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import sitemap, { lastModifiedForPath, latestCommodityTimestamp } from "@/app/sitemap";
 import { loadAssetCatalogue } from "@/lib/assets/load";
+import { loadProjectCatalogue } from "@/lib/projects/load";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 
 describe("sitemap", () => {
@@ -17,6 +18,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/system/whole-energy",
       "https://grid.vahaah.com/map",
       "https://grid.vahaah.com/assets",
+      "https://grid.vahaah.com/projects",
       "https://grid.vahaah.com/directory",
       "https://grid.vahaah.com/directory/identifiers",
       "https://grid.vahaah.com/llms.txt",
@@ -31,11 +33,16 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/data-sources",
     ];
     expect(urls.slice(0, pages.length)).toEqual(pages);
-    const assetUrls = urls.slice(pages.length);
-    expect(assetUrls).toHaveLength(loadAssetCatalogue().rows.length);
+    const assetCount = loadAssetCatalogue().rows.length;
+    const projectCount = loadProjectCatalogue().projects.length;
+    const assetUrls = urls.slice(pages.length, pages.length + assetCount);
+    const projectUrls = urls.slice(pages.length + assetCount);
+    expect(assetUrls).toHaveLength(assetCount);
+    expect(projectUrls).toHaveLength(projectCount);
     expect(assetUrls.every((url) => /^https:\/\/grid\.vahaah\.com\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/.test(url))).toBe(true);
+    expect(projectUrls.every((url) => /^https:\/\/grid\.vahaah\.com\/projects\/epj_[a-f0-9]{16}\/[a-z0-9-]+$/.test(url))).toBe(true);
     expect(SITEMAP_PATHS.length).toBeGreaterThanOrEqual(8);
-    expect(urls.length).toBe(SITEMAP_PATHS.length + assetUrls.length);
+    expect(urls.length).toBe(SITEMAP_PATHS.length + assetCount + projectCount);
   });
 
   it("assigns lastmod only to data-driven routes", () => {
@@ -60,6 +67,7 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/system/storage", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/system/whole-energy", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/assets", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/projects", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/directory", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/directory/identifiers", stamps)).toBeUndefined();
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
@@ -79,6 +87,7 @@ describe("sitemap", () => {
     expect(urls).toContain("https://grid.vahaah.com/system/constraints");
     expect(urls).toContain("https://grid.vahaah.com/system/storage");
     expect(urls).toContain("https://grid.vahaah.com/system/whole-energy");
+    expect(urls).toContain("https://grid.vahaah.com/projects");
     expect(urls).toContain("https://grid.vahaah.com/directory");
     expect(urls).toContain("https://grid.vahaah.com/directory/identifiers");
     for (const hidden of ["/system/generation", "/system/demand", "/system/carbon", "/system/transfers"]) {

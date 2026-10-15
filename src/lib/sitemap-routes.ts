@@ -9,6 +9,7 @@ const SITEMAP_CANDIDATES = [
   { path: "/system/whole-energy", changeFrequency: "yearly" as const, priority: 0.7 },
   { path: "/map", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/assets", changeFrequency: "monthly" as const, priority: 0.7 },
+  { path: "/projects", changeFrequency: "weekly" as const, priority: 0.7 },
   { path: "/directory", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/directory/identifiers", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },

@@ -21,6 +21,7 @@ import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
 import { NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
 import { CONSTRAINTS_STANDFIRST } from "@/lib/constraints/copy";
+import { PROJECTS_STANDFIRST } from "@/lib/projects/copy";
 import { WHOLE_ENERGY_EDITION_YEAR, wholeEnergyStandfirst } from "@/lib/whole-energy/copy";
 import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { DNO_ATTRIBUTION, osBasemapAttribution } from "@/lib/map/constants";
@@ -45,6 +46,7 @@ export const OG_PAGE_IDS = [
   "constraints",
   "storage",
   "whole-energy",
+  "projects",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -249,6 +251,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: OGL_V3_ATTRIBUTION,
   },
+  projects: {
+    eyebrow: gridEyebrow("Projects"),
+    title: "Energy projects in Britain",
+    kicker: PROJECTS_STANDFIRST,
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: `${OGL_V3_ATTRIBUTION} ${NESO_OPEN_DATA_ATTRIBUTION}`,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -313,6 +324,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "constraints":
     case "storage":
     case "whole-energy":
+    case "projects":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -732,6 +744,7 @@ function pageCacheControl(page: OgPageId): string {
     case "map":
     case "assets":
     case "whole-energy":
+    case "projects":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

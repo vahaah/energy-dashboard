@@ -109,14 +109,14 @@ export const datasetSchema = z
     catalogue_key: requiredText,
     cadence: isoDurationSchema,
     metric_ids: z.array(requiredText),
-    /** Plant register. Empty `metric_ids`. Not a homepage series. */
-    register: z.literal("assets").optional(),
+    /** Plant or project register. Empty `metric_ids`. Not a homepage series. */
+    register: z.enum(["assets", "projects"]).optional(),
   })
   .strict()
   .refine(
     (dataset) =>
-      dataset.register === "assets" ? dataset.metric_ids.length === 0 : dataset.metric_ids.length > 0,
-    "series datasets list metric_ids; asset datasets do not",
+      dataset.register !== undefined ? dataset.metric_ids.length === 0 : dataset.metric_ids.length > 0,
+    "series datasets list metric_ids; register datasets do not",
   );
 
 /**

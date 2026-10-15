@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     "/assets/[id]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/assets/[id]/[slug]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/sitemap.xml": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/projects": ["./data/catalogue/**/*"],
+    "/projects/[id]": ["./data/catalogue/**/*"],
+    "/projects/[id]/[slug]": ["./data/catalogue/**/*"],
+    "/api/v1/projects": ["./data/catalogue/**/*"],
   },
   async headers() {
     return EDGE_CACHEABLE_API_PATHS.map((source) => ({

@@ -53,6 +53,12 @@ const ENDPOINTS = [
       "Published constraint activity. Only the breakdowns the source publishes. from and to are inclusive settlement dates. boundary is optional. An unsupported filter returns 400.",
   },
   {
+    path: "/api/v1/projects?limit=100&offset=0",
+    name: "Projects",
+    fields:
+      "Project register from REPD and the NESO TEC register. display_stage is optional. limit defaults to 100 and cannot exceed 500. offset defaults to 0. Each response is one page: total, limit, offset, and projects. An unsupported filter returns 400.",
+  },
+  {
     path: "/api/v1/data-health",
     name: "Data health",
     fields:

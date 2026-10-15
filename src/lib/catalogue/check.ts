@@ -1,6 +1,7 @@
 import { DATA_SOURCE_IDS } from "@/lib/attribution";
 import { checkAssetFiles } from "@/lib/catalogue/assets/check";
 import { checkLinkFiles } from "@/lib/catalogue/links/check";
+import { checkProjectFiles } from "@/lib/projects/check";
 import { checkStorageRecords } from "@/lib/storage/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
@@ -337,6 +338,7 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
       releaseIds: new Set(loaded.releases.data.map((record) => record.release.source_release_id)),
     }),
   );
+  errors.push(...checkProjectFiles(dir, { required: fullRegistry }));
 
   if (errors.length > 0) {
     return fail(errors);

@@ -49,6 +49,7 @@ describe("site nav shell", () => {
       "/system/constraints",
       "/system/storage",
       "/system/whole-energy",
+      "/projects",
       "/directory",
       "/api",
     ]);
@@ -92,6 +93,7 @@ describe("site nav shell", () => {
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/constraints");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/storage");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/whole-energy");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/projects");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory/identifiers");
     expect(urls).toContain("/api");

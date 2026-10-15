@@ -381,5 +381,14 @@
       "elec.gb.constraints.day_ahead.flow",
       "elec.gb.constraints.day_ahead.limit"
     ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "neso-open-data:tec-register",
+    "source_id": "neso-open-data",
+    "catalogue_key": "tec-register",
+    "cadence": "P3D",
+    "metric_ids": [],
+    "register": "projects"
   }
 ]
