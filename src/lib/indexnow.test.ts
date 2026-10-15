@@ -10,8 +10,11 @@ import {
   INDEXNOW_KEY_LOCATION,
   INDEXNOW_KEY_PATH,
   INDEXNOW_MAX_BATCH,
+  INDEXNOW_RELEASE_MARKER,
   INDEXNOW_SITEMAP_URL,
   batchUrlList,
+  indexNowReleaseReady,
+  indexNowReleaseSitemapUrl,
   redactIndexNow,
   runIndexNow,
   sitemapLocs,
@@ -160,6 +163,18 @@ describe("IndexNow", () => {
       "sitemap: error no <loc> URLs",
       "sitemap: error network down",
     ]);
+  });
+
+  it("accepts the phase 1A marker and ignores a bare 200", () => {
+    const marker = readFileSync(resolve(process.cwd(), "public/release-1a.txt"), "utf8");
+    expect(marker.trim()).toBe(INDEXNOW_RELEASE_MARKER);
+    expect(indexNowReleaseReady(200, marker)).toBe(true);
+    expect(indexNowReleaseReady(200, "phase-1a")).toBe(true);
+    expect(indexNowReleaseReady(200, "")).toBe(false);
+    expect(indexNowReleaseReady(404, INDEXNOW_RELEASE_MARKER)).toBe(false);
+    expect(indexNowReleaseSitemapUrl()).toBe(
+      "https://grid.vahaah.com/sitemap.xml?release=phase-1a",
+    );
   });
 
   it("submits only urls outside the settled set and redacts the key", async () => {

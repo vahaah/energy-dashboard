@@ -4,24 +4,29 @@
  *
  *   INDEXNOW_KEY=... npm run indexnow:once
  *
- * Waits until https://grid.vahaah.com/gas returns 200, then POSTs only the
- * sitemap URLs that are not in INDEXNOW_SETTLED_PATHS. The key is read from
- * the environment and is never printed. A second run of the full sitemap
- * script is a separate command and is not this path.
+ * Waits until https://grid.vahaah.com/release-1a.txt serves the Phase 1A marker,
+ * then POSTs only the sitemap URLs that are not in INDEXNOW_SETTLED_PATHS.
+ * A 200 from /gas is not enough: that route is already on the previous
+ * production deployment. The key is read from the environment and is never
+ * printed. A second run of the full sitemap script is a separate command
+ * and is not this path.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  INDEXNOW_HOST,
   INDEXNOW_KEY_PATH,
-  INDEXNOW_SITEMAP_URL,
+  INDEXNOW_RELEASE_PROBE_PATH,
+  indexNowReleaseReady,
+  indexNowReleaseSitemapUrl,
   redactIndexNow,
   runIndexNow,
   sitemapLocs,
   unsubmittedIndexNowUrls,
 } from "../src/lib/indexnow";
 
-const PROBE_URL = process.env.INDEXNOW_PROBE_URL ?? "https://grid.vahaah.com/gas";
-const WAIT_MS = 2 * 60 * 1000;
+const PROBE_URL = process.env.INDEXNOW_PROBE_URL ?? `https://${INDEXNOW_HOST}${INDEXNOW_RELEASE_PROBE_PATH}`;
+const WAIT_MS = 10 * 60 * 1000;
 const INTERVAL_MS = 15_000;
 
 function fail(key: string, line: string): never {
@@ -46,8 +51,9 @@ async function waitForProbe(key: string): Promise<void> {
   const deadline = Date.now() + WAIT_MS;
   for (;;) {
     try {
-      const response = await fetch(PROBE_URL, { redirect: "manual" });
-      if (response.status === 200) {
+      const response = await fetch(PROBE_URL, { redirect: "manual", cache: "no-store" });
+      const body = await response.text();
+      if (indexNowReleaseReady(response.status, body)) {
         return;
       }
       console.error(redactIndexNow(`probe: ${response.status}`, key));
@@ -56,7 +62,7 @@ async function waitForProbe(key: string): Promise<void> {
       console.error(redactIndexNow(`probe: ${message}`, key));
     }
     if (Date.now() >= deadline) {
-      fail(key, "probe did not return 200");
+      fail(key, "release marker was not served");
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, INTERVAL_MS));
   }
@@ -66,7 +72,7 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
   await waitForProbe(key);
   let sitemap: Response;
   try {
-    sitemap = await fetch(INDEXNOW_SITEMAP_URL);
+    sitemap = await fetch(indexNowReleaseSitemapUrl(), { redirect: "manual", cache: "no-store" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "sitemap failed";
     console.error(redactIndexNow(`sitemap: ${message}`, key));

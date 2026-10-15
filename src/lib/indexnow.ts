@@ -6,6 +6,21 @@ export const INDEXNOW_SITEMAP_URL = `https://${INDEXNOW_HOST}/sitemap.xml`;
 export const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 export const INDEXNOW_MAX_BATCH = 10_000;
 
+/** Body of `public/release-1a.txt`. The previous production deploy does not serve it. */
+export const INDEXNOW_RELEASE_MARKER = "phase-1a";
+export const INDEXNOW_RELEASE_PROBE_PATH = "/release-1a.txt";
+
+export function indexNowReleaseReady(status: number, body: string): boolean {
+  return status === 200 && body.trim() === INDEXNOW_RELEASE_MARKER;
+}
+
+/** Sitemap URL that misses a CDN entry cached for the previous deployment. */
+export function indexNowReleaseSitemapUrl(origin = `https://${INDEXNOW_HOST}`): string {
+  const url = new URL("/sitemap.xml", origin);
+  url.searchParams.set("release", INDEXNOW_RELEASE_MARKER);
+  return url.toString();
+}
+
 const XML_ENTITIES: Record<string, string> = {
   amp: "&",
   lt: "<",
