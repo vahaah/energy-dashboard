@@ -14,6 +14,7 @@ import type {
   IntervalConvention,
   MetricDefinition,
   QuantityKind,
+  SeriesKind,
   SignConvention,
 } from "@/lib/types";
 
@@ -671,6 +672,135 @@ export const GAS_METRICS = {
 } satisfies Record<string, MetricDefinition>;
 
 export type GasMetricId = keyof typeof GAS_METRICS;
+
+export type ConstraintMetricDefinition = MetricDefinition & {
+  kind: SeriesKind;
+};
+
+const CONSTRAINT_DAY = {
+  metric_definition_version: 1,
+  geography_id: "GB",
+  interval_convention: "uk_settlement_period_half_open",
+  denominator: null,
+  source_id: "neso-open-data",
+  quantity_kind: "interval_total",
+  aggregation: "sum",
+  expected_cadence: "P1D",
+  publication_lag: "P7D",
+  stale_grace: "P14D",
+} as const;
+
+const CONSTRAINT_SNAPSHOT = {
+  metric_definition_version: 1,
+  geography_id: "GB",
+  interval_convention: "uk_settlement_period_half_open",
+  denominator: null,
+  source_id: "neso-open-data",
+  dataset_id: "day-ahead-constraint-flows-and-limits",
+  quantity_kind: "instantaneous_rate",
+  aggregation: "last",
+  expected_cadence: "P1D",
+  publication_lag: "PT0S",
+  stale_grace: "P3D",
+  kind: "forecast",
+} as const;
+
+/**
+ * NESO constraint series. Kept out of `METRICS` so the homepage registry stays
+ * on the series already shown. `/data-health` appends them from the Blob release.
+ * `kind` is measured for the post-event breakdown and forecast for the day-ahead snapshot.
+ */
+export const CONSTRAINT_METRICS = {
+  "elec.gb.constraints.cost.reducing_largest_loss": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.cost.reducing_largest_loss",
+    unit: "£",
+    sign_convention: "positive_price",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published cost of actions tagged reducing largest loss, on the NESO settlement date, £.",
+  },
+  "elec.gb.constraints.cost.increasing_system_inertia": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.cost.increasing_system_inertia",
+    unit: "£",
+    sign_convention: "positive_price",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published cost of actions tagged increasing system inertia, on the NESO settlement date, £.",
+  },
+  "elec.gb.constraints.cost.voltage": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.cost.voltage",
+    unit: "£",
+    sign_convention: "positive_price",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published cost of voltage constraint actions, on the NESO settlement date, £.",
+  },
+  "elec.gb.constraints.cost.thermal": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.cost.thermal",
+    unit: "£",
+    sign_convention: "positive_price",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published cost of thermal constraint actions, on the NESO settlement date, £.",
+  },
+  "elec.gb.constraints.volume.reducing_largest_loss": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.volume.reducing_largest_loss",
+    unit: "MWh",
+    sign_convention: "positive_generation",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published energy volume of actions tagged reducing largest loss, MWh. The sign is the one NESO publishes.",
+  },
+  "elec.gb.constraints.volume.increasing_system_inertia": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.volume.increasing_system_inertia",
+    unit: "MWh",
+    sign_convention: "positive_generation",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published energy volume of actions tagged increasing system inertia, MWh. The sign is the one NESO publishes.",
+  },
+  "elec.gb.constraints.volume.voltage": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.volume.voltage",
+    unit: "MWh",
+    sign_convention: "positive_generation",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published energy volume of voltage constraint actions, MWh. The sign is the one NESO publishes.",
+  },
+  "elec.gb.constraints.volume.thermal": {
+    ...CONSTRAINT_DAY,
+    metric_id: "elec.gb.constraints.volume.thermal",
+    unit: "MWh",
+    sign_convention: "positive_generation",
+    dataset_id: "constraint-breakdown",
+    kind: "measured",
+    coverage: "Published energy volume of thermal constraint actions, MWh. Negative is the sign NESO publishes for turn-down.",
+  },
+  "elec.gb.constraints.day_ahead.flow": {
+    ...CONSTRAINT_SNAPSHOT,
+    metric_id: "elec.gb.constraints.day_ahead.flow",
+    unit: "MW",
+    sign_convention: "positive_generation",
+    coverage:
+      "Day-ahead boundary flow, MW, in the direction NESO draws for that constraint group. Not a national sum. The health figure is the newest half-hour.",
+  },
+  "elec.gb.constraints.day_ahead.limit": {
+    ...CONSTRAINT_SNAPSHOT,
+    metric_id: "elec.gb.constraints.day_ahead.limit",
+    unit: "MW",
+    sign_convention: "positive_generation",
+    coverage: "Day-ahead boundary limit, MW. Not a national sum. The health figure is the newest half-hour.",
+  },
+} satisfies Record<string, ConstraintMetricDefinition>;
+
+export type ConstraintMetricId = keyof typeof CONSTRAINT_METRICS;
 
 /** Physical NTS series shown on /gas. Separate from the SAP price card. */
 export function physicalGasCoverage(): readonly {

@@ -17,7 +17,8 @@ import { assessPublication, type DataState, type PublicationMark, type Staleness
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
 import { gasMetricLabel, gasReadingStale, latestObservedComponent, loadBundleReleases } from "@/lib/gas/query";
 import type { GasRelease } from "@/lib/ingest/national-gas/release";
-import { GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type GasMetricId, type MetricId } from "@/lib/metrics";
+import { constraintMetricLabel, loadConstraintObservations } from "@/lib/constraints/health";
+import { CONSTRAINT_METRICS, GAS_METRICS, METRICS, metricSourceLabel, staleGrace, type ConstraintMetricId, type GasMetricId, type MetricId } from "@/lib/metrics";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { CommodityPrice, EnergySnapshot, Generation5min, IntervalConvention } from "@/lib/types";
 import { peekWarmedEnvelope } from "@/lib/warm-envelope";
@@ -379,7 +380,46 @@ export async function loadDataHealth(now = new Date()): Promise<DataHealthReadin
       now,
     });
   });
-  return [...readings, ...(await loadGasReadings(now))];
+  return [...readings, ...(await loadGasReadings(now)), ...(await loadConstraintReadings(now))];
+}
+
+async function loadConstraintReadings(now: Date): Promise<DataHealthReading[]> {
+  const observations = await loadConstraintObservations();
+  return observations.map((observed) => {
+    const metric = CONSTRAINT_METRICS[observed.metricId];
+    const assessed = assessPublication({
+      value: observed.value,
+      publishedAt: observed.publishedAt,
+      retrievedAt: observed.retrievedAt,
+      expectedCadence: metric.expected_cadence,
+      now,
+      formatValue: (number) => formatReadingValue(number, metric.unit),
+      schedule: "calendar",
+      publicationLag: staleGrace(metric),
+    });
+    return {
+      metric_id: observed.metricId,
+      label: constraintMetricLabel(observed.metricId),
+      unit: metric.unit,
+      source: metricSourceLabel(metric),
+      dataset_id: metric.dataset_id,
+      expected_cadence: metric.expected_cadence,
+      publication_lag: metric.publication_lag,
+      publication_lag_label: publicationLagLabel(metric.publication_lag, metric.interval_convention),
+      value: observed.value,
+      value_label: assessed.valueLabel,
+      published_at: observed.publishedAt,
+      retrieved_at: observed.retrievedAt,
+      published_label: assessed.publishedLabel,
+      retrieved_label: assessed.retrievedLabel,
+      stale: assessed.stale,
+      state: assessed.state,
+    };
+  });
+}
+
+export function constraintMetricIds(): ConstraintMetricId[] {
+  return Object.keys(CONSTRAINT_METRICS) as ConstraintMetricId[];
 }
 
 async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {

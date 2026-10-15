@@ -3,7 +3,12 @@ import { DataHealthReading } from "@/components/data-health-reading";
 import { MapLayerChangeNotice } from "@/components/map-layer-change";
 import { SeoPage } from "@/components/seo-page";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
-import { featuredMetricIds, loadDataHealth, type DataHealthReading as Reading } from "@/lib/data-health";
+import {
+  constraintMetricIds,
+  featuredMetricIds,
+  loadDataHealth,
+  type DataHealthReading as Reading,
+} from "@/lib/data-health";
 import { physicalGasCoverage } from "@/lib/metrics";
 import { readDnoLayerFlag } from "@/lib/map/layer-flag";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -17,8 +22,12 @@ export default async function DataHealthPage() {
   const readings = await loadDataHealth(new Date());
   const mapLayerFlag = await readDnoLayerFlag();
   const featuredIds = new Set<string>(featuredMetricIds());
+  const constraintIds = new Set<string>(constraintMetricIds());
   const featured = featuredMetricIds().map((id) => readings.find((reading) => reading.metric_id === id));
-  const rest = readings.filter((reading) => !featuredIds.has(reading.metric_id));
+  const constraints = readings.filter((reading) => constraintIds.has(reading.metric_id));
+  const rest = readings.filter(
+    (reading) => !featuredIds.has(reading.metric_id) && !constraintIds.has(reading.metric_id),
+  );
 
   return (
     <SeoPage
@@ -77,6 +86,25 @@ export default async function DataHealthPage() {
                 <p className="text-copy-14 text-gray-1000">{series.dataset_id}</p>
                 <p className="text-label-12 text-gray-900">{series.expected_cadence}</p>
                 <p className="mt-1 break-words text-copy-14 text-gray-900">{series.coverage}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
+      <section id="constraints" className="scroll-mt-28">
+        <h2 className="text-heading-24 text-gray-1000">Transmission constraints</h2>
+        <Card className="mt-4" title="NESO constraints">
+          <p className="break-words text-copy-14 text-gray-900">
+            Published constraint cost and volume, and the day-ahead boundary snapshot. Cost stays in £.
+            Volume stays in MWh.
+          </p>
+          <ul className="mt-4 flex flex-col">
+            {constraints.map((reading) => (
+              <li
+                key={reading.metric_id}
+                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <SeriesRow reading={reading} />
               </li>
             ))}
           </ul>

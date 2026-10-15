@@ -41,8 +41,8 @@ describe("site nav shell", () => {
     for (const href of catalogHrefs()) {
       expect(routeExists(href)).toBe(discovered.includes(href));
     }
-    expect(visibleNavHrefs()).toEqual(["/", "/gas", "/map", "/assets", "/api"]);
-    expect(visibleHeaderNav().map((item) => item.label)).toEqual(["Today", "Gas", "Map", "Assets", "API"]);
+    expect(visibleNavHrefs()).toEqual(["/", "/gas", "/map", "/assets", "/system/constraints", "/api"]);
+    expect(visibleHeaderNav().map((item) => item.label)).toEqual(["Today", "Gas", "Map", "Assets", "System", "API"]);
     expect(hiddenNavHrefs()).toEqual([
       "/system/generation",
       "/system/demand",
@@ -72,6 +72,7 @@ describe("site nav shell", () => {
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/gas");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/map");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/assets");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/constraints");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).not.toContain("/directory");
     expect(urls).toContain("/api");
     expect(urls).toContain("/");

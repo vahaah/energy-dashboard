@@ -15,7 +15,12 @@ describe("primary nav", () => {
     expect(home).toMatch(/<a[^>]*href="\/assets"[^>]*>Assets<\/a>/);
     expect(home).toMatch(/<a[^>]*href="\/api"[^>]*>API<\/a>/);
     expect(home.match(/aria-current="page"/g)?.length).toBe(1);
-    expect(home).not.toContain(">System<");
+    expect(home).toContain(">System<");
+    expect(home).not.toContain('href="/system/constraints"');
+    expect(home).not.toContain('href="/system/generation"');
+    expect(home).not.toContain('href="/system/demand"');
+    expect(home).not.toContain('href="/system/carbon"');
+    expect(home).not.toContain('href="/system/transfers"');
     expect(home).not.toContain("Directory and tools");
     expect(home).not.toContain('href="/directory"');
 

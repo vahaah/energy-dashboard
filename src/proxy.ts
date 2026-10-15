@@ -25,6 +25,7 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-yesterday",
   "/api/cron-map-layers",
   "/api/cron-gas",
+  "/api/cron-constraints",
   "/api/health",
 ]);
 

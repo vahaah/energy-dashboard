@@ -15,7 +15,7 @@
     "source_id": "neso-open-data",
     "name": "NESO Data Portal",
     "url": "https://www.neso.energy/data-portal",
-    "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records.",
+    "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records. Weekly constraint breakdown and weekday day-ahead boundary flows and limits, published to Blob.",
     "licence": "NESO Open Data Licence",
     "licence_url": "https://www.neso.energy/data-portal/neso-open-data-licence",
     "attribution": "Supported by National Energy SO Open Data",

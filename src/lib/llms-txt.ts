@@ -20,6 +20,7 @@ ${latest}
 - [Today](https://grid.vahaah.com/today): today's GB generation mix, carbon intensity, demand, prices
 - [Map](https://grid.vahaah.com/map): power stations and DNO licence areas on an OS basemap
 - [Assets](https://grid.vahaah.com/assets): REPD and DUKES station register, with capacity and source
+- [Constraints](https://grid.vahaah.com/system/constraints): published transmission constraint cost, volume, and the day-ahead boundary snapshot
 - [Records](https://grid.vahaah.com/records): records since Grid's records began, beside NESO official records
 - [UK gas price](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
 - [Price cap explained](https://grid.vahaah.com/explained/price-cap): January 2027 price cap, announced by 25 Nov 2026

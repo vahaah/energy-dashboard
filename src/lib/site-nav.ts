@@ -1,3 +1,5 @@
+import { SYSTEM_NAV_ITEMS } from "@/lib/nav";
+
 export type SiteNavLink = {
   kind: "link";
   id: string;
@@ -33,12 +35,7 @@ export const SITE_NAV_CATALOG: SiteNavEntry[] = [
     kind: "menu",
     id: "system",
     label: "System",
-    items: [
-      { id: "generation", label: "Generation", href: "/system/generation" },
-      { id: "demand", label: "Demand", href: "/system/demand" },
-      { id: "carbon", label: "Carbon", href: "/system/carbon" },
-      { id: "transfers", label: "Transfers", href: "/system/transfers" },
-    ],
+    items: SYSTEM_NAV_ITEMS.map((item) => ({ ...item })),
   },
   { kind: "link", id: "directory", label: "Directory and tools", href: "/directory" },
   { kind: "link", id: "api", label: "API", href: "/api" },
@@ -54,6 +51,7 @@ export const SHIPPED_PAGE_ROUTES = [
   "/explained/price-cap",
   "/gas",
   "/map",
+  "/system/constraints",
   "/methodology",
   "/prices/gas",
   "/privacy",
