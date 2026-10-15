@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DATA_SOURCE_IDS, elexonBmrsAttribution, OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { checkCatalogue, type CatalogueMetricRef } from "@/lib/catalogue/check";
+import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
+import { DNO_ATTRIBUTION, NESO_DNO_ACCURACY_WARNING, osBasemapAttribution } from "@/lib/map/constants";
 import { cataloguePageSources, dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
 import { catalogueRoot } from "@/lib/catalogue/publish-check";
 import { CATALOGUE_SOURCE_IDS } from "@/lib/catalogue/schema";
@@ -33,6 +35,26 @@ describe("publish-check", () => {
   it("accepts the checked-in catalogue", () => {
     expect(CATALOGUE_SOURCE_IDS).toEqual(DATA_SOURCE_IDS);
     expect(checkCatalogue(catalogueRoot())).toEqual({ ok: true, errors: [] });
+    const layers = JSON.parse(readFileSync(resolve(catalogueRoot(), "layers.json"), "utf8")) as Array<{
+      id: string;
+      attribution: string;
+      accuracy_warning: string | null;
+      default_visible: boolean;
+    }>;
+    const dno = layers.find((layer) => layer.id === "dno");
+    expect(dno?.attribution).toBe(DNO_ATTRIBUTION);
+    expect(dno?.attribution).toContain("Open Government Licence v3.0");
+    expect(dno?.accuracy_warning).toBe(NESO_DNO_ACCURACY_WARNING);
+    expect(dno?.accuracy_warning).toContain("not 100% accurate");
+    expect(dno?.default_visible).toBe(false);
+    expect(osBasemapAttribution(2026)).toBe("Contains OS data © Crown copyright and database right 2026");
+  });
+
+  it("fails a DNO layer that drops the NESO attribution", () => {
+    const result = checkLayerCatalogue(resolve(FIXTURES, "bad-layer"), { required: true });
+    expect(result.join("\n")).toMatch(/attribution/);
+    expect(result.join("\n")).toMatch(/default_visible must be false/);
+    expect(result.join("\n")).toMatch(/accuracy_warning/);
   });
 
   it("fails when a source has no licence", () => {

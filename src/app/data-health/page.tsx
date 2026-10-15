@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { DataHealthReading } from "@/components/data-health-reading";
+import { MapLayerChangeNotice } from "@/components/map-layer-change";
 import { SeoPage } from "@/components/seo-page";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
 import { featuredMetricIds, loadDataHealth, type DataHealthReading as Reading } from "@/lib/data-health";
+import { readDnoLayerFlag } from "@/lib/map/layer-flag";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { dataHealthPageMetadata } from "@/lib/page-metadata";
 import { DATA_HEALTH_H1 } from "@/lib/site";
@@ -12,6 +14,7 @@ export const metadata: Metadata = dataHealthPageMetadata();
 
 export default async function DataHealthPage() {
   const readings = await loadDataHealth(new Date());
+  const mapLayerFlag = await readDnoLayerFlag();
   const featuredIds = new Set<string>(featuredMetricIds());
   const featured = featuredMetricIds().map((id) => readings.find((reading) => reading.metric_id === id));
   const rest = readings.filter((reading) => !featuredIds.has(reading.metric_id));
@@ -57,6 +60,7 @@ export default async function DataHealthPage() {
           </ul>
         </Card>
       </section>
+      {mapLayerFlag ? <MapLayerChangeNotice pointer={mapLayerFlag} /> : null}
     </SeoPage>
   );
 }

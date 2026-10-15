@@ -16,6 +16,9 @@
     "test:layout": "playwright test",
     "publish-check": "tsx scripts/publish-check.ts",
     "catalogue:assets": "tsx scripts/catalogue/build-assets.ts",
+    "catalogue:dno": "tsx scripts/build-dno-layer.ts",
+    "basemap": "tsx scripts/build-basemap.ts",
+    "basemap:style": "tsx scripts/build-basemap-style.ts",
     "indexnow": "tsx scripts/indexnow.ts"
   },
   "dependencies": {
@@ -39,9 +42,11 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vercel/blob": "^2.8.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
     "exceljs": "^4.4.0",
+    "opentype.js": "^2.0.0",
     "proj4": "^2.22.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

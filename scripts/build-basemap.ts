@@ -1,0 +1,223 @@
+#!/usr/bin/env npx tsx
+/**
+ * Build the OS Open Zoomstack basemap and publish it to Vercel Blob.
+ *
+ *   BLOB_READ_WRITE_TOKEN=... npx tsx scripts/build-basemap.ts
+ *
+ * Manual, or twice a year. Not a CI step. Refuses to start when the Blob
+ * token is unset, and never prints the token. Needs sqlite3. Downloads the
+ * pinned pmtiles CLI when it is not on PATH.
+ */
+import { createHash } from "node:crypto";
+import { createReadStream, createWriteStream, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { execFileSync } from "node:child_process";
+import { put } from "@vercel/blob";
+import { CATALOGUE_SCHEMA_VERSION } from "../src/lib/catalogue/schema";
+import { LAYER_FILES, type MapLayer } from "../src/lib/catalogue/layers";
+import {
+  BASEMAP_LAYER_ID,
+  BASEMAP_PRECISION,
+  BASEMAP_ZOOM_MAX,
+  BASEMAP_ZOOM_MIN,
+  OS_LICENCE,
+  OS_LICENCE_URL,
+  OS_ZOOMSTACK_DOWNLOAD_URL,
+  OS_ZOOMSTACK_PRODUCT_URL,
+  osBasemapAttribution,
+} from "../src/lib/map/constants";
+
+const PMTILES_VERSION = "1.31.2";
+const USER_AGENT = "grid-catalogue/1.0 (energy-dashboard; OS Open Zoomstack basemap)";
+
+function redact(message: string): string {
+  const token = process.env.BLOB_READ_WRITE_TOKEN ?? "";
+  let next = message;
+  if (token.length > 0) {
+    next = next.split(token).join("[redacted]");
+  }
+  return next;
+}
+
+function requireToken(): void {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (token && token.trim().length > 0) {
+    return;
+  }
+  console.error("BLOB_READ_WRITE_TOKEN is unset. Refusing to download OS Open Zoomstack.");
+  console.error("Alex, from the repo root, with the Vercel Blob read-write token in the environment and not echoed:");
+  console.error("  npx tsx scripts/build-basemap.ts");
+  console.error(
+    `The script reads the edition from ${OS_ZOOMSTACK_PRODUCT_URL}, downloads the OGL v3 vector-tile MBTiles, deletes zoom levels above ${BASEMAP_ZOOM_MAX}, converts that archive to one PMTiles file with pmtiles ${PMTILES_VERSION}, and uploads it to tiles/basemap/<edition>.pmtiles.`,
+  );
+  console.error("It then records bytes and sha256 on the basemap row in data/catalogue/layers.json and points the checked-in styles at that URL.");
+  console.error("sqlite3 must be on PATH. The pmtiles CLI is downloaded when it is missing. This does not run in CI.");
+  process.exit(2);
+}
+
+function pmtilesAsset(): { name: string; url: string } {
+  const platform = process.platform;
+  const arch = process.arch === "arm64" ? "arm64" : "x86_64";
+  if (platform === "linux") {
+    const name = `go-pmtiles_${PMTILES_VERSION}_Linux_${arch}.tar.gz`;
+    return { name, url: `https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/${name}` };
+  }
+  if (platform === "darwin") {
+    const name = `go-pmtiles-${PMTILES_VERSION}_Darwin_${arch}.zip`;
+    return { name, url: `https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/${name}` };
+  }
+  throw new Error(`no pinned pmtiles build for ${platform} ${arch}`);
+}
+
+function pmtilesBin(work: string): string {
+  try {
+    execFileSync("pmtiles", ["version"], { stdio: "ignore" });
+    return "pmtiles";
+  } catch {
+    // download the pinned release below
+  }
+  const asset = pmtilesAsset();
+  const archive = join(work, asset.name);
+  execFileSync("curl", ["-fsSL", "-A", USER_AGENT, "-o", archive, asset.url], { stdio: "inherit" });
+  if (asset.name.endsWith(".zip")) {
+    execFileSync("unzip", ["-o", archive, "-d", work], { stdio: "inherit" });
+  } else {
+    execFileSync("tar", ["-xzf", archive, "-C", work], { stdio: "inherit" });
+  }
+  return join(work, "pmtiles");
+}
+
+async function downloadTo(url: string, file: string): Promise<void> {
+  const response = await fetch(url, { headers: { "user-agent": USER_AGENT }, redirect: "follow" });
+  if (!response.ok || !response.body) {
+    throw new Error(`download returned ${response.status}`);
+  }
+  await pipeline(Readable.fromWeb(response.body), createWriteStream(file));
+}
+
+function sha256File(file: string): Promise<string> {
+  return new Promise((resolveHash, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(file);
+    stream.on("data", (chunk) => {
+      hash.update(chunk);
+    });
+    stream.on("error", reject);
+    stream.on("end", () => {
+      resolveHash(`sha256:${hash.digest("hex")}`);
+    });
+  });
+}
+
+function mbtilesBounds(file: string): [number, number, number, number] {
+  const output = execFileSync("sqlite3", [file, "SELECT value FROM metadata WHERE name = 'bounds';"], {
+    encoding: "utf8",
+  }).trim();
+  const parts = output.split(",").map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+    throw new Error(`MBTiles bounds were ${output || "missing"}`);
+  }
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0, parts[3] ?? 0];
+}
+
+function readLayers(dir: string): MapLayer[] {
+  try {
+    return JSON.parse(readFileSync(join(dir, LAYER_FILES.layers), "utf8")) as MapLayer[];
+  } catch {
+    return [];
+  }
+}
+
+function pointStylesAt(blobUrl: string): void {
+  for (const name of ["style-light.json", "style-dark.json"]) {
+    const path = resolve(process.cwd(), "public/basemap", name);
+    const style = JSON.parse(readFileSync(path, "utf8")) as {
+      sources?: { zoomstack?: { url?: string } };
+    };
+    const source = style.sources?.zoomstack;
+    if (!source) {
+      throw new Error(`${name} has no zoomstack source`);
+    }
+    source.url = `pmtiles://${blobUrl}`;
+    writeFileSync(path, `${JSON.stringify(style, null, 2)}\n`);
+  }
+}
+
+async function main(): Promise<void> {
+  requireToken();
+  const work = join(tmpdir(), "grid-basemap");
+  mkdirSync(work, { recursive: true });
+  const productResponse = await fetch(OS_ZOOMSTACK_PRODUCT_URL, {
+    headers: { "user-agent": USER_AGENT, accept: "application/json" },
+  });
+  if (!productResponse.ok) {
+    throw new Error(`OS product API returned ${productResponse.status}`);
+  }
+  const product = (await productResponse.json()) as { version?: string };
+  const edition = product.version ?? "";
+  if (!/^\d{4}-\d{2}$/.test(edition)) {
+    throw new Error(`OS Open Zoomstack edition was ${edition || "missing"}`);
+  }
+  const year = Number(edition.slice(0, 4));
+  const mbtiles = join(work, "OS_Open_Zoomstack.mbtiles");
+  console.log(`downloading OS Open Zoomstack ${edition}`);
+  await downloadTo(OS_ZOOMSTACK_DOWNLOAD_URL, mbtiles);
+  execFileSync(
+    "sqlite3",
+    [
+      mbtiles,
+      `DELETE FROM tiles WHERE zoom_level > ${BASEMAP_ZOOM_MAX};
+       UPDATE metadata SET value = '${BASEMAP_ZOOM_MAX}' WHERE name = 'maxzoom';
+       VACUUM;`,
+    ],
+    { stdio: "inherit" },
+  );
+  const bin = pmtilesBin(work);
+  const pmtiles = join(work, `${edition}.pmtiles`);
+  execFileSync(bin, ["convert", mbtiles, pmtiles], { stdio: "inherit" });
+  const bytes = statSync(pmtiles).size;
+  const sha = await sha256File(pmtiles);
+  const bbox = mbtilesBounds(mbtiles);
+  const blob = await put(`tiles/basemap/${edition}.pmtiles`, createReadStream(pmtiles), {
+    access: "public",
+    multipart: true,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/vnd.pmtiles",
+  });
+  const layer: MapLayer = {
+    catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
+    id: BASEMAP_LAYER_ID,
+    kind: "basemap",
+    edition,
+    source_crs: "EPSG:3857",
+    tolerance: null,
+    bbox,
+    url: blob.url,
+    bytes,
+    sha256: sha,
+    precision: BASEMAP_PRECISION,
+    licence: OS_LICENCE,
+    licence_url: OS_LICENCE_URL,
+    attribution: osBasemapAttribution(year),
+    accuracy_warning: null,
+    release_id: `os-open-zoomstack:${edition}`,
+    default_visible: true,
+    zoom: { min: BASEMAP_ZOOM_MIN, max: BASEMAP_ZOOM_MAX },
+  };
+  const catalogueDir = resolve(process.cwd(), "data/catalogue");
+  const layers = readLayers(catalogueDir).filter((entry) => entry.id !== BASEMAP_LAYER_ID);
+  layers.push(layer);
+  layers.sort((left, right) => left.id.localeCompare(right.id));
+  writeFileSync(join(catalogueDir, LAYER_FILES.layers), `${JSON.stringify(layers, null, 2)}\n`);
+  pointStylesAt(blob.url);
+  console.log(JSON.stringify({ edition, zoom: `${BASEMAP_ZOOM_MIN}-${BASEMAP_ZOOM_MAX}`, bytes, sha256: sha, url: blob.url }, null, 2));
+}
+
+main().catch((error: unknown) => {
+  console.error(redact(error instanceof Error ? error.message : String(error)));
+  process.exit(1);
+});
