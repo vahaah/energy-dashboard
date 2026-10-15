@@ -26,7 +26,47 @@ export type IndexNowFetch = (input: string, init?: RequestInit) => Promise<Respo
 export type IndexNowRunOptions = {
   fetch?: IndexNowFetch;
   log?: (line: string) => void;
+  /** Defaults to the published key. The post-deploy one-shot passes the env key. */
+  key?: string;
+  /** When set, submit these URLs and do not read the sitemap. */
+  urls?: readonly string[];
 };
+
+/** Paths already submitted before the Phase 1A routes. The one-shot posts the rest. */
+export const INDEXNOW_SETTLED_PATHS = [
+  "/",
+  "/today",
+  "/llms.txt",
+  "/records",
+  "/explained/price-cap",
+  "/prices/gas",
+  "/methodology",
+  "/data-health",
+  "/api",
+  "/privacy",
+  "/terms",
+  "/data-sources",
+] as const;
+
+export function indexNowPath(url: string): string {
+  return new URL(url).pathname;
+}
+
+/** Sitemap locs that are not in the settled set. Order is preserved. */
+export function unsubmittedIndexNowUrls(
+  urls: readonly string[],
+  settled: readonly string[] = INDEXNOW_SETTLED_PATHS,
+): string[] {
+  const done = new Set(settled);
+  return urls.filter((url) => !done.has(indexNowPath(url)));
+}
+
+export function redactIndexNow(line: string, key: string): string {
+  if (key.length === 0) {
+    return line;
+  }
+  return line.split(key).join("[redacted]");
+}
 
 function decodeXmlText(value: string): string {
   return value.replace(/&(amp|lt|gt|quot|apos);/g, (match, name: string) => XML_ENTITIES[name] ?? match);
@@ -56,18 +96,24 @@ export function batchUrlList(urls: readonly string[], size = INDEXNOW_MAX_BATCH)
   return batches;
 }
 
-function indexNowSubmission(urlList: readonly string[]): IndexNowSubmission {
+function indexNowSubmission(urlList: readonly string[], key: string): IndexNowSubmission {
   return {
     host: INDEXNOW_HOST,
-    key: INDEXNOW_KEY,
-    keyLocation: INDEXNOW_KEY_LOCATION,
+    key,
+    keyLocation: `https://${INDEXNOW_HOST}/${key}.txt`,
     urlList: [...urlList],
   };
 }
 
 export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<number> {
+  const key = options.key ?? INDEXNOW_KEY;
   const fetchImpl = options.fetch ?? fetch;
-  const log = options.log ?? ((line: string) => console.log(line));
+  const write = options.log ?? ((line: string) => console.log(line));
+  const log = (line: string) => write(redactIndexNow(line, key));
+
+  if (options.urls) {
+    return postIndexNow(options.urls, key, fetchImpl, log);
+  }
 
   let sitemapResponse: Response;
   try {
@@ -89,6 +135,19 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
     return 1;
   }
 
+  return postIndexNow(urls, key, fetchImpl, log);
+}
+
+async function postIndexNow(
+  urls: readonly string[],
+  key: string,
+  fetchImpl: IndexNowFetch,
+  log: (line: string) => void,
+): Promise<number> {
+  if (urls.length === 0) {
+    log("no urls");
+    return 0;
+  }
   const batches = batchUrlList(urls);
   let failed = false;
   for (const [index, urlList] of batches.entries()) {
@@ -97,7 +156,7 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
       const response = await fetchImpl(INDEXNOW_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify(indexNowSubmission(urlList)),
+        body: JSON.stringify(indexNowSubmission(urlList, key)),
       });
       const body = await readBody(response);
       log(`${label}: ${response.status} (${urlList.length} urls)${body ? ` ${body}` : ""}`);

@@ -1,0 +1,23 @@
+name: IndexNow
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - data/indexnow/release-1a.txt
+      - .github/workflows/indexnow.yml
+
+jobs:
+  submit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run indexnow:once
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}

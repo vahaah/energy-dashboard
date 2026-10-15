@@ -57,6 +57,20 @@ describe("sitemap", () => {
     );
   });
 
+  it("includes interconnectors and leaves unbuilt routes out", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
+    const interconnectors = JSON.parse(
+      readFileSync(resolve(process.cwd(), "data/catalogue/interconnectors.json"), "utf8"),
+    ) as Array<{ interconnector_id: string }>;
+    expect(interconnectors.length).toBeGreaterThan(0);
+    for (const row of interconnectors) {
+      expect(urls.some((url) => url.includes(`/assets/${row.interconnector_id}/`))).toBe(true);
+    }
+    for (const hidden of ["/system/generation", "/system/demand", "/system/carbon", "/system/transfers", "/directory"]) {
+      expect(urls.some((url) => new URL(url).pathname === hidden || new URL(url).pathname.startsWith(`${hidden}/`))).toBe(false);
+    }
+  });
+
   it("peeks Redis only and does not query Tinybird", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./sitemap.ts"), "utf8");
     expect(source).toContain("peekWarmedPipe");

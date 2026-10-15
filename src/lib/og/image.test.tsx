@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { NATIONAL_GAS_ATTRIBUTION } from "@/lib/attribution";
 import type { Generation5min } from "@/lib/types";
 import { OgImage } from "@/lib/og/image";
 import { buildOgCard, fixtureOgSnapshot } from "@/lib/og/model";
+import type { OgCacheSnapshot } from "@/lib/og/peek";
 
 describe("og share bars", () => {
   it("grows overview and carbon bars by the exact share", () => {
@@ -36,5 +38,37 @@ describe("og share bars", () => {
     expect(carbon).toContain("0%");
     expect(overview).not.toContain("flex-grow:0;");
     expect(carbon).not.toContain("flex-grow:0;");
+  });
+
+  it("wraps long asset titles and keeps the 1A cards free of live wording", () => {
+    const empty: OgCacheSnapshot = { facts: null, records: null, prices: null };
+    const longTitle = `${"Keadby gas-fired power station and adjacent battery".repeat(2)} extension`;
+    expect(longTitle.length).toBeGreaterThan(72);
+    const asset = renderToStaticMarkup(
+      <OgImage
+        card={buildOgCard(
+          { kind: "asset", title: longTitle, kicker: "Gas", source: NATIONAL_GAS_ATTRIBUTION },
+          empty,
+        )}
+      />,
+    );
+    const short = renderToStaticMarkup(
+      <OgImage
+        card={buildOgCard(
+          { kind: "asset", title: "Drax", kicker: "Biomass", source: NATIONAL_GAS_ATTRIBUTION },
+          empty,
+        )}
+      />,
+    );
+    expect(asset).toMatch(/font-size:40px/);
+    expect(asset).toMatch(/overflow-wrap:break-word/);
+    expect(short).toMatch(/font-size:52px/);
+    const pages = (["gas-system", "map", "assets"] as const).map((page) =>
+      renderToStaticMarkup(<OgImage card={buildOgCard({ kind: "page", page }, empty)} />),
+    );
+    for (const html of [asset, short, ...pages]) {
+      expect(html).not.toMatch(/\b(live|real-time|right now)\b/i);
+      expect(html).not.toMatch(/\bUK\b/);
+    }
   });
 });

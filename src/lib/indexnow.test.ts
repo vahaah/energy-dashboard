@@ -12,8 +12,10 @@ import {
   INDEXNOW_MAX_BATCH,
   INDEXNOW_SITEMAP_URL,
   batchUrlList,
+  redactIndexNow,
   runIndexNow,
   sitemapLocs,
+  unsubmittedIndexNowUrls,
 } from "@/lib/indexnow";
 
 describe("IndexNow", () => {
@@ -158,6 +160,38 @@ describe("IndexNow", () => {
       "sitemap: error no <loc> URLs",
       "sitemap: error network down",
     ]);
+  });
+
+  it("submits only urls outside the settled set and redacts the key", async () => {
+    const secret = "super-secret-indexnow-key";
+    const urls = unsubmittedIndexNowUrls([
+      "https://grid.vahaah.com/",
+      "https://grid.vahaah.com/prices/gas",
+      "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/map",
+      "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+    ]);
+    expect(urls).toEqual([
+      "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/map",
+      "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+    ]);
+    const lines: string[] = [];
+    const code = await runIndexNow({
+      key: secret,
+      urls,
+      log: (line) => lines.push(line),
+      fetch: async (_input, init) => {
+        const payload = JSON.parse(String(init?.body)) as { key: string; urlList: string[] };
+        expect(payload.key).toBe(secret);
+        expect(payload.urlList).toEqual(urls);
+        return new Response(`rejected ${secret}`, { status: 422 });
+      },
+    });
+    expect(code).toBe(1);
+    expect(lines.join("\n")).not.toContain(secret);
+    expect(lines[0]).toContain("[redacted]");
+    expect(redactIndexNow(`key ${secret}`, secret)).toBe("key [redacted]");
   });
 
   it("runs only as the tsx entrypoint", () => {

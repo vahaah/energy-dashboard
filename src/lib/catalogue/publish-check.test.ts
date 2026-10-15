@@ -221,9 +221,12 @@ describe("data-sources catalogue", () => {
       expect(source.attribution.trim().length).toBeGreaterThan(0);
     }
     expect(dataSources(2026)).toEqual(sources);
-    for (const id of ["desnz-repd", "desnz-dukes"] as const) {
+    for (const id of ["desnz-repd", "desnz-dukes", "neso-dno-areas", "os-open-zoomstack"] as const) {
       const source = sources.find((item) => item.id === id);
       expect(source?.licenceUrl).toBe(OGL_V3_LICENCE_URL);
+    }
+    for (const id of ["desnz-repd", "desnz-dukes"] as const) {
+      const source = sources.find((item) => item.id === id);
       expect(source?.attribution).toBe(OGL_V3_ATTRIBUTION);
     }
     expect(sourceRefreshLabel("desnz-repd")).toBe("Quarterly");
@@ -231,5 +234,8 @@ describe("data-sources catalogue", () => {
     expect(sourceRefreshLabel("elexon-bmrs")).toBe("Hourly");
     expect(sourceRefreshLabel("national-gas")).toBe("Hourly");
     expect(sourceRefreshLabel("eia")).toBe("Every 6 hours");
+    expect(sourceRefreshLabel("neso-dno-areas")).toBe("Daily");
+    expect(sourceRefreshLabel("os-open-zoomstack")).toBe("Twice a year");
+    expect(page).not.toMatch(/OilPriceAPI|\bTTF\b/);
   });
 });

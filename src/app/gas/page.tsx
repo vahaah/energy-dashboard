@@ -16,7 +16,7 @@ export const metadata: Metadata = buildPageMetadata({
   title: GAS_SYSTEM_TITLE,
   description: GAS_SYSTEM_STANDFIRST,
   path: "/gas",
-  imagePath: "/og",
+  imagePath: "/gas/opengraph-image",
   imageAlt: GAS_SYSTEM_TITLE,
 });
 

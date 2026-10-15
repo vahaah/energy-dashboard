@@ -19,7 +19,9 @@ import { generationMixFromSupplyShares, generationMixShares } from "@/lib/genera
 import { formatPlainSettlementWindow } from "@/lib/generation-desk-view";
 import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
+import { NATIONAL_GAS_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
 import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
+import { DNO_ATTRIBUTION, osBasemapAttribution } from "@/lib/map/constants";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
 import { FOCUS_PAGE_COPY, isDashboardFocus } from "@/lib/page-metadata";
 import type { OgCacheSnapshot } from "@/lib/og/peek";
@@ -35,6 +37,9 @@ export const OG_PAGE_IDS = [
   "methodology",
   "api",
   "gas",
+  "gas-system",
+  "map",
+  "assets",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -43,7 +48,8 @@ export type OgFocus = (typeof DASHBOARD_FOCUSES)[number];
 
 export type OgVariant =
   | { kind: "focus"; focus: OgFocus }
-  | { kind: "page"; page: OgPageId };
+  | { kind: "page"; page: OgPageId }
+  | { kind: "asset"; title: string; kicker: string; source: string };
 
 export type OgMetric = {
   label: string;
@@ -184,6 +190,33 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: `${OG_GRID_SOURCES}. ${OG_CONTEXT_SOURCES}`,
   },
+  "gas-system": {
+    eyebrow: gridEyebrow("Gas"),
+    title: "Britain's gas system",
+    kicker: "Supply into and demand from the National Transmission System, by gas day.",
+    metrics: [{ label: "Cadence", value: "Hourly" }],
+    mix: [],
+    stamp: null,
+    source: NATIONAL_GAS_ATTRIBUTION,
+  },
+  map: {
+    eyebrow: gridEyebrow("Map"),
+    title: "GB power assets",
+    kicker: "Stations, schematic interconnectors, and DNO licence areas.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: `${osBasemapAttribution(2026)}. ${DNO_ATTRIBUTION}`,
+  },
+  assets: {
+    eyebrow: gridEyebrow("Assets"),
+    title: "GB stations and terminals",
+    kicker: "REPD, DUKES, schematic interconnectors, and National Gas terminal names.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: `${OGL_V3_ATTRIBUTION} ${elexonBmrsAttribution(2026)} ${NATIONAL_GAS_ATTRIBUTION}`,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -219,6 +252,8 @@ export function buildOgCard(variant: OgVariant, snapshot: OgCacheSnapshot): OgCa
       return finishCard(pageCard(variant.page, snapshot));
     case "focus":
       return finishCard(focusCard(variant.focus, snapshot));
+    case "asset":
+      return finishCard(assetOgCard(variant.title, variant.kicker, variant.source));
     default: {
       const exhaustive: never = variant;
       return exhaustive;
@@ -240,6 +275,9 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "price-cap":
     case "methodology":
     case "api":
+    case "gas-system":
+    case "map":
+    case "assets":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -615,6 +653,8 @@ export function ogCacheControl(variant: OgVariant): string {
       return pageCacheControl(variant.page);
     case "focus":
       return focusCacheControl(variant.focus);
+    case "asset":
+      return OG_SETTLEMENT_CACHE_CONTROL;
     default: {
       const exhaustive: never = variant;
       return exhaustive;
@@ -644,6 +684,7 @@ function pageCacheControl(page: OgPageId): string {
   switch (page) {
     case "today":
     case "gas":
+    case "gas-system":
       return OG_HOURLY_CACHE_CONTROL;
     case "records":
     case "privacy":
@@ -652,6 +693,8 @@ function pageCacheControl(page: OgPageId): string {
     case "price-cap":
     case "methodology":
     case "api":
+    case "map":
+    case "assets":
       return OG_CACHE_CONTROL;
     default: {
       const exhaustive: never = page;
@@ -890,6 +933,19 @@ export function fixtureOgSnapshot(): OgCacheSnapshot {
   };
 }
 
+export function assetOgCard(title: string, kicker: string, source: string): OgCard {
+  return {
+    eyebrow: gridEyebrow("Assets"),
+    title,
+    kicker,
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source,
+    cached: true,
+  };
+}
+
 export function sampleOgVariants(): OgVariant[] {
   return [
     ...DASHBOARD_FOCUSES.map((focus) => ({ kind: "focus" as const, focus })),
@@ -903,6 +959,8 @@ export function ogSampleFilename(variant: OgVariant): string {
       return `focus-${variant.focus}.png`;
     case "page":
       return `page-${variant.page}.png`;
+    case "asset":
+      return "page-asset.png";
     default: {
       const exhaustive: never = variant;
       return exhaustive;

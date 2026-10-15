@@ -75,6 +75,8 @@ export const DATA_SOURCE_IDS = [
   "national-gas",
   "desnz-repd",
   "desnz-dukes",
+  "neso-dno-areas",
+  "os-open-zoomstack",
 ] as const;
 
 export type DataSourceId = (typeof DATA_SOURCE_IDS)[number];

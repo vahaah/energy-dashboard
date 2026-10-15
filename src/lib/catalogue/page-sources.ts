@@ -1,6 +1,7 @@
 import rawSources from "../../../data/catalogue/sources.json";
 import { elexonBmrsAttribution, type DataSourceRecord } from "@/lib/attribution";
 import { sourcesFileSchema, type CatalogueSource } from "@/lib/catalogue/schema";
+import { osBasemapAttribution } from "@/lib/map/constants";
 
 export type CataloguePageSource = {
   id: CatalogueSource["source_id"];
@@ -37,6 +38,10 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
       return "Quarterly";
     case "desnz-dukes":
       return "Annual";
+    case "neso-dno-areas":
+      return "Daily";
+    case "os-open-zoomstack":
+      return "Twice a year";
     case "elexon-bmrs":
     case "neso-open-data":
     case "carbon-intensity":
@@ -54,6 +59,11 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
 export function dataSources(year = new Date().getUTCFullYear()): DataSourceRecord[] {
   return cataloguePageSources().map((source) => ({
     ...source,
-    attribution: source.id === "elexon-bmrs" ? elexonBmrsAttribution(year) : source.attribution,
+    attribution:
+      source.id === "elexon-bmrs"
+        ? elexonBmrsAttribution(year)
+        : source.id === "os-open-zoomstack"
+          ? osBasemapAttribution(year)
+          : source.attribution,
   }));
 }

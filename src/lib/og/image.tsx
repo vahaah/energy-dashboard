@@ -51,6 +51,7 @@ function MetricsOgImage({ card }: { card: OgCard }) {
             fontWeight: 600,
             lineHeight: 1.15,
             maxWidth: 1040,
+            overflowWrap: "break-word",
             fontFeatureSettings: "tnum",
           }}
         >
@@ -81,7 +82,7 @@ function MetricsOgImage({ card }: { card: OgCard }) {
             gap: 24,
           }}
         >
-          <div style={{ fontSize: 16, color: MUTED, maxWidth: 860 }}>
+          <div style={{ fontSize: 16, color: MUTED, maxWidth: 860, overflowWrap: "break-word" }}>
             {card.source ?? ""}
           </div>
           <div style={{ fontSize: 16, color: MUTED, flexShrink: 0 }}>{OG_FOOTER}</div>
