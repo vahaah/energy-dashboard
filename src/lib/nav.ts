@@ -16,4 +16,5 @@ export const SYSTEM_NAV_ITEMS: readonly SystemNavItem[] = [
   { id: "constraints", label: "Constraints", href: "/system/constraints" },
   { id: "storage", label: "Storage", href: "/system/storage" },
   { id: "whole-energy", label: "Whole energy", href: "/system/whole-energy" },
+  { id: "projects", label: "Projects", href: "/projects" },
 ];

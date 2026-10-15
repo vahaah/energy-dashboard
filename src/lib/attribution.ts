@@ -37,6 +37,9 @@ export const NESO_CONSTRAINT_BREAKDOWN_URL =
 export const NESO_DAY_AHEAD_CONSTRAINTS_URL =
   "https://www.neso.energy/data-portal/day-ahead-constraint-flows-and-limits";
 
+export const NESO_TEC_REGISTER_URL =
+  "https://www.neso.energy/data-portal/transmission-entry-capacity-tec-register";
+
 export const NESO_EMBEDDED_FORECAST_RESOURCE_ID = "db6c038f-98af-4570-ab60-24d71ebd0ae5";
 
 export const CARBON_INTENSITY_API_URL = "https://carbonintensity.org.uk/";

@@ -7,6 +7,7 @@ export const SLOT_TTL_SECONDS = {
   yesterday: 24 * 60 * 60,
   gas: 50 * 60,
   constraints: 20 * 60 * 60,
+  tec: 12 * 60 * 60,
 } as const;
 
 export type WorkflowJob = keyof typeof SLOT_TTL_SECONDS;
@@ -41,6 +42,11 @@ export function yesterdaySlot(now: Date): string {
 export function constraintsSlot(now: Date, bundle: "breakdown" | "day-ahead"): string {
   const hour = bundle === "breakdown" ? 4 : 16;
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 40, 0, 0)).toISOString();
+}
+
+/** TEC register cron fires at 06:15 UTC on Monday and Thursday. */
+export function tecSlot(now: Date): string {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 15, 0, 0)).toISOString();
 }
 
 /** Gas cron fires at minute 5 of every hour. */

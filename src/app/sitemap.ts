@@ -5,6 +5,8 @@ import { parseUtcDateTime } from "@/lib/london-time";
 import { peekLatestPrices } from "@/lib/og/peek";
 import { assetHref } from "@/lib/assets/href";
 import { loadAssetCatalogue } from "@/lib/assets/load";
+import { loadProjectCatalogue } from "@/lib/projects/load";
+import { projectPath } from "@/lib/projects/href";
 import { SITE_URL } from "@/lib/site";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
@@ -63,7 +65,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly" as const,
     priority: 0.4,
   }));
-  return [...pages, ...assets];
+  const projects = loadProjectCatalogue().projects.map((project) => ({
+    url: `${SITE_URL}${projectPath(project.project_id, project.name)}`,
+    changeFrequency: "weekly" as const,
+    priority: 0.4,
+  }));
+  return [...pages, ...assets, ...projects];
 }
 
 async function sitemapStamps(): Promise<SitemapStamps> {

@@ -20,8 +20,9 @@ export default function DataSourcesPage() {
         <p>
           Ingest reads these APIs on a schedule, stores snapshots in Tinybird, and serves the
           dashboard from cache. Missing metrics stay null. National Gas operational series are
-          published to Blob. NESO constraint breakdowns and day-ahead boundary snapshots are
-          published to Blob. The plant register, the UK annual energy balance, and map layers stay in the catalogue.
+          published to Blob. NESO constraint breakdowns, day-ahead boundary snapshots, and the
+          transmission entry capacity register are published to Blob. The plant register, the
+          projects register, the UK annual energy balance, and map layers stay in the catalogue.
         </p>
       </LegalSection>
 

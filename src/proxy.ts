@@ -27,6 +27,7 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-gas",
   "/api/cron-constraints",
   "/api/cron-directory",
+  "/api/cron-tec",
   "/api/health",
 ]);
 

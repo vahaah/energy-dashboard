@@ -24,6 +24,8 @@ const PAGES = [
   "/assets/ast_0003670fbf90f564/cuckoo-grove-farm",
   "/assets/ast_5c5dc7c6656c3f93/ifa",
   "/assets/ast_0789b8c8f94ec14a/bacton-ips",
+  "/projects",
+  "/projects/epj_12b1f540736598a6/reliance-worldwide-corporation-buildings-3-4-5-7-and-12-horton-road-solar-photov",
 ] as const;
 
 const VIEWPORTS = [
