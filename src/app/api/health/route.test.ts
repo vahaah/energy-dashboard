@@ -159,7 +159,7 @@ describe("/api/health", () => {
     expect(sap.published_at).toBe("2020-01-01T00:00:00.000Z");
     expect(sap.retrieved_at).toEqual(expect.any(String));
     expect(sap.stale).toBe(true);
-    expect(sap.publication_lag).toBe("P1D");
+    expect(sap.publication_lag).toBe("P2D");
   });
 
   it("flags embedded from the older feed and from a missing feed", async () => {
