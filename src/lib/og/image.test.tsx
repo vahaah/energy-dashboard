@@ -63,7 +63,7 @@ describe("og share bars", () => {
     expect(asset).toMatch(/font-size:40px/);
     expect(asset).toMatch(/overflow-wrap:break-word/);
     expect(short).toMatch(/font-size:52px/);
-    const pages = (["gas-system", "map", "assets"] as const).map((page) =>
+    const pages = (["gas-system", "map", "assets", "storage"] as const).map((page) =>
       renderToStaticMarkup(<OgImage card={buildOgCard({ kind: "page", page }, empty)} />),
     );
     for (const html of [asset, short, ...pages]) {

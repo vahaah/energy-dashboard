@@ -17,6 +17,7 @@ describe("primary nav", () => {
     expect(home.match(/aria-current="page"/g)?.length).toBe(1);
     expect(home).toContain(">System<");
     expect(home).not.toContain('href="/system/constraints"');
+    expect(home).not.toContain('href="/system/storage"');
     expect(home).not.toContain('href="/system/generation"');
     expect(home).not.toContain('href="/system/demand"');
     expect(home).not.toContain('href="/system/carbon"');
@@ -36,6 +37,12 @@ describe("primary nav", () => {
     const map = renderToStaticMarkup(<SitePrimaryNav pathname="/map" idPrefix="test" />);
     expect(map).toMatch(/<a[^>]*aria-current="page"[^>]*>Map<\/a>/);
     expect(map.match(/aria-current="page"/g)?.length).toBe(1);
+
+    const storage = renderToStaticMarkup(<SitePrimaryNav pathname="/system/storage" idPrefix="test" />);
+    expect(storage).toContain(">System<");
+    expect(storage).toContain('aria-current="page"');
+    expect(storage.match(/aria-current="page"/g)?.length).toBe(1);
+    expect(storage).not.toMatch(/<a[^>]*aria-current="page"[^>]*>Today<\/a>/);
   });
 
   it("exposes a keyboard menu button when a system route is rendered", () => {

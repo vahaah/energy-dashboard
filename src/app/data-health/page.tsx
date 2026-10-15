@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DataHealthReading } from "@/components/data-health-reading";
 import { MapLayerChangeNotice } from "@/components/map-layer-change";
 import { SeoPage } from "@/components/seo-page";
@@ -110,9 +111,51 @@ export default async function DataHealthPage() {
           </ul>
         </Card>
       </section>
+      <section id="storage" className="scroll-mt-28">
+        <h2 className="text-heading-24 text-gray-1000">Electricity storage</h2>
+        <Card className="mt-4" title="Pumped storage and batteries">
+          <p className="break-words text-copy-14 text-gray-900">
+            Discharge and charging from the warmed FUELINST envelope. The storage page keeps the DESNZ inventory
+            separate from this monitored fleet.
+          </p>
+          <p className="mt-3">
+            <Link href="/system/storage" className="text-copy-14 text-blue-700 underline-offset-2 hover:underline">
+              Storage
+            </Link>
+          </p>
+          <ul className="mt-4 flex flex-col">
+            {storageReadings(readings).map((reading) => (
+              <li
+                key={reading.metric_id}
+                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <DataHealthReading reading={reading} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
       {mapLayerFlag ? <MapLayerChangeNotice pointer={mapLayerFlag} /> : null}
     </SeoPage>
   );
+}
+
+const STORAGE_METRIC_IDS = [
+  "elec.gb.generation.pumped_storage",
+  "elec.gb.generation.battery",
+  "elec.gb.storage.charging",
+] as const;
+
+function storageReadings(readings: readonly Reading[]): Reading[] {
+  const byId = new Map(readings.map((reading) => [reading.metric_id, reading]));
+  const rows: Reading[] = [];
+  for (const id of STORAGE_METRIC_IDS) {
+    const reading = byId.get(id);
+    if (reading) {
+      rows.push(reading);
+    }
+  }
+  return rows;
 }
 
 function SeriesRow({ reading }: { reading: Reading }) {

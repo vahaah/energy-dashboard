@@ -56,6 +56,7 @@ export const SHIPPED_PAGE_ROUTES = [
   "/prices/gas",
   "/privacy",
   "/records",
+  "/system/storage",
   "/terms",
   "/today",
 ] as const;
