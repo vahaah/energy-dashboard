@@ -1,5 +1,116 @@
 {
   "catalogue_schema_version": 1,
-  "observed_at": "2026-10-13T13:58:33.755Z",
-  "events": []
+  "observed_at": "2026-10-15T13:35:58.791Z",
+  "events": [
+    {
+      "entity": "epj_1bac040c96875a2b",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "not_started",
+      "new": "under_construction",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "construction_status"
+    },
+    {
+      "entity": "epj_1bac040c96875a2b",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "proposed",
+      "new": "commissioning",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "operational_status"
+    },
+    {
+      "entity": "epj_56ce20fa205bfe34",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "not_started",
+      "new": "built",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "construction_status"
+    },
+    {
+      "entity": "epj_56ce20fa205bfe34",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "proposed",
+      "new": "operational",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "operational_status"
+    },
+    {
+      "entity": "epj_c212cb0e040b5fe4",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "not_started",
+      "new": "under_construction",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "construction_status"
+    },
+    {
+      "entity": "epj_c212cb0e040b5fe4",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "proposed",
+      "new": "commissioning",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "operational_status"
+    },
+    {
+      "entity": "epj_e7985768c7794433",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "not_started",
+      "new": "under_construction",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "construction_status"
+    },
+    {
+      "entity": "epj_e7985768c7794433",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "proposed",
+      "new": "commissioning",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "operational_status"
+    },
+    {
+      "entity": "epj_f50a6f032994cf90",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "not_started",
+      "new": "under_construction",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "construction_status"
+    },
+    {
+      "entity": "epj_f50a6f032994cf90",
+      "observed_at": "2026-10-15T13:35:58.791Z",
+      "effective_at": null,
+      "old": "proposed",
+      "new": "commissioning",
+      "old_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "new_release_id": "neso-open-data:tec-register:2026-10-13T13:58:33.755Z",
+      "comparison": "field",
+      "field": "operational_status"
+    }
+  ]
 }

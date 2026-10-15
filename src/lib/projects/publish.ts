@@ -164,7 +164,10 @@ async function prepare(hash: string, now: Date): Promise<{
     throw new FatalError("NESO TEC raw body is missing");
   }
   const meta = JSON.parse(metaFile.body) as FetchMeta;
-  const parsed = parseTecProjects(raw.body);
+  const parsed = parseTecProjects(raw.body, {
+    publishedAt: meta.issued_at,
+    releaseId: `${TEC_DATASET_ID}:${meta.issued_at}`,
+  });
   if (!parsed.ok) {
     await quarantine(now, hex, raw.body);
     throw new FatalError("NESO TEC file kept the previous release");

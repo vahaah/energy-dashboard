@@ -1,4 +1,3 @@
-import { latestDate } from "@/lib/projects/dates";
 import { projectIdForMembers } from "@/lib/projects/ids";
 import type { EnergyProject, MergeDecision, ProjectMember, ProjectMerges } from "@/lib/projects/schema";
 import type { SourceProject } from "@/lib/projects/source";
@@ -128,39 +127,43 @@ export function applyProjectMerges(
   return projects;
 }
 
+function winningSide<T extends string>(
+  repdStatus: T,
+  tecStatus: T,
+  further: (current: T, next: T) => T,
+): "repd" | "tec" {
+  return repdStatus === further(repdStatus, tecStatus) ? "repd" : "tec";
+}
+
 function combine(repd: SourceProject, tec: SourceProject): SourceProject & { members: ProjectMember[] } {
-  const planningFromRepd = repd.planning_status !== "unknown";
-  const constructionFromRepd = repd.construction_status !== "unknown";
-  const operationalFromRepd = repd.operational_status !== "unknown";
+  const planning = winningSide(repd.planning_status, tec.planning_status, furtherPlanning) === "repd" ? repd : tec;
+  const construction = winningSide(repd.construction_status, tec.construction_status, furtherConstruction) === "repd" ? repd : tec;
+  const operational = winningSide(repd.operational_status, tec.operational_status, furtherOperational) === "repd" ? repd : tec;
   return {
     source_id: "desnz-repd",
     external_ref: repd.external_ref,
     name: repd.name.length >= tec.name.length ? repd.name : tec.name,
     technology: repd.technology === "unspecified" ? tec.technology : repd.technology,
     country: repd.country,
-    planning_status: planningFromRepd ? repd.planning_status : furtherPlanning(repd.planning_status, tec.planning_status),
-    planning_decision_date: planningFromRepd ? repd.planning_decision_date : tec.planning_decision_date,
-    planning_source_id: planningFromRepd ? repd.planning_source_id : tec.planning_source_id,
-    planning_release_id: planningFromRepd ? repd.planning_release_id : tec.planning_release_id,
-    construction_status: constructionFromRepd
-      ? repd.construction_status
-      : furtherConstruction(repd.construction_status, tec.construction_status),
-    construction_evidence_date: constructionFromRepd ? repd.construction_evidence_date : tec.construction_evidence_date,
-    construction_source_id: constructionFromRepd ? repd.construction_source_id : tec.construction_source_id,
-    construction_release_id: constructionFromRepd ? repd.construction_release_id : tec.construction_release_id,
+    planning_status: planning.planning_status,
+    planning_decision_date: planning.planning_decision_date,
+    planning_source_id: planning.planning_source_id,
+    planning_release_id: planning.planning_release_id,
+    construction_status: construction.construction_status,
+    construction_evidence_date: construction.construction_evidence_date,
+    construction_source_id: construction.construction_source_id,
+    construction_release_id: construction.construction_release_id,
     connection_stage: tec.connection_stage,
     connection_gate: tec.connection_gate,
     agreement_status: tec.agreement_status,
     expected_energisation: tec.expected_energisation,
     connection_source_id: tec.connection_source_id,
     connection_release_id: tec.connection_release_id,
-    operational_status: operationalFromRepd
-      ? repd.operational_status
-      : furtherOperational(repd.operational_status, tec.operational_status),
-    commissioning_date: operationalFromRepd ? repd.commissioning_date : latestDate([repd.commissioning_date, tec.commissioning_date]),
-    closure_date: repd.closure_date ?? tec.closure_date,
-    operational_source_id: operationalFromRepd ? repd.operational_source_id : tec.operational_source_id,
-    operational_release_id: operationalFromRepd ? repd.operational_release_id : tec.operational_release_id,
+    operational_status: operational.operational_status,
+    commissioning_date: operational.commissioning_date,
+    closure_date: operational.closure_date,
+    operational_source_id: operational.operational_source_id,
+    operational_release_id: operational.operational_release_id,
     power_mw: repd.power_mw,
     connection_capacity_mw: tec.connection_capacity_mw,
     storage_energy_mwh: repd.storage_energy_mwh ?? tec.storage_energy_mwh,

@@ -7,10 +7,11 @@
  */
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ingestionRunLine } from "../../src/lib/catalogue/assets/runs";
 import { sha256Bytes, sha256Prefixed } from "../../src/lib/catalogue/canonical";
 import { CATALOGUE_SCHEMA_VERSION, catalogueReleaseId } from "../../src/lib/catalogue/schema";
 import { applyProjectMerges, automaticNameLinks, emptyMerges, resolveLinks } from "../../src/lib/projects/merge";
-import { diffProjectSnapshots } from "../../src/lib/projects/diff";
+import { diffAgainstPrevious } from "../../src/lib/projects/diff";
 import { parseRepdProjects } from "../../src/lib/projects/repd";
 import {
   CHANGE_EVENTS_FILE,
@@ -18,11 +19,11 @@ import {
   PROJECTS_FILE,
   TEC_DATASET_ID,
   TEC_PUBLISHED_AT,
+  energyProjectSchema,
   projectMergesSchema,
   type EnergyProject,
   type ProjectMerges,
 } from "../../src/lib/projects/schema";
-import type { ProjectSnapshotRow } from "../../src/lib/projects/diff";
 import { parseTecProjects } from "../../src/lib/projects/tec";
 
 const TEC_CSV_URL =
@@ -37,27 +38,6 @@ function flag(name: string): string {
   return resolve(value);
 }
 
-function snapshotRow(project: EnergyProject, releaseId: string): ProjectSnapshotRow {
-  return {
-    entity: project.project_id,
-    release_id: releaseId,
-    planning_status: project.planning_status,
-    planning_decision_date: project.planning_decision_date,
-    construction_status: project.construction_status,
-    construction_evidence_date: project.construction_evidence_date,
-    connection_stage: project.connection_stage,
-    connection_gate: project.connection_gate,
-    agreement_status: project.agreement_status,
-    expected_energisation: project.expected_energisation,
-    operational_status: project.operational_status,
-    commissioning_date: project.commissioning_date,
-    closure_date: project.closure_date,
-    power_mw: project.power_mw,
-    connection_capacity_mw: project.connection_capacity_mw,
-    storage_energy_mwh: project.storage_energy_mwh,
-  };
-}
-
 function readMerges(path: string): ProjectMerges {
   if (!existsSync(path)) {
     return emptyMerges();
@@ -65,7 +45,21 @@ function readMerges(path: string): ProjectMerges {
   return projectMergesSchema.parse(JSON.parse(readFileSync(path, "utf8")));
 }
 
+function readPreviousProjects(path: string): EnergyProject[] | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  const text = readFileSync(path, "utf8").trim();
+  if (text.length === 0) {
+    return null;
+  }
+  return text.split("\n").map((line) => energyProjectSchema.parse(JSON.parse(line)));
+}
+
+const startedAt = new Date().toISOString();
 const catalogue = resolve("data/catalogue");
+const projectsPath = resolve(catalogue, PROJECTS_FILE);
+const previous = readPreviousProjects(projectsPath);
 const repdPath = flag("--repd");
 const tecPath = flag("--tec");
 const repd = parseRepdProjects(new TextDecoder("windows-1252").decode(readFileSync(repdPath)));
@@ -84,18 +78,13 @@ const merges: ProjectMerges = {
   unlinks: existing.unlinks,
 };
 const projects = applyProjectMerges(repd, parsedTec.rows, merges);
-writeFileSync(resolve(catalogue, PROJECTS_FILE), `${projects.map((project) => JSON.stringify(project)).join("\n")}\n`);
-writeFileSync(mergesPath, `${JSON.stringify(merges, null, 2)}\n`);
-
 const releaseId = `${TEC_DATASET_ID}:${TEC_PUBLISHED_AT}`;
-const events = diffProjectSnapshots(
-  projects.map((project) => snapshotRow(project, releaseId)),
-  projects.map((project) => snapshotRow(project, releaseId)),
-  TEC_PUBLISHED_AT,
-);
+const events = diffAgainstPrevious(previous, projects, releaseId, startedAt);
+writeFileSync(projectsPath, `${projects.map((project) => JSON.stringify(project)).join("\n")}\n`);
+writeFileSync(mergesPath, `${JSON.stringify(merges, null, 2)}\n`);
 writeFileSync(
   resolve(catalogue, CHANGE_EVENTS_FILE),
-  `${JSON.stringify({ catalogue_schema_version: 1, observed_at: TEC_PUBLISHED_AT, events }, null, 2)}\n`,
+  `${JSON.stringify({ catalogue_schema_version: 1, observed_at: startedAt, events }, null, 2)}\n`,
 );
 
 const content = {
@@ -121,17 +110,10 @@ const releasesPath = resolve(catalogue, "source_releases.ndjson");
 const releases = readFileSync(releasesPath, "utf8");
 if (!releases.includes(sourceReleaseId)) {
   appendFileSync(releasesPath, `${releaseLine}\n`);
-  const runLine = JSON.stringify({
-    catalogue_schema_version: 1,
-    ingestion_run_id: `run:${TEC_DATASET_ID}:${TEC_PUBLISHED_AT}`,
-    dataset_id: TEC_DATASET_ID,
-    source_release_id: sourceReleaseId,
-    started_at: TEC_PUBLISHED_AT,
-    finished_at: TEC_PUBLISHED_AT,
-    status: "succeeded",
-  });
-  appendFileSync(resolve(catalogue, "ingestion_runs.ndjson"), `${runLine}\n`);
 }
+const finishedAt = new Date().toISOString();
+const run = ingestionRunLine(TEC_DATASET_ID, sourceReleaseId, startedAt, finishedAt);
+appendFileSync(resolve(catalogue, "ingestion_runs.ndjson"), `${run.line}\n`);
 
 console.log(
   `projects ${projects.length} repd ${repd.length} tec ${parsedTec.rows.length} links ${links.length} release ${sourceReleaseId}`,

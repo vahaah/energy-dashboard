@@ -1,5 +1,5 @@
 import { canonicalJson } from "@/lib/catalogue/canonical";
-import type { ChangeEvent } from "@/lib/projects/schema";
+import type { ChangeEvent, EnergyProject } from "@/lib/projects/schema";
 
 export const DIFF_FIELDS = [
   "planning_status",
@@ -107,6 +107,48 @@ export function diffProjectSnapshots(
     }
   }
   return events;
+}
+
+export function projectSnapshotReleaseId(project: EnergyProject, fallback: string): string {
+  return project.connection_release_id ?? project.operational_release_id ?? project.planning_release_id ?? fallback;
+}
+
+export function projectToSnapshot(project: EnergyProject, releaseId: string): ProjectSnapshotRow {
+  return {
+    entity: project.project_id,
+    release_id: releaseId,
+    planning_status: project.planning_status,
+    planning_decision_date: project.planning_decision_date,
+    construction_status: project.construction_status,
+    construction_evidence_date: project.construction_evidence_date,
+    connection_stage: project.connection_stage,
+    connection_gate: project.connection_gate,
+    agreement_status: project.agreement_status,
+    expected_energisation: project.expected_energisation,
+    operational_status: project.operational_status,
+    commissioning_date: project.commissioning_date,
+    closure_date: project.closure_date,
+    power_mw: project.power_mw,
+    connection_capacity_mw: project.connection_capacity_mw,
+    storage_energy_mwh: project.storage_energy_mwh,
+  };
+}
+
+/** Diff the register about to be replaced. A missing previous file records no events. */
+export function diffAgainstPrevious(
+  previous: readonly EnergyProject[] | null,
+  next: readonly EnergyProject[],
+  nextReleaseId: string,
+  observedAt: string,
+): ChangeEvent[] {
+  if (previous === null) {
+    return [];
+  }
+  return diffProjectSnapshots(
+    previous.map((project) => projectToSnapshot(project, projectSnapshotReleaseId(project, nextReleaseId))),
+    next.map((project) => projectToSnapshot(project, nextReleaseId)),
+    observedAt,
+  );
 }
 
 function index(rows: readonly ProjectSnapshotRow[]): Map<string, ProjectSnapshotRow> {

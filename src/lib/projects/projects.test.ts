@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GET as cronTec } from "@/app/api/cron-tec/route";
-import { GET as projectsApi } from "@/app/api/v1/projects/route";
+import { GET as projectsApi, PROJECTS_PAGE_DEFAULT, PROJECTS_PAGE_MAX } from "@/app/api/v1/projects/route";
 import { checkProjectFiles } from "@/lib/projects/check";
 import {
   CONNECTION_CAPACITY,
@@ -17,7 +17,7 @@ import {
   projectProfileH1,
   projectProfileTitle,
 } from "@/lib/projects/copy";
-import { diffProjectSnapshots, serialiseChangeEvents, type ProjectSnapshotRow } from "@/lib/projects/diff";
+import { diffAgainstPrevious, diffProjectSnapshots, serialiseChangeEvents, type ProjectSnapshotRow } from "@/lib/projects/diff";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { applyProjectMerges, emptyMerges } from "@/lib/projects/merge";
 import { resolveProjectRoute } from "@/lib/projects/route";
@@ -172,7 +172,16 @@ describe("project merges", () => {
     expected_energisation: "2028-03-01",
     connection_source_id: "neso-open-data",
     connection_release_id: "tec-release",
+    planning_status: "application_submitted",
+    planning_decision_date: null,
+    planning_release_id: "tec-release",
+    construction_status: "built",
+    construction_evidence_date: "2025-01-01",
+    construction_release_id: "tec-release",
     operational_status: "operational",
+    commissioning_date: "2019-06-01",
+    operational_source_id: "neso-open-data",
+    operational_release_id: "tec-release",
   });
 
   it("merges on a unique name and unmerge puts the two registers back", () => {
@@ -186,6 +195,16 @@ describe("project merges", () => {
     expect(project?.power_mw).toBe(120);
     expect(project?.connection_capacity_mw).toBe(99.9);
     expect(project?.storage_energy_mwh).toBeNull();
+    expect(project?.planning_status).toBe("granted");
+    expect(project?.planning_source_id).toBe("desnz-repd");
+    expect(project?.construction_status).toBe("built");
+    expect(project?.construction_source_id).toBe("neso-open-data");
+    expect(project?.construction_evidence_date).toBe("2025-01-01");
+    expect(project?.operational_status).toBe("operational");
+    expect(project?.operational_source_id).toBe("neso-open-data");
+    expect(project?.operational_release_id).toBe("tec-release");
+    expect(project?.commissioning_date).toBe("2019-06-01");
+    expect(project?.display_stage).toBe("operational");
 
     const unlink: MergeDecision = {
       repd_ref: "100",
@@ -223,6 +242,14 @@ describe("project diffs", () => {
     const second = diffProjectSnapshots([...older].reverse(), [...newer].reverse(), OBSERVED);
     expect(serialiseChangeEvents(first, OBSERVED)).toBe(serialiseChangeEvents(second, OBSERVED));
     expect(JSON.stringify(first)).not.toContain("cancelled");
+    const removed = diffAgainstPrevious(
+      [{ project_id: "epj_b" } as EnergyProject],
+      [],
+      "rel-new",
+      OBSERVED,
+    );
+    expect(removed[0]?.comparison).toBe("not_in_release");
+    expect(diffAgainstPrevious(null, [], "rel-new", OBSERVED)).toEqual([]);
     expect(first.map((event) => [event.entity, event.field, event.comparison, event.effective_at])).toEqual([
       ["epj_a", "expected_energisation", "field", "2028-06-01"],
       ["epj_a", "power_mw", "field", null],
@@ -293,8 +320,25 @@ describe("project parsers", () => {
     expect(parsed.rows[0]?.connection_capacity_mw).toBe(30);
     expect(parsed.rows[0]?.operational_status).toBe("operational");
     expect(parsed.rows[0]?.power_mw).toBeNull();
+    expect(parsed.rows[0]?.expected_energisation).toBe("2027-01-01");
     const bad = parseTecProjects(`${header}\nAlpha,Owner,Site,1,0,10,10,2027-01-01,Mystery,Embedded,NGET,Wind Onshore,P1,PRO-1,1\n`);
     expect(bad.ok).toBe(false);
+    const blank = parseTecProjects(`${header}\nAlpha,Owner,Site,1,0,10,10,,Built,Direct Connection,NGET,Wind Onshore,P1,PRO-1,1\n`);
+    expect(blank.ok).toBe(true);
+    const malformed = parseTecProjects(`${header}\nAlpha,Owner,Site,1,0,10,10,13/10/2026,Built,Direct Connection,NGET,Wind Onshore,P1,PRO-1,1\n`);
+    expect(malformed.ok).toBe(false);
+    const impossible = parseTecProjects(`${header}\nAlpha,Owner,Site,1,0,10,10,2026-02-31,Built,Direct Connection,NGET,Wind Onshore,P1,PRO-1,1\n`);
+    expect(impossible.ok).toBe(false);
+    const later = parseTecProjects(csv, {
+      publishedAt: "2028-07-01T00:00:00.000Z",
+      releaseId: "neso-open-data:tec-register:2028-07-01T00:00:00.000Z",
+    });
+    expect(later.ok).toBe(true);
+    if (later.ok) {
+      expect(later.rows[0]?.connection_release_id).toBe("neso-open-data:tec-register:2028-07-01T00:00:00.000Z");
+      expect(later.rows[0]?.operational_release_id).toBe("neso-open-data:tec-register:2028-07-01T00:00:00.000Z");
+      expect(later.rows[0]?.expected_energisation).toBe("2028-06-01");
+    }
   });
 });
 
@@ -365,9 +409,30 @@ describe("projects API and TEC cron", () => {
     expect(extra.status).toBe(400);
     const response = await projectsApi(new Request("http://localhost/api/v1/projects?display_stage=operational"));
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { projects: Array<EnergyProject & { display_stage: string }> };
+    const body = (await response.json()) as {
+      total: number;
+      limit: number;
+      offset: number;
+      projects: Array<EnergyProject & { display_stage: string }>;
+    };
+    expect(body.limit).toBe(PROJECTS_PAGE_DEFAULT);
+    expect(body.offset).toBe(0);
     expect(body.projects.length).toBeGreaterThan(0);
+    expect(body.projects.length).toBeLessThanOrEqual(PROJECTS_PAGE_DEFAULT);
+    expect(body.total).toBeGreaterThanOrEqual(body.projects.length);
     expect(body.projects.every((project) => project.display_stage === "operational")).toBe(true);
+    expect(Buffer.byteLength(JSON.stringify(body))).toBeLessThan(4_500_000);
+    const page = await projectsApi(new Request("http://localhost/api/v1/projects?limit=1&offset=1"));
+    const paged = (await page.json()) as { total: number; limit: number; offset: number; projects: unknown[] };
+    expect(page.status).toBe(200);
+    expect(paged.limit).toBe(1);
+    expect(paged.offset).toBe(1);
+    expect(paged.projects).toHaveLength(1);
+    expect(paged.total).toBeGreaterThan(1);
+    const tooWide = await projectsApi(new Request(`http://localhost/api/v1/projects?limit=${PROJECTS_PAGE_MAX + 1}`));
+    expect(tooWide.status).toBe(400);
+    const badOffset = await projectsApi(new Request("http://localhost/api/v1/projects?offset=-1"));
+    expect(badOffset.status).toBe(400);
     expect(JSON.stringify(body)).not.toContain("cancelled");
   });
 
@@ -375,6 +440,8 @@ describe("projects API and TEC cron", () => {
     expect(TEC_TINYBIRD_OPS).toBe(0);
     expect(TEC_RUNS_PER_WEEK).toBe(2);
     expect(TEC_NESO_REQUESTS_PER_RUN).toBe(2);
+    const publish = readFileSync(join(process.cwd(), "src/lib/projects/publish.ts"), "utf8");
+    expect(publish).toContain("publishedAt: meta.issued_at");
     const route = readFileSync(join(process.cwd(), "src/app/api/cron-tec/route.ts"), "utf8");
     expect(route).not.toContain("api.neso.energy");
     expect(route).not.toContain("queryPipe");

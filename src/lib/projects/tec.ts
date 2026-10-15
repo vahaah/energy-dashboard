@@ -15,8 +15,6 @@ import {
 } from "@/lib/projects/status";
 import { tecProjectTechnology, type ProjectTechnology } from "@/lib/projects/technology";
 
-const TEC_AS_OF = TEC_PUBLISHED_AT.slice(0, 10);
-
 type TecStatus = "Scoping" | "Awaiting Consents" | "Consents Approved" | "Under Construction/Commissioning" | "Built";
 
 type TecRow = {
@@ -31,9 +29,31 @@ type TecRow = {
   gate: ConnectionGate;
 };
 
+export type TecParseContext = {
+  publishedAt: string;
+  releaseId: string;
+};
+
 export type TecParse =
   | { ok: true; rows: SourceProject[] }
   | { ok: false; reason: string };
+
+const CHECKED_IN_CONTEXT: TecParseContext = {
+  publishedAt: TEC_PUBLISHED_AT,
+  releaseId: TEC_PROJECT_RELEASE_ID,
+};
+
+function readEffectiveFrom(value: string): { ok: true; date: string | null } | { ok: false; reason: string } {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return { ok: true, date: null };
+  }
+  const date = parseIsoDate(trimmed);
+  if (!date) {
+    return { ok: false, reason: `TEC MW Effective From is not a date: ${trimmed.slice(0, 40)}` };
+  }
+  return { ok: true, date };
+}
 
 function column(header: string[], name: string): number {
   const index = header.findIndex((cell) => cell.trim() === name);
@@ -151,7 +171,7 @@ function furtherAgreement(current: AgreementStatus, next: AgreementStatus): Agre
   return "unknown";
 }
 
-export function parseTecProjects(text: string): TecParse {
+export function parseTecProjects(text: string, context: TecParseContext = CHECKED_IN_CONTEXT): TecParse {
   let table: string[][];
   try {
     table = parseCsv(text);
@@ -220,11 +240,15 @@ export function parseTecProjects(text: string): TecParse {
     if (cumulative !== null && cumulative < 0) {
       return { ok: false, reason: "TEC cumulative capacity is negative" };
     }
+    const effectiveFrom = readEffectiveFrom(row[effectiveIndex] ?? "");
+    if (!effectiveFrom.ok) {
+      return effectiveFrom;
+    }
     const parsed: TecRow = {
       name: cleanName(row[nameIndex] ?? "") || projectId,
       stage,
       cumulativeMw: cumulative === null ? null : roundMw(cumulative),
-      effectiveFrom: parseIsoDate(row[effectiveIndex] ?? ""),
+      effectiveFrom: effectiveFrom.date,
       status,
       agreement,
       technology,
@@ -238,13 +262,13 @@ export function parseTecProjects(text: string): TecParse {
 
   const rows: SourceProject[] = [];
   for (const [projectId, stages] of grouped) {
-    rows.push(collapseStages(projectId, stages));
+    rows.push(collapseStages(projectId, stages, context));
   }
   rows.sort((left, right) => left.external_ref.localeCompare(right.external_ref));
   return { ok: true, rows };
 }
 
-function collapseStages(projectId: string, stages: readonly TecRow[]): SourceProject {
+function collapseStages(projectId: string, stages: readonly TecRow[], context: TecParseContext): SourceProject {
   const ordered = [...stages].sort((left, right) => left.stage.localeCompare(right.stage) || left.name.localeCompare(right.name));
   const first = ordered[0];
   if (!first) {
@@ -284,25 +308,25 @@ function collapseStages(projectId: string, stages: readonly TecRow[]): SourcePro
     planning_status: planning,
     planning_decision_date: null,
     planning_source_id: "neso-open-data",
-    planning_release_id: TEC_PROJECT_RELEASE_ID,
+    planning_release_id: context.releaseId,
     construction_status: construction,
     construction_evidence_date: null,
     construction_source_id: "neso-open-data",
-    construction_release_id: TEC_PROJECT_RELEASE_ID,
+    construction_release_id: context.releaseId,
     connection_stage: stage,
     connection_gate: gate,
     agreement_status: agreement,
     expected_energisation: expectedEnergisation(
       ordered.map((row) => row.effectiveFrom),
-      TEC_AS_OF,
+      context.publishedAt.slice(0, 10),
     ),
     connection_source_id: "neso-open-data",
-    connection_release_id: TEC_PROJECT_RELEASE_ID,
+    connection_release_id: context.releaseId,
     operational_status: operational,
     commissioning_date: null,
     closure_date: null,
     operational_source_id: "neso-open-data",
-    operational_release_id: TEC_PROJECT_RELEASE_ID,
+    operational_release_id: context.releaseId,
     power_mw: null,
     connection_capacity_mw: capacity,
     storage_energy_mwh: null,
