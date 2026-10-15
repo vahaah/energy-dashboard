@@ -10,10 +10,15 @@ import {
   INDEXNOW_KEY_LOCATION,
   INDEXNOW_KEY_PATH,
   INDEXNOW_MAX_BATCH,
+  INDEXNOW_RELEASE_MARKER,
   INDEXNOW_SITEMAP_URL,
   batchUrlList,
+  indexNowReleaseReady,
+  indexNowReleaseSitemapUrl,
+  redactIndexNow,
   runIndexNow,
   sitemapLocs,
+  unsubmittedIndexNowUrls,
 } from "@/lib/indexnow";
 
 describe("IndexNow", () => {
@@ -158,6 +163,50 @@ describe("IndexNow", () => {
       "sitemap: error no <loc> URLs",
       "sitemap: error network down",
     ]);
+  });
+
+  it("accepts the phase 1A marker and ignores a bare 200", () => {
+    const marker = readFileSync(resolve(process.cwd(), "public/release-1a.txt"), "utf8");
+    expect(marker.trim()).toBe(INDEXNOW_RELEASE_MARKER);
+    expect(indexNowReleaseReady(200, marker)).toBe(true);
+    expect(indexNowReleaseReady(200, "phase-1a")).toBe(true);
+    expect(indexNowReleaseReady(200, "")).toBe(false);
+    expect(indexNowReleaseReady(404, INDEXNOW_RELEASE_MARKER)).toBe(false);
+    expect(indexNowReleaseSitemapUrl()).toBe(
+      "https://grid.vahaah.com/sitemap.xml?release=phase-1a",
+    );
+  });
+
+  it("submits only urls outside the settled set and redacts the key", async () => {
+    const secret = "super-secret-indexnow-key";
+    const urls = unsubmittedIndexNowUrls([
+      "https://grid.vahaah.com/",
+      "https://grid.vahaah.com/prices/gas",
+      "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/map",
+      "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+    ]);
+    expect(urls).toEqual([
+      "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/map",
+      "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+    ]);
+    const lines: string[] = [];
+    const code = await runIndexNow({
+      key: secret,
+      urls,
+      log: (line) => lines.push(line),
+      fetch: async (_input, init) => {
+        const payload = JSON.parse(String(init?.body)) as { key: string; urlList: string[] };
+        expect(payload.key).toBe(secret);
+        expect(payload.urlList).toEqual(urls);
+        return new Response(`rejected ${secret}`, { status: 422 });
+      },
+    });
+    expect(code).toBe(1);
+    expect(lines.join("\n")).not.toContain(secret);
+    expect(lines[0]).toContain("[redacted]");
+    expect(redactIndexNow(`key ${secret}`, secret)).toBe("key [redacted]");
   });
 
   it("runs only as the tsx entrypoint", () => {

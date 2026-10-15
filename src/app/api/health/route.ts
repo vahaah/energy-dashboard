@@ -21,9 +21,10 @@ import { peekWarmedPipe } from "@/lib/warm-envelope";
  * GET /api/health
  *
  * Cheap freshness probe. Reads warmed envelopes only: 24h snapshots, 24h
- * generation (FUELINST and embedded), and 30d prices. A missing snapshot
- * envelope is a stale critical stream. Generation, embedded, and prices
- * stay non-critical. No Tinybird query. CDN only: 300s, matching homepage ISR.
+ * generation (FUELINST and embedded), and 30d prices. Gas metrics come from
+ * the Blob bundle pointers, not Tinybird. A missing snapshot envelope is a
+ * stale critical stream. Generation, embedded, prices, and gas stay
+ * non-critical. No Tinybird query. CDN only: 300s, matching homepage ISR.
  */
 const HEALTH_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 

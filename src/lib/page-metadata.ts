@@ -293,7 +293,7 @@ export function mapPageMetadata(): Metadata {
     title: MAP_TITLE,
     description: MAP_DESCRIPTION,
     path: "/map",
-    imagePath: "/og",
+    imagePath: "/map/opengraph-image",
     imageAlt: MAP_TITLE,
   });
 }
@@ -303,7 +303,7 @@ export function assetsPageMetadata(): Metadata {
     title: ASSETS_TITLE,
     description: ASSETS_DESCRIPTION,
     path: "/assets",
-    imagePath: "/og",
+    imagePath: "/assets/opengraph-image",
     imageAlt: ASSETS_TITLE,
   });
 }

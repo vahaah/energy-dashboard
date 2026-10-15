@@ -389,6 +389,11 @@ async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {
   } catch {
     releases = [];
   }
+  return gasReadingsFromReleases(releases, now);
+}
+
+/** Health rows for the Blob bundle releases. An empty list is not yet available. */
+export function gasReadingsFromReleases(releases: readonly GasRelease[], now: Date): DataHealthReading[] {
   return (Object.keys(GAS_METRICS) as GasMetricId[]).map((metricId) => {
     const metric = GAS_METRICS[metricId];
     const component = latestObservedComponent(releases, metricId);

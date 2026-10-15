@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DNO_ATTRIBUTION, NESO_DNO_ACCURACY_WARNING, osBasemapAttribution } from "@/lib/map/constants";
 import {
   CARBON_INTENSITY_API_URL,
   CARBON_INTENSITY_ATTRIBUTION,
@@ -71,6 +72,8 @@ describe("Elexon BMRS attribution", () => {
       "national-gas",
       "desnz-repd",
       "desnz-dukes",
+      "neso-dno-areas",
+      "os-open-zoomstack",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -89,10 +92,20 @@ describe("Elexon BMRS attribution", () => {
     expect(sources.find((source) => source.id === "national-gas")?.licence).toContain(
       "14 Oct 2026",
     );
-    for (const id of ["desnz-repd", "desnz-dukes"] as const) {
+    for (const id of ["desnz-repd", "desnz-dukes", "neso-dno-areas", "os-open-zoomstack"] as const) {
       const source = sources.find((item) => item.id === id);
       expect(source?.licenceUrl).toBe(OGL_V3_LICENCE_URL);
-      expect(source?.attribution).toBe(OGL_V3_ATTRIBUTION);
+      expect(source?.licence).toContain("Open Government Licence v3.0");
     }
+    expect(sources.find((source) => source.id === "desnz-repd")?.attribution).toBe(OGL_V3_ATTRIBUTION);
+    expect(sources.find((source) => source.id === "desnz-dukes")?.attribution).toBe(OGL_V3_ATTRIBUTION);
+    const dno = sources.find((source) => source.id === "neso-dno-areas");
+    expect(dno?.attribution).toBe(DNO_ATTRIBUTION);
+    expect(dno?.usedFor).toContain(NESO_DNO_ACCURACY_WARNING);
+    expect(dno?.attribution).toContain("Open Government Licence v3.0");
+    const zoomstack = sources.find((source) => source.id === "os-open-zoomstack");
+    expect(zoomstack?.attribution).toBe(osBasemapAttribution(2026));
+    expect(zoomstack?.usedFor).toContain("2026-06");
+    expect(JSON.stringify(sources)).not.toMatch(/OilPriceAPI|TTF/);
   });
 });

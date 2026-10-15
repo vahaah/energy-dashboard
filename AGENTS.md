@@ -211,7 +211,7 @@ Parsers and fixtures. `/gas` is P1A.8. The Blob publish path and the hourly cron
 
 `data/catalogue/national-gas/catalogue.json` keeps the sha256, `catalogueVersion`, `lastChangeDate`, and the publication rows from one GET of `https://api.nationalgas.com/operationaldata/v1/publications/catalogue`. The full 10.9 MB catalogue stays out of git. CSV fixtures live in `tests/fixtures/gas/csv/`, one file per publication id, with a header comment for id, catalogue version, unit, quantity kind, gas-day timestamps, and null behaviour. `tests/fixtures/gas/release.json` is the `GasRelease` contract (`gasReleaseSchema` in `src/lib/ingest/national-gas/release.ts`). P1A.7 produces that document and P1A.8 renders it.
 
-Parsers are in `src/lib/ingest/national-gas/`. Gas days are 05:00–05:00 Europe/London via `src/lib/london-time.ts`, including the 23-hour and 25-hour 2026 clock changes. On the 25-hour day the repeated hour is kept as two instants, using a stated offset or row order. Impossible wall times are quarantined. Quality indicators `A` and `L` are accepted. `PUBOB4424` is published negative and stored as positive generation. A parent and its children never both count. Unknown publication ids, columns, and enum values are quarantined. Rates and cumulative readings are not summed. `GAS_METRICS` in `src/lib/metrics.ts` registers the series at geography `GB_NTS` and is not part of `METRICS`. `/api/health` does not list them. `/data-health` lists them from the Blob release. SAP `PUBOB603` is unchanged (`publication_lag` `P1D`, `stale_grace` `P2D`).
+Parsers are in `src/lib/ingest/national-gas/`. Gas days are 05:00–05:00 Europe/London via `src/lib/london-time.ts`, including the 23-hour and 25-hour 2026 clock changes. On the 25-hour day the repeated hour is kept as two instants, using a stated offset or row order. Impossible wall times are quarantined. Quality indicators `A` and `L` are accepted. `PUBOB4424` is published negative and stored as positive generation. A parent and its children never both count. Unknown publication ids, columns, and enum values are quarantined. Rates and cumulative readings are not summed. `GAS_METRICS` in `src/lib/metrics.ts` registers the series at geography `GB_NTS` and is not part of `METRICS`. `/api/health` and `/data-health` both list them through `loadDataHealth`, which reads the Blob bundle pointers. A missing pointer is `not_yet_available`. SAP `PUBOB603` is unchanged (`publication_lag` `P1D`, `stale_grace` `P2D`).
 
 `publish-check` rejects a publication id outside that list. The portal documents `dateFrom` and `dateTo` as 19-character timestamps; `YYYY-MM-DD` also returned CSV for `PUBOB2042`. Both results are in `date-format.json`. The Instantaneous Flow API answered `GET /operationaldata/v1/instantaneousflow/sites` without a login. This spike does not parse it.
 
@@ -249,6 +249,18 @@ Rollback: read `releases/gas/previous.json`, overwrite `releases/gas/latest.json
 
 The basis control lists only `flow`, `to-date`, and `completed` when that basis is on the release. Anything else is omitted. One basis is a label. Supply is `gray-1000`. Demand is `--chart-gas`. Shares use `displayedPercents` and are omitted when a required entry or demand component is missing, so a subset is not rescaled to 100. A partial day is compared only with other days on the same basis. The series table is in the server HTML. The chart is client-only, so the table remains when the chart does not run. Linepack is gas held in the pipelines. A null preferred linepack value falls through to the next publication. Storage inventory is not shown. Completed totals (`PUBOBJ635`, `PUBOB637`, demand shares, storage) are million m³. Flow rates stay million m³/day. A completed day is complete only when both headline totals are present and the gas day has ended. Hourly flow is complete when the headline series has a sample in every hour, including the last hour, which is timestamped an hour before the end. Stale follows each publication's `expected_cadence` and publication lag in `GAS_METRICS`. A 23-hour or 25-hour gas day labels GMT and BST on the endpoint that changes. Coverage links to `/data-health#nts`. The System Average Price card stays separate. The attribution on the page is `Data sourced from the National Gas Transmission Data Portal.`
 
+### P1A.9 Phase 1A release gate
+
+`/data-sources` lists National Gas operational flows and SAP (`PUBOB603`, p/kWh, consent 14 Oct 2026), DESNZ REPD, DESNZ DUKES, NESO DNO areas, and OS Open Zoomstack. DNO and Zoomstack are catalogue sources (`neso-dno-areas` cadence `P1D`, `os-open-zoomstack` cadence `P6M`) with no datasets. Attribution is `DNO_ATTRIBUTION` and `osBasemapAttribution(year)`. The page does not mention OilPriceAPI or a TTF daily series. `dataSources(year)` restamps the Elexon year and the OS year.
+
+Sitemap paths are `/gas`, `/map`, `/assets`, and every `loadAssetCatalogue()` row, including interconnectors and gas terminals. Hidden routes (`/system/generation`, `/system/demand`, `/system/carbon`, `/system/transfers`, `/directory`) stay out. `npm run indexnow:once` (`scripts/indexnow-once.ts`) is the post-deploy one-shot: `INDEXNOW_KEY` from the environment, compared with the public key file, never printed, and only URLs outside `INDEXNOW_SETTLED_PATHS`. It waits until production serves `public/release-1a.txt` (`phase-1a`). A 200 from `/gas` is not enough, because that route is already on the previous deployment. The sitemap fetch is `cache: no-store` with `?release=phase-1a`. If the marker is absent after 10 minutes the job exits without posting. `.github/workflows/indexnow.yml` runs that script on `workflow_dispatch` and when `data/indexnow/release-1a.txt`, `public/release-1a.txt`, or the workflow file changes on `main`. `npm run indexnow` still submits the full sitemap.
+
+Open-graph images for `/gas`, `/map`, `/assets`, and `/assets/[id]/[slug]` are file routes. They pass an empty snapshot, so they do not peek Redis or Tinybird. Page ids are `gas-system`, `map`, and `assets`. An asset card shrinks the title past 72 characters and wraps with `overflow-wrap`. Light and dark coverage is the layout suite; the card itself is one dark image.
+
+`/api/health` reads gas from `releases/gas/latest/intraday.json` and `releases/gas/latest/completed-day.json`. The first production slot after #64/#65 was 2026-10-15T09:05Z and wrote the intraday pointer. Completed-day stays on the prices workflow. See `docs/release-1a.md` for the smoke list, the exact rollback (previous `releases/gas/latest.json` and per-bundle pointers, plus the previous Vercel deployment), the §21 matrix, and what is not in 1A. On-call for a source schema change is Alex.
+
+Tinybird budget for this step: **+0**. The scheduled success path stays 378.
+
 ## Environment Variables
 
 ```env
@@ -263,6 +275,7 @@ FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 UPSTASH_REDIS_REST_URL=<optional — Upstash REST URL, https:// only>
 UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
 BLOB_READ_WRITE_TOKEN=<optional — basemap upload and gas Blob publish, never log it>
+INDEXNOW_KEY=<optional — post-deploy one-shot only; must match the public key file; never log it>
 # Also accepted: KV_REST_API_URL / KV_REST_API_TOKEN from the Marketplace integration
 ```
 
@@ -306,7 +319,7 @@ When neither pair is set (local `next dev`, or a deploy without Upstash):
 - `/api/cron` and `/api/cron-prices` — fail closed without `CRON_SECRET`, return per-source status, 503 if a required source fails
 - `/api/cron-gas` — fail closed without `CRON_SECRET`, starts the intraday workflow, no National Gas fetch in the route
 - `/api/v1/gas/overview` and `/api/v1/gas/series` — Blob reads; unknown metric is 400
-- `/api/health` — freshness of snapshots / generation / embedded / prices; 503 if a critical grid stream is stale
+- `/api/health` — freshness of snapshots / generation / embedded / prices, plus `GAS_METRICS` from the Blob bundle pointers; 503 if a critical grid stream is stale. Gas is non-critical
 - `/api/interconnectors` — public interconnector flows (`24h` / `7d`)
 - Query parameter: `range` is validated (`24h`, `7d`, `30d`, `90d`, `1y`). Invalid values return 400.
 

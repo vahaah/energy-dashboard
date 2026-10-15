@@ -71,6 +71,8 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   "national-gas": "National Gas",
   "desnz-repd": "DESNZ REPD",
   "desnz-dukes": "DESNZ DUKES",
+  "neso-dno-areas": "NESO DNO areas",
+  "os-open-zoomstack": "OS Open Zoomstack",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {

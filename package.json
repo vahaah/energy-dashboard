@@ -22,7 +22,8 @@
     "catalogue:dno": "tsx scripts/build-dno-layer.ts",
     "basemap": "tsx scripts/build-basemap.ts",
     "basemap:style": "tsx scripts/build-basemap-style.ts",
-    "indexnow": "tsx scripts/indexnow.ts"
+    "indexnow": "tsx scripts/indexnow.ts",
+    "indexnow:once": "tsx scripts/indexnow-once.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",

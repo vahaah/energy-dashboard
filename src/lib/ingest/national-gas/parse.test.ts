@@ -271,6 +271,14 @@ describe("national gas parsers", () => {
     expect(parsed.observations[0]?.value).toBeNull();
     expect(parsed.quarantine).toEqual([]);
   });
+
+  it("stores a genuine zero", () => {
+    const header = readFixture("PUBOB2042").split("\n").slice(0, 6).join("\n");
+    const text = `${header}\nApplicable At,Applicable For,Data Item,Value,Generated Time,Quality Indicator\n14/10/2026 06:00:10,14/10/2026,"System Entry Flows, National, Physical",0,14/10/2026 06:05:00,\n`;
+    const parsed = parseGasCsv(text, catalogue);
+    expect(parsed.observations[0]?.value).toBe(0);
+    expect(parsed.quarantine).toEqual([]);
+  });
 });
 
 describe("gas release contract", () => {

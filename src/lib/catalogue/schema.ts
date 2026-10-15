@@ -21,6 +21,8 @@ export const CATALOGUE_SOURCE_IDS = [
   "national-gas",
   "desnz-repd",
   "desnz-dukes",
+  "neso-dno-areas",
+  "os-open-zoomstack",
 ] as const;
 
 /**

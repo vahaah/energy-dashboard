@@ -19,8 +19,8 @@ export default function DataSourcesPage() {
       <LegalSection title="How Grid uses data">
         <p>
           Ingest reads these APIs on a schedule, stores snapshots in Tinybird, and serves the
-          dashboard from cache. Missing metrics stay null. Leftover OilPriceAPI and FRED helpers in
-          the ingest tree are not fetched by cron or published on the homepage.
+          dashboard from cache. Missing metrics stay null. National Gas operational series are
+          published to Blob. The plant register and map layers stay in the catalogue.
         </p>
       </LegalSection>
 
