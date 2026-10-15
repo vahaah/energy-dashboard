@@ -39,7 +39,7 @@ export default async function DataHealthPage() {
         <div className={`mt-4 ${CARD_GRID_CLASS}`}>
           {featured.map((reading) =>
             reading ? (
-              <Card key={reading.metric_id}>
+              <Card key={reading.metric_id} id={reading.metric_id === "commodity.gb_gas_sap.price" ? "gas" : undefined}>
                 <DataHealthReading reading={reading} featured />
               </Card>
             ) : null

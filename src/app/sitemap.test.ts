@@ -11,6 +11,7 @@ describe("sitemap", () => {
     const pages = [
       "https://grid.vahaah.com",
       "https://grid.vahaah.com/today",
+      "https://grid.vahaah.com/gas",
       "https://grid.vahaah.com/map",
       "https://grid.vahaah.com/assets",
       "https://grid.vahaah.com/llms.txt",
@@ -49,6 +50,7 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/records", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/data-sources", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/map", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/gas", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/assets", stamps)).toBeUndefined();
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
       "2026-10-09T00:00:00.000Z"

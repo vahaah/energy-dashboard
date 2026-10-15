@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 const PAGES = [
   "/",
   "/today",
+  "/gas",
   "/prices/gas",
   "/explained/price-cap",
   "/methodology",

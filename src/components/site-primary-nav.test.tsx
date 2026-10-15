@@ -8,6 +8,9 @@ describe("primary nav", () => {
   it("marks the active route with aria-current and omits hidden routes", () => {
     const home = renderToStaticMarkup(<SitePrimaryNav pathname="/" idPrefix="test" />);
     expect(home).toMatch(/<a[^>]*aria-current="page"[^>]*>Today<\/a>/);
+    expect(home).toMatch(/<a[^>]*href="\/gas"[^>]*>Gas<\/a>/);
+    expect(home.indexOf(">Today<")).toBeLessThan(home.indexOf(">Gas<"));
+    expect(home.indexOf(">Gas<")).toBeLessThan(home.indexOf(">Map<"));
     expect(home).toMatch(/<a[^>]*href="\/map"[^>]*>Map<\/a>/);
     expect(home).toMatch(/<a[^>]*href="\/assets"[^>]*>Assets<\/a>/);
     expect(home).toMatch(/<a[^>]*href="\/api"[^>]*>API<\/a>/);
@@ -20,6 +23,10 @@ describe("primary nav", () => {
     expect(api).toMatch(/<a[^>]*aria-current="page"[^>]*>API<\/a>/);
     expect(api.match(/aria-current="page"/g)?.length).toBe(1);
     expect(api).not.toMatch(/<a[^>]*aria-current="page"[^>]*>Today<\/a>/);
+
+    const gas = renderToStaticMarkup(<SitePrimaryNav pathname="/gas" idPrefix="test" />);
+    expect(gas).toMatch(/<a[^>]*aria-current="page"[^>]*>Gas<\/a>/);
+    expect(gas.match(/aria-current="page"/g)?.length).toBe(1);
 
     const map = renderToStaticMarkup(<SitePrimaryNav pathname="/map" idPrefix="test" />);
     expect(map).toMatch(/<a[^>]*aria-current="page"[^>]*>Map<\/a>/);

@@ -3,6 +3,7 @@ import { isIndexablePath } from "@/lib/site-nav";
 const SITEMAP_CANDIDATES = [
   { path: "", changeFrequency: "hourly" as const, priority: 1 },
   { path: "/today", changeFrequency: "hourly" as const, priority: 0.9 },
+  { path: "/gas", changeFrequency: "hourly" as const, priority: 0.8 },
   { path: "/map", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/assets", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },
