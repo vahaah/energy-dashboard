@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { AssetPageView } from "@/components/asset-page-view";
 import { SeoPage } from "@/components/seo-page";
-import { attachedFlows } from "@/lib/assets/cached-flows";
+import { attachedFlows, WARMED_FLOW_REVALIDATE_SECONDS } from "@/lib/assets/cached-flows";
 import { assetPageDescription } from "@/lib/assets/labels";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { assetPageModel, type AssetPageModel } from "@/lib/assets/page-model";
@@ -13,7 +13,7 @@ import { buildPageMetadata } from "@/lib/page-metadata";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
-export const revalidate = 86_400;
+export const revalidate = WARMED_FLOW_REVALIDATE_SECONDS;
 
 export function generateStaticParams(): { id: string; slug: string }[] {
   return loadAssetCatalogue().rows.map((row) => {
@@ -85,6 +85,7 @@ export default async function AssetSlugPage({ params }: { params: Promise<{ id: 
   }
   const model = withRegisterCredits(assetPageModel(detail), detail.row.sources);
   const series = model.output.attached ? await attachedFlows(model.output.code) : null;
+  const citation = `Grid, "${model.name}", grid.vahaah.com${model.canonicalPath}, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`;
   return (
     <SeoPage
       section="Assets"
@@ -92,9 +93,9 @@ export default async function AssetSlugPage({ params }: { params: Promise<{ id: 
       header={<span className="sr-only">{model.title}</span>}
       breadcrumb={[{ href: "/assets", label: "Assets" }, { label: model.name }]}
       cite={null}
-      citation={`Grid, "${model.name}", grid.vahaah.com${model.canonicalPath}, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}
+      citation={citation}
     >
-      <AssetPageView model={model} series={series} />
+      <AssetPageView model={model} series={series} citation={citation} />
     </SeoPage>
   );
 }

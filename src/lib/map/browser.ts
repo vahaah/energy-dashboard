@@ -109,7 +109,7 @@ export function mountPowerMap(
       map.addSource("assets", {
         type: "geojson",
         data: collection,
-        cluster: points.length > 1,
+        cluster: true,
         clusterRadius: 48,
         clusterMaxZoom: 11,
         clusterProperties: {
@@ -345,7 +345,6 @@ export function mountPowerMap(
   }
 
   function paint(): void {
-    lineClicksBound = false;
     addAssetLayers();
     addLineLayers();
     addDnoLayers();

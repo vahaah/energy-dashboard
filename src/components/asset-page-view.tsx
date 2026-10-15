@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CiteButton } from "@/components/cite-button";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { Card } from "@/components/ui/card";
 import { flowDirection, latestFlow } from "@/lib/assets/flows";
@@ -165,9 +166,11 @@ function Sparkline({ values }: { values: readonly number[] }) {
 export function AssetPageView({
   model,
   series,
+  citation,
 }: {
   model: AssetPageModel;
   series: readonly InterconnectorFlow[] | null;
+  citation: string;
 }) {
   return (
     <>
@@ -183,6 +186,7 @@ export function AssetPageView({
             View on map
           </Link>
           <CopyLinkButton url={`${SITE_URL}${model.canonicalPath}`} />
+          <CiteButton text={citation} />
         </div>
         <p className="mt-4 break-words text-copy-16 text-gray-1000">{model.question}</p>
         <p className="mt-2 max-w-3xl break-words text-copy-16 text-gray-900">{model.lede}</p>

@@ -38,9 +38,9 @@ export const METHODOLOGY_H1 = "How Grid's numbers are made";
 export const MAP_TITLE = "GB power asset map: plants and DNO areas";
 export const MAP_DESCRIPTION =
   "Power stations from the REPD and DUKES registers, with DNO licence areas on an OS Open Zoomstack basemap.";
-export const ASSETS_TITLE = "GB power assets from REPD and DUKES";
+export const ASSETS_TITLE = "GB stations, interconnectors and gas terminals";
 export const ASSETS_DESCRIPTION =
-  "Operational stations from the REPD and DUKES registers: technology, capacity, operator, DNO area and source.";
+  "Operational stations from REPD and DUKES, Elexon interconnectors, and National Gas terminal names.";
 
 export const API_DOCS_TITLE = "Free GB electricity data API: Grid";
 export const API_DOCS_DESCRIPTION =
