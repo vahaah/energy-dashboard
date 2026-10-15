@@ -93,6 +93,37 @@ describe("Northern Ireland page model", () => {
     const fuels = model.scopes.find((scope) => scope.id === "ni")?.fuels ?? [];
     const shares = fuels.map((row) => Number(row.share?.replace("%", "")));
     expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+    const laterForecast = {
+      ...release,
+      series: release.series.map((series) =>
+        series.metric_id === "elec.ni.generation.wind_forecast"
+          ? { ...series, points: [...series.points, { time: "2026-10-16T00:00:00.000Z", value: 1 }] }
+          : series,
+      ),
+    };
+    expect(buildNiPage(laterForecast, "Supported by EirGrid Group Data").status).toBe(model.status);
+  });
+
+  it("omits fuel shares when the fuels are not on the same interval", () => {
+    const staggered = {
+      ...release,
+      series: release.series.map((series) => {
+        if (series.metric_id !== "elec.ni.fuel.gas") {
+          return series;
+        }
+        const newest = [...series.points].reverse().find((point) => point.value != null);
+        if (!newest) {
+          return series;
+        }
+        return {
+          ...series,
+          points: series.points.map((point) => (point.time === newest.time ? { ...point, value: null } : point)),
+        };
+      }),
+    };
+    const fuels = buildNiPage(staggered, "Supported by EirGrid Group Data").scopes.find((scope) => scope.id === "ni")?.fuels ?? [];
+    expect(fuels.every((row) => row.share == null)).toBe(true);
+    expect(fuels.find((row) => row.metricId === "elec.ni.fuel.gas")?.mwh).toBe("—");
   });
 
   it("uses the partial sentence when a Northern Ireland series is missing", () => {

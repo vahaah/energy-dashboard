@@ -7,7 +7,7 @@ import { TINYBIRD_OPS_LIMIT, reserveTinybirdOp, tinybirdOpsKey } from "@/lib/tin
 import { TinybirdHttpError } from "@/lib/tinybird";
 import * as tinybird from "@/lib/tinybird";
 import { LIVE_PIPES, LONG_PIPES, runWarmSeries, tinybirdRetryAfter, toTinybirdStepError, warmPipeById } from "@/lib/warm-pipes";
-import { halfHourSlot, takeWorkflowSlot } from "@/lib/workflow-slot";
+import { eirgridSlot, halfHourSlot, takeWorkflowSlot } from "@/lib/workflow-slot";
 import { publishStep } from "@/workflows/steps/publish";
 import { takeSlotStep } from "@/workflows/steps/slot";
 import { warmPipeStep } from "@/workflows/steps/warm";
@@ -169,6 +169,10 @@ describe("workflow budget", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const slot = halfHourSlot(new Date("2026-10-14T12:07:00.000Z"));
     expect(slot).toBe("2026-10-14T12:00:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:15:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:20:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T06:10:00.000Z"))).toBe("2026-10-15T05:15:00.000Z");
+    expect(eirgridSlot(new Date("2026-10-15T00:05:00.000Z"))).toBe("2026-10-14T23:15:00.000Z");
 
     await takeWorkflowSlot("electricity", slot, "owner-a");
     await takeWorkflowSlot("electricity", slot, "owner-a");

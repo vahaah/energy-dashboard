@@ -10,7 +10,7 @@ import {
   type SourceRelease,
 } from "@/lib/catalogue/schema";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
-import { bundleHasNiDemand, releaseFromBundle } from "@/lib/eirgrid/build";
+import { areaPublishedAt, bundleHasNiDemand, releaseFromBundle } from "@/lib/eirgrid/build";
 import {
   NI_CATALOGUE_RELEASES_PATH,
   NI_CATALOGUE_RUNS_PATH,
@@ -28,9 +28,15 @@ import { revalidateNiPaths } from "@/lib/eirgrid/revalidate";
 import type { NiRelease } from "@/lib/eirgrid/release";
 import { EIRGRID_SERIES } from "@/lib/eirgrid/spec";
 
+/** The market page publishes a sterling column. It is removed before the raw extract is stored. */
+export function stripMarketSterling(market: string): string {
+  const field = String.raw`\\?"IMBALANCE_SETTLEMENT_PRICE_GBP\\?"\s*:\s*(?:-?\d+(?:\.\d+)?|null|"(?:\\.|[^"\\])*")`;
+  return market.replace(new RegExp(`,(\\s*)${field}`, "g"), "").replace(new RegExp(`${field}\\s*,`, "g"), "");
+}
+
 export async function fetchNiBundle(now: Date, attempt: number): Promise<EirgridStepStatus> {
   const bundle = await fetchEirgridBundle(now, attempt);
-  const body = JSON.stringify(bundle);
+  const body = JSON.stringify({ ...bundle, market: stripMarketSterling(bundle.market) });
   const hash = sha256Text(body);
   await putIfAbsent(niRawPath(hash.slice("sha256:".length)), body, "application/json");
   return { ok: true, rows: 0, bytes: Buffer.byteLength(body), hash, releaseId: "" };
@@ -59,7 +65,8 @@ export async function publishNiBundle(hash: string, now: Date): Promise<EirgridS
   if (!raw) {
     throw new FatalError("EirGrid extract is missing");
   }
-  const release = releaseFromBundle(JSON.parse(raw.body) as Parameters<typeof releaseFromBundle>[0]);
+  const bundle = JSON.parse(raw.body) as Parameters<typeof releaseFromBundle>[0];
+  const release = releaseFromBundle(bundle);
   if (!bundleHasNiDemand(release)) {
     throw new FatalError("EirGrid Northern Ireland demand is missing");
   }
@@ -69,13 +76,13 @@ export async function publishNiBundle(hash: string, now: Date): Promise<EirgridS
     await niStore().put(path, JSON.stringify(release), niImmutablePut("application/json"));
   }
   const previous = await niStore().get(NI_LATEST_PATH, false);
+  await recordCatalogue(release, bundle, now);
+  revalidateNiPaths();
   if (previous) {
     await niStore().put(NI_PREVIOUS_PATH, previous.body, niMutablePut("application/json"));
   }
   const pointer = { release_id: release.release_id, generated_at: now.toISOString() };
   await niStore().put(NI_LATEST_PATH, JSON.stringify(pointer), niMutablePut("application/json"));
-  await recordCatalogue(release, now);
-  revalidateNiPaths();
   return {
     ok: true,
     rows: release.series.reduce((sum, series) => sum + series.points.length, 0),
@@ -85,24 +92,30 @@ export async function publishNiBundle(hash: string, now: Date): Promise<EirgridS
   };
 }
 
-async function recordCatalogue(release: NiRelease, now: Date): Promise<void> {
+async function recordCatalogue(
+  release: NiRelease,
+  bundle: Parameters<typeof releaseFromBundle>[0],
+  now: Date,
+): Promise<void> {
+  const stamps = areaPublishedAt(bundle);
   const areas = [...new Set(release.series.map((series) => seriesArea(series.metric_id)))];
   for (const area of areas) {
     const metricIds = EIRGRID_SERIES.filter((series) => series.area === area).map((series) => series.metric_id);
+    const publishedAt = stamps.get(area) ?? null;
     const content = {
       area,
       release_id: release.release_id,
-      published_at: release.published_at,
+      published_at: publishedAt,
       metric_ids: metricIds,
     };
     const contentHash = sha256Prefixed(content);
     const datasetId = catalogueDatasetId("eirgrid-group", area);
-    const sourceReleaseId = catalogueReleaseId(datasetId, release.published_at, contentHash);
+    const sourceReleaseId = catalogueReleaseId(datasetId, publishedAt, contentHash);
     const sourceRelease: SourceRelease = {
       catalogue_schema_version: CATALOGUE_SCHEMA_VERSION,
       source_release_id: sourceReleaseId,
       dataset_id: datasetId,
-      published_at: release.published_at,
+      published_at: publishedAt,
       content_hash: contentHash,
       content,
     };

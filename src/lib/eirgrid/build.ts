@@ -3,6 +3,7 @@ import { resolveLondonWallSequence } from "@/lib/ingest/national-gas/gas-day";
 import type { EirgridFetchBundle } from "@/lib/eirgrid/fetch";
 import { eirgridStampToWall, mergeParseReports, parseChartDocument, parseFuelMixDocument, parseMarketPricingDocument, parseSnspDocument } from "@/lib/eirgrid/parse";
 import { buildNiRelease, type NiRelease } from "@/lib/eirgrid/release";
+import { CHART_AREAS } from "@/lib/eirgrid/spec";
 
 export function releaseFromBundle(bundle: EirgridFetchBundle): NiRelease {
   const reports = [
@@ -23,6 +24,20 @@ export function releaseFromBundle(bundle: EirgridFetchBundle): NiRelease {
     },
     bundle.retrieved_at,
   );
+}
+
+/** Publisher time for each catalogue area. Market pricing has none, so its release id is the content hash. */
+export function areaPublishedAt(bundle: EirgridFetchBundle): ReadonlyMap<string, string | null> {
+  const stamps = new Map<string, string | null>();
+  const chart = newestStamp(Object.values(bundle.charts));
+  for (const area of CHART_AREAS) {
+    stamps.set(area, chart);
+  }
+  stamps.set("interconnection", newestStamp(Object.values(bundle.interconnection)));
+  stamps.set("fuelmix", newestStamp(Object.values(bundle.fuel)));
+  stamps.set("SnspAll", newestStamp([bundle.snsp]));
+  stamps.set("marketPricing", null);
+  return stamps;
 }
 
 export function bundleHasNiDemand(release: NiRelease): boolean {

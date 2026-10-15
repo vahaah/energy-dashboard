@@ -50,11 +50,10 @@ export function tecSlot(now: Date): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 15, 0, 0)).toISOString();
 }
 
-/** Northern Ireland cron fires at minute 15 of every hour. */
+/** Northern Ireland cron fires at minute 15. Earlier than that belongs to the previous hour's slot. */
 export function eirgridSlot(now: Date): string {
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 15, 0, 0),
-  ).toISOString();
+  const hour = now.getUTCHours() - (now.getUTCMinutes() < 15 ? 1 : 0);
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, 15, 0, 0)).toISOString();
 }
 
 /** Gas cron fires at minute 5 of every hour. */

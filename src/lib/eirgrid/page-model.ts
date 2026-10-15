@@ -141,9 +141,10 @@ function figure(metricId: string, series: NiSeries | undefined): NiFigure {
 
 function fuelRows(geography: "NI" | "ALL_ISLAND", byId: Map<string, NiSeries>): NiFuelRow[] {
   const specs = EIRGRID_SERIES.filter((series) => series.area === "fuelmix" && series.geography_id === geography);
-  const latest = specs.map((spec) => {
-    const series = byId.get(spec.metric_id);
-    const point = [...(series?.points ?? [])].reverse().find((row) => row.value != null);
+  const points = specs.map((spec) => byId.get(spec.metric_id)?.points ?? []);
+  const newest = newestFuelInstant(points);
+  const latest = specs.map((spec, index) => {
+    const point = newest ? points[index]?.find((row) => row.time === newest) : undefined;
     return { spec, value: point?.value ?? null };
   });
   const complete = latest.every((row) => row.value != null && row.value >= 0);
@@ -171,10 +172,25 @@ function hasNorthernIrelandPoint(release: NiRelease): boolean {
   );
 }
 
+function newestFuelInstant(series: readonly (readonly { time: string }[])[]): string | null {
+  let newest: string | null = null;
+  for (const points of series) {
+    for (const point of points) {
+      if (!newest || point.time > newest) {
+        newest = point.time;
+      }
+    }
+  }
+  return newest;
+}
+
 function latestSoniInstant(release: NiRelease): Date | null {
   let latest: Date | null = null;
   for (const series of release.series) {
     if (series.geography_id !== "NI" || series.source_line !== SONI_SOURCE_LINE) {
+      continue;
+    }
+    if (series.metric_id.endsWith("_forecast")) {
       continue;
     }
     for (const point of series.points) {
