@@ -30,6 +30,7 @@ const VIEWPORTS = [
   { width: 640, height: 900 },
   { width: 639, height: 900 },
   { width: 390, height: 844 },
+  { width: 375, height: 812 },
 ] as const;
 
 const PRICE_FIXTURE = {
