@@ -41,8 +41,8 @@ describe("site nav shell", () => {
     for (const href of catalogHrefs()) {
       expect(routeExists(href)).toBe(discovered.includes(href));
     }
-    expect(visibleNavHrefs()).toEqual(["/", "/map", "/assets", "/api"]);
-    expect(visibleHeaderNav().map((item) => item.label)).toEqual(["Today", "Map", "Assets", "API"]);
+    expect(visibleNavHrefs()).toEqual(["/", "/gas", "/map", "/assets", "/api"]);
+    expect(visibleHeaderNav().map((item) => item.label)).toEqual(["Today", "Gas", "Map", "Assets", "API"]);
     expect(hiddenNavHrefs()).toEqual([
       "/system/generation",
       "/system/demand",
@@ -52,6 +52,7 @@ describe("site nav shell", () => {
     ]);
     expect(SITE_NAV_CATALOG.map((item) => item.label)).toEqual([
       "Today",
+      "Gas",
       "Map",
       "Assets",
       "System",
@@ -68,6 +69,7 @@ describe("site nav shell", () => {
       expect(urls).not.toContain(href);
       expect(isIndexablePath(href)).toBe(false);
     }
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/gas");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/map");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/assets");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).not.toContain("/directory");
@@ -76,6 +78,7 @@ describe("site nav shell", () => {
   });
 
   it("keeps an API link in the footer nav", () => {
+    expect(SITE_NAV_LINKS).toContainEqual({ href: "/prices/gas", label: "Gas price" });
     expect(SITE_NAV_LINKS).toContainEqual({ href: "/api", label: "API" });
     expect(SITE_NAV_LINKS).toContainEqual({ href: "/data-health", label: "Data health" });
     expect(visibleNavHrefs()).not.toContain("/data-health");

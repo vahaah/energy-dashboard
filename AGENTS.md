@@ -207,7 +207,7 @@ Flow series attach only by exact INT* code, including the lowercased code the in
 
 ### P1A.6 National Gas physical spike
 
-Parsers and fixtures. No `/gas` page. The Blob publish path and the hourly cron are P1A.7. The Tinybird success path stays 378.
+Parsers and fixtures. `/gas` is P1A.8. The Blob publish path and the hourly cron are P1A.7. The Tinybird success path stays 378.
 
 `data/catalogue/national-gas/catalogue.json` keeps the sha256, `catalogueVersion`, `lastChangeDate`, and the publication rows from one GET of `https://api.nationalgas.com/operationaldata/v1/publications/catalogue`. The full 10.9 MB catalogue stays out of git. CSV fixtures live in `tests/fixtures/gas/csv/`, one file per publication id, with a header comment for id, catalogue version, unit, quantity kind, gas-day timestamps, and null behaviour. `tests/fixtures/gas/release.json` is the `GasRelease` contract (`gasReleaseSchema` in `src/lib/ingest/national-gas/release.ts`). P1A.7 produces that document and P1A.8 renders it.
 
@@ -231,7 +231,7 @@ Blob layout, with `BLOB_READ_WRITE_TOKEN` (never logged):
 - The portal catalogue is fetched at most once per UTC day. `releases/gas/catalogue-hash.json` stores `{sha256, fetched_at}` and not the body.
 - Each new release appends one `source_releases` line and one `ingestion_runs` line under `releases/gas/catalogue/`. The checked-in catalogue already has one registration release per publication, so `publish-check` passes. No database.
 
-`GET /api/v1/gas/overview?gas_day=` and `GET /api/v1/gas/series?metric=&from=&to=` read those Blob files. An unknown metric is 400. Timestamps are UTC `Z`, and each point also carries a gas-day label. There is no `/gas` page and no Gas nav item. Success calls `revalidatePath` for `/gas`, `/api/v1/gas/overview`, and `/api/v1/gas/series`. It does not revalidate `/`. `/` stays `force-static` with `revalidate` 300 and makes no gas or Tinybird request.
+`GET /api/v1/gas/overview?gas_day=` and `GET /api/v1/gas/series?metric=&from=&to=` read those Blob files. An unknown metric is 400. Timestamps are UTC `Z`, and each point also carries a gas-day label. `/gas` is P1A.8. Success calls `revalidatePath` for `/gas`, `/api/v1/gas/overview`, and `/api/v1/gas/series`. It does not revalidate `/`. `/` stays `force-static` with `revalidate` 300 and makes no gas or Tinybird request.
 
 An optional Redis key `grid:gas:latest` caches the latest pointer for 300s.
 
@@ -240,6 +240,14 @@ An optional Redis key `grid:gas:latest` caches the latest pointer for 300s.
 Budget: Tinybird **+0** (the scheduled success path stays 378, under the 450 cap). About 216 Vercel Workflow events a day (1 run + 4 steps × 2 events × 24 hourly runs). National Gas: about 24 intraday GETs, about 4–5 completed-day GETs, and 1 catalogue GET a day. No bursts and no backfill.
 
 Rollback: read `releases/gas/previous.json`, overwrite `releases/gas/latest.json` with that pointer, and delete Redis key `grid:gas:latest`. Leave the immutable release file and the per-bundle pointers in place. A Redis read error falls through to the Blob pointer.
+
+### P1A.8 Gas page
+
+`/gas` is `force-static` with `revalidate` 900. `/` stays `force-static` with `revalidate` 300 and does not import this page. No new Tinybird pipe. The page does not call `queryPipe`. Gas-fired generation is read from the warmed 24h `generation_5min_range` envelope. The bridge is shown only when those samples cover every half-hour of the gas day. A miss or a fragment hides it.
+
+`GasReleaseReader` in `src/lib/gas/release-reader.ts` is the page's data source. `getGasReleaseReader` reads Blob when `BLOB_READ_WRITE_TOKEN` is set: `readLatestGasRelease` is `loadGasRelease(null)`, and `readGasReleaseHistory` is that release plus `loadBundleReleases()`, newest gas day first. Tests, CI, and local e2e leave the token unset and use `fixtureGasReleaseReader` (`tests/fixtures/gas/release.json`). An empty history renders the "Not yet available" notice.
+
+The basis control lists only `flow`, `to-date`, and `completed` when that basis is on the release. Anything else is omitted. One basis is a label. Supply is `gray-1000`. Demand is `--chart-gas`. Shares use `displayedPercents` and are omitted when a required entry or demand component is missing, so a subset is not rescaled to 100. A partial day is compared only with other days on the same basis. The series table is in the server HTML. The chart is client-only, so the table remains when the chart does not run. Linepack is gas held in the pipelines. A null preferred linepack value falls through to the next publication. Storage inventory is not shown. Completed totals (`PUBOBJ635`, `PUBOB637`, demand shares, storage) are million m³. Flow rates stay million m³/day. A completed day is complete only when both headline totals are present and the gas day has ended. Hourly flow is complete when the headline series has a sample in every hour, including the last hour, which is timestamped an hour before the end. Stale follows each publication's `expected_cadence` and publication lag in `GAS_METRICS`. A 23-hour or 25-hour gas day labels GMT and BST on the endpoint that changes. Coverage links to `/data-health#nts`. The System Average Price card stays separate. The attribution on the page is `Data sourced from the National Gas Transmission Data Portal.`
 
 ## Environment Variables
 

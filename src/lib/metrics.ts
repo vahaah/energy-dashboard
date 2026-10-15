@@ -670,6 +670,19 @@ export const GAS_METRICS = {
 
 export type GasMetricId = keyof typeof GAS_METRICS;
 
+/** Physical NTS series shown on /gas. Separate from the SAP price card. */
+export function physicalGasCoverage(): readonly {
+  dataset_id: string;
+  expected_cadence: string;
+  coverage: string;
+}[] {
+  return Object.values(GAS_METRICS).map((metric) => ({
+    dataset_id: metric.dataset_id,
+    expected_cadence: metric.expected_cadence,
+    coverage: metric.coverage,
+  }));
+}
+
 /** Duration the stale clock waits. The public lag stays `publication_lag`. */
 export function staleGrace(metric: Pick<MetricDefinition, "publication_lag" | "stale_grace">): string {
   return metric.stale_grace ?? metric.publication_lag;
