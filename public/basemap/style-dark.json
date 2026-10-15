@@ -9,7 +9,7 @@
   "sources": {
     "zoomstack": {
       "type": "vector",
-      "url": "pmtiles://catalogue:basemap",
+      "url": "pmtiles://https://aujfmochsacsguyo.public.blob.vercel-storage.com/tiles/basemap/2026-06.pmtiles",
       "attribution": "Contains OS data © Crown copyright and database right 2026",
       "minzoom": 0,
       "maxzoom": 13

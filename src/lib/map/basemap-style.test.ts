@@ -10,8 +10,16 @@ describe("basemap style", () => {
     for (const theme of ["light", "dark"] as const) {
       const path = resolve(process.cwd(), `public/basemap/style-${theme}.json`);
       const checkedIn = JSON.parse(readFileSync(path, "utf8")) as { sources: { zoomstack: { url: string; attribution: string } } };
-      expect(checkedIn).toEqual(basemapStyle(theme, 2026));
-      expect(checkedIn.sources.zoomstack.url).toBe(BASEMAP_SOURCE_URL);
+      const basemap = (JSON.parse(readFileSync(resolve(process.cwd(), "data/catalogue/layers.json"), "utf8")) as {
+        id: string;
+        url: string | null;
+      }[]).find((layer) => layer.id === "basemap");
+      const expected = basemapStyle(theme, 2026) as unknown as { sources: { zoomstack: { url: string; attribution: string } } };
+      if (basemap?.url) {
+        expected.sources.zoomstack = pointZoomstackSource(expected.sources.zoomstack, basemap.url, 2026);
+      }
+      expect(checkedIn).toEqual(expected);
+      expect(checkedIn.sources.zoomstack.url).toBe(basemap?.url ? `pmtiles://${basemap.url}` : BASEMAP_SOURCE_URL);
       expect(checkedIn.sources.zoomstack.attribution).toBe(osBasemapAttribution(2026));
       expect(JSON.stringify(checkedIn)).not.toMatch(/openstreetmap|osm\.org|tile\.openstreetmap/i);
     }

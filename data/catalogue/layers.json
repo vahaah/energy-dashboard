@@ -1,6 +1,34 @@
 [
   {
     "catalogue_schema_version": 1,
+    "id": "basemap",
+    "kind": "basemap",
+    "edition": "2026-06",
+    "source_crs": "EPSG:3857",
+    "tolerance": null,
+    "bbox": [
+      -12.6562,
+      48.9225,
+      4.2188,
+      61.6064
+    ],
+    "url": "https://aujfmochsacsguyo.public.blob.vercel-storage.com/tiles/basemap/2026-06.pmtiles",
+    "bytes": 1028871685,
+    "sha256": "sha256:c446a4d8fea34ff8a6ad143e0cebd22f3db799793c87f8882d3e1d2e4781bcc0",
+    "precision": "published_approximate",
+    "licence": "Open Government Licence v3.0",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "Contains OS data © Crown copyright and database right 2026",
+    "accuracy_warning": null,
+    "release_id": "os-open-zoomstack:2026-06",
+    "default_visible": true,
+    "zoom": {
+      "min": 0,
+      "max": 13
+    }
+  },
+  {
+    "catalogue_schema_version": 1,
     "id": "dno",
     "kind": "geojson",
     "edition": "20240503",
