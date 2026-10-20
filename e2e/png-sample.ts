@@ -168,15 +168,71 @@ export function landEdgePixels(
   return { right, bottom };
 }
 
+/**
+ * Longest axis-aligned land/sea step in the south-east of the frame.
+ * The extract hole cuts France on a meridian and a parallel; a shoreline does not.
+ */
+export function straightLandSeaEdge(
+  image: DecodedPng,
+  land: Rgb,
+  sea: Rgb,
+  tolerance: number,
+  exclude: readonly ImageRegion[],
+): { horizontal: number; vertical: number } {
+  const x0 = Math.floor(image.width * 0.55);
+  const y0 = Math.floor(image.height * 0.55);
+  const isLand = (x: number, y: number) => {
+    if (x < x0 || y < y0 || x >= image.width || y >= image.height || covered(x, y, exclude)) {
+      return false;
+    }
+    return closeTo(pixel(image, x, y), land, tolerance);
+  };
+  const isSea = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= image.width || y >= image.height || covered(x, y, exclude)) {
+      return false;
+    }
+    return closeTo(pixel(image, x, y), sea, tolerance);
+  };
+  const boundary = (x: number, y: number, nextX: number, nextY: number) =>
+    (isLand(x, y) && isSea(nextX, nextY)) || (isSea(x, y) && isLand(nextX, nextY));
+  let horizontal = 0;
+  for (let y = y0; y < image.height; y += 1) {
+    let run = 0;
+    for (let x = x0; x < image.width - 1; x += 1) {
+      if (boundary(x, y, x + 1, y)) {
+        run += 1;
+        continue;
+      }
+      horizontal = Math.max(horizontal, run);
+      run = 0;
+    }
+    horizontal = Math.max(horizontal, run);
+  }
+  let vertical = 0;
+  for (let x = x0; x < image.width; x += 1) {
+    let run = 0;
+    for (let y = y0; y < image.height - 1; y += 1) {
+      if (boundary(x, y, x, y + 1)) {
+        run += 1;
+        continue;
+      }
+      vertical = Math.max(vertical, run);
+      run = 0;
+    }
+    vertical = Math.max(vertical, run);
+  }
+  return { horizontal, vertical };
+}
+
 /** Low-chroma ink to the right of an anchor. The coast is bluer, so it does not count. */
 export function glyphSpan(
   image: DecodedPng,
   anchorX: number,
   anchorY: number,
   theme: "light" | "dark",
-): { width: number; left: number; count: number } | null {
-  const x0 = Math.max(0, Math.floor(anchorX - 6));
-  const x1 = Math.min(image.width - 1, Math.ceil(anchorX + 72));
+): { width: number; left: number; right: number; count: number } | null {
+  const x0 = Math.max(0, Math.floor(anchorX - 56));
+  const x1 = Math.min(image.width - 1, Math.ceil(anchorX + 56));
   const y0 = Math.max(0, Math.floor(anchorY - 12));
   const y1 = Math.min(image.height - 1, Math.ceil(anchorY + 12));
   let minX = Number.POSITIVE_INFINITY;
@@ -200,7 +256,7 @@ export function glyphSpan(
   if (count < 24) {
     return null;
   }
-  return { width: maxX - minX + 1, left: minX, count };
+  return { width: maxX - minX + 1, left: minX, right: maxX, count };
 }
 
 /** Share of samples inside a square that match `color`. */

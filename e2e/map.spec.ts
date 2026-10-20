@@ -4,6 +4,7 @@ import {
   decodePng,
   glyphSpan,
   landEdgePixels,
+  straightLandSeaEdge,
   pageBackgroundPixels,
   paletteOf,
   sampleMatch,
@@ -216,6 +217,18 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkIn
   const landEdge = landEdgePixels(image, LAND[theme], 18, scaled);
   expect(landEdge.right).toBeLessThan(40);
   expect(landEdge.bottom).toBeLessThan(40);
+  const continentEdge = straightLandSeaEdge(image, LAND[theme], SEA[theme], 18, scaled);
+  expect(continentEdge.horizontal).toBeLessThan(Math.round(40 * scaleX));
+  expect(continentEdge.vertical).toBeLessThan(Math.round(40 * scaleY));
+  const windowLabels = await page.evaluate(() => {
+    const hook = (window as Window & { __gridMapTest?: { labelCount: () => number } }).__gridMapTest;
+    return {
+      frozen: Object.isFrozen(hook),
+      labels: hook?.labelCount() ?? -1,
+    };
+  });
+  expect(windowLabels.frozen).toBe(true);
+  expect(windowLabels.labels).toBeGreaterThan(0);
   const runs = axisLineRuns(image, COAST[theme], 42, Math.round(90 * scaleX));
   expect(runs.horizontal + runs.vertical).toBeLessThanOrEqual(2);
   if (!checkInk) {
@@ -231,13 +244,29 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkIn
     expect(sampleMatch(image, inland.x * scaleX, inland.y * scaleY, 4, LAND[theme], 22)).toBeGreaterThan(0.5);
     expect(sampleMatch(image, sea.x * scaleX, sea.y * scaleY, 4, SEA[theme], 22)).toBeGreaterThan(0.5);
   }
+  const labelNames = await container.evaluate((element) => {
+    const host = element as HTMLElement & {
+      maplibreMap?: {
+        queryRenderedFeatures: (geometry?: unknown, options?: { layers?: string[] }) => {
+          properties?: { name1?: string };
+        }[];
+      };
+    };
+    return (
+      host.maplibreMap
+        ?.queryRenderedFeatures(undefined, { layers: ["names-overview", "names-country"] })
+        .map((feature) => feature.properties?.name1 ?? "") ?? []
+    );
+  });
+  expect(labelNames).toContain("Wales");
   const wales = await project(page, WALES.longitude, WALES.latitude);
   expect(wales).not.toBeNull();
   if (wales) {
     const span = glyphSpan(image, wales.x * scaleX, wales.y * scaleY, theme);
     expect(span).not.toBeNull();
-    expect((span?.width ?? 0) / scaleX).toBeGreaterThanOrEqual(22);
-    expect((span?.left ?? 0) / scaleX).toBeGreaterThanOrEqual(wales.x - 8);
+    expect((span?.width ?? 0) / scaleX).toBeGreaterThanOrEqual(34);
+    expect((span?.left ?? 0) / scaleX).toBeLessThan(wales.x);
+    expect((span?.right ?? 0) / scaleX).toBeGreaterThan(wales.x + 8);
   }
 }
 
@@ -271,7 +300,21 @@ for (const theme of THEMES) {
         clientWidth: document.documentElement.clientWidth,
       }));
       expect(scroll.scrollWidth).toBeLessThanOrEqual(scroll.clientWidth + 1);
-      await page.getByRole("radio", { name: "Power stations" }).click();
+      const sheet = page.locator("[data-flow-sheet]");
+      if (await sheet.isVisible()) {
+        await sheet.evaluate((element) => {
+          element.scrollTop = element.scrollHeight;
+        });
+        expect(await sheet.evaluate((element) => element.scrollTop)).toBeGreaterThan(40);
+        await sheet.getByRole("radio", { name: "Power stations" }).evaluate((element) => {
+          if (element instanceof HTMLInputElement) {
+            element.click();
+          }
+        });
+        await expect.poll(async () => sheet.evaluate((element) => element.scrollTop)).toBe(0);
+      } else {
+        await page.getByRole("radio", { name: "Power stations" }).click();
+      }
       await expect(page.getByRole("checkbox", { name: "Power stations" })).toBeChecked();
       await assertView(page, "stations");
       await assertBasemap(page, theme, false);
