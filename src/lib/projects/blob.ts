@@ -1,4 +1,5 @@
-import { BlobNotFoundError, del, get, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
+import { readBlobResponse, withBlobReadRetry } from "@/lib/blob-read";
 
 export const TEC_LATEST_PATH = "releases/tec/latest.json";
 export const TEC_PREVIOUS_PATH = "releases/tec/previous.json";
@@ -112,26 +113,14 @@ class VercelTecStore implements TecObjectStore {
   }
 
   async get(pathname: string, cache: boolean): Promise<TecStoredObject | null> {
-    try {
-      const result = await get(pathname, { access: "public", useCache: cache });
-      if (!result || result.statusCode !== 200 || !result.stream) {
-        return null;
-      }
-      const body = await new Response(result.stream).text();
-      return { body, uploadedAt: result.blob.uploadedAt, size: result.blob.size };
-    } catch (error) {
-      if (error instanceof BlobNotFoundError) {
-        return null;
-      }
-      throw error;
-    }
+    return readBlobResponse(() => get(pathname, { access: "public", useCache: cache }));
   }
 
   async list(prefix: string): Promise<Array<{ pathname: string; uploadedAt: Date }>> {
     const found: Array<{ pathname: string; uploadedAt: Date }> = [];
     let cursor: string | undefined;
     do {
-      const page = await list({ prefix, cursor, limit: 1000 });
+      const page = await withBlobReadRetry(() => list({ prefix, cursor, limit: 1000 }));
       for (const blob of page.blobs) {
         found.push({ pathname: blob.pathname, uploadedAt: blob.uploadedAt });
       }

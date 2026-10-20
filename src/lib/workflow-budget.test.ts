@@ -12,6 +12,7 @@ import {
   constraintsSlot,
   eirgridSlot,
   gasSlot,
+  tecSlot,
   halfHourSlot,
   pricesSlot,
   yesterdaySlot,
@@ -108,6 +109,8 @@ describe("workflow budget", () => {
     expect(constraintsSlot(now, "day-ahead")).toBe("2026-10-15T16:40:00.000Z");
     expect(gasSlot(now)).toBe("2026-10-15T06:05:00.000Z");
     expect(gasSlot(new Date("2026-10-15T06:01:00.000Z"))).toBe("2026-10-15T06:05:00.000Z");
+    expect(tecSlot(now)).toBe("2026-10-15T06:15:00.000Z");
+    expect(tecSlot(new Date("2026-10-15T00:05:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
     expect(eirgridSlot(new Date("2026-10-15T06:15:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
     expect(eirgridSlot(new Date("2026-10-15T06:20:00.000Z"))).toBe("2026-10-15T06:15:00.000Z");
     expect(eirgridSlot(new Date("2026-10-15T06:10:00.000Z"))).toBe("2026-10-15T05:15:00.000Z");
