@@ -48,7 +48,7 @@ export type StagePart = GwPart & { id: PipelineStageId };
 
 export type StorageTypeRow = {
   label: string;
-  exactMwLabel: string;
+  text: string;
 };
 
 export type StorageTotal = {
@@ -589,10 +589,29 @@ function storageTypeLabel(technology: ProjectTechnology): string | null {
   if (technology === "battery") {
     return storageLabel("battery");
   }
-  if (technology === "pumped_storage" || technology === "liquid_air" || technology === "compressed_air") {
+  if (technology === "pumped_storage") {
     return technologyLabel(technology);
   }
+  if (technology === "liquid_air") {
+    return "Liquid Air Energy Storage";
+  }
+  if (technology === "compressed_air") {
+    return "Compressed Air Energy Storage";
+  }
   return null;
+}
+
+/** Rows under 0.1 GW stay in MW to one decimal. Never 0.0 GW or <0.1 GW. */
+export function storageRowText(label: string, exactMw: number): string {
+  const gw = exactMw / 1000;
+  if (!(gw >= PIPELINE_GW_QUANTUM)) {
+    return `${label}: ${formatExactMw(exactMw)}`;
+  }
+  const shown = formatDisplay(roundDisplay(gw, PIPELINE_GW_QUANTUM), PIPELINE_GW_QUANTUM);
+  if (shown === "0.0") {
+    return `${label}: ${formatExactMw(exactMw)}`;
+  }
+  return `${label}: ${shown} GW`;
 }
 
 function storageTypeRows(technologies: ReadonlyMap<ProjectTechnology, Bucket>): StorageTypeRow[] {
@@ -608,7 +627,7 @@ function storageTypeRows(technologies: ReadonlyMap<ProjectTechnology, Bucket>): 
     rows.push({ label, exactMw: bucket.exactMw });
   }
   rows.sort((left, right) => right.exactMw - left.exactMw || left.label.localeCompare(right.label));
-  return rows.map((row) => ({ label: row.label, exactMwLabel: formatExactMw(row.exactMw) }));
+  return rows.map((row) => ({ label: row.label, text: storageRowText(row.label, row.exactMw) }));
 }
 
 function storageTotalOf(

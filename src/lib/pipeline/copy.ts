@@ -17,6 +17,14 @@ export const PIPELINE_SOURCE_LINE = `${PIPELINE_CREDIT}. ${OGL_V3_ATTRIBUTION}`;
 
 export const PIPELINE_NOT_UPDATED = "Not updated";
 
+export const PIPELINE_CATALOGUE_UNAVAILABLE = "Catalogue unavailable. Showing the last built figures.";
+
+export const PIPELINE_EMPTY_FILTER = "No projects match these filters";
+
+export const PIPELINE_CLEAR_FILTERS = "Clear filters";
+
+export const PIPELINE_CHART_FAILED = "This chart could not be drawn.";
+
 export const PIPELINE_STORAGE_HEADING = "Storage";
 
 export const PIPELINE_STORAGE_TOTAL = "Total";

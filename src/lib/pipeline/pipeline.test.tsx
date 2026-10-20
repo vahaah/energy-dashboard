@@ -4,14 +4,20 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GET as pipelineCsvRoute } from "@/app/pipeline/projects.csv/route";
 import PipelinePage from "@/app/pipeline/page";
+import { PipelineChartBoundary } from "@/components/pipeline/chart-boundary";
 import { PipelineBoard, StorageTooltip } from "@/components/pipeline/pipeline-board";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
+import { PipelineTable } from "@/components/pipeline/pipeline-table";
 import { largestRemainder } from "@/lib/display-rounding";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
 import { buildOgCard } from "@/lib/og/model";
 import {
+  PIPELINE_CATALOGUE_UNAVAILABLE,
+  PIPELINE_CHART_FAILED,
+  PIPELINE_CLEAR_FILTERS,
   PIPELINE_CONSENTED_LABEL,
   PIPELINE_CREDIT,
+  PIPELINE_EMPTY_FILTER,
   PIPELINE_DESCRIPTION,
   PIPELINE_EXCLUDED,
   PIPELINE_EXPLAINER,
@@ -27,12 +33,13 @@ import {
 } from "@/lib/pipeline/copy";
 import { PIPELINE_FETCH_ATTEMPTS, PIPELINE_FETCH_TIMEOUT_MS, pipelineRetryDelayMs, pipelineStatusRetries } from "@/lib/pipeline/fetch";
 import { pipelineEditionStale, pipelineNotUpdatedFrom, pipelinePublicationDay } from "@/lib/pipeline/freshness";
-import { loadPipelineCatalogue } from "@/lib/pipeline/load";
+import { catalogueAfterFailedRead, loadKeepingLast, loadPipelineCatalogue } from "@/lib/pipeline/load";
 import { pipelineStageSubline } from "@/lib/pipeline/share";
 import {
   buildPipelineFigures,
   formatMedianDuration,
   medianDays,
+  storageRowText,
   sumDisplayedGw,
   type PipelineTableRow,
 } from "@/lib/pipeline/model";
@@ -94,12 +101,19 @@ describe("pipeline figures", () => {
     ]);
     expect(figures.storageTotal.gw).toBe("133.0");
     expect(figures.storageTotal.exactMwLabel).toBe("133,083.5 MW");
-    expect(figures.storageTotal.rows).toEqual([
-      { label: "Battery storage", exactMwLabel: "122,138.4 MW" },
-      { label: "Pumped storage", exactMwLabel: "10,890.2 MW" },
-      { label: "Liquid air", exactMwLabel: "49.9 MW" },
-      { label: "Compressed air", exactMwLabel: "5.0 MW" },
+    expect(figures.storageTotal.rows.map((row) => row.text)).toEqual([
+      "Battery storage: 122.1 GW",
+      "Pumped storage: 10.9 GW",
+      "Liquid Air Energy Storage: 49.9 MW",
+      "Compressed Air Energy Storage: 5.0 MW",
     ]);
+    expect(storageRowText("Liquid Air Energy Storage", 49.9)).toBe("Liquid Air Energy Storage: 49.9 MW");
+    expect(storageRowText("Compressed Air Energy Storage", 5)).toBe("Compressed Air Energy Storage: 5.0 MW");
+    expect(storageRowText("Tiny", 50)).toBe("Tiny: 50.0 MW");
+    for (const row of figures.storageTotal.rows) {
+      expect(row.text).not.toContain("0.0 GW");
+      expect(row.text).not.toContain("<0.1 GW");
+    }
     expect(figures.stages.map((stage) => stage.label)).toEqual([
       "Under construction",
       PIPELINE_CONSENTED_LABEL,
@@ -280,6 +294,10 @@ describe("pipeline page", () => {
     expect(html).toContain(PIPELINE_CREDIT);
     expect(html).toContain("Download CSV");
     expect(html).not.toContain(PIPELINE_NOT_UPDATED);
+    expect(html).not.toContain("0.0 GW");
+    expect(html).not.toContain("&lt;0.1 GW");
+    expect(html).not.toContain("<0.1 GW");
+    expect(page).not.toContain("searchParams");
     for (const section of PIPELINE_EXPLAINER) {
       expect(html).toContain(section.title);
     }
@@ -293,14 +311,77 @@ describe("pipeline page", () => {
       <PipelineBoard figures={catalogue.figures} stamp={catalogue.stamp} stale />,
     );
     expect(html).toContain(PIPELINE_NOT_UPDATED);
+    expect(html).toContain('role="status"');
+    expect(html).toContain("border-amber-700");
+    expect(html).toContain("7,668");
+    expect(html).toContain("267.4");
     const tooltip = renderToStaticMarkup(<StorageTooltip total={catalogue.figures.storageTotal} />);
     expect(tooltip).toContain(PIPELINE_STORAGE_HEADING);
     expect(tooltip).toContain(PIPELINE_STORAGE_TOTAL);
     expect(tooltip).toContain(catalogue.figures.storageTotal.exactMwLabel);
     for (const row of catalogue.figures.storageTotal.rows) {
-      expect(tooltip).toContain(row.label);
-      expect(tooltip).toContain(row.exactMwLabel);
+      expect(tooltip).toContain(row.text);
     }
+    expect(tooltip).not.toContain("0.0 GW");
+    expect(tooltip).not.toContain("<0.1 GW");
+  });
+
+  it("keeps the last built figures when the catalogue cannot be read", () => {
+    const catalogue = loadPipelineCatalogue();
+    const kept = loadKeepingLast(
+      process.cwd(),
+      () => {
+        throw new Error("catalogue missing");
+      },
+      catalogue,
+    );
+    expect(catalogueAfterFailedRead(null)).toBeNull();
+    expect(kept.unavailable).toBe(true);
+    expect(kept.figures).toBe(catalogue.figures);
+    const html = renderToStaticMarkup(
+      <PipelineBoard figures={kept.figures} stamp={kept.stamp} stale={false} unavailable />,
+    );
+    expect(html).toContain(PIPELINE_CATALOGUE_UNAVAILABLE);
+    expect(html).toContain("7,668");
+    expect(html).toContain("267.4");
+  });
+
+  it("shows table and chart skeletons while loading", () => {
+    const catalogue = loadPipelineCatalogue();
+    const html = renderToStaticMarkup(
+      <PipelineBoard figures={catalogue.figures} stamp={catalogue.stamp} stale={false} preview="loading" />,
+    );
+    expect(html).toContain('data-pipeline-state="loading"');
+    expect(html).toContain('data-slot="skeleton"');
+    expect(html).toContain('data-slot="card-loading"');
+    expect(html).toContain("7,668");
+    expect(html).not.toContain("<table");
+  });
+
+  it("says when no projects match the filters", () => {
+    const catalogue = loadPipelineCatalogue();
+    const html = renderToStaticMarkup(<PipelineTable rows={catalogue.figures.table} forcedEmpty />);
+    expect(html).toContain(PIPELINE_EMPTY_FILTER);
+    expect(html).toContain(PIPELINE_CLEAR_FILTERS);
+    expect(html).not.toContain("<table");
+  });
+
+  it("keeps the table when a chart fails to render", () => {
+    const catalogue = loadPipelineCatalogue();
+    const html = renderToStaticMarkup(
+      <PipelineBoard figures={catalogue.figures} stamp={catalogue.stamp} stale={false} preview="chart" />,
+    );
+    expect(html).toContain(PIPELINE_CHART_FAILED);
+    expect(html).toContain("<table");
+    expect(html).toContain("Download CSV");
+    expect(PipelineChartBoundary.getDerivedStateFromError()).toEqual({ failed: true });
+    const failed = renderToStaticMarkup(
+      <PipelineChartBoundary fail>
+        <p>chart</p>
+      </PipelineChartBoundary>,
+    );
+    expect(failed).toContain(PIPELINE_CHART_FAILED);
+    expect(failed).not.toContain("<p>chart</p>");
   });
 
   it("serves the project table as CSV", async () => {

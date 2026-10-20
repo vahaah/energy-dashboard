@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { PipelineFrame } from "@/components/pipeline/pipeline-frame";
 import { SeoPage } from "@/components/seo-page";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -42,7 +42,12 @@ export default function PipelinePage() {
         </section>
       }
     >
-      <PipelineBoard figures={catalogue.figures} stamp={catalogue.stamp} stale={stale} />
+      <PipelineFrame
+        figures={catalogue.figures}
+        stamp={catalogue.stamp}
+        stale={stale}
+        unavailable={catalogue.unavailable}
+      />
     </SeoPage>
   );
 }

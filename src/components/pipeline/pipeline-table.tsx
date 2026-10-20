@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import { PIPELINE_CSV_PATH, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
+import { PIPELINE_CLEAR_FILTERS, PIPELINE_CSV_PATH, PIPELINE_EMPTY_FILTER, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
 import { pipelineCsv } from "@/lib/pipeline/csv";
 import { stageLabel, type PipelineStageId, type PipelineTableRow } from "@/lib/pipeline/model";
 
@@ -17,12 +17,13 @@ const STAGE_ORDER: Record<PipelineStageId, number> = {
   in_planning: 2,
 };
 
-export function PipelineTable({ rows }: { rows: PipelineTableRow[] }) {
+export function PipelineTable({ rows, forcedEmpty = false }: { rows: PipelineTableRow[]; forcedEmpty?: boolean }) {
   const [stage, setStage] = useState("all");
   const [technology, setTechnology] = useState("all");
   const [nation, setNation] = useState("all");
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "capacity", direction: "desc" });
   const [page, setPage] = useState(1);
+  const [cleared, setCleared] = useState(false);
 
   const technologies = useMemo(() => unique(rows.map((row) => row.technologyLabel)), [rows]);
   const nations = useMemo(() => unique(rows.map((row) => row.nation)), [rows]);
@@ -50,6 +51,15 @@ export function PipelineTable({ rows }: { rows: PipelineTableRow[] }) {
   const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const current = Math.min(page, pages);
   const slice = sorted.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const showEmpty = (forcedEmpty && !cleared) || slice.length === 0;
+
+  function clearFilters() {
+    setStage("all");
+    setTechnology("all");
+    setNation("all");
+    setPage(1);
+    setCleared(true);
+  }
 
   function toggle(key: SortKey) {
     setPage(1);
@@ -134,8 +144,17 @@ export function PipelineTable({ rows }: { rows: PipelineTableRow[] }) {
       <p className="mt-4 text-label-13 text-gray-900">
         {sorted.length.toLocaleString("en-GB")} {sorted.length === 1 ? "project" : "projects"}
       </p>
-      {slice.length === 0 ? (
-        <p className="mt-4 break-words text-copy-14 text-gray-900">No projects match.</p>
+      {showEmpty ? (
+        <div className="mt-4">
+          <p className="break-words text-copy-14 text-gray-900">{PIPELINE_EMPTY_FILTER}</p>
+          <button
+            type="button"
+            className="mt-3 inline-flex h-11 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
+            onClick={clearFilters}
+          >
+            {PIPELINE_CLEAR_FILTERS}
+          </button>
+        </div>
       ) : (
         <div className="mt-3 max-w-full overflow-x-auto">
           <table className="w-full min-w-[40rem] border-collapse text-left">

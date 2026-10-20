@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { MarkerSwatch } from "@/components/marker-swatch";
+import { PipelineChartBoundary } from "@/components/pipeline/chart-boundary";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { PipelineTable } from "@/components/pipeline/pipeline-table";
-import { Card } from "@/components/ui/card";
+import { Card, CardLoading } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { STAGE_COLORS } from "@/lib/pipeline/colors";
 import {
   NI_PIPELINE_HREF,
+  PIPELINE_CATALOGUE_UNAVAILABLE,
   PIPELINE_CREDIT,
   PIPELINE_EXCLUDED,
   PIPELINE_MEDIAN_NOTE,
@@ -19,6 +22,7 @@ import {
   PIPELINE_STORAGE_TOTAL,
 } from "@/lib/pipeline/copy";
 import { formatMedianDuration, stageLabel, type PipelineFigures, type StorageTotal } from "@/lib/pipeline/model";
+import type { PipelinePreview } from "@/lib/pipeline/preview";
 
 const NATION_COLOR = "#0d94d2";
 
@@ -26,23 +30,34 @@ export function PipelineBoard({
   figures,
   stamp,
   stale,
+  unavailable = false,
+  preview = null,
 }: {
   figures: PipelineFigures;
   stamp: string;
   stale: boolean;
+  unavailable?: boolean;
+  preview?: PipelinePreview | null;
 }) {
   const count = figures.projects.toLocaleString("en-GB");
   const maxTechnology = Math.max(0, ...figures.technologies.map((row) => row.exactGw));
   const maxNation = Math.max(0, ...figures.nations.map((row) => row.exactGw));
+  const loading = preview === "loading";
+  const chartFailed = preview === "chart";
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4" data-pipeline-state={preview ?? "ready"}>
       <Card title="In the pipeline">
         <p className="break-words text-copy-14 text-gray-900" data-edition>
           {stamp}
-          {stale ? (
-            <span className="mt-2 block border-t-2 border-amber-700 pt-2 text-gray-1000">{PIPELINE_NOT_UPDATED}</span>
-          ) : null}
         </p>
+        {stale ? (
+          <p role="status" className="mt-3 border-t-2 border-amber-700 pt-2 text-copy-14 text-gray-1000">
+            {PIPELINE_NOT_UPDATED}
+          </p>
+        ) : null}
+        {unavailable ? (
+          <p className="mt-3 break-words text-copy-14 text-gray-900">{PIPELINE_CATALOGUE_UNAVAILABLE}</p>
+        ) : null}
         <p className="mt-4 text-label-13 text-gray-900">Projects</p>
         <p data-figure className="font-sans text-heading-32 tabular-nums text-gray-1000">
           <span data-value>{count}</span>
@@ -72,7 +87,17 @@ export function PipelineBoard({
             </li>
           ))}
         </ul>
-        <StageBar figures={figures} />
+        {loading ? (
+          <div className="mt-5 flex flex-col gap-3">
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-4/5" />
+          </div>
+        ) : (
+          <PipelineChartBoundary fail={chartFailed}>
+            <StageBar figures={figures} />
+          </PipelineChartBoundary>
+        )}
       </Card>
 
       <Card>
@@ -81,33 +106,45 @@ export function PipelineBoard({
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <Card title="By technology">
-          <ul className="flex min-w-0 flex-col gap-3" aria-label="Capacity by technology">
-            {figures.technologies.map((row) => (
-              <BarRow
-                key={row.id}
-                label={row.label}
-                gw={row.gw}
-                projects={row.projects}
-                width={maxTechnology > 0 ? (row.exactGw / maxTechnology) * 100 : 0}
-                color={row.color}
-                marker={<MarkerSwatch shape={row.shape} color={row.color} />}
-              />
-            ))}
-          </ul>
+          {loading ? (
+            <CardLoading />
+          ) : (
+            <PipelineChartBoundary fail={chartFailed}>
+              <ul className="flex min-w-0 flex-col gap-3" aria-label="Capacity by technology">
+                {figures.technologies.map((row) => (
+                  <BarRow
+                    key={row.id}
+                    label={row.label}
+                    gw={row.gw}
+                    projects={row.projects}
+                    width={maxTechnology > 0 ? (row.exactGw / maxTechnology) * 100 : 0}
+                    color={row.color}
+                    marker={<MarkerSwatch shape={row.shape} color={row.color} />}
+                  />
+                ))}
+              </ul>
+            </PipelineChartBoundary>
+          )}
         </Card>
         <Card title="By nation">
-          <ul className="flex min-w-0 flex-col gap-3" aria-label="Capacity by nation">
-            {figures.nations.map((row) => (
-              <BarRow
-                key={row.id}
-                label={row.label}
-                gw={row.gw}
-                projects={row.projects}
-                width={maxNation > 0 ? (row.exactGw / maxNation) * 100 : 0}
-                color={NATION_COLOR}
-              />
-            ))}
-          </ul>
+          {loading ? (
+            <CardLoading />
+          ) : (
+            <PipelineChartBoundary fail={chartFailed}>
+              <ul className="flex min-w-0 flex-col gap-3" aria-label="Capacity by nation">
+                {figures.nations.map((row) => (
+                  <BarRow
+                    key={row.id}
+                    label={row.label}
+                    gw={row.gw}
+                    projects={row.projects}
+                    width={maxNation > 0 ? (row.exactGw / maxNation) * 100 : 0}
+                    color={NATION_COLOR}
+                  />
+                ))}
+              </ul>
+            </PipelineChartBoundary>
+          )}
         </Card>
       </div>
 
@@ -121,22 +158,28 @@ export function PipelineBoard({
           <FunnelStep label="Built" value={figures.cohort.built} />
           <FunnelStep label="Operating" value={figures.cohort.operating} />
         </ol>
-        <ul className="mt-4 flex min-w-0 flex-col gap-2" aria-label="Cohort outcomes">
-          {figures.cohort.outcomes.map((outcome) => (
-            <li key={outcome.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-              <span className="min-w-0">
-                <span className="block break-words text-copy-14 text-gray-1000">{outcome.label}</span>
-                <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
-                  <span className="block h-full rounded-full bg-gray-1000" style={{ width: `${outcome.percent}%` }} />
-                </span>
-              </span>
-              <span className="text-mono-12 text-gray-1000 tabular-nums">
-                {outcome.percent}%
-                <span className="text-gray-900"> {outcome.projects.toLocaleString("en-GB")}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        {loading ? (
+          <CardLoading />
+        ) : (
+          <PipelineChartBoundary fail={chartFailed}>
+            <ul className="mt-4 flex min-w-0 flex-col gap-2" aria-label="Cohort outcomes">
+              {figures.cohort.outcomes.map((outcome) => (
+                <li key={outcome.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <span className="min-w-0">
+                    <span className="block break-words text-copy-14 text-gray-1000">{outcome.label}</span>
+                    <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
+                      <span className="block h-full rounded-full bg-gray-1000" style={{ width: `${outcome.percent}%` }} />
+                    </span>
+                  </span>
+                  <span className="text-mono-12 text-gray-1000 tabular-nums">
+                    {outcome.percent}%
+                    <span className="text-gray-900"> {outcome.projects.toLocaleString("en-GB")}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </PipelineChartBoundary>
+        )}
       </Card>
 
       <Card title="Median time in each stage">
@@ -157,7 +200,13 @@ export function PipelineBoard({
         <p className="mt-3 break-words text-copy-14 text-gray-900">{PIPELINE_MEDIAN_NOTE}</p>
       </Card>
 
-      <PipelineTable rows={figures.table} />
+      {loading ? (
+        <Card title="Projects">
+          <CardLoading />
+        </Card>
+      ) : (
+        <PipelineTable rows={figures.table} forcedEmpty={preview === "empty"} />
+      )}
 
       <Card title="Northern Ireland">
         <p className="break-words text-copy-14 text-gray-1000">
@@ -199,9 +248,8 @@ export function StorageTooltip({ total }: { total: StorageTotal }) {
         <span className="tabular-nums">{total.exactMwLabel}</span>
       </span>
       {total.rows.map((row) => (
-        <span key={row.label} className="flex items-baseline justify-between gap-3">
-          <span>{row.label}</span>
-          <span className="tabular-nums">{row.exactMwLabel}</span>
+        <span key={row.text} className="block break-words">
+          {row.text}
         </span>
       ))}
     </span>

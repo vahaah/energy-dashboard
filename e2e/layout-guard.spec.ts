@@ -29,6 +29,11 @@ const PAGES = [
   "/assets/ast_0789b8c8f94ec14a/bacton-ips",
   "/projects",
   "/pipeline",
+  "/pipeline?state=stale",
+  "/pipeline?state=loading",
+  "/pipeline?state=unavailable",
+  "/pipeline?state=empty",
+  "/pipeline?state=chart",
   "/projects/epj_12b1f540736598a6/reliance-worldwide-corporation-buildings-3-4-5-7-and-12-horton-road-solar-photov",
   "/assets/ast_6fd10c193ba2193d/moyle",
 ] as const;
@@ -69,7 +74,7 @@ function slug(path: string): string {
   if (path === "/") {
     return "home";
   }
-  return path.replace(/^\//, "").replace(/\//g, "-");
+  return path.replace(/^\//, "").replace(/[/?=&]/g, "-");
 }
 
 async function prepare(page: Page, theme: (typeof THEMES)[number], width: number, height: number) {
@@ -514,6 +519,10 @@ for (const theme of THEMES) {
         const mapPage = path === "/map";
         await page.goto(path, { waitUntil: mapPage ? "domcontentloaded" : "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
+        const preview = new URL(path, "http://127.0.0.1").searchParams.get("state");
+        if (preview) {
+          await page.locator(`[data-pipeline-state="${preview}"]`).waitFor();
+        }
         if (path === "/map") {
           await page
             .getByText("Contains OS data © Crown copyright and database right 2026")

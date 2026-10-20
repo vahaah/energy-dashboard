@@ -19,7 +19,16 @@ export type PipelineCatalogue = {
   records: PipelineRecord[];
   figures: PipelineFigures;
   stamp: string;
+  unavailable: boolean;
 };
+
+/** A failed read keeps the last built catalogue and marks it unavailable. */
+export function catalogueAfterFailedRead(previous: PipelineCatalogue | null): PipelineCatalogue | null {
+  if (!previous) {
+    return null;
+  }
+  return { ...previous, unavailable: true };
+}
 
 let cached: PipelineCatalogue | null = null;
 
@@ -66,10 +75,7 @@ function assetHrefByRef(dir: string): Map<string, string> {
   return hrefs;
 }
 
-export function loadPipelineCatalogue(cwd = process.cwd()): PipelineCatalogue {
-  if (cached && cwd === process.cwd()) {
-    return cached;
-  }
+function readPipelineCatalogue(cwd: string): PipelineCatalogue {
   const dir = catalogueDir(cwd);
   const edition = pipelineEditionSchema.parse(JSON.parse(readFileSync(join(dir, REPD_PIPELINE_EDITION_FILE), "utf8")));
   const records = readRecords(dir);
@@ -78,7 +84,30 @@ export function loadPipelineCatalogue(cwd = process.cwd()): PipelineCatalogue {
   }
   const hrefs = assetHrefByRef(dir);
   const figures = buildPipelineFigures(records, (ref) => hrefs.get(ref) ?? null);
-  const catalogue = { edition, records, figures, stamp: pipelineEditionStamp(edition) };
+  return { edition, records, figures, stamp: pipelineEditionStamp(edition), unavailable: false };
+}
+
+export function loadKeepingLast(
+  cwd: string,
+  read: (cwd: string) => PipelineCatalogue,
+  previous: PipelineCatalogue | null,
+): PipelineCatalogue {
+  try {
+    return read(cwd);
+  } catch (error) {
+    const kept = catalogueAfterFailedRead(previous);
+    if (kept) {
+      return kept;
+    }
+    throw error;
+  }
+}
+
+export function loadPipelineCatalogue(cwd = process.cwd()): PipelineCatalogue {
+  if (cached && cwd === process.cwd()) {
+    return cached;
+  }
+  const catalogue = loadKeepingLast(cwd, readPipelineCatalogue, cwd === process.cwd() ? cached : null);
   if (cwd === process.cwd()) {
     cached = catalogue;
   }
