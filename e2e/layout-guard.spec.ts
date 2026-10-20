@@ -514,7 +514,10 @@ for (const theme of THEMES) {
         await page.goto(path, { waitUntil: mapPage ? "domcontentloaded" : "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
         if (path === "/map") {
-          await page.getByText("Contains OS data © Crown copyright and database right 2026").waitFor();
+          await page
+            .getByText("Contains OS data © Crown copyright and database right 2026")
+            .filter({ visible: true })
+            .waitFor();
         }
         if (path === "/assets" || path.startsWith("/assets/")) {
           await page.getByRole("heading", { level: 1 }).waitFor();

@@ -218,7 +218,7 @@ export function mountFlowsMap(
     style: styleUrl(theme),
     attributionControl: false,
     keyboard: false,
-    cooperativeGestures: true,
+    cooperativeGestures: false,
     fadeDuration: reduceMotion ? 0 : 300,
     center: [-2.2, 54.2],
     zoom: 4.4,
