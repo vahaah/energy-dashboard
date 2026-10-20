@@ -1,13 +1,22 @@
-import type { MapPoint } from "@/lib/assets/types";
-import { isCatalogueStation } from "@/lib/assets/types";
-import { groupForStation, sizeStepForMw, type MapShape, type MapTechnologyGroupId } from "@/lib/map/symbols";
-import type { Technology } from "@/lib/catalogue/assets/technologies";
+import { TECHNOLOGIES, type Technology } from "@/lib/catalogue/assets/technologies";
+import { mapSizeStep, type MarkerShape } from "@/lib/map/marker";
+import { groupOfTechnology, isGbNation, todayGroup, type TodayGroupId } from "@/lib/map/today-figures";
+
+export type StationSource = {
+  id: string;
+  name: string;
+  technology: string;
+  country: string | null;
+  mw: number | null;
+  latitude: number | null;
+  longitude: number | null;
+};
 
 export type StationProperties = {
   id: string;
   name: string;
-  group: MapTechnologyGroupId;
-  shape: MapShape;
+  group: TodayGroupId;
+  shape: MarkerShape;
   mw: number | null;
   radius: number;
   color: string;
@@ -25,23 +34,38 @@ export type StationFeature = {
   properties: StationProperties;
 };
 
-export function stationsFromPoints(points: readonly MapPoint[], now = new Date()): StationFeatureCollection {
+function isPlantTechnology(value: string): value is Technology {
+  return (TECHNOLOGIES as readonly string[]).includes(value);
+}
+
+/**
+ * GB operating stations for the map layer. Northern Ireland, links, and a row
+ * with no published megawatts are left out. Groups and radii come from the
+ * Today card modules.
+ */
+export function stationsFromPoints(rows: readonly StationSource[], now = new Date()): StationFeatureCollection {
   const features: StationFeature[] = [];
-  for (const point of points) {
-    if (!isCatalogueStation(point.technology)) {
+  for (const row of rows) {
+    if (row.latitude === null || row.longitude === null || (row.latitude === 0 && row.longitude === 0)) {
       continue;
     }
-    const group = groupForStation(point.technology as Technology);
-    const step = sizeStepForMw(point.mw);
+    if (!isGbNation(row.country) || !isPlantTechnology(row.technology)) {
+      continue;
+    }
+    const step = mapSizeStep(row.mw);
+    const group = todayGroup(groupOfTechnology(row.technology));
+    if (!step || !group) {
+      continue;
+    }
     features.push({
       type: "Feature",
-      geometry: { type: "Point", coordinates: [point.longitude, point.latitude] },
+      geometry: { type: "Point", coordinates: [row.longitude, row.latitude] },
       properties: {
-        id: point.id,
-        name: point.name,
+        id: row.id,
+        name: row.name,
         group: group.id,
         shape: group.shape,
-        mw: point.mw,
+        mw: row.mw,
         radius: step.radius,
         color: group.color,
       },

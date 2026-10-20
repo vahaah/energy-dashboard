@@ -84,9 +84,22 @@ describe("map flows model", () => {
   });
 
   it("builds station points without embedding them in the map page", () => {
-    const collection = stationsFromPoints(loadAssetCatalogue().points);
+    const collection = stationsFromPoints(loadAssetCatalogue().rows);
     expect(collection.features.length).toBeGreaterThan(3000);
+    expect(collection.features.every((feature) => feature.properties.radius === 5 || feature.properties.radius === 9 || feature.properties.radius === 14)).toBe(true);
     expect(readFileSync(resolve(process.cwd(), "src/app/map/page.tsx"), "utf8")).not.toContain("stationsFromPoints");
+    expect(readFileSync(resolve(process.cwd(), "src/components/flows-map.tsx"), "utf8")).not.toContain("symbols");
+    const filtered = stationsFromPoints([
+      { id: "gb", name: "A", technology: "ccgt", country: "England", mw: 10, latitude: 51, longitude: 0.1 },
+      { id: "ni", name: "B", technology: "ccgt", country: "Northern Ireland", mw: 400, latitude: 54.6, longitude: -6 },
+      { id: "blank", name: "C", technology: "onshore_wind", country: "Scotland", mw: null, latitude: 56, longitude: -4 },
+      { id: "link", name: "D", technology: "interconnector", country: "Wales", mw: 1000, latitude: 51.5, longitude: -3 },
+    ]);
+    expect(filtered.features).toEqual([
+      expect.objectContaining({
+        properties: expect.objectContaining({ id: "gb", group: "gas", shape: "circle", radius: 5 }),
+      }),
+    ]);
   });
 
   it("does not query Tinybird from the map page", () => {

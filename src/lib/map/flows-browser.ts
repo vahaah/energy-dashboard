@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
-import type { MapShape } from "@/lib/map/symbols";
+import type { MarkerShape } from "@/lib/map/marker";
 
 export type FlowsMapTheme = "light" | "dark";
 export type FlowsMapStatus = "ready" | "error";
@@ -103,7 +103,7 @@ function pointFeatures(lines: readonly FlowDrawLine[]): PointFeature[] {
   }));
 }
 
-function drawShape(context: CanvasRenderingContext2D, shape: MapShape, x: number, y: number, radius: number, color: string): void {
+function drawShape(context: CanvasRenderingContext2D, shape: MarkerShape, x: number, y: number, radius: number, color: string): void {
   context.save();
   context.translate(x, y);
   context.fillStyle = color;
@@ -124,13 +124,20 @@ function drawShape(context: CanvasRenderingContext2D, shape: MapShape, x: number
       context.fill();
       break;
     case "square":
-      context.rect(-radius, -radius, radius * 2, radius * 2);
+      context.rect(-radius * 0.78, -radius * 0.78, radius * 1.56, radius * 1.56);
       context.fill();
       break;
     case "triangle":
       context.moveTo(0, -radius);
-      context.lineTo(radius, radius);
-      context.lineTo(-radius, radius);
+      context.lineTo(radius * 0.92, radius * 0.78);
+      context.lineTo(-radius * 0.92, radius * 0.78);
+      context.closePath();
+      context.fill();
+      break;
+    case "triangle-down":
+      context.moveTo(0, radius);
+      context.lineTo(radius * 0.92, -radius * 0.78);
+      context.lineTo(-radius * 0.92, -radius * 0.78);
       context.closePath();
       context.fill();
       break;
@@ -149,21 +156,13 @@ function drawShape(context: CanvasRenderingContext2D, shape: MapShape, x: number
       context.fill();
       break;
     case "plus":
-      context.rect(-radius / 3, -radius, (radius * 2) / 3, radius * 2);
-      context.rect(-radius, -radius / 3, radius * 2, (radius * 2) / 3);
+      context.rect(-radius * 0.32, -radius, radius * 0.64, radius * 2);
+      context.rect(-radius, -radius * 0.32, radius * 2, radius * 0.64);
       context.fill();
       break;
     case "ring":
       context.arc(0, 0, radius, 0, Math.PI * 2);
       context.stroke();
-      break;
-    case "pill":
-      context.ellipse(0, 0, radius, radius * 0.55, 0, 0, Math.PI * 2);
-      context.fill();
-      break;
-    case "bar":
-      context.rect(-radius, -radius / 3, radius * 2, (radius * 2) / 3);
-      context.fill();
       break;
     default: {
       const neverShape: never = shape;

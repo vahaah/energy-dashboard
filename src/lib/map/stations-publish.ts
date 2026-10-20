@@ -19,6 +19,6 @@ export async function publishMapStationsIfDue(now: Date): Promise<void> {
       // Rewrite a body that is not the station collection.
     }
   }
-  const body = stationsFromPoints(loadAssetCatalogue().points, now);
+  const body = stationsFromPoints(loadAssetCatalogue().rows, now);
   await gasStore().put(MAP_STATIONS_LATEST, `${JSON.stringify(body)}\n`, mutablePut("application/json"));
 }

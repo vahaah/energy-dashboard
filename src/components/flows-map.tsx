@@ -27,7 +27,7 @@ import {
 import type { FlowsFeature, FlowsPageModel } from "@/lib/map/flows-types";
 import type { FlowsMapHandle, FlowsMapTheme } from "@/lib/map/flows-browser";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
-import { MAP_SIZE_STEPS, MAP_TECHNOLOGY_GROUPS, type MapShape } from "@/lib/map/symbols";
+import type { MarkerShape } from "@/lib/map/marker";
 
 type Preset = "flows" | "stations";
 type Snap = 140 | 430 | "full";
@@ -44,27 +44,43 @@ function themeOf(): FlowsMapTheme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-function ShapeMark({ shape }: { shape: MapShape }) {
-  const common = "inline-block size-3 shrink-0 border border-gray-1000";
+function ShapeMark({ shape, color }: { shape: MarkerShape; color: string }) {
   switch (shape) {
     case "circle":
-      return <span className={`${common} rounded-full bg-gray-1000`} />;
+      return <span className="inline-block size-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />;
     case "diamond":
-      return <span className={`${common} rotate-45 bg-gray-1000`} />;
+      return <span className="inline-block size-3 shrink-0 rotate-45" style={{ backgroundColor: color }} />;
     case "square":
-      return <span className={`${common} bg-gray-1000`} />;
+      return <span className="inline-block size-3 shrink-0" style={{ backgroundColor: color }} />;
     case "triangle":
-      return <span className="inline-block size-0 shrink-0 border-x-[6px] border-b-[10px] border-x-transparent border-b-gray-1000" />;
+      return (
+        <span
+          className="inline-block size-0 shrink-0 border-x-[6px] border-b-[10px] border-x-transparent"
+          style={{ borderBottomColor: color }}
+        />
+      );
+    case "triangle-down":
+      return (
+        <span
+          className="inline-block size-0 shrink-0 border-x-[6px] border-t-[10px] border-x-transparent"
+          style={{ borderTopColor: color }}
+        />
+      );
     case "hexagon":
-      return <span className={`${common} bg-gray-1000 [clip-path:polygon(25%_0,75%_0,100%_50%,75%_100%,25%_100%,0_50%)]`} />;
+      return (
+        <span
+          className="inline-block size-3 shrink-0 [clip-path:polygon(25%_0,75%_0,100%_50%,75%_100%,25%_100%,0_50%)]"
+          style={{ backgroundColor: color }}
+        />
+      );
     case "plus":
-      return <span className="inline-block shrink-0 text-label-12 text-gray-1000">+</span>;
+      return (
+        <span className="inline-block shrink-0 text-label-12" style={{ color }}>
+          +
+        </span>
+      );
     case "ring":
-      return <span className={`${common} rounded-full`} />;
-    case "pill":
-      return <span className={`${common} h-2 w-3 rounded-full bg-gray-1000`} />;
-    case "bar":
-      return <span className={`${common} h-1.5 w-3 bg-gray-1000`} />;
+      return <span className="inline-block size-3 shrink-0 rounded-full border-2" style={{ borderColor: color }} />;
     default: {
       const neverShape: never = shape;
       return neverShape;
@@ -132,11 +148,10 @@ function FlowDetails({ feature }: { feature: FlowsFeature }) {
 }
 
 function StationDetails({ station }: { station: StationPick }) {
-  const group = MAP_TECHNOLOGY_GROUPS.find((item) => item.id === station.group);
   return (
     <div className="flex min-w-0 flex-col gap-3 break-words">
       <h2 className="text-heading-16 text-gray-1000">{station.name}</h2>
-      <p className="text-copy-14 text-gray-1000">{group?.label ?? station.group}</p>
+      <p className="text-copy-14 text-gray-1000">{station.group}</p>
       <p className="text-copy-14 text-gray-1000">
         Rated power: {station.mw === null ? "—" : `${station.mw.toLocaleString("en-GB")} MW`}
       </p>
@@ -330,7 +345,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
     if (!match) {
       return;
     }
-    const group = MAP_TECHNOLOGY_GROUPS.find((item) => item.id === match.properties.group);
+    const group = model.stationGroups.find((item) => item.id === match.properties.group);
     setStation({
       id: match.properties.id,
       name: match.properties.name,
@@ -389,6 +404,8 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         return gas;
       case "places":
         return electricity || gas;
+      case "stations":
+        return stationsOn;
       default: {
         const neverLayer: never = credit.layer;
         return neverLayer;
@@ -516,13 +533,13 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       <div>
         <p className="text-label-13 text-gray-900">Station size</p>
         <ul className="mt-1 flex flex-col gap-1">
-          {MAP_TECHNOLOGY_GROUPS.map((group) => (
+          {model.stationGroups.map((group) => (
             <li key={group.id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
-              <ShapeMark shape={group.shape} />
+              <ShapeMark shape={group.shape} color={group.color} />
               {group.label}
             </li>
           ))}
-          {MAP_SIZE_STEPS.map((step) => (
+          {model.sizeSteps.map((step) => (
             <li key={step.id} className="text-copy-14 text-gray-900">
               {step.label}
             </li>

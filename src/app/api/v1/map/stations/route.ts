@@ -36,7 +36,7 @@ async function readStationsBlob(): Promise<StationFeatureCollection | null> {
  */
 export async function GET() {
   const fromBlob = await readStationsBlob().catch(() => null);
-  const body = fromBlob ?? stationsFromPoints(loadAssetCatalogue().points);
+  const body = fromBlob ?? stationsFromPoints(loadAssetCatalogue().rows);
   return NextResponse.json(body, {
     headers: {
       "Cache-Control": CACHE_CONTROL,

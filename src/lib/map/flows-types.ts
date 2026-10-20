@@ -1,4 +1,5 @@
 import type { FlowWidthPx } from "@/lib/map/flow-scale";
+import type { MarkerShape } from "@/lib/map/marker";
 
 export type FlowsFeature = {
   id: string;
@@ -30,7 +31,20 @@ export type FlowsFeature = {
 export type FlowsCredit = {
   id: string;
   text: string;
-  layer: "basemap" | "dno" | "electricity" | "gas" | "places";
+  layer: "basemap" | "dno" | "electricity" | "gas" | "places" | "stations";
+};
+
+export type FlowsStationGroup = {
+  id: string;
+  label: string;
+  shape: MarkerShape;
+  color: string;
+};
+
+export type FlowsSizeStep = {
+  id: string;
+  label: string;
+  radius: number;
 };
 
 export type FlowsPageModel = {
@@ -48,6 +62,8 @@ export type FlowsPageModel = {
   electricityMissing: number;
   netGasMcm: number | null;
   credits: FlowsCredit[];
+  stationGroups: FlowsStationGroup[];
+  sizeSteps: FlowsSizeStep[];
   dnoPath: string;
   dnoWarning: string | null;
 };

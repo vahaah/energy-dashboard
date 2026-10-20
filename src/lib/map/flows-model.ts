@@ -5,6 +5,7 @@ import {
   GEONAMES_ATTRIBUTION,
   NATIONAL_GAS_ATTRIBUTION,
   NESO_OPEN_DATA_ATTRIBUTION,
+  OGL_V3_ATTRIBUTION,
   elexonBmrsAttribution,
 } from "@/lib/attribution";
 import {
@@ -15,6 +16,10 @@ import {
 } from "@/lib/catalogue/links/schema";
 import { layersFileSchema } from "@/lib/catalogue/layers";
 import type { CapacityRelease } from "@/lib/map/capacity";
+import { MAP_SIZE_STEPS } from "@/lib/map/marker";
+import { TODAY_MAP_SCOPE } from "@/lib/map/today-card";
+import cardFile from "@/lib/map/today-card.json";
+import { TODAY_GROUPS } from "@/lib/map/today-figures";
 import type { ElectricityFlowsRelease } from "@/lib/map/electricity-release";
 import {
   electricityDirectionWords,
@@ -190,7 +195,17 @@ export function buildFlowsPageModel(input: FlowsModelInput): FlowsPageModel {
       { id: "gas", text: input.nationalGasAttribution, layer: "gas" },
       { id: "places", text: input.geonamesAttribution, layer: "places" },
       { id: "capacity", text: `${input.nesoAttribution}.`, layer: "electricity" },
+      { id: "stations", text: OGL_V3_ATTRIBUTION, layer: "stations" },
+      { id: "stations-edition", text: cardFile.edition, layer: "stations" },
+      { id: "stations-scope", text: TODAY_MAP_SCOPE, layer: "stations" },
     ],
+    stationGroups: TODAY_GROUPS.map((group) => ({
+      id: group.id,
+      label: group.label,
+      shape: group.shape,
+      color: group.color,
+    })),
+    sizeSteps: MAP_SIZE_STEPS.map((step) => ({ id: step.id, label: step.label, radius: step.radius })),
     dnoPath: input.dnoPath,
     dnoWarning: input.dnoWarning,
   };
