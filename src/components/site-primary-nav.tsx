@@ -1,19 +1,36 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import {
+  adjacentTabStop,
   isNavCurrent,
   menuKeyMotion,
+  overlayMenuBox,
   visibleHeaderNav,
   type SiteNavMenuItem,
 } from "@/lib/site-nav";
 
 const LINK_CLASS =
   "inline-flex min-h-11 items-center whitespace-nowrap rounded-sm text-label-13 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none sm:min-h-8";
+
+const TABBABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function headerTabStops(trigger: HTMLElement): HTMLElement[] {
+  return [...trigger.ownerDocument.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)].filter((node) => {
+    if (node.closest('[role="menu"]')) {
+      return false;
+    }
+    if (node.tabIndex < 0) {
+      return false;
+    }
+    return node.getClientRects().length > 0;
+  });
+}
 
 export function SitePrimaryNav({
   pathname,
@@ -156,11 +173,33 @@ function SiteNavMenu({
     if (!rect) {
       return;
     }
-    const gutter = 8;
-    const maxLeft = Math.max(gutter, window.innerWidth - node.offsetWidth - gutter);
-    node.style.top = `${rect.bottom + 4}px`;
-    node.style.left = `${Math.min(Math.max(gutter, rect.left), maxLeft)}px`;
+    const box = overlayMenuBox({
+      trigger: { top: rect.top, bottom: rect.bottom, left: rect.left },
+      menuWidth: node.offsetWidth,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    node.style.top = box.top === null ? "auto" : `${box.top}px`;
+    node.style.bottom = box.bottom === null ? "auto" : `${box.bottom}px`;
+    node.style.left = `${box.left}px`;
+    node.style.maxHeight = `${box.maxHeight}px`;
     node.style.visibility = "visible";
+  }
+
+  function onMenuKeyDown(event: ReactKeyboardEvent, target: "button" | "item") {
+    if (event.key === "Tab" && overlay && open) {
+      event.preventDefault();
+      const trigger = buttonRef.current;
+      setOpen(false);
+      if (trigger) {
+        const next = adjacentTabStop(headerTabStops(trigger), trigger, event.shiftKey);
+        (next ?? trigger).focus();
+      }
+      return;
+    }
+    if (applyKey(event.key, target) && event.key !== "Tab") {
+      event.preventDefault();
+    }
   }
 
   function applyKey(key: string, target: "button" | "item") {
@@ -200,11 +239,7 @@ function SiteNavMenu({
         aria-current={current ? "page" : undefined}
         className={`${LINK_CLASS} gap-1 ${current ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"}`}
         onClick={() => setOpen((value) => !value)}
-        onKeyDown={(event) => {
-          if (applyKey(event.key, "button") && event.key !== "Tab") {
-            event.preventDefault();
-          }
-        }}
+        onKeyDown={(event) => onMenuKeyDown(event, "button")}
       >
         {shownLabel}
         <ChevronDown className={`size-3.5 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
@@ -220,7 +255,7 @@ function SiteNavMenu({
           menuRef={bindMenu}
           itemRefs={itemRefs}
           onClose={() => setOpen(false)}
-          onKey={(key) => applyKey(key, "item")}
+          onKeyDown={onMenuKeyDown}
         />
       ) : null}
     </div>
@@ -237,7 +272,7 @@ function NavMenuPanel({
   menuRef,
   itemRefs,
   onClose,
-  onKey,
+  onKeyDown,
 }: {
   id: string;
   label: string;
@@ -248,7 +283,7 @@ function NavMenuPanel({
   menuRef: (node: HTMLDivElement | null) => void;
   itemRefs: { current: Array<HTMLAnchorElement | null> };
   onClose: () => void;
-  onKey: (key: string) => boolean;
+  onKeyDown: (event: ReactKeyboardEvent, target: "button" | "item") => void;
 }) {
   const panel = (
     <div
@@ -258,7 +293,7 @@ function NavMenuPanel({
       aria-label={label}
       className={
         overlay
-          ? "fixed z-30 max-h-[70vh] min-w-48 max-w-[calc(100vw-16px)] overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
+          ? "fixed z-30 min-w-48 max-w-[calc(100vw-16px)] overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
           : "absolute top-full left-0 z-30 mt-1 min-w-48 rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
       }
       style={overlay ? { visibility: "hidden" } : undefined}
@@ -284,11 +319,7 @@ function NavMenuPanel({
                 itemCurrent ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"
               }`}
               onClick={onClose}
-              onKeyDown={(event) => {
-                if (onKey(event.key) && event.key !== "Tab") {
-                  event.preventDefault();
-                }
-              }}
+              onKeyDown={(event) => onKeyDown(event, "item")}
             >
               {item.label}
             </Link>

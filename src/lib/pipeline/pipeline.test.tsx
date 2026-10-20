@@ -8,7 +8,7 @@ import { PipelineChartBoundary } from "@/components/pipeline/chart-boundary";
 import { PipelineBoard, StorageTooltip } from "@/components/pipeline/pipeline-board";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { PipelineTable } from "@/components/pipeline/pipeline-table";
-import { largestRemainder } from "@/lib/display-rounding";
+import { largestRemainder, roundDisplay } from "@/lib/display-rounding";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
 import { buildOgCard } from "@/lib/og/model";
 import {
@@ -48,6 +48,26 @@ import type { PipelineRecord } from "@/lib/pipeline/records";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
+}
+
+function roundedGwSubtotal(rows: readonly { exactGw: number }[]): number {
+  const eligible = rows.map((row) => (row.exactGw >= 0.1 ? row.exactGw : 0));
+  return roundDisplay(
+    largestRemainder(eligible, 0.1).reduce((sum, value) => sum + value, 0),
+    0.1,
+  );
+}
+
+function shownTechnologyMw(rows: readonly { amount: string }[]): number {
+  return rows.reduce((sum, row) => {
+    if (row.amount.endsWith(" GW")) {
+      return sum + Number(row.amount.replace(" GW", "")) * 1000;
+    }
+    if (row.amount.endsWith(" MW")) {
+      return sum + Number(row.amount.replaceAll(",", "").replace(" MW", ""));
+    }
+    return sum;
+  }, 0);
 }
 
 function record(patch: Partial<PipelineRecord> & Pick<PipelineRecord, "ref" | "status">): PipelineRecord {
@@ -152,7 +172,8 @@ describe("pipeline figures", () => {
     expect(sumDisplayedGw(figures.stages)).toBe(267.4);
     expect(sumDisplayedGw(figures.nations)).toBe(267.4);
     expect(sumDisplayedGw(figures.storage)).toBe(267.4);
-    expect(sumDisplayedGw(figures.technologies)).toBe(267.4);
+    expect(sumDisplayedGw(figures.technologies)).toBe(roundedGwSubtotal(figures.technologies));
+    expect(sumDisplayedGw(figures.technologies)).toBeLessThan(Number(figures.totalGw));
     for (const row of figures.technologies) {
       expect(row.amount).not.toBe("—");
       expect(row.amount).not.toContain("0.0 GW");
@@ -165,6 +186,8 @@ describe("pipeline figures", () => {
         expect(row.amount).toBe(`${row.gw} GW`);
       }
     }
+    expect(shownTechnologyMw(figures.technologies)).toBeLessThan(Number(figures.totalGw) * 1000 + 50);
+    expect(figures.technologies.find((row) => row.technology === "battery")?.amount).toBe("122.1 GW");
     expect(figures.technologies.find((row) => row.technology === "liquid_air")?.amount).toBe("49.9 MW");
     expect(figures.technologies.find((row) => row.technology === "compressed_air")?.amount).toBe("5.0 MW");
     expect(figures.technologies.find((row) => row.technology === "heat_pump")?.amount).toBe("2.0 MW");
@@ -177,13 +200,14 @@ describe("pipeline figures", () => {
       record({ ref: "heat", status: "under_construction", technology: "heat_pump", mw: 2 }),
       record({ ref: "none", status: "awaiting_construction", technology: "unspecified", mw: null }),
     ]);
-    expect(sumDisplayedGw(mixed.technologies)).toBe(Number(mixed.totalGw));
+    expect(sumDisplayedGw(mixed.technologies)).toBe(roundedGwSubtotal(mixed.technologies));
+    expect(sumDisplayedGw(mixed.technologies)).toBe(2.1);
+    expect(mixed.technologies.find((row) => row.technology === "battery")?.amount).toBe("1.1 GW");
+    expect(mixed.technologies.find((row) => row.technology === "solar_pv")?.amount).toBe("1.0 GW");
     expect(mixed.technologies.find((row) => row.technology === "liquid_air")?.amount).toBe("49.9 MW");
     expect(mixed.technologies.find((row) => row.technology === "heat_pump")?.amount).toBe("2.0 MW");
     expect(mixed.technologies.find((row) => row.technology === "unspecified")?.amount).toBe(PIPELINE_NOT_PUBLISHED);
-    expect(mixed.technologies.filter((row) => row.amount.endsWith(" GW")).reduce((sum, row) => sum + Number(row.gw), 0)).toBe(
-      Number(mixed.totalGw),
-    );
+    expect(shownTechnologyMw(mixed.technologies)).toBe(2151.9);
     const shown = largestRemainder([1.04, 1.04, 1.04], 0.1);
     expect(shown).toEqual([1.1, 1.0, 1.0]);
     expect(Number(shown.reduce((sum, value) => sum + value, 0).toFixed(1))).toBe(3.1);
@@ -330,7 +354,9 @@ describe("pipeline page", () => {
     expect(html).toContain("49.9 MW");
     expect(html).toContain("5.0 MW");
     expect(html).toContain("2.0 MW");
-    expect(html).toContain("A technology under 0.1 GW is shown in MW to one decimal.");
+    expect(html).toContain(
+      "A technology under 0.1 GW is shown in MW to one decimal and is left out of the gigawatt split.",
+    );
     expect(page).not.toContain("searchParams");
     const table = source("src/components/pipeline/pipeline-table.tsx");
     expect(table).toContain("relative mt-3 min-w-0 max-w-full overflow-x-auto");

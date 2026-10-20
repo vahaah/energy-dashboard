@@ -1,4 +1,4 @@
-import { displayedPercents, formatDisplay, largestRemainder, largestRemainderTo, roundDisplay } from "@/lib/display-rounding";
+import { displayedPercents, formatDisplay, largestRemainder, roundDisplay } from "@/lib/display-rounding";
 import { latestDate } from "@/lib/projects/dates";
 import { technologyLabel, type ProjectTechnology } from "@/lib/projects/technology";
 import { PIPELINE_CONSENTED_LABEL, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
@@ -326,48 +326,14 @@ function gwParts(rows: readonly { id: string; label: string; bucket: Bucket }[])
 }
 
 /**
- * Gigawatt quanta for a technology split. Rows under 0.1 GW stay at 0 so the
- * page can show them in MW. The other rows use largest-remainder and still
- * sum to the rounded total.
+ * Gigawatt quanta for technologies at or above 0.1 GW. Smaller rows stay at 0
+ * and are shown in MW, so their capacity is not also given to a larger label.
+ * The returned values sum to the rounded total of the rows that stay in GW.
  */
 function technologyGwShown(exactGw: readonly number[]): number[] {
-  const sum = exactGw.reduce((total, value) => total + Math.max(0, value), 0);
-  const target = roundDisplay(sum, PIPELINE_GW_QUANTUM);
   const eligible = exactGw.map((value) => (value >= PIPELINE_GW_QUANTUM ? value : 0));
-  const shown = largestRemainderTo(eligible, PIPELINE_GW_QUANTUM, target);
-  return parkQuantaAboveQuantum(exactGw, shown);
-}
-
-function parkQuantaAboveQuantum(exactGw: readonly number[], shown: readonly number[]): number[] {
-  const quanta = shown.map((value) => Math.round(value / PIPELINE_GW_QUANTUM));
-  const small = exactGw.map((value) => !(value >= PIPELINE_GW_QUANTUM));
-  let spare = 0;
-  for (let index = 0; index < quanta.length; index += 1) {
-    if (!small[index]) {
-      continue;
-    }
-    spare += quanta[index] ?? 0;
-    quanta[index] = 0;
-  }
-  const hosts = exactGw
-    .map((value, index) => ({
-      index,
-      frac: value / PIPELINE_GW_QUANTUM - Math.floor(value / PIPELINE_GW_QUANTUM + 1e-8),
-    }))
-    .filter((row) => !small[row.index])
-    .sort((left, right) => right.frac - left.frac || left.index - right.index);
-  const guard = spare + hosts.length * 4;
-  let step = 0;
-  while (spare > 0 && hosts.length > 0 && step < guard) {
-    const host = hosts[step % hosts.length];
-    if (!host) {
-      break;
-    }
-    quanta[host.index] = (quanta[host.index] ?? 0) + 1;
-    spare -= 1;
-    step += 1;
-  }
-  return quanta.map((count) => Number(((count ?? 0) * PIPELINE_GW_QUANTUM).toFixed(1)));
+  const shown = largestRemainder(eligible, PIPELINE_GW_QUANTUM);
+  return shown.map((value, index) => ((exactGw[index] ?? 0) >= PIPELINE_GW_QUANTUM ? value : 0));
 }
 
 function technologyAmount(exactMw: number, gw: string): string {

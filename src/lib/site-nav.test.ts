@@ -8,7 +8,9 @@ import {
   catalogHrefs,
   hiddenNavHrefs,
   isIndexablePath,
+  adjacentTabStop,
   menuKeyMotion,
+  overlayMenuBox,
   routeExists,
   SHIPPED_PAGE_ROUTES,
   SITE_NAV_CATALOG,
@@ -150,5 +152,37 @@ describe("site nav shell", () => {
     expect(menuKeyMotion({ key: "ArrowDown", open: false, index: 0, length: 0, target: "button" })).toEqual({
       type: "none",
     });
+  });
+
+  it("clips a compact menu to the space beside the trigger", () => {
+    const below = overlayMenuBox({
+      trigger: { top: 108, bottom: 120, left: 40 },
+      menuWidth: 200,
+      viewportWidth: 375,
+      viewportHeight: 700,
+    });
+    expect(below.top).toBe(124);
+    expect(below.bottom).toBeNull();
+    expect(below.maxHeight).toBe(700 - 120 - 4 - 8);
+    expect(below.left).toBe(40);
+
+    const flipped = overlayMenuBox({
+      trigger: { top: 200, bottom: 232, left: 300 },
+      menuWidth: 220,
+      viewportWidth: 375,
+      viewportHeight: 320,
+    });
+    expect(flipped.top).toBeNull();
+    expect(flipped.bottom).toBe(320 - 200 + 4);
+    expect(flipped.maxHeight).toBe(200 - 4 - 8);
+    expect(flipped.left).toBe(375 - 220 - 8);
+  });
+
+  it("moves Tab to the header control beside the trigger", () => {
+    const stops = ["search", "system", "changes"];
+    expect(adjacentTabStop(stops, "system", false)).toBe("changes");
+    expect(adjacentTabStop(stops, "system", true)).toBe("search");
+    expect(adjacentTabStop(stops, "changes", false)).toBeNull();
+    expect(adjacentTabStop(stops, "missing", false)).toBeNull();
   });
 });
