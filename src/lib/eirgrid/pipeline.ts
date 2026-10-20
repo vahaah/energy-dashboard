@@ -128,12 +128,13 @@ async function recordCatalogue(
   previous: NiRelease | null,
 ): Promise<void> {
   const stamps = areaPublishedAt(bundle);
+  const failed = failedPartIds(bundle);
+  const carriedStamps = await previousAreaStamps(previous);
   const areas = [...new Set(release.series.map((series) => seriesArea(series.metric_id)))];
   for (const area of areas) {
     const metricIds = EIRGRID_SERIES.filter((series) => series.area === area).map((series) => series.metric_id);
     const stamped = stamps.get(area) ?? null;
-    const publishedAt =
-      stamped ?? (areaKeepsPreviousStamp(area, failedPartIds(bundle)) ? (previous?.published_at ?? null) : null);
+    const publishedAt = stamped ?? (areaKeepsPreviousStamp(area, failed) ? (carriedStamps.get(area) ?? null) : null);
     const content = {
       area,
       release_id: release.release_id,
@@ -168,21 +169,68 @@ async function recordCatalogue(
 }
 
 function areaKeepsPreviousStamp(area: string, failed: readonly EirgridPartId[]): boolean {
+  const missed = new Set<string>(failed);
   if ((CHART_AREAS as readonly string[]).includes(area)) {
-    return failed.some((part) => part.startsWith("chart:"));
+    return everyPart(missed, ["chart:NI", "chart:ROI", "chart:ALL"]);
   }
   switch (area) {
     case "interconnection":
-      return failed.some((part) => part.startsWith("interconnection:"));
+      return everyPart(missed, ["interconnection:NI", "interconnection:ROI", "interconnection:ALL"]);
     case "fuelmix":
-      return failed.some((part) => part.startsWith("fuel:"));
+      return everyPart(missed, ["fuel:NI", "fuel:ROI", "fuel:ALL"]);
     case "SnspAll":
-      return failed.includes("snsp");
+      return missed.has("snsp");
     case "marketPricing":
       return false;
     default:
       return false;
   }
+}
+
+function everyPart(failed: ReadonlySet<string>, parts: readonly EirgridPartId[]): boolean {
+  return parts.every((part) => failed.has(part));
+}
+
+/** Per-area publisher time already recorded for the release whose series we carried. */
+async function previousAreaStamps(previous: NiRelease | null): Promise<ReadonlyMap<string, string | null>> {
+  const stamps = new Map<string, string | null>();
+  if (!previous) {
+    return stamps;
+  }
+  const file = await niStore().get(NI_CATALOGUE_RELEASES_PATH, false);
+  const text = file?.body ?? "";
+  for (const line of text.split("\n")) {
+    const row = catalogueAreaStamp(line, previous.release_id);
+    if (!row) {
+      continue;
+    }
+    stamps.set(row.area, row.publishedAt);
+  }
+  return stamps;
+}
+
+function catalogueAreaStamp(line: string, releaseId: string): { area: string; publishedAt: string | null } | null {
+  if (line.length === 0) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const row = parsed as { published_at?: unknown; content?: unknown };
+  if (!row.content || typeof row.content !== "object") {
+    return null;
+  }
+  const content = row.content as { area?: unknown; release_id?: unknown };
+  if (content.release_id !== releaseId || typeof content.area !== "string") {
+    return null;
+  }
+  return { area: content.area, publishedAt: typeof row.published_at === "string" ? row.published_at : null };
 }
 
 function seriesArea(metricId: string): string {

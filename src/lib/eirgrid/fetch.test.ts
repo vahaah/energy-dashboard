@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FatalError } from "workflow";
 import {
+  NI_CATALOGUE_RELEASES_PATH,
   NI_CATALOGUE_RUNS_PATH,
   NI_LATEST_PATH,
   NI_PREVIOUS_PATH,
@@ -24,10 +25,32 @@ vi.mock("@/lib/eirgrid/revalidate", () => ({
 const MARKET = String.raw`{"rows":[{\"date\":\"20-Oct-2026 15:00:00\",\"NET_IMBALANCE_VOLUME\":38.738,\"IMBALANCE_SETTLEMENT_PRICE\":266.7,\"IMBALANCE_SETTLEMENT_PRICE_GBP\":237.82}]}`;
 
 function chart(demand: number): string {
-  return JSON.stringify({
-    LastUpdated: "20-Oct-2026 15:00:00",
-    Rows: [{ EffectiveTime: "20-Oct-2026 15:00:00", FieldName: "SYSTEM_DEMAND", Region: "NI", Value: demand }],
-  });
+  return chartAt("20-Oct-2026 15:00:00", demand);
+}
+
+function chartAt(lastUpdated: string, demand: number): string {
+  return feed(lastUpdated, [{ EffectiveTime: lastUpdated, FieldName: "SYSTEM_DEMAND", Region: "NI", Value: demand }]);
+}
+
+function feed(
+  lastUpdated: string,
+  rows: { EffectiveTime: string; FieldName: string; Region: string; Value: number }[],
+): string {
+  return JSON.stringify({ LastUpdated: lastUpdated, Rows: rows });
+}
+
+type CatalogueLine = {
+  dataset_id: string;
+  published_at: string | null;
+  source_release_id: string;
+  content: { release_id: string };
+};
+
+async function catalogueLines(store: MemoryNiStore): Promise<CatalogueLine[]> {
+  return ((await store.get(NI_CATALOGUE_RELEASES_PATH))?.body ?? "")
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as CatalogueLine);
 }
 
 function partOf(url: string): string {
@@ -193,6 +216,76 @@ describe("EirGrid fetch", () => {
     expect(marketCalls).toBe(1);
     expect(valueOf(release, "elec.ni.demand.system")).toBe(710);
     expect(valueOf(release, "elec.all_island.price.imbalance")).toBe(266.7);
+  });
+
+  it("keeps a failed area's own catalogue time when another part publishes", async () => {
+    const store = new MemoryNiStore();
+    setNiStoreForTests(store);
+    const fuel = feed("20-Oct-2026 13:00:00", [
+      { EffectiveTime: "20-Oct-2026 13:00:00", FieldName: "FUEL_GAS", Region: "NI", Value: 10 },
+      { EffectiveTime: "20-Oct-2026 13:00:00", FieldName: "FUEL_RENEW", Region: "NI", Value: 20 },
+      { EffectiveTime: "20-Oct-2026 13:00:00", FieldName: "FUEL_NET_IMPORT", Region: "NI", Value: 5 },
+    ]);
+    const snsp = feed("20-Oct-2026 14:00:00", [
+      { EffectiveTime: "20-Oct-2026 14:00:00", FieldName: "SNSP_ALL", Region: "ALL", Value: 40 },
+    ]);
+    const firstFetch = async (input: RequestInfo | URL) => {
+      const part = partOf(String(input));
+      if (part === "chart:NI") {
+        return textResponse(chartAt("20-Oct-2026 12:00:00", 636));
+      }
+      if (part === "fuel:NI") {
+        return textResponse(fuel);
+      }
+      if (part === "snsp") {
+        return textResponse(snsp);
+      }
+      if (part === "market") {
+        return textResponse(MARKET);
+      }
+      return textResponse("{}");
+    };
+    const firstFetched = await fetchNiBundle(new Date("2026-10-20T11:15:00.000Z"), {
+      fetchImpl: firstFetch,
+      gapMs: 0,
+      sleep: async () => undefined,
+    });
+    const first = await publishNiBundle(firstFetched.hash, new Date("2026-10-20T11:15:00.000Z"));
+    const firstRelease = await publishedRelease(store, first.releaseId);
+
+    const secondFetch = async (input: RequestInfo | URL) => {
+      const part = partOf(String(input));
+      if (part.startsWith("fuel:") || part === "snsp") {
+        return textResponse("down", 500);
+      }
+      if (part === "chart:NI") {
+        return textResponse(chartAt("20-Oct-2026 16:00:00", 700));
+      }
+      if (part === "market") {
+        return textResponse(MARKET);
+      }
+      return textResponse("{}");
+    };
+    const secondFetched = await fetchNiBundle(new Date("2026-10-20T15:15:00.000Z"), {
+      fetchImpl: secondFetch,
+      gapMs: 0,
+      sleep: async () => undefined,
+    });
+    const published = await publishNiBundle(secondFetched.hash, new Date("2026-10-20T15:15:00.000Z"));
+    const lines = await catalogueLines(store);
+    const second = lines.filter((line) => line.content.release_id === published.releaseId);
+    const demand = second.find((line) => line.dataset_id === "eirgrid-group:demandactual");
+    const fuelmix = second.find((line) => line.dataset_id === "eirgrid-group:fuelmix");
+    const snspLine = second.find((line) => line.dataset_id === "eirgrid-group:SnspAll");
+
+    expect(firstRelease.published_at).toBe("2026-10-20T11:00:00.000Z");
+    expect(valueOf(await publishedRelease(store, published.releaseId), "elec.ni.fuel.gas")).toBe(10);
+    expect(demand?.published_at).toBe("2026-10-20T15:00:00.000Z");
+    expect(demand?.source_release_id).toBe("eirgrid-group:demandactual:2026-10-20T15:00:00.000Z");
+    expect(fuelmix?.published_at).toBe("2026-10-20T12:00:00.000Z");
+    expect(fuelmix?.source_release_id).toBe("eirgrid-group:fuelmix:2026-10-20T12:00:00.000Z");
+    expect(snspLine?.published_at).toBe("2026-10-20T13:00:00.000Z");
+    expect(snspLine?.source_release_id).toBe("eirgrid-group:SnspAll:2026-10-20T13:00:00.000Z");
   });
 
   it("leaves the previous pointer when every request is exhausted", async () => {
