@@ -26,12 +26,17 @@ export function pipelinePublicationDay(edition: { published_at: string; edition_
   return published;
 }
 
+/** The day the Not updated state is shown. 3 Aug 2026 is shown from 1 Dec 2026. */
+export function pipelineNotUpdatedFrom(publicationDay: string): string | null {
+  return addUtcDays(publicationDay, PIPELINE_STALE_DAYS);
+}
+
 /**
  * Not updated once 120 days have passed since the publication date.
- * 3 Aug 2026 is flagged from 1 Dec 2026.
+ * The Q2 2026 publication date is 3 Aug 2026, so the state is shown from 1 Dec 2026.
  */
 export function pipelineEditionStale(editionDay: string, now: Date): boolean {
-  const limit = addUtcDays(editionDay, PIPELINE_STALE_DAYS);
+  const limit = pipelineNotUpdatedFrom(editionDay);
   if (limit === null) {
     return true;
   }

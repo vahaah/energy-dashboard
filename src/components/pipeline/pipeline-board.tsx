@@ -15,8 +15,10 @@ import {
   PIPELINE_METHODOLOGY,
   PIPELINE_NOT_PUBLISHED,
   PIPELINE_NOT_UPDATED,
+  PIPELINE_STORAGE_HEADING,
+  PIPELINE_STORAGE_TOTAL,
 } from "@/lib/pipeline/copy";
-import { formatMedianDuration, stageLabel, type PipelineFigures } from "@/lib/pipeline/model";
+import { formatMedianDuration, stageLabel, type PipelineFigures, type StorageTotal } from "@/lib/pipeline/model";
 
 const NATION_COLOR = "#0d94d2";
 
@@ -60,7 +62,7 @@ export function PipelineBoard({
         <p className="mt-4 flex min-w-0 flex-wrap items-center gap-1 text-copy-14 text-gray-1000">
           <span className="text-gray-900">Storage</span>
           <span className="tabular-nums">{figures.storageTotal.gw} GW</span>
-          <InfoTooltip text={figures.storageTotal.exactMwLabel} label="What is the storage total?" />
+          <InfoTooltip text={<StorageTooltip total={figures.storageTotal} />} label="What is the storage total?" />
         </p>
         <ul className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap" aria-label="Storage split">
           {figures.storage.map((part) => (
@@ -185,6 +187,24 @@ export function PipelineBoard({
         </p>
       </Card>
     </div>
+  );
+}
+
+export function StorageTooltip({ total }: { total: StorageTotal }) {
+  return (
+    <span className="flex min-w-0 flex-col gap-2">
+      <span className="text-label-13 text-gray-900">{PIPELINE_STORAGE_HEADING}</span>
+      <span className="flex items-baseline justify-between gap-3">
+        <span>{PIPELINE_STORAGE_TOTAL}</span>
+        <span className="tabular-nums">{total.exactMwLabel}</span>
+      </span>
+      {total.rows.map((row) => (
+        <span key={row.label} className="flex items-baseline justify-between gap-3">
+          <span>{row.label}</span>
+          <span className="tabular-nums">{row.exactMwLabel}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 

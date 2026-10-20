@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { GET as pipelineCsvRoute } from "@/app/pipeline/projects.csv/route";
 import PipelinePage from "@/app/pipeline/page";
-import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { PipelineBoard, StorageTooltip } from "@/components/pipeline/pipeline-board";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { largestRemainder } from "@/lib/display-rounding";
+import { formatLondonDayMonthYear } from "@/lib/london-time";
 import { buildOgCard } from "@/lib/og/model";
 import {
   PIPELINE_CONSENTED_LABEL,
@@ -20,11 +21,14 @@ import {
   PIPELINE_MEDIAN_NOTE,
   PIPELINE_NOT_PUBLISHED,
   PIPELINE_NOT_UPDATED,
+  PIPELINE_STORAGE_HEADING,
+  PIPELINE_STORAGE_TOTAL,
   PIPELINE_TITLE,
 } from "@/lib/pipeline/copy";
 import { PIPELINE_FETCH_ATTEMPTS, PIPELINE_FETCH_TIMEOUT_MS, pipelineRetryDelayMs, pipelineStatusRetries } from "@/lib/pipeline/fetch";
-import { pipelineEditionStale, pipelinePublicationDay } from "@/lib/pipeline/freshness";
+import { pipelineEditionStale, pipelineNotUpdatedFrom, pipelinePublicationDay } from "@/lib/pipeline/freshness";
 import { loadPipelineCatalogue } from "@/lib/pipeline/load";
+import { pipelineStageSubline } from "@/lib/pipeline/share";
 import {
   buildPipelineFigures,
   formatMedianDuration,
@@ -88,7 +92,14 @@ describe("pipeline figures", () => {
       ["other_storage", "Other storage", "10.9"],
       ["generation", "Generation", "134.4"],
     ]);
-    expect(figures.storageTotal).toEqual({ gw: "133.0", exactMwLabel: "133,083.5 MW" });
+    expect(figures.storageTotal.gw).toBe("133.0");
+    expect(figures.storageTotal.exactMwLabel).toBe("133,083.5 MW");
+    expect(figures.storageTotal.rows).toEqual([
+      { label: "Battery storage", exactMwLabel: "122,138.4 MW" },
+      { label: "Pumped storage", exactMwLabel: "10,890.2 MW" },
+      { label: "Liquid air", exactMwLabel: "49.9 MW" },
+      { label: "Compressed air", exactMwLabel: "5.0 MW" },
+    ]);
     expect(figures.stages.map((stage) => stage.label)).toEqual([
       "Under construction",
       PIPELINE_CONSENTED_LABEL,
@@ -187,6 +198,11 @@ describe("pipeline figures", () => {
     expect(catalogue.edition.published_at.startsWith("2026-08-03")).toBe(true);
     expect(publication).toBe("2026-08-03");
     expect(publication).toBe(catalogue.edition.edition_day);
+    expect(PIPELINE_NOT_UPDATED).toBe("Not updated");
+    expect(formatLondonDayMonthYear(publication)).toBe("3 Aug 2026");
+    const shownFrom = pipelineNotUpdatedFrom(publication);
+    expect(shownFrom).toBe("2026-12-01");
+    expect(formatLondonDayMonthYear(shownFrom ?? "")).toBe("1 Dec 2026");
     expect(pipelineEditionStale(publication, new Date("2026-10-20T12:00:00Z"))).toBe(false);
     expect(pipelineEditionStale(publication, new Date("2026-11-21T00:00:00Z"))).toBe(false);
     expect(pipelineEditionStale(publication, new Date("2026-11-30T12:00:00Z"))).toBe(false);
@@ -277,6 +293,14 @@ describe("pipeline page", () => {
       <PipelineBoard figures={catalogue.figures} stamp={catalogue.stamp} stale />,
     );
     expect(html).toContain(PIPELINE_NOT_UPDATED);
+    const tooltip = renderToStaticMarkup(<StorageTooltip total={catalogue.figures.storageTotal} />);
+    expect(tooltip).toContain(PIPELINE_STORAGE_HEADING);
+    expect(tooltip).toContain(PIPELINE_STORAGE_TOTAL);
+    expect(tooltip).toContain(catalogue.figures.storageTotal.exactMwLabel);
+    for (const row of catalogue.figures.storageTotal.rows) {
+      expect(tooltip).toContain(row.label);
+      expect(tooltip).toContain(row.exactMwLabel);
+    }
   });
 
   it("serves the project table as CSV", async () => {
@@ -302,11 +326,14 @@ describe("pipeline page", () => {
   });
 
   it("puts the GW total and the stage split on the share image", () => {
+    const shown = loadPipelineCatalogue().figures;
+    const consented = shown.stages.find((stage) => stage.id === "consented");
     const card = buildOgCard({ kind: "page", page: "pipeline" }, { facts: null, records: null, prices: null });
-    expect(card.title).toBe("267.4 GW · 7,668 projects");
-    expect(card.kicker).toBe(
-      "27.9 GW under construction · 145.3 GW consented, not yet built · 94.2 GW in planning",
-    );
+    expect(consented).toBeDefined();
+    expect(pipelineStageSubline(consented!)).toBe(`${consented!.gw} GW consented, not yet built`);
+    expect(card.kicker).toBe(shown.stages.map((stage) => pipelineStageSubline(stage)).join(" · "));
+    expect(card.title).toBe(`${shown.totalGw} GW · ${shown.projects.toLocaleString("en-GB")} projects`);
+    expect(source("src/lib/pipeline/share.ts")).not.toMatch(/\d+\.\d+/);
     expect(card.source).toContain(PIPELINE_CREDIT);
     expect(card.stamp).toBe("July 2026 (Q2). Published 3 Aug 2026.");
   });

@@ -17,6 +17,10 @@ export const PIPELINE_SOURCE_LINE = `${PIPELINE_CREDIT}. ${OGL_V3_ATTRIBUTION}`;
 
 export const PIPELINE_NOT_UPDATED = "Not updated";
 
+export const PIPELINE_STORAGE_HEADING = "Storage";
+
+export const PIPELINE_STORAGE_TOTAL = "Total";
+
 export const PIPELINE_STALE_DAYS = 120;
 
 export const PIPELINE_EXPLAINER_LABEL = "How the pipeline works";

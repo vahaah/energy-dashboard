@@ -46,9 +46,15 @@ export type GwPart = {
 
 export type StagePart = GwPart & { id: PipelineStageId };
 
+export type StorageTypeRow = {
+  label: string;
+  exactMwLabel: string;
+};
+
 export type StorageTotal = {
   gw: string;
   exactMwLabel: string;
+  rows: StorageTypeRow[];
 };
 
 export type TechnologyPart = GwPart & {
@@ -542,7 +548,7 @@ export function buildPipelineFigures(
     stages,
     nations,
     storage,
-    storageTotal: storageTotalOf(storage, storageBuckets),
+    storageTotal: storageTotalOf(storage, storageBuckets, technologyBuckets),
     technologies,
     revised,
     noApplicationRequired,
@@ -571,17 +577,51 @@ export function sumDisplayedGw(parts: readonly { gw: string }[]): number {
   return Number(parts.reduce((sum, part) => sum + Number(part.gw), 0).toFixed(1));
 }
 
-function storageTotalOf(storage: readonly GwPart[], buckets: ReadonlyMap<StorageBucket, Bucket>): StorageTotal {
-  const parts = storage.filter((part) => part.id === "battery" || part.id === "other_storage");
-  const exactMw = (buckets.get("battery")?.exactMw ?? 0) + (buckets.get("other_storage")?.exactMw ?? 0);
-  const roundedMw = Math.round(exactMw * 10) / 10;
-  const exactMwLabel = `${new Intl.NumberFormat("en-GB", {
+function formatExactMw(mw: number): string {
+  const roundedMw = Math.round(mw * 10) / 10;
+  return `${new Intl.NumberFormat("en-GB", {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(roundedMw)} MW`;
+}
+
+function storageTypeLabel(technology: ProjectTechnology): string | null {
+  if (technology === "battery") {
+    return storageLabel("battery");
+  }
+  if (technology === "pumped_storage" || technology === "liquid_air" || technology === "compressed_air") {
+    return technologyLabel(technology);
+  }
+  return null;
+}
+
+function storageTypeRows(technologies: ReadonlyMap<ProjectTechnology, Bucket>): StorageTypeRow[] {
+  const rows: { label: string; exactMw: number }[] = [];
+  for (const [technology, bucket] of technologies) {
+    if (storageBucket(technology) === "generation" || bucket.projects === 0) {
+      continue;
+    }
+    const label = storageTypeLabel(technology);
+    if (label === null) {
+      continue;
+    }
+    rows.push({ label, exactMw: bucket.exactMw });
+  }
+  rows.sort((left, right) => right.exactMw - left.exactMw || left.label.localeCompare(right.label));
+  return rows.map((row) => ({ label: row.label, exactMwLabel: formatExactMw(row.exactMw) }));
+}
+
+function storageTotalOf(
+  storage: readonly GwPart[],
+  buckets: ReadonlyMap<StorageBucket, Bucket>,
+  technologies: ReadonlyMap<ProjectTechnology, Bucket>,
+): StorageTotal {
+  const parts = storage.filter((part) => part.id === "battery" || part.id === "other_storage");
+  const exactMw = (buckets.get("battery")?.exactMw ?? 0) + (buckets.get("other_storage")?.exactMw ?? 0);
   return {
     gw: sumDisplayedGw(parts).toFixed(1),
-    exactMwLabel,
+    exactMwLabel: formatExactMw(exactMw),
+    rows: storageTypeRows(technologies),
   };
 }
 
