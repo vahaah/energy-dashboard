@@ -1,6 +1,16 @@
 /** Workflow-bundle constants. This module imports nothing. */
 
+/** Retries of one workflow step after its first attempt. */
 export const EIRGRID_MAX_RETRIES = 2;
+
+/**
+ * Retries of one dashboard request after its first attempt.
+ * Timeout, 429, and 5xx only. An exhausted request does not refetch the other ten.
+ */
+export const EIRGRID_REQUEST_RETRIES = 2;
+
+/** One Smart Grid Dashboard call. A response at 8.3s used to die at 10s. */
+export const EIRGRID_FETCH_TIMEOUT_MS = 25_000;
 
 export const EIRGRID_WORKFLOW_STEPS = 4;
 

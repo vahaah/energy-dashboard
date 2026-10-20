@@ -1,11 +1,36 @@
 import { EIRGRID_GROUP_LICENCE_READ_ON, EIRGRID_GROUP_LICENCE_URL } from "@/lib/attribution";
 import { resolveLondonWallSequence } from "@/lib/ingest/national-gas/gas-day";
-import type { EirgridFetchBundle } from "@/lib/eirgrid/fetch";
+import { failedPartIds, type EirgridFetchBundle, type EirgridPartId } from "@/lib/eirgrid/fetch";
 import { eirgridStampToWall, mergeParseReports, parseChartDocument, parseFuelMixDocument, parseMarketPricingDocument, parseSnspDocument } from "@/lib/eirgrid/parse";
 import { buildNiRelease, type NiRelease } from "@/lib/eirgrid/release";
-import { CHART_AREAS } from "@/lib/eirgrid/spec";
+import { CHART_AREAS, EIRGRID_SERIES, geographyFromFeedRegion, type EirgridSeriesSpec } from "@/lib/eirgrid/spec";
 
-export function releaseFromBundle(bundle: EirgridFetchBundle): NiRelease {
+export function metricIdsForEirgridPart(part: EirgridPartId): string[] {
+  switch (part) {
+    case "chart:NI":
+    case "chart:ROI":
+    case "chart:ALL":
+      return idsFor(geographyFromFeedRegion(part.slice("chart:".length)), "chart");
+    case "interconnection:NI":
+    case "interconnection:ROI":
+    case "interconnection:ALL":
+      return idsFor(geographyFromFeedRegion(part.slice("interconnection:".length)), "interconnection");
+    case "fuel:NI":
+    case "fuel:ROI":
+    case "fuel:ALL":
+      return idsFor(geographyFromFeedRegion(part.slice("fuel:".length)), "fuel");
+    case "snsp":
+      return EIRGRID_SERIES.filter((series) => series.area === "SnspAll").map((series) => series.metric_id);
+    case "market":
+      return EIRGRID_SERIES.filter((series) => series.area === "marketPricing").map((series) => series.metric_id);
+    default: {
+      const exhaustive: never = part;
+      return exhaustive;
+    }
+  }
+}
+
+export function releaseFromBundle(bundle: EirgridFetchBundle, previous: NiRelease | null = null): NiRelease {
   const reports = [
     ...Object.values(bundle.charts).map(parseChartDocument),
     ...Object.values(bundle.interconnection).map(parseChartDocument),
@@ -14,16 +39,44 @@ export function releaseFromBundle(bundle: EirgridFetchBundle): NiRelease {
     parseMarketPricingDocument(bundle.market),
   ];
   const merged = mergeParseReports(reports);
-  const published = newestStamp(Object.values(bundle.charts)) ?? bundle.retrieved_at;
+  const carryIds = new Set(failedPartIds(bundle).flatMap((part) => metricIdsForEirgridPart(part)));
+  const fresh = merged.series.filter((series) => !carryIds.has(series.metric_id));
+  const carried = previous?.series.filter((series) => carryIds.has(series.metric_id)) ?? [];
+  const chartStamp = newestStamp(Object.values(bundle.charts));
+  const published = chartStamp ?? (carried.length > 0 && previous ? previous.published_at : bundle.retrieved_at);
   return buildNiRelease(
     {
       published_at: published,
       licence_url: EIRGRID_GROUP_LICENCE_URL,
       licence_read_on: EIRGRID_GROUP_LICENCE_READ_ON,
-      series: merged.series,
+      series: [...fresh, ...carried],
     },
     bundle.retrieved_at,
   );
+}
+
+function idsFor(geography: EirgridSeriesSpec["geography_id"] | null, kind: "chart" | "interconnection" | "fuel"): string[] {
+  if (!geography) {
+    return [];
+  }
+  return EIRGRID_SERIES.filter((series) => series.geography_id === geography && areaMatches(series.area, kind)).map(
+    (series) => series.metric_id,
+  );
+}
+
+function areaMatches(area: string, kind: "chart" | "interconnection" | "fuel"): boolean {
+  switch (kind) {
+    case "chart":
+      return (CHART_AREAS as readonly string[]).includes(area);
+    case "interconnection":
+      return area === "interconnection";
+    case "fuel":
+      return area === "fuelmix";
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
 }
 
 /** Publisher time for each catalogue area. Market pricing has none, so its release id is the content hash. */
