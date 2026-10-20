@@ -17,6 +17,7 @@ export type SourceProject = {
   name: string;
   technology: ProjectTechnology;
   country: "England" | "Scotland" | "Wales" | null;
+  region: string | null;
   planning_status: PlanningStatus;
   planning_decision_date: string | null;
   planning_source_id: ProjectSourceId | null;

@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
 const VIEWPORTS = [
-  { name: "desktop", width: 1280, height: 900 },
+  { name: "1280", width: 1280, height: 900 },
   { name: "1024", width: 1024, height: 900 },
-  { name: "tablet", width: 768, height: 900 },
-  { name: "mobile", width: 390, height: 844 },
+  { name: "768", width: 768, height: 900 },
+  { name: "375", width: 375, height: 812 },
 ] as const;
 
 const THEMES = ["light", "dark"] as const;
@@ -38,22 +38,39 @@ for (const theme of THEMES) {
       await page.goto("/", { waitUntil: "networkidle" });
       const card = page.locator("#section-published-map");
       await expect(card).toBeVisible();
-      await expect(card.getByRole("heading", { name: "Map of published infrastructure" })).toBeVisible();
-      await expect(card.getByText("Power stations, renewables and storage in Great Britain, from published sources.")).toBeVisible();
-      await expect(card.getByText(/^Register edition /)).toBeVisible();
+      await expect(card.getByRole("heading", { name: "Power infrastructure in GB" })).toBeVisible();
+      await expect(card.getByText("What is built and what is in the pipeline, from the public registers.")).toBeVisible();
+      await expect(card.getByText("England, Scotland and Wales.")).toBeVisible();
+      await expect(card.getByText("Consent does not mean a project will be built.")).toBeVisible();
+      await expect(card.getByText(/Rated capacity is not published for [\d,]+ projects\. The gigawatts are the published total\./)).toBeVisible();
+      await expect(card.getByText("REPD Q2 2026 · DUKES May 2026")).toBeVisible();
+      await expect(card.getByText("Contains public sector information licensed under the Open Government Licence v3.0.")).toBeVisible();
       const text = (await card.innerText()).toLowerCase();
       expect(text).not.toContain("live map");
       expect(text).not.toContain("digital twin");
       expect(text).not.toContain("power flows");
 
-      const link = card.getByRole("link", { name: /View on map/ });
+      const link = card.getByRole("link", { name: "Open map →" });
       await expect(link).toHaveAttribute("href", "/map");
+      const list = card.getByRole("link", { name: "View as list" });
+      await expect(list).toHaveAttribute("href", "/assets");
       const image = card.locator("img:visible");
       await expect(image).toHaveAttribute("src", theme === "dark" ? "/today/map-dark.png" : "/today/map-light.png");
-      await expect(image).toHaveAttribute("alt", /Map of Great Britain showing [\d,]+ power stations/);
-      const natural = await image.evaluate((element) => {
+      await expect(image).toHaveAttribute("loading", "lazy");
+      await expect(image).toHaveAttribute(
+        "alt",
+        /Map of Great Britain showing [\d,]+ operating power sites, [\d.]+ GW in total\. Gas, offshore wind and onshore wind are the largest by capacity\./,
+      );
+      await image.scrollIntoViewIfNeeded();
+      const natural = await image.evaluate(async (element) => {
         const img = element instanceof HTMLImageElement ? element : null;
-        return img ? { width: img.naturalWidth, height: img.naturalHeight, complete: img.complete } : null;
+        if (!img) {
+          return null;
+        }
+        if (!img.complete || img.naturalWidth === 0) {
+          await img.decode();
+        }
+        return { width: img.naturalWidth, height: img.naturalHeight, complete: img.complete };
       });
       expect(natural?.complete).toBe(true);
       expect(natural?.width).toBeGreaterThan(0);

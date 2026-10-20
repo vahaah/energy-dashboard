@@ -37,6 +37,7 @@ export const energyProjectSchema = z
     name: text,
     technology: z.enum(PROJECT_TECHNOLOGIES),
     country: z.enum(["England", "Scotland", "Wales"]).nullable(),
+    region: z.string().nullable(),
     planning_status: z.enum(PLANNING_STATUSES),
     planning_decision_date: day.nullable(),
     planning_source_id: sourceId.nullable(),

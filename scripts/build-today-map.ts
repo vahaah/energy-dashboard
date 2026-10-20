@@ -22,7 +22,7 @@ writeFileSync(manifestPath, `${JSON.stringify(rendered.manifest, null, 2)}\n`);
 writePublicPng(rendered.manifest.light, rendered.light.png);
 writePublicPng(rendered.manifest.dark, rendered.dark.png);
 console.log(
-  `wrote ${rendered.manifest.light} (${rendered.light.png.byteLength} bytes) and ${rendered.manifest.dark} (${rendered.dark.png.byteLength} bytes) for ${rendered.manifest.count} stations`,
+  `wrote ${rendered.manifest.light} (${rendered.light.png.byteLength} bytes) and ${rendered.manifest.dark} (${rendered.dark.png.byteLength} bytes) for ${rendered.manifest.operating.sites ?? "—"} sites`,
 );
 
 function writePublicPng(urlPath: string, bytes: Uint8Array): void {

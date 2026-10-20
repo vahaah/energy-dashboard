@@ -2,11 +2,112 @@
   "repd_source_release_id": "desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z",
   "dukes_source_release_id": "desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z",
   "dno_sha256": "sha256:45706a2dd90ea9f763df84fe916042074a113fa28da8597430d583f128398c89",
+  "batteries_sha256": "sha256:913576815cdebbfca0d8aeaa53059613d1c82d960f4d9eec8ea8afe07e3eb918",
+  "projects_sha256": "sha256:0e211de8676e1840083065bef3fc734491b4167687f56bc1c9224960f9f956d5",
   "edition": "REPD Q2 2026 · DUKES May 2026",
-  "count": 3321,
-  "width": 403,
-  "height": 720,
+  "repd_quarter_end": "2026-06-30",
+  "dukes_published_on": "2026-07-30",
+  "width": 528,
+  "height": 944,
   "light": "/today/map-light.png",
   "dark": "/today/map-dark.png",
-  "alt": "Map of Great Britain showing 3,321 power stations, renewable and storage sites from published sources."
+  "alt": "Map of Great Britain showing 3,366 operating power sites, 99.8 GW in total. Gas, offshore wind and onshore wind are the largest by capacity.",
+  "availability": "ready",
+  "operating": {
+    "gw": "99.8",
+    "sites": 3366,
+    "missing": 49
+  },
+  "technologies": [
+    {
+      "id": "gas",
+      "gw": "31.9",
+      "sites": 48
+    },
+    {
+      "id": "offshore_wind",
+      "gw": "16.9",
+      "sites": 51
+    },
+    {
+      "id": "onshore_wind",
+      "gw": "15.2",
+      "sites": 750
+    },
+    {
+      "id": "solar",
+      "gw": "12.4",
+      "sites": 1538
+    },
+    {
+      "id": "bioenergy",
+      "gw": "7.1",
+      "sites": 586
+    },
+    {
+      "id": "nuclear",
+      "gw": "5.9",
+      "sites": 5
+    },
+    {
+      "id": "battery",
+      "gw": "4.9",
+      "sites": 177
+    },
+    {
+      "id": "pumped_storage",
+      "gw": "2.9",
+      "sites": 4
+    },
+    {
+      "id": "hydro",
+      "gw": "1.7",
+      "sites": 180
+    },
+    {
+      "id": "oil_and_other",
+      "gw": "0.9",
+      "sites": 27
+    }
+  ],
+  "nations": [
+    {
+      "id": "England",
+      "gw": "68.0",
+      "sites": 2387
+    },
+    {
+      "id": "Scotland",
+      "gw": "21.5",
+      "sites": 692
+    },
+    {
+      "id": "Wales",
+      "gw": "10.3",
+      "sites": 287
+    }
+  ],
+  "pipeline": {
+    "gw": "283.9",
+    "sites": 10126,
+    "missing": 2701,
+    "filtered": true,
+    "stages": [
+      {
+        "id": "under_construction",
+        "gw": "28.6",
+        "sites": 486
+      },
+      {
+        "id": "consented",
+        "gw": "144.7",
+        "sites": 5956
+      },
+      {
+        "id": "in_planning",
+        "gw": "110.6",
+        "sites": 3684
+      }
+    ]
+  }
 }
