@@ -24,37 +24,95 @@
           "coordinates": [
             [
               [
-                -12.615234375,
-                48.63237278700956
+                -11.865234375,
+                49.38237278700956
               ],
               [
-                4.353515625,
-                48.63237278700956
+                3.603515625,
+                49.38237278700956
               ],
               [
-                4.353515625,
-                62.31457388515458
+                3.603515625,
+                61.56457388515458
               ],
               [
-                -12.615234375,
-                62.31457388515458
+                -11.865234375,
+                61.56457388515458
               ],
               [
-                -12.615234375,
-                48.63237278700956
+                -11.865234375,
+                49.38237278700956
               ]
             ]
           ]
         }
       }
     },
-    "coastline": {
+    "sea-margin": {
       "type": "geojson",
-      "data": "/basemap/coastline.geojson"
+      "data": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -92,
+                -33
+              ],
+              [
+                94,
+                -33
+              ],
+              [
+                94,
+                85
+              ],
+              [
+                -92,
+                85
+              ],
+              [
+                -92,
+                -33
+              ]
+            ],
+            [
+              [
+                -11.465234375,
+                49.78237278700956
+              ],
+              [
+                -11.465234375,
+                61.16457388515458
+              ],
+              [
+                3.203515625,
+                61.16457388515458
+              ],
+              [
+                3.203515625,
+                49.78237278700956
+              ],
+              [
+                -11.465234375,
+                49.78237278700956
+              ]
+            ]
+          ]
+        }
+      }
     },
     "place-names": {
       "type": "geojson",
-      "data": "/basemap/names.geojson"
+      "data": "/basemap/names.geojson",
+      "buffer": 256,
+      "tolerance": 0
+    },
+    "coastline": {
+      "type": "geojson",
+      "data": "/basemap/coastline.geojson"
     }
   },
   "sprite": "/basemap/sprites/dark",
@@ -73,6 +131,15 @@
       "source": "land-extent",
       "paint": {
         "fill-color": "#2c2e32"
+      }
+    },
+    {
+      "id": "sea-margin",
+      "type": "fill",
+      "source": "sea-margin",
+      "paint": {
+        "fill-color": "#0d1b27",
+        "fill-opacity": 1
       }
     },
     {
@@ -493,7 +560,39 @@
           1
         ],
         "text-max-width": 8,
-        "text-padding": 2
+        "text-padding": 8,
+        "text-anchor": [
+          "match",
+          [
+            "get",
+            "name1"
+          ],
+          "Wales",
+          "left",
+          "center"
+        ],
+        "text-offset": [
+          "match",
+          [
+            "get",
+            "name1"
+          ],
+          "Wales",
+          [
+            "literal",
+            [
+              0.35,
+              0
+            ]
+          ],
+          [
+            "literal",
+            [
+              0,
+              0
+            ]
+          ]
+        ]
       },
       "paint": {
         "text-color": "#a1a1a1",

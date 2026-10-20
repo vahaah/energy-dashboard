@@ -37,8 +37,7 @@ describe("map and asset pages", () => {
     expect(flows).toContain('import("@/lib/map/flows-browser")');
     expect(flows).not.toContain('import "@/app/map/maplibre.css"');
     expect(flows).not.toContain('from "maplibre-gl"');
-    expect(flows).toContain('className="h-full w-full"');
-    expect(flows).toContain("absolute inset-0");
+    expect(flows).toContain("absolute inset-0 h-full w-full");
     expect(flows).not.toContain("queryPipe");
     expect(flows).not.toContain("/api/interconnectors");
     expect(source("src/lib/map/flows-release.ts")).toContain("peekWarmedPipe");
