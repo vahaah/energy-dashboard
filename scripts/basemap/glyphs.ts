@@ -168,15 +168,17 @@ function drawGlyph(font: Font, code: number): GlyphBitmap | null {
   const advance = Math.max(0, Math.round(glyph.advanceWidth * scale));
   const box = glyph.getBoundingBox();
   if (!Number.isFinite(box.x1) || box.x2 <= box.x1 || box.y2 <= box.y1) {
-    return { id: code, bitmap: new Uint8Array(), width: 0, height: 0, left: 0, top: 0, advance };
+    // MapLibre adds a 3px border to the stored size and requires that many bitmap bytes.
+    return { id: code, bitmap: new Uint8Array(36), width: 0, height: 0, left: 0, top: 0, advance };
   }
   const glyphLeft = Math.floor(box.x1 * scale);
   const glyphTop = Math.ceil(box.y2 * scale);
   const glyphWidth = Math.max(0, Math.ceil(box.x2 * scale) - glyphLeft);
   const glyphHeight = Math.max(0, glyphTop - Math.floor(box.y1 * scale));
   if (glyphWidth === 0 || glyphHeight === 0) {
-    return { id: code, bitmap: new Uint8Array(), width: 0, height: 0, left: 0, top: 0, advance };
+    return { id: code, bitmap: new Uint8Array(36), width: 0, height: 0, left: 0, top: 0, advance };
   }
+  // Protobuf width/height are the ink. The bitmap includes the 3px SDF border MapLibre adds back.
   const width = glyphWidth + BUFFER * 2;
   const height = glyphHeight + BUFFER * 2;
   const path = glyph.getPath(BUFFER - glyphLeft, BUFFER + glyphTop, FONT_SIZE);
@@ -208,8 +210,8 @@ function drawGlyph(font: Font, code: number): GlyphBitmap | null {
   return {
     id: code,
     bitmap,
-    width,
-    height,
+    width: glyphWidth,
+    height: glyphHeight,
     left: glyphLeft - BUFFER,
     top: glyphTop + BUFFER,
     advance,

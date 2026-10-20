@@ -1,12 +1,12 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
 import {
   assetFeatureCollection,
   capacityRadiusExpression,
   technologyColorExpression,
 } from "@/lib/map/asset-layer";
+import { BASEMAP_DETAIL_MIN_ZOOM } from "@/lib/map/constants";
 import type { MapBounds } from "@/lib/map/counts";
 import { interconnectorFeatureCollection, type InterconnectorLine } from "@/lib/map/interconnector-layer";
 import type { MapPoint } from "@/lib/assets/types";
@@ -93,7 +93,8 @@ export function mountPowerMap(
     cooperativeGestures: true,
     fadeDuration: reduceMotion ? 0 : 300,
     center: [-2.5, 54.5],
-    zoom: 5,
+    zoom: BASEMAP_DETAIL_MIN_ZOOM,
+    minZoom: BASEMAP_DETAIL_MIN_ZOOM,
   });
   map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
 
@@ -410,7 +411,7 @@ export function mountPowerMap(
     if (process.env.NODE_ENV === "development") {
       console.error(ev.error);
     }
-    if (basemapLoaded) {
+    if (basemapLoaded || Reflect.get(ev, "sourceId") !== "zoomstack") {
       return;
     }
     options.onStatus("error");

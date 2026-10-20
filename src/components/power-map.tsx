@@ -5,6 +5,7 @@ import type { MapPoint } from "@/lib/assets/types";
 import type { MapBounds } from "@/lib/map/counts";
 import type { MapTheme, PowerMapHandle } from "@/lib/map/browser";
 import type { InterconnectorLine } from "@/lib/map/interconnector-layer";
+import "@/app/map/maplibre.css";
 
 /**
  * maplibre-gl and pmtiles load through this dynamic import so the homepage
@@ -134,11 +135,9 @@ export function PowerMap({
 
   return (
     <div className="min-w-0">
-      <div
-        ref={ref}
-        data-map-status={status}
-        className={`power-map w-full min-w-0 overflow-hidden rounded-lg bg-background-200 ${className}`}
-      />
+      <div className={`power-map relative w-full min-w-0 overflow-hidden rounded-lg bg-background-200 ${className}`}>
+        <div ref={ref} data-map-status={status} className="h-full w-full" />
+      </div>
       {status === "error" ? (
         <p className="pt-3 text-copy-14 text-gray-900" role="status">
           Basemap tiles did not load. The asset list is still available.

@@ -1,7 +1,7 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
+import { BASEMAP_DETAIL_MIN_ZOOM } from "@/lib/map/constants";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
@@ -222,7 +222,8 @@ export function mountFlowsMap(
     cooperativeGestures: false,
     fadeDuration: reduceMotion ? 0 : 300,
     center: [-2.2, 54.2],
-    zoom: 4.4,
+    zoom: BASEMAP_DETAIL_MIN_ZOOM,
+    minZoom: BASEMAP_DETAIL_MIN_ZOOM,
   });
   map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
   const canvas = map.getCanvas();
@@ -433,13 +434,6 @@ export function mountFlowsMap(
     map.setLayoutProperty("dno-line", "visibility", "visible");
   }
 
-  function extendSea(): void {
-    const sea = map.getPaintProperty("sea", "fill-color");
-    if (typeof sea === "string" && map.getLayer("background")) {
-      map.setPaintProperty("background", "background-color", sea);
-    }
-  }
-
   function frameView(): void {
     const shown = lines.filter((line) => visible(line.kind));
     if (shown.length === 0) {
@@ -518,7 +512,6 @@ export function mountFlowsMap(
   }
 
   function paint(): void {
-    extendSea();
     addFlowLayers();
     addStationHit();
     addDno();
@@ -548,9 +541,10 @@ export function mountFlowsMap(
     if (process.env.NODE_ENV === "development") {
       console.error(ev.error);
     }
-    if (!basemapLoaded) {
-      options.onStatus("error");
+    if (basemapLoaded || Reflect.get(ev, "sourceId") !== "zoomstack") {
+      return;
     }
+    options.onStatus("error");
   });
   map.setStyle(styleUrl(theme), { transformStyle });
 

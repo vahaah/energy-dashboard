@@ -60,6 +60,8 @@ describe("homepage module graph", () => {
     expect(files.some((file) => file === "maplibre-gl" || file === "pmtiles" || file.startsWith("maplibre-gl/") || file.startsWith("pmtiles/"))).toBe(false);
     const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
     expect(joined).not.toMatch(/["']maplibre-gl["']/);
+    expect(joined).not.toMatch(/maplibre-gl\.css/);
+    expect(joined).not.toMatch(/maplibre\.css/);
     expect(joined).not.toMatch(/["']pmtiles["']/);
     expect(files.some((file) => file.endsWith("static-map.ts") || file.endsWith("today-card-build.ts"))).toBe(false);
     expect(files.some((file) => file.includes(`${join("ingest", "national-gas")}`))).toBe(false);

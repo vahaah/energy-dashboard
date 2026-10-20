@@ -14,6 +14,13 @@ export const OS_ZOOMSTACK_DOWNLOAD_URL =
 export const BASEMAP_ZOOM_MIN = 0;
 export const BASEMAP_ZOOM_MAX = 13;
 
+/**
+ * First zoom that carries country labels, motorways, and urban areas in the
+ * OS Open Zoomstack vector tiles. Zoom 0–4 is sea only, so a wider view never
+ * requests glyphs.
+ */
+export const BASEMAP_DETAIL_MIN_ZOOM = 5;
+
 export const BASEMAP_LAYER_ID = "basemap";
 export const DNO_LAYER_ID = "dno";
 

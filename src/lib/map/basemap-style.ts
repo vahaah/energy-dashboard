@@ -1,4 +1,5 @@
 import {
+  BASEMAP_DETAIL_MIN_ZOOM,
   BASEMAP_FONTSTACK,
   BASEMAP_GLYPHS,
   BASEMAP_SOURCE_URL,
@@ -13,6 +14,8 @@ export type BasemapTheme = (typeof BASEMAP_THEMES)[number];
 /**
  * Hex values copied from the Geist tokens in `src/app/globals.css`.
  * Water and woodland are desaturated washes so the basemap stays behind the data.
+ * Zoomstack vector tiles publish sea, not land. Land is the background showing
+ * through those polygons. Repainting the background as sea hides the coastline.
  */
 const THEME_COLORS = {
   light: {
@@ -178,7 +181,7 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
       minzoom: 5,
       paint: { "line-color": color.boundary, "line-width": 0.6 },
     },
-    names("names-country", ["Country"], 4, 13, color.label, color.halo),
+    names("names-country", ["Country"], BASEMAP_DETAIL_MIN_ZOOM, 13, color.label, color.halo),
     names("names-city", ["Capital", "City"], 6, 12, color.label, color.halo),
     names("names-town", ["Town"], 8, 11, color.label, color.halo),
   ];

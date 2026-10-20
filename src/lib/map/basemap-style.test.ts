@@ -43,8 +43,12 @@ describe("basemap style", () => {
     expect(glyphs.name).toBe(BASEMAP_FONTSTACK);
     expect(glyphs.range).toBe("0-255");
     const letter = glyphs.glyphs.find((glyph) => glyph.id === 65);
-    expect(letter?.advance).toBeGreaterThan(0);
-    expect(letter?.bitmap.length).toBeGreaterThan(0);
+    expect(letter).toBeDefined();
+    if (!letter) {
+      return;
+    }
+    expect(letter.advance).toBeGreaterThan(0);
+    expect(letter.bitmap.length).toBe((letter.width + 6) * (letter.height + 6));
     const sprite = readFileSync(resolve(process.cwd(), "public/basemap/sprites/light.json"), "utf8");
     expect(sprite.trim()).toBe("{}");
     expect(readFileSync(resolve(process.cwd(), "public/basemap/sprites/dark.png"))[0]).toBe(137);

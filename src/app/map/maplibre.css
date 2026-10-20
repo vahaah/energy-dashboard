@@ -1,0 +1,4 @@
+/* Unlayered maplibre-gl.css sets .maplibregl-map { position: relative }, which
+   beats Tailwind v4's layered `absolute` and collapses an inset-0 map to 0px.
+   Keep this import on map routes only so `/` does not load MapLibre CSS. */
+@import "maplibre-gl/dist/maplibre-gl.css" layer(base);

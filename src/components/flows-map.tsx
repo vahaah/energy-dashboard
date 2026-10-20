@@ -651,7 +651,9 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         <FlowList features={model.features} selectedId={selectedId} onSelect={choose} />
       </aside>
       <div className="relative min-h-0 min-w-0 flex-1">
-        <div ref={mapRef} className="absolute inset-0" data-map-status={status} />
+        <div className="absolute inset-0">
+          <div ref={mapRef} className="h-full w-full" data-map-status={status} />
+        </div>
         <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (

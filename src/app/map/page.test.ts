@@ -30,9 +30,13 @@ describe("map and asset pages", () => {
     expect(map).not.toContain("loadAssetCatalogue");
     expect(map).not.toContain("queryPipe");
     expect(map).not.toContain("maplibre-gl");
+    expect(map).toContain('import "./maplibre.css"');
+    expect(source("src/app/map/maplibre.css")).toContain('@import "maplibre-gl/dist/maplibre-gl.css" layer(base)');
     const flows = source("src/components/flows-map.tsx");
     expect(flows).toContain('import("@/lib/map/flows-browser")');
     expect(flows).not.toContain('from "maplibre-gl"');
+    expect(flows).toContain('className="h-full w-full"');
+    expect(flows).toContain("absolute inset-0");
     expect(flows).not.toContain("queryPipe");
     expect(flows).not.toContain("/api/interconnectors");
     expect(source("src/lib/map/flows-release.ts")).toContain("peekWarmedPipe");
@@ -41,6 +45,12 @@ describe("map and asset pages", () => {
     const dialog = source("src/components/asset-search-dialog.tsx");
     expect(power).toContain('import("@/lib/map/browser")');
     expect(power).not.toContain('from "maplibre-gl"');
+    expect(power).toContain('className="h-full w-full"');
+    expect(source("src/lib/map/browser.ts")).not.toContain("maplibre-gl.css");
+    expect(source("src/lib/map/flows-browser.ts")).not.toContain("maplibre-gl.css");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("minZoom: BASEMAP_DETAIL_MIN_ZOOM");
+    expect(source("src/lib/map/flows-browser.ts")).not.toContain("extendSea");
+    expect(source("src/lib/map/browser.ts")).toContain("minZoom: BASEMAP_DETAIL_MIN_ZOOM");
     expect(header).not.toContain("maplibre-gl");
     expect(header).not.toContain("pmtiles");
     expect(search).toContain('import("@/components/asset-search-dialog")');

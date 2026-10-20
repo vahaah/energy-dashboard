@@ -31,8 +31,8 @@ function lengthDelimited(field: number, payload: Uint8Array): number[] {
   return [...key(field, 2), ...varint(payload.length), ...payload];
 }
 
-function uintField(field: number, value: number): number[] {
-  if (value === 0) {
+function uintField(field: number, value: number, keepZero = false): number[] {
+  if (value === 0 && !keepZero) {
     return [];
   }
   return [...key(field, 0), ...varint(value)];
@@ -50,8 +50,8 @@ function encodeGlyph(glyph: GlyphBitmap): Uint8Array {
   const bytes = [
     ...uintField(1, glyph.id),
     ...bitmap,
-    ...uintField(3, glyph.width),
-    ...uintField(4, glyph.height),
+    ...uintField(3, glyph.width, true),
+    ...uintField(4, glyph.height, true),
     ...sintField(5, glyph.left),
     ...sintField(6, glyph.top),
     ...uintField(7, glyph.advance),

@@ -393,7 +393,7 @@
       "type": "symbol",
       "source": "zoomstack",
       "source-layer": "names",
-      "minzoom": 4,
+      "minzoom": 5,
       "filter": [
         "match",
         [

@@ -3,6 +3,7 @@ import { FlowsMap } from "@/components/flows-map";
 import { SitePageHeader } from "@/components/site-page-header";
 import { loadFlowsPageModel } from "@/lib/map/load-flows";
 import { mapPageMetadata } from "@/lib/page-metadata";
+import "./maplibre.css";
 
 export const dynamic = "force-static";
 export const revalidate = 1_800;
