@@ -1,5 +1,5 @@
 import { del, get, put } from "@vercel/blob";
-import { readBlobResponse } from "@/lib/blob-read";
+import { blobReadSignal, readBlobResponse } from "@/lib/blob-read";
 
 export const NI_LATEST_PATH = "releases/eirgrid-ni/latest.json";
 export const NI_PREVIOUS_PATH = "releases/eirgrid-ni/previous.json";
@@ -91,7 +91,7 @@ class VercelNiStore implements NiObjectStore {
   }
 
   async get(pathname: string, cache: boolean): Promise<{ body: string; uploadedAt: Date; size: number } | null> {
-    return readBlobResponse(() => get(pathname, { access: "public", useCache: cache }));
+    return readBlobResponse(() => get(pathname, { access: "public", useCache: cache, abortSignal: blobReadSignal() }));
   }
 
   async del(pathnames: readonly string[]): Promise<void> {
@@ -125,7 +125,7 @@ export function niStore(): NiObjectStore {
   if (override) {
     return override;
   }
-  if (process.env.VITEST) {
+  if (process.env.VITEST || !process.env.BLOB_READ_WRITE_TOKEN) {
     return disabledStore;
   }
   production ??= new VercelNiStore();

@@ -23,6 +23,7 @@ import {
 } from "@/lib/tinybird-cache";
 
 const apiUrl = () => process.env.TINYBIRD_URL ?? "https://api.eu-central-1.aws.tinybird.co";
+const TINYBIRD_FETCH_TIMEOUT_MS = 10_000;
 
 function writeToken(): string {
   const token = process.env.TINYBIRD_TOKEN;
@@ -56,6 +57,7 @@ export async function ingestRows(datasource: string, rows: Record<string, unknow
       "Content-Type": "application/x-ndjson",
     },
     body: ndjson,
+    signal: AbortSignal.timeout(TINYBIRD_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -108,6 +110,7 @@ export async function fetchPipeRows<T>(
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${readToken()}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(TINYBIRD_FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {

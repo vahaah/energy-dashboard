@@ -78,7 +78,10 @@ export async function runDirectoryIngest(now = new Date()): Promise<DirectoryIng
     now,
     store: directoryStore(),
     fetchText: async (url) => {
-      const response = await fetch(url, { headers: { accept: "text/csv" } });
+      const response = await fetch(url, {
+        headers: { accept: "text/csv" },
+        signal: AbortSignal.timeout(10_000),
+      });
       return { status: response.status, body: response.ok ? await response.text() : "" };
     },
   });

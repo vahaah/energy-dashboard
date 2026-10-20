@@ -6,11 +6,20 @@ import {
   type GetBlobResult,
 } from "@vercel/blob";
 
-/** One attempt, then two waits. A build must not sit on a dead Blob store. */
+/** One attempt, then two retries. A build must not sit on a dead Blob store. */
 export const BLOB_READ_ATTEMPTS = 3;
 export const BLOB_READ_BACKOFF_MS = [200, 800] as const;
+/** Hard stop for one SDK `get` or `list`. Retries do not start until this fires. */
+export const BLOB_READ_TIMEOUT_MS = 10_000;
+
+export function blobReadSignal(timeoutMs = BLOB_READ_TIMEOUT_MS): AbortSignal {
+  return AbortSignal.timeout(timeoutMs);
+}
 
 export function isTransientBlobError(error: unknown): boolean {
+  if (isDeadlineError(error)) {
+    return true;
+  }
   if (error instanceof BlobNotFoundError) {
     return false;
   }
@@ -56,15 +65,48 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+function isDeadlineError(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("name" in error)) {
+    return false;
+  }
+  return error.name === "TimeoutError" || error.name === "AbortError";
+}
+
+/** Rejects when the SDK call never settles. The caller also passes `blobReadSignal` so undici aborts. */
+function deadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const signal = AbortSignal.timeout(ms);
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      reject(signal.reason);
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 /** Retries a transient Blob failure. A missing object and any other error propagate immediately. */
 export async function withBlobReadRetry<T>(
   read: () => Promise<T>,
   sleep: (ms: number) => Promise<void> = delay,
+  timeoutMs: number = BLOB_READ_TIMEOUT_MS,
 ): Promise<T> {
   let last: unknown;
   for (let attempt = 0; attempt < BLOB_READ_ATTEMPTS; attempt += 1) {
     try {
-      return await read();
+      return await deadline(read(), timeoutMs);
     } catch (error) {
       if (!isTransientBlobError(error)) {
         throw error;
@@ -86,6 +128,7 @@ export async function withBlobReadRetry<T>(
 export async function readBlobResponse(
   read: () => Promise<GetBlobResult | null>,
   sleep?: (ms: number) => Promise<void>,
+  timeoutMs: number = BLOB_READ_TIMEOUT_MS,
 ): Promise<{ body: string; uploadedAt: Date; size: number } | null> {
   try {
     return await withBlobReadRetry(async () => {
@@ -95,7 +138,7 @@ export async function readBlobResponse(
       }
       const body = await new Response(result.stream).text();
       return { body, uploadedAt: result.blob.uploadedAt, size: result.blob.size ?? 0 };
-    }, sleep);
+    }, sleep, timeoutMs);
   } catch (error) {
     if (error instanceof BlobNotFoundError) {
       return null;

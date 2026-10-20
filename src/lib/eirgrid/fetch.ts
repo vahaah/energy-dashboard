@@ -30,12 +30,23 @@ export function eirgridRetryAfter(attempt: number, now = Date.now()): Date {
   return new Date(now + base + jitter);
 }
 
+const EIRGRID_FETCH_TIMEOUT_MS = 10_000;
+
+function isEirgridDeadline(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "name" in error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
+
 export function eirgridStepError(error: unknown, attempt: number): Error {
   if (error instanceof FatalError || error instanceof RetryableError) {
     return error;
   }
   const status = error instanceof EirgridHttpError ? error.status : 0;
-  const retryable = status === 429 || status >= 500;
+  const retryable = status === 429 || status >= 500 || isEirgridDeadline(error);
   const message = error instanceof Error ? error.message : "EirGrid request failed";
   if (!retryable) {
     return new FatalError(message);
@@ -125,6 +136,7 @@ async function getText(url: string, fetchImpl: typeof fetch): Promise<string> {
   }
   const response = await fetchImpl(url, {
     headers: { accept: "application/json,text/html", "user-agent": "Grid/1.0 (+https://grid.vahaah.com)" },
+    signal: AbortSignal.timeout(EIRGRID_FETCH_TIMEOUT_MS),
   });
   const body = await response.text();
   if (response.status === 429 || response.status >= 500) {

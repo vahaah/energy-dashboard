@@ -1,5 +1,5 @@
 import { get, put } from "@vercel/blob";
-import { readBlobResponse } from "@/lib/blob-read";
+import { blobReadSignal, readBlobResponse } from "@/lib/blob-read";
 
 export const DIRECTORY_LATEST_PATH = "releases/directory/latest.json";
 export const DIRECTORY_PREVIOUS_PATH = "releases/directory/previous.json";
@@ -89,7 +89,9 @@ class VercelDirectoryStore implements DirectoryObjectStore {
   }
 
   async get(pathname: string): Promise<DirectoryStoredObject | null> {
-    return readBlobResponse(() => get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true }));
+    return readBlobResponse(() =>
+      get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true, abortSignal: blobReadSignal() }),
+    );
   }
 }
 

@@ -97,6 +97,23 @@ describe("blob read retry", () => {
     ).rejects.toThrow(/400/);
     expect(rejected).toBe(1);
   });
+
+  it("aborts a hung Blob get after two retries", async () => {
+    let calls = 0;
+    const started = Date.now();
+    await expect(
+      readBlobResponse(
+        () => {
+          calls += 1;
+          return new Promise(() => undefined);
+        },
+        async () => undefined,
+        20,
+      ),
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+    expect(calls).toBe(BLOB_READ_ATTEMPTS);
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe("page fallback when Blob returns 500", () => {
@@ -121,6 +138,32 @@ describe("page fallback when Blob returns 500", () => {
     const history = await readPublishedHistory();
     expect(history.breakdown).toEqual({ latest: null, previous: null });
     expect(history.dayAhead).toEqual({ latest: null, previous: null });
+    const model = buildConstraintsPage({
+      breakdown: history.breakdown.latest,
+      breakdownPrevious: history.breakdown.previous,
+      dayAhead: history.dayAhead.latest,
+    });
+    expect(model.available).toBe(false);
+  });
+
+  it("renders the constraints not-yet-available model when Blob never answers", async () => {
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "test-token");
+    vi.stubEnv("CONSTRAINTS_READ_BLOB", "1");
+    setConstraintsStoreForTests({
+      async put() {
+        return undefined;
+      },
+      async get() {
+        throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      },
+      async list() {
+        return [];
+      },
+      async del() {
+        return undefined;
+      },
+    });
+    const history = await readPublishedHistory();
     const model = buildConstraintsPage({
       breakdown: history.breakdown.latest,
       breakdownPrevious: history.breakdown.previous,

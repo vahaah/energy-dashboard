@@ -26,6 +26,9 @@ export async function loadNiObservations(): Promise<NiObservation[]> {
 }
 
 async function readStoredRelease(): Promise<NiRelease | null> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return null;
+  }
   try {
     const pointerText = await blobReadOrNull(() => niStore().get(NI_LATEST_PATH, false));
     const pointer = pointerText ? parseNiPointer(pointerText.body) : null;
