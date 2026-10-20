@@ -961,6 +961,14 @@ export function isGbDataHealthMetric(metricId: string): boolean {
   return geography != null && GB_DATA_HEALTH_GEOGRAPHIES.has(geography);
 }
 
+export function gbDataHealthReading<T extends { metric_id: string }>(reading: T): (T & { geography_id: string }) | null {
+  const geography_id = metricGeographyId(reading.metric_id);
+  if (!geography_id || !isGbDataHealthMetric(reading.metric_id)) {
+    return null;
+  }
+  return { ...reading, geography_id };
+}
+
 /** Physical NTS series shown on /gas. Separate from the SAP price card. */
 export function physicalGasCoverage(): readonly {
   dataset_id: string;

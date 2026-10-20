@@ -9,7 +9,7 @@ import { changesQueryResponse, readCheckedInChanges } from "@/lib/changes/query"
  */
 export const dynamic = "force-dynamic";
 
-export function GET(request: Request) {
-  const result = changesQueryResponse(new URL(request.url).searchParams, readCheckedInChanges());
+export async function GET(request: Request) {
+  const result = changesQueryResponse(new URL(request.url).searchParams, await readCheckedInChanges());
   return NextResponse.json(result.body, { status: result.status });
 }

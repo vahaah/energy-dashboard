@@ -18,8 +18,8 @@ export const metadata: Metadata = buildPageMetadata({
   imageAlt: CHANGES_TITLE,
 });
 
-export default function ChangesPage() {
-  const model = allChangeRows(readCheckedInChanges());
+export default async function ChangesPage() {
+  const model = allChangeRows(await readCheckedInChanges());
   const cards: ChangeCard[] = (model?.changes ?? []).map((row, index) => ({
     key: `${row.entity_id}:${row.field}:${index}`,
     name: row.name,

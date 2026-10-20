@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   API_ERROR_NO_RESULTS,
@@ -7,12 +8,18 @@ import {
   unsupportedFilter,
   type ApiErrorBody,
 } from "@/lib/api/errors";
+import { parseNdjson } from "@/lib/catalogue/load";
+import { CATALOGUE_FILES, sourcesFileSchema, type CatalogueSource } from "@/lib/catalogue/schema";
 import { changeEvidence, changeSentence, changeStatusLine } from "@/lib/changes/template";
 import { prepareChanges } from "@/lib/changes/prepare";
-import { loadCatalogue } from "@/lib/catalogue/load";
-import type { CatalogueSource } from "@/lib/catalogue/schema";
-import { loadProjectCatalogue } from "@/lib/projects/load";
-import type { ChangeEvent, ChangeEventsFile } from "@/lib/projects/schema";
+import {
+  CHANGE_EVENTS_FILE,
+  changeEventsFileSchema,
+  energyProjectSchema,
+  PROJECTS_FILE,
+  type ChangeEvent,
+  type ChangeEventsFile,
+} from "@/lib/projects/schema";
 
 export const CHANGES_PAGE_SIZE = 20;
 
@@ -78,11 +85,18 @@ export function allChangeRows(bundle: ChangesBundle): ChangesResponse | null {
   return body;
 }
 
+/** Hard stop for one catalogue read. A timed-out read returns the last held file. */
+export const CHANGES_READ_TIMEOUT_MS = 5_000;
+
 let heldBundle: ChangesBundle | null = null;
 
-export function readCheckedInChanges(): ChangesBundle {
+export function resetHeldChangesForTests(): void {
+  heldBundle = null;
+}
+
+export async function readCheckedInChanges(signal: AbortSignal = AbortSignal.timeout(CHANGES_READ_TIMEOUT_MS)): Promise<ChangesBundle> {
   try {
-    const bundle = loadCheckedInBundle();
+    const bundle = await loadCheckedInBundle(signal);
     heldBundle = bundle;
     return bundle;
   } catch {
@@ -110,20 +124,38 @@ export function heldAfterFailure(previous: ChangesBundle | null): ChangesBundle 
   };
 }
 
-function loadCheckedInBundle(): ChangesBundle {
-  const catalogue = loadProjectCatalogue();
-  const loaded = loadCatalogue(join(process.cwd(), "data", "catalogue"));
+async function readUtf8(path: string, signal: AbortSignal): Promise<string> {
+  return readFile(path, { encoding: "utf8", signal });
+}
+
+async function loadCheckedInBundle(signal: AbortSignal): Promise<ChangesBundle> {
+  if (signal.aborted) {
+    throw signal.reason ?? new Error("changes read timed out");
+  }
+  const dir = join(process.cwd(), "data", "catalogue");
+  const [projectsText, changesText, sourcesText] = await Promise.all([
+    readUtf8(join(dir, PROJECTS_FILE), signal),
+    readUtf8(join(dir, CHANGE_EVENTS_FILE), signal),
+    readUtf8(join(dir, CATALOGUE_FILES.sources), signal),
+  ]);
+  const parsed = parseNdjson(projectsText, PROJECTS_FILE);
+  if (!parsed.ok) {
+    throw new Error(parsed.errors.join("\n"));
+  }
+  const projects = parsed.data.map((value) => energyProjectSchema.parse(value));
+  const changes = changeEventsFileSchema.parse(JSON.parse(changesText) as unknown);
+  const sourcesParsed = sourcesFileSchema.safeParse(JSON.parse(sourcesText) as unknown);
   const sources = new Map<string, ChangeSource>();
-  if (loaded.sources.ok) {
-    for (const source of loaded.sources.data) {
+  if (sourcesParsed.success) {
+    for (const source of sourcesParsed.data) {
       sources.set(source.source_id, sourceRecord(source));
     }
   }
   return {
     unavailable: false,
-    events: catalogue.changes,
-    held: catalogue.changes,
-    projects: catalogue.byId,
+    events: changes,
+    held: changes,
+    projects: new Map(projects.map((project) => [project.project_id, project])),
     sources,
   };
 }

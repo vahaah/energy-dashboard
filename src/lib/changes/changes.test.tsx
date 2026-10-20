@@ -16,8 +16,8 @@ import { prepareChanges } from "@/lib/changes/prepare";
 import {
   allChangeRows,
   changesQueryResponse,
-  heldAfterFailure,
   readCheckedInChanges,
+  resetHeldChangesForTests,
   type ChangesBundle,
 } from "@/lib/changes/query";
 import { changeSentence } from "@/lib/changes/template";
@@ -66,8 +66,8 @@ function bundle(events: ChangeEvent[], options?: Partial<ChangesBundle>): Change
 }
 
 describe("change events", () => {
-  it("keeps old, new, and both release ids on every checked-in event", () => {
-    const checked = readCheckedInChanges();
+  it("keeps old, new, and both release ids on every checked-in event", async () => {
+    const checked = await readCheckedInChanges();
     expect(checked.unavailable).toBe(false);
     expect(checked.events?.events.length).toBeGreaterThan(0);
     for (const row of checked.events?.events ?? []) {
@@ -256,27 +256,33 @@ describe("change events", () => {
     expect(await repeated.json()).toEqual({ error: API_ERROR_SCOPE });
   });
 
-  it("returns the last held file when a later read fails", () => {
-    const fresh = readCheckedInChanges();
-    const failed = heldAfterFailure(fresh);
-    expect(failed.unavailable).toBe(true);
-    expect(failed.events).toBeNull();
-    expect(failed.held).toBe(fresh.events);
-    const page = changesQueryResponse(new URLSearchParams(), failed);
+  it("returns the last held file when a later read times out", async () => {
+    resetHeldChangesForTests();
+    const cold = await readCheckedInChanges(AbortSignal.abort());
+    expect(cold.unavailable).toBe(true);
+    expect(cold.held).toBeNull();
+    expect(changesQueryResponse(new URLSearchParams(), cold)).toEqual({
+      status: 503,
+      body: { error: API_ERROR_SOURCE_UNAVAILABLE },
+    });
+
+    const fresh = await readCheckedInChanges();
+    expect(fresh.unavailable).toBe(false);
+    const timedOut = await readCheckedInChanges(AbortSignal.abort());
+    expect(timedOut.unavailable).toBe(true);
+    expect(timedOut.events).toBeNull();
+    expect(timedOut.held).toBe(fresh.events);
+    const page = changesQueryResponse(new URLSearchParams(), timedOut);
     expect(page.status).toBe(200);
     if (!("notice" in page.body)) {
       throw new Error("expected held rows");
     }
     expect(page.body.notice).toBe(API_ERROR_SOURCE_UNAVAILABLE);
-    expect(page.body.changes.length).toBe(fresh.events?.events.length);
-    expect(heldAfterFailure(null)).toEqual({
-      unavailable: true,
-      events: null,
-      held: null,
-      projects: new Map(),
-      sources: new Map(),
-    });
+    expect(page.body.changes).toHaveLength(fresh.events?.events.length ?? 0);
+    expect(page.body.changes[0]?.old_release_id).toBe(fresh.events?.events[0]?.old_release_id);
     const reader = readFileSync(resolve(process.cwd(), "src/lib/changes/query.ts"), "utf8");
+    expect(reader).toContain("AbortSignal.timeout(CHANGES_READ_TIMEOUT_MS)");
     expect(reader).toContain("return heldAfterFailure(heldBundle)");
+    expect(reader).toContain("signal");
   });
 });

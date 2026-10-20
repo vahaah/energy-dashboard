@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { API_ERROR_SOURCE_UNAVAILABLE, scopeRejection, unsupportedFilter } from "@/lib/api/errors";
 import { cdnCacheHeaders } from "@/lib/api-route";
 import { loadDataHealth } from "@/lib/data-health";
-import { isGbDataHealthMetric, metricGeographyId } from "@/lib/metrics";
+import { gbDataHealthReading } from "@/lib/metrics";
 
 /**
  * GET /api/v1/data-health
@@ -34,12 +34,10 @@ export async function GET(request: Request) {
   } catch {
     return NextResponse.json({ error: API_ERROR_SOURCE_UNAVAILABLE }, { status: 503 });
   }
-  const gbReadings = readings
-    .filter((reading) => isGbDataHealthMetric(reading.metric_id))
-    .map((reading) => ({
-      ...reading,
-      geography_id: metricGeographyId(reading.metric_id),
-    }));
+  const gbReadings = readings.flatMap((reading) => {
+    const row = gbDataHealthReading(reading);
+    return row ? [row] : [];
+  });
   return NextResponse.json(
     {
       checkedAt: now.toISOString(),
