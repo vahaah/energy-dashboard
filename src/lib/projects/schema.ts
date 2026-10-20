@@ -92,7 +92,7 @@ export const changeEventSchema = z
     new: z.union([z.string(), z.number(), z.null()]),
     old_release_id: text,
     new_release_id: text,
-    comparison: z.enum(["field", "not_in_release"]),
+    comparison: z.enum(["field", "not_in_release", "correction"]),
     field: text,
   })
   .strict();

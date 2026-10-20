@@ -42,10 +42,10 @@ export const ASSETS_TITLE = "GB stations, interconnectors and gas terminals";
 export const ASSETS_DESCRIPTION =
   "Operational stations from REPD and DUKES, Elexon interconnectors, and National Gas terminal names.";
 
-export const API_DOCS_TITLE = "Free GB electricity data API: Grid";
+export const API_DOCS_TITLE = "Grid API: public energy data in JSON | Grid";
 export const API_DOCS_DESCRIPTION =
-  "JSON endpoints for GB carbon intensity, generation mix, demand, prices and commodities. No key, 60 requests a minute, CC BY 4.0 derived data.";
-export const API_DOCS_H1 = "Free GB electricity data API";
+  "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account, and is rate limited.";
+export const API_DOCS_H1 = "What data can I get from Grid, and how?";
 
 export const HOME_H1 = "What's powering Britain?";
 export const RECORDS_H1 = "GB electricity records";

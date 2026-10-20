@@ -30,6 +30,8 @@ ${latest}
 - [Methodology](https://grid.vahaah.com/methodology): sources, licences, definitions, data checks
 
 ## Data
+- [Tools](https://grid.vahaah.com/tools): official services grouped by task
+- [Changes](https://grid.vahaah.com/changes): changes found in published data, with the source and the comparison
 - [API docs](https://grid.vahaah.com/api): JSON, no key, 60 requests/minute
 - [Data health](https://grid.vahaah.com/data-health): published time versus when Grid retrieved each series
 - [Snapshots JSON](https://grid.vahaah.com/api/snapshots?range=24h)

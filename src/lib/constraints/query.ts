@@ -1,10 +1,11 @@
+import { scopeRejection, unsupportedFilter } from "@/lib/api/errors";
 import { isConstraintBoundary } from "@/lib/constraints/boundaries";
 import { CONSTRAINTS_ALLOCATION, CONSTRAINTS_API_DESCRIPTION } from "@/lib/constraints/copy";
 import type { BreakdownRow, DayAheadRow } from "@/lib/constraints/parse";
 import { readPublishedHistory } from "@/lib/constraints/reader";
 import { isValidDashboardDate } from "@/lib/dashboard-search-params";
 
-const ALLOWED = new Set(["from", "to", "boundary"]);
+const ALLOWED = new Set(["from", "to", "boundary", "scope", "geography"]);
 
 export type ConstraintsQueryBody = {
   description: typeof CONSTRAINTS_API_DESCRIPTION;
@@ -20,10 +21,13 @@ export type ConstraintsQueryBody = {
 export async function constraintsQueryResponse(
   params: URLSearchParams,
 ): Promise<{ status: number; body: ConstraintsQueryBody | { error: string } }> {
-  for (const key of params.keys()) {
-    if (!ALLOWED.has(key)) {
-      return { status: 400, body: { error: "unsupported filter" } };
-    }
+  const scope = scopeRejection(params);
+  if (scope) {
+    return scope;
+  }
+  const extra = unsupportedFilter(params, ALLOWED);
+  if (extra) {
+    return extra;
   }
   const from = params.get("from");
   const to = params.get("to");

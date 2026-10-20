@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { scopeRejection, unsupportedFilter } from "@/lib/api/errors";
 import { lookupByCode, lookupByName, parseLookupSearch } from "@/lib/directory/lookup";
 import { getDirectoryReader } from "@/lib/directory/reader";
 
@@ -9,8 +10,19 @@ import { getDirectoryReader } from "@/lib/directory/reader";
  */
 export const dynamic = "force-dynamic";
 
+const ALLOWED = new Set(["scheme", "code", "name", "effective_on", "export", "format", "scope", "geography"]);
+
 export async function GET(request: Request) {
-  const parsed = parseLookupSearch(new URL(request.url).searchParams);
+  const params = new URL(request.url).searchParams;
+  const scope = scopeRejection(params);
+  if (scope) {
+    return NextResponse.json(scope.body, { status: scope.status });
+  }
+  const extra = unsupportedFilter(params, ALLOWED);
+  if (extra) {
+    return NextResponse.json(extra.body, { status: extra.status });
+  }
+  const parsed = parseLookupSearch(params);
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }

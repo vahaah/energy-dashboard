@@ -934,6 +934,41 @@ export const EIRGRID_METRICS = Object.fromEntries(
 
 export type EirgridMetricId = keyof typeof EIRGRID_METRICS;
 
+export function metricGeographyId(metricId: string): string | null {
+  if (Object.prototype.hasOwnProperty.call(METRICS, metricId)) {
+    return METRICS[metricId as MetricId].geography_id;
+  }
+  if (Object.prototype.hasOwnProperty.call(GAS_METRICS, metricId)) {
+    return GAS_METRICS[metricId as GasMetricId].geography_id;
+  }
+  if (Object.prototype.hasOwnProperty.call(CONSTRAINT_METRICS, metricId)) {
+    return CONSTRAINT_METRICS[metricId as ConstraintMetricId].geography_id;
+  }
+  if (Object.prototype.hasOwnProperty.call(EIRGRID_METRICS, metricId)) {
+    return EIRGRID_METRICS[metricId as EirgridMetricId].geography_id;
+  }
+  if (Object.prototype.hasOwnProperty.call(WHOLE_ENERGY_METRICS, metricId)) {
+    return WHOLE_ENERGY_METRICS[metricId as WholeEnergyMetricId].geography_id;
+  }
+  return null;
+}
+
+const GB_DATA_HEALTH_GEOGRAPHIES = new Set(["GB", "GB_NTS"]);
+
+/** GB electricity and GB gas. NI, Ireland, UK annual, and other commodities stay out. */
+export function isGbDataHealthMetric(metricId: string): boolean {
+  const geography = metricGeographyId(metricId);
+  return geography != null && GB_DATA_HEALTH_GEOGRAPHIES.has(geography);
+}
+
+export function gbDataHealthReading<T extends { metric_id: string }>(reading: T): (T & { geography_id: string }) | null {
+  const geography_id = metricGeographyId(reading.metric_id);
+  if (!geography_id || !isGbDataHealthMetric(reading.metric_id)) {
+    return null;
+  }
+  return { ...reading, geography_id };
+}
+
 /** Physical NTS series shown on /gas. Separate from the SAP price card. */
 export function physicalGasCoverage(): readonly {
   dataset_id: string;
