@@ -46,6 +46,7 @@ export default function ChangesPage() {
         </section>
       }
     >
+      {model?.notice ? <p className="mb-4 break-words text-copy-14 text-gray-900">{model.notice}</p> : null}
       <ChangesBoard rows={cards} attribution={attributionLine(model?.sources ?? [])} />
     </SeoPage>
   );

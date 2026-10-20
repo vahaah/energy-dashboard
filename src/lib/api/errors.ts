@@ -10,13 +10,16 @@ const GB_SCOPE = "GB";
 
 export type ApiErrorBody = { error: string };
 
-export function scopeRejection(params: URLSearchParams): { status: 400; body: ApiErrorBody } | null {
-  const scope = params.get("scope");
-  const geography = params.get("geography");
-  if (scope == null && geography == null) {
-    return null;
+function everyValueIsGb(params: URLSearchParams, key: string): boolean {
+  const values = params.getAll(key);
+  if (values.length === 0) {
+    return true;
   }
-  if ((scope == null || scope === GB_SCOPE) && (geography == null || geography === GB_SCOPE)) {
+  return values.every((value) => value === GB_SCOPE);
+}
+
+export function scopeRejection(params: URLSearchParams): { status: 400; body: ApiErrorBody } | null {
+  if (everyValueIsGb(params, "scope") && everyValueIsGb(params, "geography")) {
     return null;
   }
   return { status: 400, body: { error: API_ERROR_SCOPE } };

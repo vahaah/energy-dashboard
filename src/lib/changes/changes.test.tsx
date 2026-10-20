@@ -16,6 +16,7 @@ import { prepareChanges } from "@/lib/changes/prepare";
 import {
   allChangeRows,
   changesQueryResponse,
+  heldAfterFailure,
   readCheckedInChanges,
   type ChangesBundle,
 } from "@/lib/changes/query";
@@ -250,5 +251,32 @@ describe("change events", () => {
     const unknown = await GET(new Request("http://localhost/api/v1/changes?entity_id=missing"));
     expect(unknown.status).toBe(404);
     expect(await unknown.json()).toEqual({ error: API_ERROR_UNKNOWN_ID });
+    const repeated = await GET(new Request("http://localhost/api/v1/changes?scope=GB&scope=NI"));
+    expect(repeated.status).toBe(400);
+    expect(await repeated.json()).toEqual({ error: API_ERROR_SCOPE });
+  });
+
+  it("returns the last held file when a later read fails", () => {
+    const fresh = readCheckedInChanges();
+    const failed = heldAfterFailure(fresh);
+    expect(failed.unavailable).toBe(true);
+    expect(failed.events).toBeNull();
+    expect(failed.held).toBe(fresh.events);
+    const page = changesQueryResponse(new URLSearchParams(), failed);
+    expect(page.status).toBe(200);
+    if (!("notice" in page.body)) {
+      throw new Error("expected held rows");
+    }
+    expect(page.body.notice).toBe(API_ERROR_SOURCE_UNAVAILABLE);
+    expect(page.body.changes.length).toBe(fresh.events?.events.length);
+    expect(heldAfterFailure(null)).toEqual({
+      unavailable: true,
+      events: null,
+      held: null,
+      projects: new Map(),
+      sources: new Map(),
+    });
+    const reader = readFileSync(resolve(process.cwd(), "src/lib/changes/query.ts"), "utf8");
+    expect(reader).toContain("return heldAfterFailure(heldBundle)");
   });
 });

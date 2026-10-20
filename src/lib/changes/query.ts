@@ -78,32 +78,54 @@ export function allChangeRows(bundle: ChangesBundle): ChangesResponse | null {
   return body;
 }
 
+let heldBundle: ChangesBundle | null = null;
+
 export function readCheckedInChanges(): ChangesBundle {
   try {
-    const catalogue = loadProjectCatalogue();
-    const loaded = loadCatalogue(join(process.cwd(), "data", "catalogue"));
-    const sources = new Map<string, ChangeSource>();
-    if (loaded.sources.ok) {
-      for (const source of loaded.sources.data) {
-        sources.set(source.source_id, sourceRecord(source));
-      }
-    }
-    return {
-      unavailable: false,
-      events: catalogue.changes,
-      held: catalogue.changes,
-      projects: catalogue.byId,
-      sources,
-    };
+    const bundle = loadCheckedInBundle();
+    heldBundle = bundle;
+    return bundle;
   } catch {
+    return heldAfterFailure(heldBundle);
+  }
+}
+
+/** Last successful read, marked unavailable. A process with nothing held returns no rows. */
+export function heldAfterFailure(previous: ChangesBundle | null): ChangesBundle {
+  if (previous?.events) {
     return {
       unavailable: true,
       events: null,
-      held: null,
-      projects: new Map(),
-      sources: new Map(),
+      held: previous.events,
+      projects: previous.projects,
+      sources: previous.sources,
     };
   }
+  return {
+    unavailable: true,
+    events: null,
+    held: null,
+    projects: new Map(),
+    sources: new Map(),
+  };
+}
+
+function loadCheckedInBundle(): ChangesBundle {
+  const catalogue = loadProjectCatalogue();
+  const loaded = loadCatalogue(join(process.cwd(), "data", "catalogue"));
+  const sources = new Map<string, ChangeSource>();
+  if (loaded.sources.ok) {
+    for (const source of loaded.sources.data) {
+      sources.set(source.source_id, sourceRecord(source));
+    }
+  }
+  return {
+    unavailable: false,
+    events: catalogue.changes,
+    held: catalogue.changes,
+    projects: catalogue.byId,
+    sources,
+  };
 }
 
 export function changesQueryResponse(

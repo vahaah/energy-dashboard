@@ -88,7 +88,7 @@ export const API_DOCS_ENDPOINTS: readonly ApiDocsEndpoint[] = [
   {
     method: "GET",
     path: "/api/v1/data-health",
-    note: "No required parameters.",
+    note: "No required parameters. Readings are GB electricity and GB gas. Northern Ireland and other geographies are left out.",
     summary: "When each source last published and when Grid last fetched it.",
   },
 ];
