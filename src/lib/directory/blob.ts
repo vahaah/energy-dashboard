@@ -1,4 +1,5 @@
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
+import { blobReadSignal, readBlobResponse } from "@/lib/blob-read";
 
 export const DIRECTORY_LATEST_PATH = "releases/directory/latest.json";
 export const DIRECTORY_PREVIOUS_PATH = "releases/directory/previous.json";
@@ -88,19 +89,9 @@ class VercelDirectoryStore implements DirectoryObjectStore {
   }
 
   async get(pathname: string): Promise<DirectoryStoredObject | null> {
-    try {
-      const result = await get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true });
-      if (!result || result.statusCode !== 200 || !result.stream) {
-        return null;
-      }
-      const body = await new Response(result.stream).text();
-      return { body, uploadedAt: result.blob.uploadedAt, size: result.blob.size };
-    } catch (error) {
-      if (error instanceof BlobNotFoundError) {
-        return null;
-      }
-      throw error;
-    }
+    return readBlobResponse(() =>
+      get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true, abortSignal: blobReadSignal() }),
+    );
   }
 }
 

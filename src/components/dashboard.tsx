@@ -17,8 +17,10 @@ import {
   ELEXON_BMRS_LICENCE_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
+  NI_FLOW_NOTE,
 } from "@/lib/attribution";
 import Link from "next/link";
+import { NI_PATH } from "@/lib/eirgrid/copy";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePublicNav } from "@/components/site-public-nav";
 import {
@@ -518,6 +520,11 @@ export function Dashboard({
           ) : (
             <CardEmpty stamp={facts.headerStamp} />
           )}
+          <p className="mt-4 break-words text-copy-14 text-gray-900">
+            <Link href={NI_PATH} className="underline-offset-2 hover:underline">
+              {NI_FLOW_NOTE}
+            </Link>
+          </p>
         </SectionBlock>
 
         <SectionBlock

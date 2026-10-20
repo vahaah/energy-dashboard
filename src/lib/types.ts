@@ -17,7 +17,9 @@ export type IntervalConvention =
   | "calendar_day_utc_half_open"
   | "calendar_month_utc_half_open"
   | "calendar_year_half_open"
-  | "gas_day_half_open";
+  | "gas_day_half_open"
+  | "quarter_hour_half_open"
+  | "half_hour_half_open";
 
 export type SignConvention =
   | "positive_demand"
@@ -28,7 +30,8 @@ export type SignConvention =
   | "positive_intensity"
   | "positive_price"
   | "share_of_denominator"
-  | "negative_transformation_input";
+  | "negative_transformation_input"
+  | "signed_as_published";
 
 /** Measured series are post-event. Forecast series are a snapshot issued ahead of the interval. */
 export type SeriesKind = "measured" | "forecast";

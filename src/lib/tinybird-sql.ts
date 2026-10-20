@@ -57,8 +57,13 @@ export function tinybirdSqlRequestInit(
   };
 }
 
+const TINYBIRD_SQL_TIMEOUT_MS = 10_000;
+
 export async function queryTinybirdSql<T>(sql: string): Promise<T[]> {
-  const response = await fetch(`${tinybirdApiUrl()}/v0/sql`, tinybirdSqlRequestInit(sql));
+  const response = await fetch(`${tinybirdApiUrl()}/v0/sql`, {
+    ...tinybirdSqlRequestInit(sql),
+    signal: AbortSignal.timeout(TINYBIRD_SQL_TIMEOUT_MS),
+  });
 
   if (!response.ok) {
     const body = await response.text();
@@ -86,6 +91,7 @@ export async function queryTinybirdPipe<T>(
 
   const response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${tinybirdReadToken()}` },
+    signal: AbortSignal.timeout(TINYBIRD_SQL_TIMEOUT_MS),
   });
 
   if (!response.ok) {

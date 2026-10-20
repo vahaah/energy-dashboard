@@ -15,6 +15,7 @@ export const loadHomepagePayload = cache(async function loadHomepagePayload(): P
 async function loadPublicDashboardFallback(): Promise<DashboardPayload | null> {
   const response = await fetch(`${SITE_ORIGIN}/api/dashboard?period=day`, {
     next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(10_000),
   }).catch(() => null);
   if (!response?.ok) {
     return null;

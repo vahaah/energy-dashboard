@@ -16,6 +16,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/system/constraints",
       "https://grid.vahaah.com/system/storage",
       "https://grid.vahaah.com/system/whole-energy",
+      "https://grid.vahaah.com/electricity/northern-ireland",
       "https://grid.vahaah.com/map",
       "https://grid.vahaah.com/assets",
       "https://grid.vahaah.com/projects",

@@ -90,6 +90,19 @@ export const OGL_V3_LICENCE_URL =
 export const OGL_V3_ATTRIBUTION =
   "Contains public sector information licensed under the Open Government Licence v3.0.";
 
+export const EIRGRID_GROUP_LICENCE_URL = "https://www.smartgriddashboard.com/all/open-data-license/";
+
+/** Read on 15 Oct 2026. The licence says EirGrid Group may revise it without notice. */
+export const EIRGRID_GROUP_LICENCE_READ_ON = "2026-10-15";
+
+export const EIRGRID_GROUP_ATTRIBUTION = "Supported by EirGrid Group Data";
+
+export const SONI_SOURCE_LINE = "Source: SONI.";
+
+export const SEMO_SOURCE_LINE = "Source: SEMO.";
+
+export const NI_FLOW_NOTE = "Flows to and from Northern Ireland. NI figures are on a separate page.";
+
 export const DATA_SOURCE_IDS = [
   "elexon-bmrs",
   "neso-open-data",
@@ -102,6 +115,7 @@ export const DATA_SOURCE_IDS = [
   "desnz-dukes",
   "neso-dno-areas",
   "os-open-zoomstack",
+  "eirgrid-group",
 ] as const;
 
 export type DataSourceId = (typeof DATA_SOURCE_IDS)[number];

@@ -7,6 +7,7 @@ const SITEMAP_CANDIDATES = [
   { path: "/system/constraints", changeFrequency: "daily" as const, priority: 0.7 },
   { path: "/system/storage", changeFrequency: "hourly" as const, priority: 0.7 },
   { path: "/system/whole-energy", changeFrequency: "yearly" as const, priority: 0.7 },
+  { path: "/electricity/northern-ireland", changeFrequency: "hourly" as const, priority: 0.7 },
   { path: "/map", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/assets", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/projects", changeFrequency: "weekly" as const, priority: 0.7 },

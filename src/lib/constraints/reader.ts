@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { blobReadOrNull } from "@/lib/blob-read";
 import { constraintsBundlePointerPath, constraintsBundlePreviousPath } from "@/lib/constraints/blob";
 import { buildRelease } from "@/lib/constraints/build";
 import { readConstraintsPointer, readConstraintsRelease } from "@/lib/constraints/load";
@@ -70,10 +71,12 @@ export async function readBundleHistory(bundle: ConstraintsBundle): Promise<Cons
   if (publishedFixture()) {
     return fixtureConstraintsHistory(bundle);
   }
-  const latestPointer = await readConstraintsPointer(constraintsBundlePointerPath(bundle));
-  const previousPointer = await readConstraintsPointer(constraintsBundlePreviousPath(bundle));
-  const latest = latestPointer ? await readConstraintsRelease(latestPointer.release_id) : null;
-  const previous = previousPointer ? await readConstraintsRelease(previousPointer.release_id) : null;
+  const latestPointer = await blobReadOrNull(() => readConstraintsPointer(constraintsBundlePointerPath(bundle)));
+  const previousPointer = await blobReadOrNull(() => readConstraintsPointer(constraintsBundlePreviousPath(bundle)));
+  const latest = latestPointer ? await blobReadOrNull(() => readConstraintsRelease(latestPointer.release_id)) : null;
+  const previous = previousPointer
+    ? await blobReadOrNull(() => readConstraintsRelease(previousPointer.release_id))
+    : null;
   return { latest, previous };
 }
 

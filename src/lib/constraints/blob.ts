@@ -1,4 +1,5 @@
-import { BlobNotFoundError, del, get, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
+import { blobReadSignal, readBlobResponse, withBlobReadRetry } from "@/lib/blob-read";
 
 export const CONSTRAINTS_LATEST_PATH = "releases/neso-constraints/latest.json";
 export const CONSTRAINTS_PREVIOUS_PATH = "releases/neso-constraints/previous.json";
@@ -124,26 +125,14 @@ class VercelConstraintsStore implements ConstraintsObjectStore {
   }
 
   async get(pathname: string, cache: boolean): Promise<ConstraintsStoredObject | null> {
-    try {
-      const result = await get(pathname, { access: "public", useCache: cache });
-      if (!result || result.statusCode !== 200 || !result.stream) {
-        return null;
-      }
-      const body = await new Response(result.stream).text();
-      return { body, uploadedAt: result.blob.uploadedAt, size: result.blob.size };
-    } catch (error) {
-      if (error instanceof BlobNotFoundError) {
-        return null;
-      }
-      throw error;
-    }
+    return readBlobResponse(() => get(pathname, { access: "public", useCache: cache, abortSignal: blobReadSignal() }));
   }
 
   async list(prefix: string): Promise<Array<{ pathname: string; uploadedAt: Date }>> {
     const found: Array<{ pathname: string; uploadedAt: Date }> = [];
     let cursor: string | undefined;
     do {
-      const page = await list({ prefix, cursor, limit: 1000 });
+      const page = await withBlobReadRetry(() => list({ prefix, cursor, limit: 1000, abortSignal: blobReadSignal() }));
       for (const blob of page.blobs) {
         found.push({ pathname: blob.pathname, uploadedAt: blob.uploadedAt });
       }
@@ -186,7 +175,7 @@ export function constraintsStore(): ConstraintsObjectStore {
   if (override) {
     return override;
   }
-  if (process.env.VITEST) {
+  if (process.env.VITEST || !process.env.BLOB_READ_WRITE_TOKEN) {
     return disabledStore;
   }
   production ??= new VercelConstraintsStore();
