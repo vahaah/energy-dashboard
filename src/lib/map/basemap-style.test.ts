@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { validateStyleMin, type StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { describe, expect, it } from "vitest";
 import { basemapStyle, pointZoomstackSource, themeColor } from "@/lib/map/basemap-style";
-import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, MAP_MAX_BOUNDS, ZOOMSTACK_LAND_EXTENT, osBasemapAttribution } from "@/lib/map/constants";
+import { SCHEMATIC_BBOX } from "@/lib/catalogue/links/schema";
+import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, MAP_MAX_BOUNDS, OVERVIEW_CAMERA_LIMIT, ZOOMSTACK_LAND_EXTENT, osBasemapAttribution } from "@/lib/map/constants";
 import { decodeGlyphRange } from "@/lib/map/glyph-pbf";
 
 describe("basemap style", () => {
@@ -53,11 +54,17 @@ describe("basemap style", () => {
     };
     expect(names.features.some((feature) => feature.properties.name1 === "London" && feature.properties.type === "Capital")).toBe(true);
     expect(names.features.some((feature) => feature.properties.name1 === "Scotland" && feature.properties.type === "Country")).toBe(true);
-    const [[boundsWest, boundsSouth], [boundsEast, boundsNorth]] = MAP_MAX_BOUNDS;
-    expect(boundsWest).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.west);
-    expect(boundsSouth).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.south);
-    expect(boundsEast).toBeLessThan(ZOOMSTACK_LAND_EXTENT.east);
-    expect(boundsNorth).toBeLessThan(ZOOMSTACK_LAND_EXTENT.north);
+    expect(MAP_MAX_BOUNDS).toEqual([
+      [SCHEMATIC_BBOX.west, SCHEMATIC_BBOX.south],
+      [SCHEMATIC_BBOX.east, SCHEMATIC_BBOX.north],
+    ]);
+    const [[overviewWest, overviewSouth], [overviewEast, overviewNorth]] = OVERVIEW_CAMERA_LIMIT;
+    expect(overviewWest).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.west);
+    expect(overviewSouth).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.south);
+    expect(overviewEast).toBeLessThan(ZOOMSTACK_LAND_EXTENT.east);
+    expect(overviewNorth).toBeLessThan(ZOOMSTACK_LAND_EXTENT.north);
+    expect(overviewEast).toBeLessThan(9.17726);
+    expect(overviewSouth).toBeGreaterThan(49.12425);
     const coast = JSON.parse(readFileSync(resolve(process.cwd(), "public/basemap/coastline.geojson"), "utf8")) as {
       features: { geometry: { type: string; coordinates: number[][][] } }[];
     };

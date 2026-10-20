@@ -44,6 +44,24 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number]) {
   const container = page.locator("[data-map-status=ready]");
   await expect(container).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => placeLabels(page), { timeout: 15_000 }).toBeGreaterThan(0);
+  const limits = await container.evaluate((element) => {
+    const host = element as HTMLElement & {
+      maplibreMap?: {
+        getMaxBounds: () => { getWest: () => number; getSouth: () => number; getEast: () => number; getNorth: () => number } | null;
+      };
+    };
+    const bounds = host.maplibreMap?.getMaxBounds();
+    if (!bounds) {
+      return null;
+    }
+    return { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() };
+  });
+  expect(limits).not.toBeNull();
+  // Schematic box: Viking 9.18°E, IFA2 49.12°N, and the GB frame stay inside the camera.
+  expect(limits?.east).toBeGreaterThanOrEqual(14);
+  expect(limits?.south).toBeLessThanOrEqual(47);
+  expect(limits?.west).toBeLessThanOrEqual(-12);
+  expect(limits?.north).toBeGreaterThanOrEqual(64);
   const box = await container.evaluate((element) => element.getBoundingClientRect());
   expect(box.height).toBeGreaterThan(300);
   const canvas = container.locator(".maplibregl-canvas");

@@ -75,7 +75,7 @@ type StyleLayer = {
   paint?: Record<string, unknown>;
 };
 
-/** Extra land past the extract so the camera, which stops inside the box, cannot see the cut. */
+/** Extra land past the extract so the overview camera, which stops inside the box, cannot see the cut. */
 const LAND_BLEED_DEGREES = 0.75;
 
 function landExtentFeature(): Record<string, unknown> {

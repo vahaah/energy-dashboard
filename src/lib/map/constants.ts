@@ -18,7 +18,8 @@ export const BASEMAP_ZOOM_MAX = 13;
  * First zoom that carries country labels, motorways, and urban areas in the
  * OS Open Zoomstack vector tiles. Zoom 0–4 is sea only, so a wider view never
  * requests glyphs. This is the opening zoom, not the camera minimum: the
- * overview has to fit Britain and the interconnector endpoints on a phone.
+ * overview has to fit Britain on a phone. Remote endpoints stay inside
+ * MAP_MAX_BOUNDS and are framed when that link is selected.
  */
 export const BASEMAP_DETAIL_MIN_ZOOM = 5;
 
@@ -38,14 +39,38 @@ export const ZOOMSTACK_LAND_EXTENT = {
 } as const;
 
 /**
- * Camera limit, inset from the extract so that cut stays off-screen, including
- * the antialiased edge of the land fill. Interconnector endpoints outside the
- * box are clamped before fitBounds.
+ * Camera limit. This is the schematic box (west -12, south 47, east 14, north 64):
+ * every interconnector endpoint, including NSL, Viking, and IFA2, sits inside it
+ * and can be panned into view. `basemap-style.test.ts` checks it against `SCHEMATIC_BBOX`.
  */
 export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [-12, 47],
+  [14, 64],
+];
+
+/**
+ * Overview fit, inset from the Zoomstack extract. The land fill ends in a
+ * straight cut, and this keeps that cut off-screen on the opening frame.
+ * A selected link uses `MAP_MAX_BOUNDS` instead, so a remote endpoint outside
+ * this inset is still reachable.
+ */
+export const OVERVIEW_CAMERA_LIMIT: [[number, number], [number, number]] = [
   [ZOOMSTACK_LAND_EXTENT.west + 0.4, ZOOMSTACK_LAND_EXTENT.south + 0.3],
   [ZOOMSTACK_LAND_EXTENT.east - 0.4, ZOOMSTACK_LAND_EXTENT.north - 0.25],
 ];
+
+function clampBox(
+  bounds: { west: number; south: number; east: number; north: number },
+  limit: [[number, number], [number, number]],
+): { west: number; south: number; east: number; north: number } {
+  const [[westLimit, southLimit], [eastLimit, northLimit]] = limit;
+  return {
+    west: Math.min(Math.max(bounds.west, westLimit), eastLimit),
+    east: Math.max(Math.min(bounds.east, eastLimit), westLimit),
+    south: Math.min(Math.max(bounds.south, southLimit), northLimit),
+    north: Math.max(Math.min(bounds.north, northLimit), southLimit),
+  };
+}
 
 export function clampToMapBounds(bounds: {
   west: number;
@@ -53,13 +78,16 @@ export function clampToMapBounds(bounds: {
   east: number;
   north: number;
 }): { west: number; south: number; east: number; north: number } {
-  const [[westLimit, southLimit], [eastLimit, northLimit]] = MAP_MAX_BOUNDS;
-  return {
-    west: Math.min(Math.max(bounds.west, westLimit), eastLimit),
-    east: Math.max(Math.min(bounds.east, eastLimit), westLimit),
-    south: Math.min(Math.max(bounds.south, southLimit), northLimit),
-    north: Math.max(Math.min(bounds.north, northLimit), southLimit),
-  };
+  return clampBox(bounds, MAP_MAX_BOUNDS);
+}
+
+export function clampOverviewBounds(bounds: {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}): { west: number; south: number; east: number; north: number } {
+  return clampBox(bounds, OVERVIEW_CAMERA_LIMIT);
 }
 
 /** Closed height of the mobile flow sheet. The overview padding clears it. */

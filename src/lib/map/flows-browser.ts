@@ -6,6 +6,7 @@ import {
   GB_FRAME_BOUNDS,
   MAP_CAMERA_MIN_ZOOM,
   MAP_MAX_BOUNDS,
+  clampOverviewBounds,
   clampToMapBounds,
 } from "@/lib/map/constants";
 import { basemapStartupFailed } from "@/lib/map/startup-error";
@@ -484,7 +485,7 @@ export function mountFlowsMap(
         north = Math.max(north, point[1]);
       }
     }
-    const camera = clampToMapBounds({ west, south, east, north });
+    const camera = clampOverviewBounds({ west, south, east, north });
     map.fitBounds(
       [
         [camera.west, camera.south],
@@ -628,14 +629,41 @@ export function mountFlowsMap(
     },
     setSelected: (id) => {
       const line = lines.find((item) => item.id === id);
-      if (line && ready) {
-        const move = { center: line.gb, zoom: Math.max(map.getZoom(), 5.5) };
+      if (!line || !ready) {
+        return;
+      }
+      const points = [line.gb, line.remote].filter((point): point is [number, number] => point !== null);
+      const first = points[0];
+      if (!first) {
+        return;
+      }
+      if (points.length === 1) {
+        const move = { center: first, zoom: Math.max(map.getZoom(), 5.5) };
         if (reduceMotion) {
           map.jumpTo(move);
         } else {
           map.easeTo(move);
         }
+        return;
       }
+      let west = first[0];
+      let east = first[0];
+      let south = first[1];
+      let north = first[1];
+      for (const point of points) {
+        west = Math.min(west, point[0]);
+        east = Math.max(east, point[0]);
+        south = Math.min(south, point[1]);
+        north = Math.max(north, point[1]);
+      }
+      const camera = clampToMapBounds({ west, south, east, north });
+      map.fitBounds(
+        [
+          [camera.west, camera.south],
+          [camera.east, camera.north],
+        ],
+        { padding: overviewPadding(), maxZoom: 6.5, animate: !reduceMotion },
+      );
     },
     setStations: (collection) => {
       stations = collection;
