@@ -40,6 +40,23 @@ describe("renderStaticMap", () => {
     expect(bareDecoded.palette[middle ?? 0]).toBe(THEME.land);
   });
 
+  it("fills a triangle and leaves the square's corner empty", () => {
+    const image = renderStaticMap({
+      bbox: [0, 0, 10, 10],
+      width: 40,
+      height: 40,
+      padding: 2,
+      theme: THEME,
+      points: [{ longitude: 5, latitude: 5, color: "#0d94d2", radius: 8, shape: "triangle", filled: true }],
+    });
+    const decoded = decodeIndexedPng(image.png);
+    const center = Math.floor(decoded.width / 2);
+    const above = colorAt(decoded, center, center - 4);
+    const corner = colorAt(decoded, center - 6, center + 6);
+    expect(above).toBe("#0d94d2");
+    expect(corner).not.toBe("#0d94d2");
+  });
+
   it("sizes the frame from the bbox without stretching longitude", () => {
     expect(staticMapDimensions([-4, 50, 2, 59], 100).height).toBe(100);
     expect(staticMapDimensions([-4, 50, 2, 59], 100).width).toBeLessThan(100);

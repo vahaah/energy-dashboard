@@ -41,6 +41,7 @@ function source(patch: Partial<SourceProject> & Pick<SourceProject, "source_id" 
   return {
     technology: "onshore_wind",
     country: "Scotland",
+    region: null,
     planning_status: "granted",
     planning_decision_date: "2024-01-02",
     planning_source_id: patch.source_id,
@@ -286,12 +287,13 @@ describe("project parsers", () => {
       "Planning Permission Expired",
       "Under Construction",
       "Operational",
+      "Region",
     ];
     const row = (cells: string[]) => cells.join(",");
     const csv = [
       header.join(","),
-      row(["1", "English Farm", "Solar Photovoltaics", "5", "Operational", "England", "", "", "", "", "", "", "", "01/02/2020", "", "", "", "", "03/04/2021"]),
-      row(["2", "Ulster Farm", "Solar Photovoltaics", "5", "Operational", "Northern Ireland", "", "", "", "", "", "", "", "01/02/2020", "", "", "", "", "03/04/2021"]),
+      row(["1", "English Farm", "Solar Photovoltaics", "5", "Operational", "England", "", "", "", "", "", "", "", "01/02/2020", "", "", "", "", "03/04/2021", "Yorkshire and the Humber"]),
+      row(["2", "Ulster Farm", "Solar Photovoltaics", "5", "Operational", "Northern Ireland", "", "", "", "", "", "", "", "01/02/2020", "", "", "", "", "03/04/2021", "Northern Ireland"]),
     ].join("\n");
     const parsed = parseRepdProjects(csv);
     expect(parsed.map((item) => item.external_ref)).toEqual(["1"]);
@@ -299,6 +301,7 @@ describe("project parsers", () => {
     expect(parsed[0]?.operational_status).toBe("operational");
     expect(parsed[0]?.commissioning_date).toBe("2021-04-03");
     expect(parsed[0]?.country).toBe("England");
+    expect(parsed[0]?.region).toBe("Yorkshire and the Humber");
   });
 
   it("collapses TEC stages and quarantines an unknown status", () => {

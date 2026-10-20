@@ -1,34 +1,51 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { technologyColor } from "@/lib/assets/labels";
 import { loadAssetCatalogue } from "@/lib/assets/load";
-import { isCatalogueStation } from "@/lib/assets/types";
+import { TECHNOLOGIES, type Technology } from "@/lib/catalogue/assets/technologies";
 import { layersFileSchema } from "@/lib/catalogue/layers";
 import { sourceReleaseSchema, type SourceRelease } from "@/lib/catalogue/schema";
 import type { GeoJsonGeometry } from "@/lib/map/geojson";
 import { parseFeatureCollection } from "@/lib/map/geojson";
+import { mapSizeStep, type MarkerShape } from "@/lib/map/marker";
 import {
   padStaticMapBbox,
   renderStaticMap,
-  staticMapDimensions,
   staticMapExtent,
   type LngLat,
   type StaticMapImage,
+  type StaticMapPoint,
   type StaticMapTheme,
 } from "@/lib/map/static-map";
 import {
+  TODAY_MAP_CSS_WIDTH,
   TODAY_MAP_DARK_PATH,
-  TODAY_MAP_HEIGHT,
   TODAY_MAP_LIGHT_PATH,
   TODAY_MAP_PAD_RATIO,
   TODAY_MAP_PADDING_PX,
+  TODAY_MAP_SCALE,
   registerEditionLabel,
+  repdQuarterEnd,
   todayMapAlt,
-  todayMapPointRadius,
   todayMapReleaseCurrent,
   type TodayMapCardFile,
   type TodayMapStamp,
 } from "@/lib/map/today-card";
+import {
+  buildTodayFigures,
+  groupOfTechnology,
+  isGbNation,
+  isGbOperatingPlant,
+  todayGroup,
+  type TodayPlant,
+  type TodayProject,
+} from "@/lib/map/today-figures";
+import { loadProjectCatalogue } from "@/lib/projects/load";
+
+type LocatedPlant = TodayPlant & {
+  longitude: number | null;
+  latitude: number | null;
+};
 
 export const TODAY_MAP_THEMES = {
   light: { sea: "#e7eef3", land: "#f7f6f3", coast: "#8e99a3" },
@@ -36,6 +53,18 @@ export const TODAY_MAP_THEMES = {
 } as const satisfies Record<"light" | "dark", StaticMapTheme>;
 
 const MANIFEST_PATH = resolve("src/lib/map/today-card.json");
+const BATTERIES_PATH = resolve("src/lib/map/today-batteries.json");
+
+type BatteryFile = {
+  source_release_id: string;
+  sites: {
+    ref: string;
+    country: string;
+    mw: number | null;
+    longitude: number;
+    latitude: number;
+  }[];
+};
 
 export function todayMapOutputsCurrent(): boolean {
   if (!existsSync(MANIFEST_PATH)) {
@@ -50,9 +79,10 @@ export function todayMapOutputsCurrent(): boolean {
 
 export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: StaticMapImage; dark: StaticMapImage } {
   const stamp = readTodayMapStamp();
-  const catalogue = loadAssetCatalogue();
-  const stations = catalogue.rows.filter((row) => isCatalogueStation(row.technology));
-  const stationIds = new Set(stations.map((row) => row.id));
+  const plants = readPlants();
+  const projects = readProjects();
+  const figures = buildTodayFigures(plants, projects);
+  const points = mapPoints(plants, readBatteries());
   const rings = readOutlineRings();
   const coordinates: LngLat[] = [];
   for (const ring of rings) {
@@ -60,20 +90,12 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
       coordinates.push(position);
     }
   }
-  for (const point of catalogue.points) {
-    if (!stationIds.has(point.id)) {
-      continue;
-    }
+  for (const point of points) {
     coordinates.push([point.longitude, point.latitude]);
   }
   const bbox = padStaticMapBbox(staticMapExtent(coordinates), TODAY_MAP_PAD_RATIO);
-  const { width, height } = staticMapDimensions(bbox, TODAY_MAP_HEIGHT);
-  const points = catalogue.points.filter((point) => stationIds.has(point.id)).map((point) => ({
-    longitude: point.longitude,
-    latitude: point.latitude,
-    color: technologyColor(point.technology),
-    radius: todayMapPointRadius(point.mw),
-  }));
+  const width = TODAY_MAP_CSS_WIDTH * TODAY_MAP_SCALE;
+  const height = heightForWidth(bbox, width);
   const shared = {
     bbox,
     points,
@@ -82,22 +104,113 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
     rings,
     padding: TODAY_MAP_PADDING_PX,
   };
-  const edition = registerEditionLabel(releaseEdition(stamp.repd_source_release_id), releaseEdition(stamp.dukes_source_release_id));
+  const repdEdition = releaseEdition(stamp.repd_source_release_id);
+  const dukesEdition = releaseEdition(stamp.dukes_source_release_id);
+  const edition = registerEditionLabel(repdEdition, dukesEdition);
   const manifest: TodayMapCardFile = {
     ...stamp,
     edition,
-    count: stations.length,
+    repd_quarter_end: repdQuarterEnd(repdEdition),
+    dukes_published_on: releasePublishedOn(stamp.dukes_source_release_id),
     width,
     height,
     light: TODAY_MAP_LIGHT_PATH,
     dark: TODAY_MAP_DARK_PATH,
-    alt: todayMapAlt(stations.length),
+    alt:
+      figures.operating.sites !== null && figures.operating.gw !== null
+        ? todayMapAlt(figures.operating.sites, figures.operating.gw, figures.largestLabels)
+        : "Map of Great Britain. Operating power sites are not available for this edition.",
+    availability: figures.availability,
+    operating: figures.operating,
+    technologies: figures.technologies,
+    nations: figures.nations,
+    pipeline: figures.pipeline,
   };
   return {
     manifest,
     light: renderStaticMap({ ...shared, theme: TODAY_MAP_THEMES.light }),
     dark: renderStaticMap({ ...shared, theme: TODAY_MAP_THEMES.dark }),
   };
+}
+
+function heightForWidth(bbox: readonly [number, number, number, number], width: number): number {
+  const [west, south, east, north] = bbox;
+  const midLatitude = ((south + north) / 2) * (Math.PI / 180);
+  const worldWidth = (east - west) * Math.cos(midLatitude);
+  const worldHeight = north - south;
+  return Math.max(1, Math.round((width * worldHeight) / worldWidth));
+}
+
+function readPlants(): LocatedPlant[] {
+  return loadAssetCatalogue().rows.map((row) => ({
+    technology: row.technology,
+    country: row.country,
+    mw: row.mw,
+    longitude: row.longitude,
+    latitude: row.latitude,
+  }));
+}
+
+function readProjects(): TodayProject[] {
+  return loadProjectCatalogue().projects.map((project) => ({
+    technology: project.technology,
+    country: project.country,
+    displayStage: project.display_stage,
+    operationalStatus: project.operational_status,
+    powerMw: project.power_mw,
+    sources: project.members.map((member) => member.source_id),
+  }));
+}
+
+function mapPoints(plants: readonly LocatedPlant[], batteries: BatteryFile): StaticMapPoint[] {
+  const points: StaticMapPoint[] = [];
+  for (const plant of plants) {
+    if (!isGbOperatingPlant(plant) || !isTechnology(plant.technology)) {
+      continue;
+    }
+    if (plant.longitude === null || plant.latitude === null) {
+      continue;
+    }
+    const group = todayGroup(groupOfTechnology(plant.technology));
+    if (!group) {
+      continue;
+    }
+    points.push(marker(plant.longitude, plant.latitude, group.color, group.shape, plant.mw));
+  }
+  for (const site of batteries.sites) {
+    if (!isGbNation(site.country)) {
+      continue;
+    }
+    const group = todayGroup("battery");
+    if (!group) {
+      continue;
+    }
+    points.push(marker(site.longitude, site.latitude, group.color, group.shape, site.mw));
+  }
+  return points;
+}
+
+function marker(longitude: number, latitude: number, color: string, shape: MarkerShape, mw: number | null): StaticMapPoint {
+  return {
+    longitude,
+    latitude,
+    color,
+    shape,
+    filled: true,
+    radius: mapSizeStep(mw).radius,
+  };
+}
+
+function isTechnology(value: string): value is Technology {
+  return (TECHNOLOGIES as readonly string[]).includes(value);
+}
+
+function readBatteries(): BatteryFile {
+  const parsed = JSON.parse(readFileSync(BATTERIES_PATH, "utf8")) as BatteryFile;
+  if (!Array.isArray(parsed.sites)) {
+    throw new Error("today battery file has no sites");
+  }
+  return parsed;
 }
 
 function readTodayMapStamp(): TodayMapStamp {
@@ -113,10 +226,12 @@ function readTodayMapStamp(): TodayMapStamp {
   if (!dno) {
     throw new Error("map catalogue is missing the DNO layer");
   }
+  const batteries = readFileSync(BATTERIES_PATH);
   return {
     repd_source_release_id: summary.repd_source_release_id,
     dukes_source_release_id: summary.dukes_source_release_id,
     dno_sha256: dno.sha256,
+    batteries_sha256: `sha256:${createHash("sha256").update(batteries).digest("hex")}`,
   };
 }
 
@@ -153,6 +268,15 @@ function toLngLatRing(ring: readonly (readonly [number, number])[]): LngLat[] {
 }
 
 function releaseEdition(sourceReleaseId: string): string {
+  return editionOf(readRelease(sourceReleaseId));
+}
+
+function releasePublishedOn(sourceReleaseId: string): string | null {
+  const publishedAt = readRelease(sourceReleaseId).published_at;
+  return publishedAt === null ? null : publishedAt.slice(0, 10);
+}
+
+function readRelease(sourceReleaseId: string): SourceRelease {
   const text = readFileSync(resolve("data/catalogue/source_releases.ndjson"), "utf8");
   for (const line of text.split("\n")) {
     if (line.trim().length === 0 || !line.includes(sourceReleaseId)) {
@@ -162,7 +286,7 @@ function releaseEdition(sourceReleaseId: string): string {
     if (release.source_release_id !== sourceReleaseId) {
       continue;
     }
-    return editionOf(release);
+    return release;
   }
   throw new Error(`missing release ${sourceReleaseId}`);
 }

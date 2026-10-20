@@ -67,6 +67,19 @@ export type ProjectsDocument = {
   rows: ProjectIndexRow[];
 };
 
+export function projectPlace(country: string | null, region: string | null): string {
+  if (country && region && region.toLowerCase() !== country.toLowerCase()) {
+    return `${country}, ${region}`;
+  }
+  if (country) {
+    return country;
+  }
+  if (region) {
+    return region;
+  }
+  return "Country not published";
+}
+
 function measureLabel(value: number | null, unit: string): string {
   if (value === null) {
     return "Not published";
@@ -125,7 +138,7 @@ export function buildProjectProfile(project: EnergyProject, events: readonly Cha
     href: projectPath(project.project_id, project.name),
     title: project.name,
     technology: technologyLabel(project.technology),
-    country: project.country ?? "Country not published",
+    country: projectPlace(project.country, project.region),
     statuses: [
       {
         label: "Planning",

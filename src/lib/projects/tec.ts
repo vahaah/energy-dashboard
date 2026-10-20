@@ -305,6 +305,7 @@ function collapseStages(projectId: string, stages: readonly TecRow[], context: T
     name,
     technology,
     country: null,
+    region: null,
     planning_status: planning,
     planning_decision_date: null,
     planning_source_id: "neso-open-data",

@@ -1,4 +1,5 @@
 import { deflateSync } from "node:zlib";
+import { markerCovers, type MarkerShape } from "@/lib/map/marker";
 
 /** West, south, east, north in WGS84 degrees. */
 export type StaticMapBbox = readonly [number, number, number, number];
@@ -12,6 +13,10 @@ export type StaticMapPoint = {
   color: string;
   /** Device-pixel radius. Falls back to `pointRadius` on the input. */
   radius?: number;
+  /** Defaults to a filled circle. */
+  shape?: MarkerShape;
+  /** Operating sites are filled. Anything else is an outline. */
+  filled?: boolean;
 };
 
 export type StaticMapTheme = {
@@ -178,6 +183,8 @@ export function renderStaticMap(input: StaticMapInput): StaticMapImage {
       latitude: point.latitude,
       color: normalizeHex(point.color),
       radius,
+      shape: point.shape ?? "circle",
+      filled: point.filled ?? true,
     };
   });
   points.sort((left, right) => {
@@ -189,6 +196,15 @@ export function renderStaticMap(input: StaticMapInput): StaticMapImage {
     }
     if (left.longitude !== right.longitude) {
       return left.longitude - right.longitude;
+    }
+    if (left.shape < right.shape) {
+      return -1;
+    }
+    if (left.shape > right.shape) {
+      return 1;
+    }
+    if (left.filled !== right.filled) {
+      return left.filled ? 1 : -1;
     }
     if (left.color < right.color) {
       return -1;
@@ -202,7 +218,7 @@ export function renderStaticMap(input: StaticMapInput): StaticMapImage {
   for (const point of points) {
     const projected = project(point.longitude, point.latitude);
     const colorIndex = paletteIndex(palette, point.color);
-    fillCircle(indices, width, height, projected.x, projected.y, point.radius, colorIndex);
+    paintMarker(indices, width, height, projected.x, projected.y, point.radius, point.shape, point.filled, colorIndex);
   }
 
   return {
@@ -317,6 +333,37 @@ function paintCoast(indices: Uint8Array, width: number, height: number): void {
         (y + 1 < height && source[index + width] === 0);
       if (touchesSea) {
         indices[index] = 2;
+      }
+    }
+  }
+}
+
+function paintMarker(
+  indices: Uint8Array,
+  width: number,
+  height: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  shape: MarkerShape,
+  filled: boolean,
+  colorIndex: number,
+): void {
+  if (shape === "circle" && filled) {
+    fillCircle(indices, width, height, cx, cy, radius, colorIndex);
+    return;
+  }
+  const minX = Math.max(0, Math.floor(cx - radius - 1));
+  const maxX = Math.min(width - 1, Math.ceil(cx + radius + 1));
+  const minY = Math.max(0, Math.floor(cy - radius - 1));
+  const maxY = Math.min(height - 1, Math.ceil(cy + radius + 1));
+  for (let y = minY; y <= maxY; y += 1) {
+    const dy = y + 0.5 - cy;
+    const row = y * width;
+    for (let x = minX; x <= maxX; x += 1) {
+      const dx = x + 0.5 - cx;
+      if (markerCovers(shape, dx, dy, radius, filled)) {
+        indices[row + x] = colorIndex;
       }
     }
   }

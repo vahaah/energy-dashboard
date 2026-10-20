@@ -1,48 +1,83 @@
-export const TODAY_MAP_TITLE = "Map of published infrastructure";
+import type { TodayFigures } from "@/lib/map/today-figures";
 
-export const TODAY_MAP_SUMMARY =
-  "Power stations, renewables and storage in Great Britain, from published sources.";
+export const TODAY_MAP_TITLE = "Power infrastructure in GB";
 
-export const TODAY_MAP_LINK = "View on map";
+export const TODAY_MAP_SUMMARY = "What is built and what is in the pipeline, from the public registers.";
+
+export const TODAY_MAP_SCOPE = "England, Scotland and Wales.";
+
+export const TODAY_MAP_CONSENT = "Consent does not mean a project will be built.";
+
+export const TODAY_MAP_PIPELINE_UNFILTERED = "Pipeline figures are not yet filtered to GB.";
+
+export const TODAY_MAP_OPEN = "Open map →";
+
+export const TODAY_MAP_LIST = "View as list";
 
 export const TODAY_MAP_BANNED_PHRASES = ["live map", "digital twin", "power flows"] as const;
 
-export const TODAY_MAP_MAX_BYTES = 150 * 1024;
+export const TODAY_MAP_MAX_BYTES = 25 * 1024;
 
-export const TODAY_MAP_HEIGHT = 720;
+/** Widest map box. The PNG is this wide, times {@link TODAY_MAP_SCALE}. */
+export const TODAY_MAP_CSS_WIDTH = 264;
+
+export const TODAY_MAP_SCALE = 2;
 
 export const TODAY_MAP_PAD_RATIO = 0.045;
 
-export const TODAY_MAP_POINT_RADIUS = 3.2;
-
-export const TODAY_MAP_PADDING_PX = 10;
+export const TODAY_MAP_PADDING_PX = 12;
 
 export const TODAY_MAP_LIGHT_PATH = "/today/map-light.png";
 
 export const TODAY_MAP_DARK_PATH = "/today/map-dark.png";
 
+export const REPD_STALE_MONTHS = 4;
+
+export const DUKES_STALE_MONTHS = 14;
+
 export type TodayMapStamp = {
   repd_source_release_id: string;
   dukes_source_release_id: string;
   dno_sha256: string;
+  batteries_sha256: string;
+};
+
+export type TodayMapCount = {
+  id: string;
+  gw: string | null;
+  sites: number;
 };
 
 export type TodayMapCardFile = TodayMapStamp & {
   edition: string;
-  count: number;
+  repd_quarter_end: string | null;
+  dukes_published_on: string | null;
   width: number;
   height: number;
   light: string;
   dark: string;
   alt: string;
+  availability: TodayFigures["availability"];
+  operating: { gw: string | null; sites: number | null };
+  technologies: TodayMapCount[];
+  nations: TodayMapCount[];
+  pipeline: {
+    gw: string | null;
+    sites: number | null;
+    filtered: boolean;
+    stages: TodayMapCount[];
+  };
 };
 
-export function todayMapAlt(count: number): string {
-  return `Map of Great Britain showing ${count.toLocaleString("en-GB")} power stations, renewable and storage sites from published sources.`;
+export function todayMapAlt(sites: number, gw: string, largest: readonly string[]): string {
+  const names = largest.map((label, index) => (index === 0 ? label : lowerFirst(label)));
+  const ranking =
+    names.length >= 3 ? `${names[0]}, ${names[1]} and ${names[2]} are the largest by capacity.` : "";
+  return `Map of Great Britain showing ${sites.toLocaleString("en-GB")} operating power sites, ${gw} GW in total. ${ranking}`.trim();
 }
 
-export function todayMapEditionLine(edition: string): string {
-  return `Register edition ${edition}`;
+function lowerFirst(value: string): string {
+  return value.length === 0 ? value : value.charAt(0).toLowerCase() + value.slice(1);
 }
 
 export function registerEditionLabel(repdEdition: string, dukesEdition: string): string {
@@ -50,23 +85,69 @@ export function registerEditionLabel(repdEdition: string, dukesEdition: string):
   return `${repdEdition} · ${dukes}`;
 }
 
-export function todayMapPointRadius(mw: number | null): number {
-  const base = TODAY_MAP_POINT_RADIUS;
-  if (mw === null || mw <= 0) {
-    return base;
+export function repdQuarterEnd(edition: string): string | null {
+  const match = /Q([1-4])\s+(\d{4})/.exec(edition);
+  const quarter = match?.[1];
+  const year = match?.[2];
+  if (!quarter || !year) {
+    return null;
   }
-  return Math.min(base * 2.5, base + Math.sqrt(mw) / 16);
+  const ends = ["03-31", "06-30", "09-30", "12-31"];
+  return `${year}-${ends[Number(quarter) - 1]}`;
+}
+
+export function addCalendarMonths(day: string, months: number): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match?.[1] || !match[2] || !match[3]) {
+    return null;
+  }
+  const shifted = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + months, Number(match[3])));
+  if (Number.isNaN(shifted.getTime())) {
+    return null;
+  }
+  return shifted.toISOString().slice(0, 10);
+}
+
+export type RegisterFreshness = {
+  repdStale: boolean;
+  dukesStale: boolean;
+  stale: boolean;
+};
+
+/**
+ * REPD is stale more than four months after the quarter ends.
+ * DUKES is stale more than fourteen months after publication.
+ * A missing date is stale.
+ */
+export function registerFreshness(
+  input: { repdQuarterEnd: string | null; dukesPublishedOn: string | null },
+  now: Date,
+): RegisterFreshness {
+  const today = now.toISOString().slice(0, 10);
+  const repdLimit = input.repdQuarterEnd ? addCalendarMonths(input.repdQuarterEnd, REPD_STALE_MONTHS) : null;
+  const dukesLimit = input.dukesPublishedOn ? addCalendarMonths(input.dukesPublishedOn, DUKES_STALE_MONTHS) : null;
+  const repdStale = repdLimit === null || today > repdLimit;
+  const dukesStale = dukesLimit === null || today > dukesLimit;
+  return { repdStale, dukesStale, stale: repdStale || dukesStale };
 }
 
 export function todayMapReleaseCurrent(stamp: TodayMapStamp, next: TodayMapStamp): boolean {
   return (
     stamp.repd_source_release_id === next.repd_source_release_id &&
     stamp.dukes_source_release_id === next.dukes_source_release_id &&
-    stamp.dno_sha256 === next.dno_sha256
+    stamp.dno_sha256 === next.dno_sha256 &&
+    stamp.batteries_sha256 === next.batteries_sha256
   );
 }
 
 export function containsBannedTodayMapPhrase(text: string): boolean {
   const folded = text.toLowerCase();
   return TODAY_MAP_BANNED_PHRASES.some((phrase) => folded.includes(phrase));
+}
+
+export function formatTodayCount(count: number | null): string | null {
+  if (count === null) {
+    return null;
+  }
+  return count.toLocaleString("en-GB");
 }
