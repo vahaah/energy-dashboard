@@ -4,9 +4,9 @@
  *
  *   INDEXNOW_KEY=... npm run indexnow:once
  *
- * Waits until https://grid.vahaah.com/release-1a.txt serves the Phase 1A marker,
- * then POSTs only the sitemap URLs that are not in INDEXNOW_SETTLED_PATHS.
- * A 200 from /gas is not enough: that route is already on the previous
+ * Waits until https://grid.vahaah.com/release-1b.txt serves the Phase 1B marker,
+ * then POSTs sitemap URLs that the Phase 1A one-shot did not already submit.
+ * A 200 from /gas or /release-1a.txt is not enough: those are the previous
  * production deployment. The key is read from the environment and is never
  * printed. A second run of the full sitemap script is a separate command
  * and is not this path.
@@ -16,16 +16,19 @@ import { resolve } from "node:path";
 import {
   INDEXNOW_HOST,
   INDEXNOW_KEY_PATH,
-  INDEXNOW_RELEASE_PROBE_PATH,
-  indexNowReleaseReady,
-  indexNowReleaseSitemapUrl,
+  INDEXNOW_PHASE_1A_PREFIXES,
+  INDEXNOW_PHASE_1B_MARKER,
+  INDEXNOW_PHASE_1B_PROBE_PATH,
+  indexNowPhaseReady,
+  indexNowPhaseSitemapUrl,
+  phase1bSettledPaths,
   redactIndexNow,
   runIndexNow,
   sitemapLocs,
   unsubmittedIndexNowUrls,
 } from "../src/lib/indexnow";
 
-const PROBE_URL = process.env.INDEXNOW_PROBE_URL ?? `https://${INDEXNOW_HOST}${INDEXNOW_RELEASE_PROBE_PATH}`;
+const PROBE_URL = process.env.INDEXNOW_PROBE_URL ?? `https://${INDEXNOW_HOST}${INDEXNOW_PHASE_1B_PROBE_PATH}`;
 const WAIT_MS = 10 * 60 * 1000;
 const INTERVAL_MS = 15_000;
 
@@ -53,7 +56,7 @@ async function waitForProbe(key: string): Promise<void> {
     try {
       const response = await fetch(PROBE_URL, { redirect: "manual", cache: "no-store" });
       const body = await response.text();
-      if (indexNowReleaseReady(response.status, body)) {
+      if (indexNowPhaseReady(response.status, body, INDEXNOW_PHASE_1B_MARKER)) {
         return;
       }
       console.error(redactIndexNow(`probe: ${response.status}`, key));
@@ -72,7 +75,7 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
   await waitForProbe(key);
   let sitemap: Response;
   try {
-    sitemap = await fetch(indexNowReleaseSitemapUrl(), { redirect: "manual", cache: "no-store" });
+    sitemap = await fetch(indexNowPhaseSitemapUrl(INDEXNOW_PHASE_1B_MARKER), { redirect: "manual", cache: "no-store" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "sitemap failed";
     console.error(redactIndexNow(`sitemap: ${message}`, key));
@@ -82,7 +85,7 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
     console.error(redactIndexNow(`sitemap: ${sitemap.status}`, key));
     return 1;
   }
-  const urls = unsubmittedIndexNowUrls(sitemapLocs(await sitemap.text()));
+  const urls = unsubmittedIndexNowUrls(sitemapLocs(await sitemap.text()), phase1bSettledPaths(), INDEXNOW_PHASE_1A_PREFIXES);
   console.log(redactIndexNow(`submitting ${urls.length} urls`, key));
   return runIndexNow({
     key,

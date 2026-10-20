@@ -23,6 +23,7 @@ export default function DataSourcesPage() {
           published to Blob. NESO constraint breakdowns, day-ahead boundary snapshots, and the
           transmission entry capacity register are published to Blob. The plant register, the
           projects register, the UK annual energy balance, and map layers stay in the catalogue.
+          The organisation directory is a lookup. Grid does not offer a download of the ISD extract.
         </p>
       </LegalSection>
 

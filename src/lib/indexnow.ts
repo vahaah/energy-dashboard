@@ -10,14 +10,26 @@ export const INDEXNOW_MAX_BATCH = 10_000;
 export const INDEXNOW_RELEASE_MARKER = "phase-1a";
 export const INDEXNOW_RELEASE_PROBE_PATH = "/release-1a.txt";
 
+/** Body of `public/release-1b.txt`. The Phase 1A deployment does not serve it. */
+export const INDEXNOW_PHASE_1B_MARKER = "phase-1b";
+export const INDEXNOW_PHASE_1B_PROBE_PATH = "/release-1b.txt";
+
 export function indexNowReleaseReady(status: number, body: string): boolean {
-  return status === 200 && body.trim() === INDEXNOW_RELEASE_MARKER;
+  return indexNowPhaseReady(status, body, INDEXNOW_RELEASE_MARKER);
+}
+
+export function indexNowPhaseReady(status: number, body: string, marker: string): boolean {
+  return status === 200 && body.trim() === marker;
 }
 
 /** Sitemap URL that misses a CDN entry cached for the previous deployment. */
 export function indexNowReleaseSitemapUrl(origin = `https://${INDEXNOW_HOST}`): string {
+  return indexNowPhaseSitemapUrl(INDEXNOW_RELEASE_MARKER, origin);
+}
+
+export function indexNowPhaseSitemapUrl(marker: string, origin = `https://${INDEXNOW_HOST}`): string {
   const url = new URL("/sitemap.xml", origin);
-  url.searchParams.set("release", INDEXNOW_RELEASE_MARKER);
+  url.searchParams.set("release", marker);
   return url.toString();
 }
 
@@ -63,6 +75,16 @@ export const INDEXNOW_SETTLED_PATHS = [
   "/data-sources",
 ] as const;
 
+/** Exact paths the Phase 1A one-shot already posted, on top of the pre-1A set. */
+export const INDEXNOW_PHASE_1A_PATHS = ["/gas", "/map", "/assets"] as const;
+
+/** Asset pages posted with Phase 1A. The Phase 1B one-shot leaves them alone. */
+export const INDEXNOW_PHASE_1A_PREFIXES = ["/assets/"] as const;
+
+export function phase1bSettledPaths(): readonly string[] {
+  return [...INDEXNOW_SETTLED_PATHS, ...INDEXNOW_PHASE_1A_PATHS];
+}
+
 export function indexNowPath(url: string): string {
   return new URL(url).pathname;
 }
@@ -71,9 +93,16 @@ export function indexNowPath(url: string): string {
 export function unsubmittedIndexNowUrls(
   urls: readonly string[],
   settled: readonly string[] = INDEXNOW_SETTLED_PATHS,
+  prefixes: readonly string[] = [],
 ): string[] {
   const done = new Set(settled);
-  return urls.filter((url) => !done.has(indexNowPath(url)));
+  return urls.filter((url) => {
+    const path = indexNowPath(url);
+    if (done.has(path)) {
+      return false;
+    }
+    return !prefixes.some((prefix) => path.startsWith(prefix));
+  });
 }
 
 export function redactIndexNow(line: string, key: string): string {

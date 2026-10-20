@@ -21,7 +21,7 @@ export const metadata: Metadata = buildPageMetadata({
   title: IDENTIFIERS_TITLE,
   description: IDENTIFIERS_STANDFIRST,
   path: "/directory/identifiers",
-  imagePath: "/og",
+  imagePath: "/directory/identifiers/opengraph-image",
   imageAlt: IDENTIFIERS_TITLE,
 });
 

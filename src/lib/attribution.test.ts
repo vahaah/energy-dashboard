@@ -11,8 +11,10 @@ import {
   captionCarbon,
   captionGeneration,
   EIRGRID_GROUP_ATTRIBUTION,
+  EIRGRID_GROUP_LICENCE_READ_ON,
   EIRGRID_GROUP_LICENCE_URL,
   ELEXON_BMRS_LICENCE_URL,
+  ELEXON_ISD_ATTRIBUTION,
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
   EIA_ATTRIBUTION,
@@ -23,6 +25,7 @@ import {
   NESO_EMBEDDED_FORECAST_RESOURCE_ID,
   NESO_EMBEDDED_FORECAST_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
+  NESO_OPEN_DATA_LICENCE_READ_ON,
   NESO_OPEN_DATA_LICENCE_URL,
   PV_LIVE_ATTRIBUTION,
   WORLD_BANK_PINK_SHEET_ATTRIBUTION,
@@ -46,7 +49,8 @@ describe("Elexon BMRS attribution", () => {
 
   it("credits NESO historic mix under the Open Data licence", () => {
     expect(NESO_OPEN_DATA_ATTRIBUTION).toBe("Supported by National Energy SO Open Data");
-    expect(NESO_OPEN_DATA_LICENCE_URL).toContain("neso-open-data-licence");
+    expect(NESO_OPEN_DATA_LICENCE_URL).toBe("https://www.neso.energy/data-portal/neso-open-licence");
+    expect(NESO_OPEN_DATA_LICENCE_READ_ON).toBe("2026-10-20");
     expect(NESO_EMBEDDED_FORECAST_URL).toContain("embedded-wind-and-solar-forecasts");
     expect(NESO_EMBEDDED_FORECAST_RESOURCE_ID).toBe("db6c038f-98af-4570-ab60-24d71ebd0ae5");
   });
@@ -82,6 +86,7 @@ describe("Elexon BMRS attribution", () => {
       "os-open-zoomstack",
       "eirgrid-group",
       "geonames",
+      "elexon-isd",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -119,7 +124,21 @@ describe("Elexon BMRS attribution", () => {
     const eirgrid = sources.find((source) => source.id === "eirgrid-group");
     expect(eirgrid?.attribution).toBe(EIRGRID_GROUP_ATTRIBUTION);
     expect(eirgrid?.licenceUrl).toBe(EIRGRID_GROUP_LICENCE_URL);
+    expect(eirgrid?.licence).toContain("20 Oct 2026");
     expect(eirgrid?.licence).toContain("15 Oct 2026");
+    expect(EIRGRID_GROUP_LICENCE_READ_ON).toBe("2026-10-20");
+    const isd = sources.find((source) => source.id === "elexon-isd");
+    expect(isd?.attribution).toBe(ELEXON_ISD_ATTRIBUTION);
+    expect(isd?.licence).toContain("20 Oct 2026");
+    expect(isd?.licence).toContain("not permitted");
+    expect(sources.find((source) => source.id === "neso-open-data")?.licenceUrl).toBe(NESO_OPEN_DATA_LICENCE_URL);
+    expect(sources.find((source) => source.id === "neso-open-data")?.attribution).toBe(NESO_OPEN_DATA_ATTRIBUTION);
+    expect(sources.find((source) => source.id === "neso-open-data")?.licence).toContain("20 Oct 2026");
+    expect(sources.find((source) => source.id === "elexon-bmrs")?.licence).toContain("20 Oct 2026");
+    expect(sources.find((source) => source.id === "desnz-dukes")?.usedFor).toContain("energy flow chart");
+    expect(sources.find((source) => source.id === "neso-open-data")?.usedFor).toContain(
+      "interconnector register",
+    );
     expect(JSON.stringify(sources)).not.toMatch(/OilPriceAPI|TTF/);
   });
 

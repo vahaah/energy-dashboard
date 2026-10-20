@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EIRGRID_GROUP_LICENCE_READ_ON, EIRGRID_GROUP_LICENCE_URL } from "@/lib/attribution";
+import { EIRGRID_GROUP_LICENCE_ACCEPTED_READ_ON, EIRGRID_GROUP_LICENCE_URL } from "@/lib/attribution";
 import { instantSchema } from "@/lib/catalogue/schema";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
 import { EIRGRID_GEOGRAPHIES, EIRGRID_SOURCE_LINES } from "@/lib/eirgrid/spec";
@@ -27,7 +27,7 @@ export const niReleaseSchema = z
     retrieved_at: instantSchema,
     published_at: instantSchema,
     licence_url: z.literal(EIRGRID_GROUP_LICENCE_URL),
-    licence_read_on: z.literal(EIRGRID_GROUP_LICENCE_READ_ON),
+    licence_read_on: z.enum(EIRGRID_GROUP_LICENCE_ACCEPTED_READ_ON),
     series: z.array(niSeriesSchema),
   })
   .strict()

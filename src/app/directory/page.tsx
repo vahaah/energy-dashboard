@@ -15,7 +15,7 @@ export const metadata: Metadata = buildPageMetadata({
   title: DIRECTORY_TITLE,
   description: DIRECTORY_STANDFIRST,
   path: "/directory",
-  imagePath: "/og",
+  imagePath: "/directory/opengraph-image",
   imageAlt: DIRECTORY_TITLE,
 });
 

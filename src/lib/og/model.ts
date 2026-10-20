@@ -19,7 +19,8 @@ import { generationMixFromSupplyShares, generationMixShares } from "@/lib/genera
 import { formatPlainSettlementWindow } from "@/lib/generation-desk-view";
 import type { GridRecords } from "@/lib/historic-mix";
 import type { CommodityPrice } from "@/lib/types";
-import { EIRGRID_GROUP_ATTRIBUTION, NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
+import { EIRGRID_GROUP_ATTRIBUTION, ELEXON_ISD_ATTRIBUTION, NATIONAL_GAS_ATTRIBUTION, NESO_OPEN_DATA_ATTRIBUTION, OGL_V3_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
+import { DIRECTORY_H1, DIRECTORY_STANDFIRST, IDENTIFIERS_H1, IDENTIFIERS_STANDFIRST } from "@/lib/directory/copy";
 import { NI_H1, NI_SCOPE_BANNER } from "@/lib/eirgrid/copy";
 import { CONSTRAINTS_STANDFIRST } from "@/lib/constraints/copy";
 import { PROJECTS_STANDFIRST } from "@/lib/projects/copy";
@@ -53,6 +54,8 @@ export const OG_PAGE_IDS = [
   "northern-ireland",
   "tools",
   "changes",
+  "directory",
+  "identifiers",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -290,6 +293,24 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
     stamp: null,
     source: NESO_OPEN_DATA_ATTRIBUTION,
   },
+  directory: {
+    eyebrow: gridEyebrow("Directory"),
+    title: DIRECTORY_H1,
+    kicker: DIRECTORY_STANDFIRST,
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: ELEXON_ISD_ATTRIBUTION,
+  },
+  identifiers: {
+    eyebrow: gridEyebrow("Directory"),
+    title: IDENTIFIERS_H1,
+    kicker: IDENTIFIERS_STANDFIRST,
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: ELEXON_ISD_ATTRIBUTION,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -372,6 +393,8 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "northern-ireland":
     case "tools":
     case "changes":
+    case "directory":
+    case "identifiers":
       return { ...LEGAL_CARDS[page], cached: true };
     case "pipeline":
       return pipelineCard();
@@ -797,6 +820,8 @@ function pageCacheControl(page: OgPageId): string {
     case "tools":
     case "changes":
     case "pipeline":
+    case "directory":
+    case "identifiers":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

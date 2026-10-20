@@ -25,6 +25,7 @@ export const CATALOGUE_SOURCE_IDS = [
   "os-open-zoomstack",
   "eirgrid-group",
   "geonames",
+  "elexon-isd",
 ] as const;
 
 /**

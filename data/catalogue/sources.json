@@ -5,7 +5,7 @@
     "name": "Elexon BMRS / Insights",
     "url": "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
     "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF. Interconnector pages attach the warmed FUELINST series by the exact INT fuel-type code. The map draws a straight schematic line between landing points, not the cable route, and reads the warmed interconnector envelope from Blob. The storage page reads pumped-storage and battery charging and discharge from the warmed FUELINST envelope.",
-    "licence": "Elexon BMRS Data Licence",
+    "licence": "Elexon BMRS Data Licence. Read on 20 Oct 2026.",
     "licence_url": "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
     "attribution": "Contains BMRS data © Elexon Limited copyright and database right 2026.",
     "cadence": "PT1H"
@@ -16,8 +16,8 @@
     "name": "NESO Data Portal",
     "url": "https://www.neso.energy/data-portal",
     "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records. Weekly constraint breakdown and weekday day-ahead boundary flows and limits, published to Blob. The transmission entry capacity register, including the Gate column, is fetched twice a week and published to Blob. NESO states that aggregated capacity may duplicate entries. The interconnector register supplies current import and export capacity in MW for the map. A duplicate stage at one connection site is not summed.",
-    "licence": "NESO Open Data Licence",
-    "licence_url": "https://www.neso.energy/data-portal/neso-open-data-licence",
+    "licence": "NESO Open Data Licence. Read on 20 Oct 2026. The previous licence path returned 404; this URL is the NESO Open Licence v1.0.",
+    "licence_url": "https://www.neso.energy/data-portal/neso-open-licence",
     "attribution": "Supported by National Energy SO Open Data",
     "cadence": "PT1H"
   },
@@ -92,7 +92,7 @@
     "source_id": "desnz-dukes",
     "name": "DESNZ Digest of UK Energy Statistics",
     "url": "https://www.gov.uk/government/statistics/electricity-chapter-5-digest-of-united-kingdom-energy-statistics-dukes",
-    "used_for": "DUKES 5.11 power stations, including conventional plant, matched against REPD so the same site is not counted twice. Operating pumped storage on the storage page uses the counted DUKES megawatts. DUKES 2026 table 1.1 is the UK annual energy balance, in TWh.",
+    "used_for": "DUKES 5.11 power stations, including conventional plant, matched against REPD so the same site is not counted twice. Operating pumped storage on the storage page uses the counted DUKES megawatts. DUKES 2026 table 1.1 is the UK annual energy balance, in TWh. The DESNZ energy flow chart 2025 is that same edition.",
     "licence": "Open Government Licence v3.0",
     "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
     "attribution": "Contains public sector information licensed under the Open Government Licence v3.0.",
@@ -126,7 +126,7 @@
     "name": "EirGrid Group",
     "url": "https://www.smartgriddashboard.com/",
     "used_for": "Northern Ireland, Ireland, and all-island electricity from the Smart Grid Dashboard. SONI system figures and SEMO imbalance prices in euro. Northern Ireland stays outside Grid's GB totals.",
-    "licence": "EirGrid Group Open Data Licence. Worldwide, royalty-free, and perpetual. Covers SONI, the Smart Grid Dashboard, SEMO, and SEMOpx. EirGrid Group may revise the licence. Read on 15 Oct 2026.",
+    "licence": "EirGrid Group Open Data Licence. Worldwide, royalty-free, and perpetual. Covers SONI, the Smart Grid Dashboard, SEMO, and SEMOpx. EirGrid Group may revise the licence. First read 15 Oct 2026. Read again on 20 Oct 2026.",
     "licence_url": "https://www.smartgriddashboard.com/all/open-data-license/",
     "attribution": "Supported by EirGrid Group Data",
     "cadence": "PT1H"
@@ -141,5 +141,16 @@
     "licence_url": "https://creativecommons.org/licenses/by/4.0/",
     "attribution": "Place coordinates from GeoNames, CC BY 4.0.",
     "cadence": "P1Y"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "elexon-isd",
+    "name": "Elexon Industry Standing Data",
+    "url": "https://www.elexon.co.uk/bsc/data/industry-standing-data/",
+    "used_for": "Organisation names, MPIDs, BM Unit IDs, GSP group labels, and role dates for the directory lookup. The raw extract is not stored. Grid does not offer a download of the extract.",
+    "licence": "The ISD Data Store is publicly available. The BSC Open Data Licence covers only information Elexon identifies as open data. The ISD page, read on 20 Oct 2026, does not make that identification. Lookup display stays. Redistribution of an extract is not permitted.",
+    "licence_url": "https://www.elexon.co.uk/bsc/data/industry-standing-data/",
+    "attribution": "Industry Standing Data from the Elexon ISD Data Store. The store is publicly available. Grid shows the fields needed to look up a code. Elexon has not identified ISD under the BSC Open Data Licence, so Grid does not offer a download of the extract.",
+    "cadence": "P1W"
   }
 ]

@@ -20,8 +20,11 @@ export const ELEXON_ISD_ATTRIBUTION =
 export const ELEXON_BMRS_ATTRIBUTION_PREFIX =
   "Contains BMRS data © Elexon Limited copyright and database right";
 
-export const NESO_OPEN_DATA_LICENCE_URL =
-  "https://www.neso.energy/data-portal/neso-open-data-licence";
+/** NESO Open Licence v1.0. The previous `/neso-open-data-licence` path returned 404 on 20 Oct 2026. */
+export const NESO_OPEN_DATA_LICENCE_URL = "https://www.neso.energy/data-portal/neso-open-licence";
+
+/** Read on 20 Oct 2026. The required sentence is unchanged. NESO may revise the licence without notice. */
+export const NESO_OPEN_DATA_LICENCE_READ_ON = "2026-10-20";
 
 export const NESO_OPEN_DATA_ATTRIBUTION = "Supported by National Energy SO Open Data";
 
@@ -92,8 +95,15 @@ export const OGL_V3_ATTRIBUTION =
 
 export const EIRGRID_GROUP_LICENCE_URL = "https://www.smartgriddashboard.com/all/open-data-license/";
 
-/** Read on 15 Oct 2026. The licence says EirGrid Group may revise it without notice. */
-export const EIRGRID_GROUP_LICENCE_READ_ON = "2026-10-15";
+/**
+ * Latest read of the EirGrid Group Open Data Licence.
+ * The first read was 2026-10-15. Re-read on 2026-10-20: the required sentence
+ * is still `Supported by EirGrid Group Data`. The licence says EirGrid Group
+ * may revise it without notice. Stored releases may carry either date.
+ */
+export const EIRGRID_GROUP_LICENCE_READ_ON = "2026-10-20";
+
+export const EIRGRID_GROUP_LICENCE_ACCEPTED_READ_ON = ["2026-10-15", "2026-10-20"] as const;
 
 export const EIRGRID_GROUP_ATTRIBUTION = "Supported by EirGrid Group Data";
 
@@ -117,6 +127,7 @@ export const DATA_SOURCE_IDS = [
   "os-open-zoomstack",
   "eirgrid-group",
   "geonames",
+  "elexon-isd",
 ] as const;
 
 export const GEONAMES_URL = "https://www.geonames.org/";
