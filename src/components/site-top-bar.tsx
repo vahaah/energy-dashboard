@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AssetSearchButton, AssetSearchDialogHost } from "@/components/asset-search";
 import { GridMark } from "@/components/grid-mark";
@@ -36,13 +36,69 @@ export function SiteTopBar({
           </div>
           {trailing ? <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">{trailing}</div> : null}
         </div>
-        <div className="flex items-center gap-3 border-t border-gray-alpha-400 py-2 md:hidden">
+        <div className="flex min-w-0 items-center gap-3 border-t border-gray-alpha-400 py-2 md:hidden">
           <AssetSearchButton />
-          <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-mobile`} compact />
+          <NavFadeScroll>
+            <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-mobile`} compact />
+          </NavFadeScroll>
         </div>
       </div>
       {footer}
       <AssetSearchDialogHost />
     </header>
+  );
+}
+
+function NavFadeScroll({ children }: { children: ReactNode }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) {
+      return;
+    }
+    const update = () => {
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      setEdges({
+        left: scroller.scrollLeft > 1,
+        right: max - scroller.scrollLeft > 1,
+      });
+    };
+    update();
+    scroller.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(scroller);
+    const child = scroller.firstElementChild;
+    if (child) {
+      observer.observe(child);
+    }
+    return () => {
+      scroller.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <div
+        ref={scrollerRef}
+        className="overflow-x-auto overscroll-x-contain py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {children}
+      </div>
+      {edges.left ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background-100 to-transparent"
+        />
+      ) : null}
+      {edges.right ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background-100 to-transparent"
+        />
+      ) : null}
+    </div>
   );
 }

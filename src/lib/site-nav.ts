@@ -158,6 +158,55 @@ export function isIndexablePath(path: string): boolean {
   return routeExists(path === "" ? "/" : path);
 }
 
+const MENU_GUTTER = 8;
+const MENU_GAP = 4;
+const MENU_MIN_SIDE = 160;
+
+export type OverlayMenuBox = {
+  top: number | null;
+  bottom: number | null;
+  left: number;
+  maxHeight: number;
+};
+
+/** Place a portalled menu in the larger side of the trigger, clipped to the viewport. */
+export function overlayMenuBox(input: {
+  trigger: { top: number; bottom: number; left: number };
+  menuWidth: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}): OverlayMenuBox {
+  const { trigger, menuWidth, viewportWidth, viewportHeight } = input;
+  const below = viewportHeight - trigger.bottom - MENU_GAP - MENU_GUTTER;
+  const above = trigger.top - MENU_GAP - MENU_GUTTER;
+  const placeAbove = below < MENU_MIN_SIDE && above > below;
+  const maxLeft = Math.max(MENU_GUTTER, viewportWidth - menuWidth - MENU_GUTTER);
+  const left = Math.min(Math.max(MENU_GUTTER, trigger.left), maxLeft);
+  if (placeAbove) {
+    return {
+      top: null,
+      bottom: viewportHeight - trigger.top + MENU_GAP,
+      left,
+      maxHeight: Math.max(0, above),
+    };
+  }
+  return {
+    top: trigger.bottom + MENU_GAP,
+    bottom: null,
+    left,
+    maxHeight: Math.max(0, below),
+  };
+}
+
+/** Next or previous tab stop relative to the menu trigger, skipping the open menu. */
+export function adjacentTabStop<T>(stops: readonly T[], trigger: T, backward: boolean): T | null {
+  const index = stops.indexOf(trigger);
+  if (index < 0) {
+    return null;
+  }
+  return stops[backward ? index - 1 : index + 1] ?? null;
+}
+
 export type MenuKeyTarget = "button" | "item";
 
 export type MenuMotion =

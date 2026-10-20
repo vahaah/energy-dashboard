@@ -11,7 +11,7 @@ export const CARD_PAD_TOP = "pt-[var(--card-pad)]";
 export const CARD_PAD_BOTTOM = "pb-[var(--card-pad)]";
 export const CARD_PAD = "p-[var(--card-pad)]";
 
-export const PAGE_STACK_CLASS = `mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-4 overflow-x-clip ${CARD_PAD_X} py-6 sm:py-10`;
+export const PAGE_STACK_CLASS = `relative mx-auto flex w-full min-w-0 max-w-[1200px] flex-col gap-4 overflow-x-clip ${CARD_PAD_X} py-6 sm:py-10`;
 
 export const CARD_GRID_CLASS = "grid gap-4 sm:grid-cols-2";
 

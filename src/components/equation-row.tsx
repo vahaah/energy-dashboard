@@ -12,7 +12,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
   const wideFigures = power.terms.length >= 5;
 
   return (
-    <div data-slot="card-pad" className={CARD_PAD_X}>
+    <div data-slot="card-pad" className={`relative overflow-x-clip ${CARD_PAD_X}`}>
       <p className="sr-only">{sentence}</p>
       <dl
         data-balanced={power.balanceClosed ? "true" : "false"}

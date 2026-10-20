@@ -36,6 +36,8 @@ describe("primary nav", () => {
     expect(compact).toContain(">Directory<");
     expect(compact).not.toContain("Directory and tools");
     expect(compact).toMatch(/<button[^>]*aria-current="page"[^>]*>Directory</);
+    expect(compact).toContain("flex-nowrap");
+    expect(compact).not.toContain("flex-wrap");
 
     const api = renderToStaticMarkup(<SitePrimaryNav pathname="/api" idPrefix="test" />);
     expect(api).toMatch(/<a[^>]*aria-current="page"[^>]*>API<\/a>/);
@@ -65,5 +67,9 @@ describe("primary nav", () => {
     expect(source).toContain('role="menuitem"');
     expect(source).toContain("menuKeyMotion");
     expect(source).toContain("ChevronDown");
+    expect(source).toContain("flex-nowrap");
+    const topBar = readFileSync(resolve(import.meta.dirname, "./site-top-bar.tsx"), "utf8");
+    expect(topBar).toContain("overflow-x-auto");
+    expect(topBar).toContain("from-background-100");
   });
 });

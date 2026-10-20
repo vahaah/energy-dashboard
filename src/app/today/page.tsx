@@ -129,7 +129,7 @@ export default async function TodayPage() {
             Tinybird query. The week window is the last seven days.
           </p>
           <Card className="mt-4">
-            <div className="overflow-x-auto">
+            <div className="relative min-w-0 overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-copy-14">
                 <caption className="sr-only">Today compared with yesterday and the past 7 days</caption>
                 <thead className="text-label-13 text-gray-900">

@@ -115,7 +115,7 @@ export function PipelineBoard({
                   <BarRow
                     key={row.id}
                     label={row.label}
-                    gw={row.gw}
+                    figure={row.amount}
                     projects={row.projects}
                     width={maxTechnology > 0 ? (row.exactGw / maxTechnology) * 100 : 0}
                     color={row.color}
@@ -136,7 +136,7 @@ export function PipelineBoard({
                   <BarRow
                     key={row.id}
                     label={row.label}
-                    gw={row.gw}
+                    figure={shownGw(row.gw)}
                     projects={row.projects}
                     width={maxNation > 0 ? (row.exactGw / maxNation) * 100 : 0}
                     color={NATION_COLOR}
@@ -305,14 +305,14 @@ function StageBar({ figures }: { figures: PipelineFigures }) {
 
 function BarRow({
   label,
-  gw,
+  figure,
   projects,
   width,
   color,
   marker,
 }: {
   label: string;
-  gw: string;
+  figure: string;
   projects: number;
   width: number;
   color: string;
@@ -327,8 +327,8 @@ function BarRow({
           <span className="block h-full rounded-full" style={{ width: `${width}%`, backgroundColor: color }} />
         </span>
       </span>
-      <span className="text-mono-12 text-gray-1000 tabular-nums">
-        {shownGw(gw)}
+      <span className="shrink-0 text-mono-12 text-gray-1000 tabular-nums">
+        {figure}
         <span className="text-gray-900"> {projects.toLocaleString("en-GB")}</span>
       </span>
     </li>

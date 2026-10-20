@@ -46,7 +46,7 @@ export function WholeEnergyBoard({ model }: { model: WholeEnergyPageModel }) {
 
       <Card title="Energy balance">
         <p className="text-copy-14 text-gray-900">{unit}</p>
-        <div className="mt-4 min-w-0 max-w-full overflow-x-auto">
+        <div className="relative mt-4 min-w-0 max-w-full overflow-x-auto">
           <table className="w-full min-w-[48rem] text-left text-copy-14">
             <caption className="sr-only">
               {WHOLE_ENERGY_FLOW_LABEL}. {unit} {WHOLE_ENERGY_SCOPE}

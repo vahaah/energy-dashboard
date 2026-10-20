@@ -1,4 +1,4 @@
-import { formatDisplay, largestRemainder, roundDisplay, displayedPercents } from "@/lib/display-rounding";
+import { displayedPercents, formatDisplay, largestRemainder, roundDisplay } from "@/lib/display-rounding";
 import { latestDate } from "@/lib/projects/dates";
 import { technologyLabel, type ProjectTechnology } from "@/lib/projects/technology";
 import { PIPELINE_CONSENTED_LABEL, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
@@ -61,6 +61,8 @@ export type TechnologyPart = GwPart & {
   technology: ProjectTechnology;
   shape: ReturnType<typeof pipelineMarker>["shape"];
   color: string;
+  /** GW at 0.1, or MW to one decimal when the row is under 0.1 GW. */
+  amount: string;
 };
 
 export type OutcomePart = {
@@ -323,6 +325,27 @@ function gwParts(rows: readonly { id: string; label: string; bucket: Bucket }[])
   }));
 }
 
+/**
+ * Gigawatt quanta for technologies at or above 0.1 GW. Smaller rows stay at 0
+ * and are shown in MW, so their capacity is not also given to a larger label.
+ * The returned values sum to the rounded total of the rows that stay in GW.
+ */
+function technologyGwShown(exactGw: readonly number[]): number[] {
+  const eligible = exactGw.map((value) => (value >= PIPELINE_GW_QUANTUM ? value : 0));
+  const shown = largestRemainder(eligible, PIPELINE_GW_QUANTUM);
+  return shown.map((value, index) => ((exactGw[index] ?? 0) >= PIPELINE_GW_QUANTUM ? value : 0));
+}
+
+function technologyAmount(exactMw: number, gw: string): string {
+  if (!(exactMw > 0)) {
+    return PIPELINE_NOT_PUBLISHED;
+  }
+  if (exactMw / 1000 < PIPELINE_GW_QUANTUM) {
+    return formatExactMw(exactMw);
+  }
+  return `${gw} GW`;
+}
+
 function formatCapacity(mw: number | null): string {
   if (mw === null) {
     return PIPELINE_NOT_PUBLISHED;
@@ -489,17 +512,18 @@ export function buildPipelineFigures(
       bucket,
     }))
     .sort((left, right) => right.bucket.exactMw - left.bucket.exactMw || left.label.localeCompare(right.label));
-  const technologyShown = gwParts(technologyRows);
+  const technologyShown = technologyGwShown(technologyRows.map((row) => row.bucket.exactMw / 1000));
   const technologies: TechnologyPart[] = technologyRows.map((row, index) => {
     const marker = pipelineMarker(row.technology);
-    const part = technologyShown[index];
+    const gw = formatDisplay(technologyShown[index] ?? 0, PIPELINE_GW_QUANTUM);
     return {
       id: row.id,
       technology: row.technology,
       label: row.label,
       projects: row.bucket.projects,
       exactGw: row.bucket.exactMw / 1000,
-      gw: part?.gw ?? "0.0",
+      gw,
+      amount: technologyAmount(row.bucket.exactMw, gw),
       shape: marker.shape,
       color: marker.color,
     };
