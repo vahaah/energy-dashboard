@@ -1,6 +1,7 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
@@ -212,9 +213,10 @@ export function mountFlowsMap(
   let frame = 0;
   let hidden = document.visibilityState === "hidden";
 
+  // MapLibre 6.14 only applies transformStyle inside setStyle. MapOptions
+  // has no such field, and the constructor's setStyle drops it.
   const map = new Map({
     container,
-    style: styleUrl(theme),
     attributionControl: false,
     keyboard: false,
     cooperativeGestures: false,
@@ -542,11 +544,15 @@ export function mountFlowsMap(
     }
     basemapLoaded = true;
   });
-  map.on("error", () => {
+  map.on("error", (ev) => {
+    if (process.env.NODE_ENV === "development") {
+      console.error(ev.error);
+    }
     if (!basemapLoaded) {
       options.onStatus("error");
     }
   });
+  map.setStyle(styleUrl(theme), { transformStyle });
 
   const onVisibility = () => {
     hidden = document.visibilityState === "hidden";
@@ -612,7 +618,7 @@ export function mountFlowsMap(
       stopMotion();
       ready = false;
       pointersBound = false;
-      map.setStyle(styleUrl(next));
+      map.setStyle(styleUrl(next), { transformStyle });
     },
   };
 }

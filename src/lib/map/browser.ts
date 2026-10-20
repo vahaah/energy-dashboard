@@ -1,6 +1,7 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
 import {
   assetFeatureCollection,
   capacityRadiusExpression,
@@ -83,9 +84,10 @@ export function mountPowerMap(
   let basemapLoaded = false;
   let lineClicksBound = false;
 
+  // MapLibre 6.14 only applies transformStyle inside setStyle. MapOptions
+  // has no such field, and the constructor's setStyle drops it.
   const map = new Map({
     container,
-    style: styleUrl(theme),
     attributionControl: false,
     keyboard: true,
     cooperativeGestures: true,
@@ -404,12 +406,16 @@ export function mountPowerMap(
     basemapLoaded = true;
     options.onStatus("ready");
   });
-  map.on("error", () => {
+  map.on("error", (ev) => {
+    if (process.env.NODE_ENV === "development") {
+      console.error(ev.error);
+    }
     if (basemapLoaded) {
       return;
     }
     options.onStatus("error");
   });
+  map.setStyle(styleUrl(theme), { transformStyle });
 
   return {
     destroy: () => {
@@ -458,7 +464,7 @@ export function mountPowerMap(
         return;
       }
       theme = next;
-      map.setStyle(styleUrl(next));
+      map.setStyle(styleUrl(next), { transformStyle });
     },
     setSelected: (id: string | null) => {
       selectedId = id;
