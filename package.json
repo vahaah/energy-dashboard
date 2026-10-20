@@ -24,6 +24,7 @@
     "catalogue:project-regions": "tsx scripts/catalogue/project-regions.ts data/catalogue/raw/repd.csv",
     "catalogue:today-batteries": "tsx scripts/catalogue/today-batteries.ts data/catalogue/raw/repd.csv",
     "catalogue:whole-energy": "tsx scripts/catalogue/whole-energy.ts",
+    "catalogue:postcodes": "tsx scripts/catalogue/postcodes.ts",
     "catalogue:dno": "tsx scripts/build-dno-layer.ts",
     "basemap": "tsx scripts/build-basemap.ts",
     "basemap:style": "tsx scripts/build-basemap-style.ts",

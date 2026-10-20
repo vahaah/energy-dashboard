@@ -24,6 +24,8 @@ export default function DataSourcesPage() {
           transmission entry capacity register are published to Blob. The plant register, the
           projects register, the UK annual energy balance, and map layers stay in the catalogue.
           The organisation directory is a lookup. Grid does not offer a download of the ISD extract.
+          The postcode lookup is published to Blob. Northern Ireland postcodes are not included. Grid
+          does not offer a download of the ONS file.
         </p>
       </LegalSection>
 
@@ -48,7 +50,7 @@ export default function DataSourcesPage() {
             </a>
             .
           </p>
-          <p className="text-copy-14 text-gray-1000">{source.attribution}</p>
+          <p className="text-copy-14 whitespace-pre-line text-gray-1000">{source.attribution}</p>
         </LegalSection>
       ))}
     </LegalPage>

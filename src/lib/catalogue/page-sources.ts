@@ -35,6 +35,7 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
     case "world-bank-pink-sheet":
       return "Every 6 hours";
     case "desnz-repd":
+    case "ons-nspl":
       return "Quarterly";
     case "desnz-dukes":
       return "Annual";

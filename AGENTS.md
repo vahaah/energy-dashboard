@@ -403,6 +403,30 @@ Open-graph file routes for the 1B pages, including `/map`, `/pipeline`, `/direct
 
 `/` stays `force-static` with `revalidate` 300. It does not import the 1B readers. `/map` is `force-static` with `revalidate` 1800 and does not call `queryPipe`. `/pipeline` is `force-static` with `revalidate` 86400 and reads the checked-in REPD pipeline. Tinybird budget **+0**. The scheduled success path stays 378.
 
+### P2.1 Postcode resolution
+
+No new page. P2.2 adds the area pages. `/` stays `force-static` with `revalidate` 300 and does not import `src/lib/postcode`. No MapLibre. No database. Tinybird budget **+0**. The scheduled success path stays 378.
+
+The lookup is the ONS National Statistics Postcode Lookup, August 2026, Open Government Licence v3.0, read on 20 Oct 2026 (`ONS_POSTCODE_LICENCE_READ_ON`). Attribution is `ONS_POSTCODE_ATTRIBUTION`, three sentences verbatim:
+
+- `Contains OS data © Crown copyright and database right 2026`
+- `Contains Royal Mail data © Royal Mail copyright and database right 2026`
+- `Source: Office for National Statistics licensed under the Open Government Licence v.3.0`
+
+Northern Ireland postcodes (BT) need a separate Land and Property Services licence and are excluded. An unknown postcode and a terminated postcode are both `not_found`, with `reason` `unknown` or `terminated`.
+
+`npm run catalogue:postcodes` (`scripts/catalogue/postcodes.ts`) downloads the ONS zip. `--offline` reads `data/catalogue/raw/nspl/`, which is gitignored, and fails if that cache is missing. It does not fall through to HTTP. The script is not a CI step. It logs counts only. It never prints a postcode or `BLOB_READ_WRITE_TOKEN`.
+
+Local authority is the NSPL column. DNO licence area and Carbon Intensity region are separate point-in-polygon hits on the checked-in NESO DNO file (`public/tiles/layers/dno/20240503.geojson`). The resolver does not import `src/lib/postcode/layers.ts` and does not derive one area from another. A coordinate pair of `(0, 0)` is rejected. A missing coordinate keeps the local authority and leaves DNO and Carbon Intensity empty. An overlap leaves that area empty.
+
+Blob layout, with `BLOB_READ_WRITE_TOKEN` (never logged): `releases/postcodes/<release_id>.json` is not the lookup. Shards are `releases/postcodes/<safeReleaseId>/<sha256(outward)>.json`. The outward code and the inward code are not blob keys. `releases/postcodes/latest.json` is `{release_id, generated_at}`, written after the shards. `releases/postcodes/previous.json` is the pointer that write replaced. Access is private. Tests, CI, and local builds leave the token unset and read `tests/fixtures/postcodes/lookup.json`. A missing pointer is the source-unavailable sentence. A failed shard read keeps the last shard and sets `state` to `stale`.
+
+Carbon Intensity is `GET https://api.carbonintensity.org.uk/regional/regionid/{id}` for ids 1–14. The postcode endpoint is not called. Only the region id goes upstream. Cache keys are exactly `grid:ci-region:1` … `grid:ci-region:14`. Freshness is 30 minutes (`CI_REGION_FRESH_MS`), so the cap is 14 × 48 upstream calls a day (`CI_REGION_UPSTREAM_DAILY_CAP`). The Redis key is retained for 7 days so a failed refresh can return the last reading with `state: "stale"`. `freshUntil` still moves forward on failure, which keeps the cap. No last reading is `not_yet_available`. Each request times out at 10 seconds, then two retries, waiting 200ms then 800ms. A 429 or 5xx retries. Another 4xx does not.
+
+`POST /api/v1/postcode` takes `{ "postcode" }` in the body, at most 16 characters. The postcode is not a query parameter, not logged, not copied into the response, and not an analytics prop. The log line is `{ status }` (`found`, `not_found`, or `error`). The analytics event is `area` with `local_authority`, `dno`, and `carbon_intensity_region`. The route is `force-dynamic` and is not in the `/api` one-liner list. `scope` or `geography` other than `GB` is 400. Any other query key is 400 `unsupported filter`.
+
+Catalogue source `ons-nspl`, cadence `P3M`. Dataset `ons-nspl:nspl`, `register: "lookup"`, empty `metric_ids`. The checked-in release is `ons-nspl:nspl:2026-09-01T11:08:22.000Z`. `/data-sources` lists the three attribution sentences. A later edition appends a release only when `published_at` is new.
+
 ## Environment Variables
 
 ```env
@@ -416,7 +440,7 @@ OIL_PRICE_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 FRED_API_KEY=<optional, unused — ingest disabled in cron and backfill>
 UPSTASH_REDIS_REST_URL=<optional — Upstash REST URL, https:// only>
 UPSTASH_REDIS_REST_TOKEN=<optional — paired REST token>
-BLOB_READ_WRITE_TOKEN=<optional — basemap upload and gas Blob publish, never log it>
+BLOB_READ_WRITE_TOKEN=<optional — basemap upload, gas Blob publish, and the postcode lookup, never log it>
 INDEXNOW_KEY=<optional — post-deploy one-shot only; must match the public key file; never log it>
 # Also accepted: KV_REST_API_URL / KV_REST_API_TOKEN from the Marketplace integration
 ```

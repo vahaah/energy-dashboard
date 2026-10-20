@@ -113,6 +113,22 @@ export const SEMO_SOURCE_LINE = "Source: SEMO.";
 
 export const NI_FLOW_NOTE = "Flows to and from Northern Ireland. NI figures are on a separate page.";
 
+/**
+ * ONS postcode products, read 20 Oct 2026.
+ * https://www.ons.gov.uk/methodology/geography/licences
+ * The three sentences are required verbatim. The year is the NSPL edition year.
+ * Northern Ireland (BT) postcodes need a separate LPS licence and are excluded.
+ */
+export const ONS_POSTCODE_LICENCE_READ_ON = "2026-10-20";
+
+export const ONS_POSTCODE_ATTRIBUTION_LINES = [
+  "Contains OS data © Crown copyright and database right 2026",
+  "Contains Royal Mail data © Royal Mail copyright and database right 2026",
+  "Source: Office for National Statistics licensed under the Open Government Licence v.3.0",
+] as const;
+
+export const ONS_POSTCODE_ATTRIBUTION = ONS_POSTCODE_ATTRIBUTION_LINES.join("\n");
+
 export const DATA_SOURCE_IDS = [
   "elexon-bmrs",
   "neso-open-data",
@@ -128,6 +144,7 @@ export const DATA_SOURCE_IDS = [
   "eirgrid-group",
   "geonames",
   "elexon-isd",
+  "ons-nspl",
 ] as const;
 
 export const GEONAMES_URL = "https://www.geonames.org/";

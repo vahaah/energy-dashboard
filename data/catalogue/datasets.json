@@ -533,5 +533,14 @@
       "elec.all_island.price.imbalance",
       "elec.all_island.imbalance.volume"
     ]
+  },
+  {
+    "catalogue_schema_version": 1,
+    "dataset_id": "ons-nspl:nspl",
+    "source_id": "ons-nspl",
+    "catalogue_key": "nspl",
+    "cadence": "P3M",
+    "metric_ids": [],
+    "register": "lookup"
   }
 ]

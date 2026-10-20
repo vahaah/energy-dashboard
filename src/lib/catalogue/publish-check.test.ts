@@ -236,6 +236,7 @@ describe("data-sources catalogue", () => {
     expect(sourceRefreshLabel("eia")).toBe("Every 6 hours");
     expect(sourceRefreshLabel("neso-dno-areas")).toBe("Daily");
     expect(sourceRefreshLabel("os-open-zoomstack")).toBe("Twice a year");
+    expect(sourceRefreshLabel("ons-nspl")).toBe("Quarterly");
     expect(page).not.toMatch(/OilPriceAPI|\bTTF\b/);
   });
 });
