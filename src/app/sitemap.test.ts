@@ -20,6 +20,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/map",
       "https://grid.vahaah.com/assets",
       "https://grid.vahaah.com/projects",
+      "https://grid.vahaah.com/pipeline",
       "https://grid.vahaah.com/directory",
       "https://grid.vahaah.com/directory/identifiers",
       "https://grid.vahaah.com/tools",

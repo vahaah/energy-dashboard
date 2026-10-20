@@ -24,6 +24,7 @@ ${latest}
 - [Storage](https://grid.vahaah.com/system/storage): pumped storage and batteries, with inventory separate from the FUELINST monitored fleet
 - [Whole energy](https://grid.vahaah.com/system/whole-energy): annual UK energy balance for electricity, gas, oil, heat and transport
 - [Projects](https://grid.vahaah.com/projects): planning, construction and connection status from REPD and the NESO TEC register
+- [Pipeline](https://grid.vahaah.com/pipeline): renewable and storage projects in Great Britain, from planning to construction, from DESNZ's REPD
 - [Records](https://grid.vahaah.com/records): records since Grid's records began, beside NESO official records
 - [UK gas price](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
 - [Price cap explained](https://grid.vahaah.com/explained/price-cap): January 2027 price cap, announced by 25 Nov 2026

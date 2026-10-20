@@ -81,7 +81,7 @@
     "source_id": "desnz-repd",
     "name": "DESNZ Renewable Energy Planning Database",
     "url": "https://www.gov.uk/government/publications/renewable-energy-planning-database-quarterly-extract",
-    "used_for": "Operational renewable power stations of 150 kW and above, with OSGB36 coordinates transformed to WGS84. The storage inventory also lists pumped storage and batteries, including projects that are not operating. The projects register reads planning, construction and operational status for England, Scotland and Wales from this extract, including projects that are not operating.",
+    "used_for": "Operational renewable power stations of 150 kW and above, with OSGB36 coordinates transformed to WGS84. The storage inventory also lists pumped storage and batteries, including projects that are not operating. The projects register reads planning, construction and operational status for England, Scotland and Wales from this extract, including projects that are not operating. The pipeline page counts renewable and storage projects in England, Scotland and Wales that are under construction, consented, or in planning. Data: DESNZ REPD via Grid.",
     "licence": "Open Government Licence v3.0",
     "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
     "attribution": "Contains public sector information licensed under the Open Government Licence v3.0.",

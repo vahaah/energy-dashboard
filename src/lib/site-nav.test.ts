@@ -50,6 +50,7 @@ describe("site nav shell", () => {
       "/system/storage",
       "/system/whole-energy",
       "/projects",
+      "/pipeline",
       "/electricity/northern-ireland",
       "/directory",
       "/tools",
@@ -99,6 +100,7 @@ describe("site nav shell", () => {
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/storage");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/system/whole-energy");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/projects");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/pipeline");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/electricity/northern-ireland");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory/identifiers");

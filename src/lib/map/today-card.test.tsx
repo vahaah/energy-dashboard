@@ -79,6 +79,7 @@ describe("today map card", () => {
   it("links below the answer and headline", () => {
     expect(card).toContain('href="/map"');
     expect(card).toContain('href="/assets"');
+    expect(card).toContain('href="/pipeline"');
     expect(card).toContain("focus-visible:ring-2");
     expect(card).toContain("focus-visible:ring-blue-700");
     expect(dashboard.indexOf("<TodayMapCard />")).toBeGreaterThan(dashboard.indexOf("answer={answer}"));

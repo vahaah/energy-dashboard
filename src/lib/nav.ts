@@ -21,5 +21,6 @@ export const SYSTEM_NAV_ITEMS: readonly SystemNavItem[] = [
   { id: "storage", label: "Storage", href: "/system/storage" },
   { id: "whole-energy", label: "Whole energy", href: "/system/whole-energy" },
   { id: "projects", label: "Projects", href: "/projects" },
+  { id: "pipeline", label: "Pipeline", href: "/pipeline" },
   { id: "northern-ireland", label: NI_NAV_LABEL, href: NI_PATH, dividerBefore: NI_OUTSIDE_GB },
 ];

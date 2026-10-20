@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { useId, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   initialInfoTooltipState,
@@ -9,7 +9,7 @@ import {
 import { clampTooltipLeft, placeTooltipTop } from "@/lib/tooltip-position";
 
 interface Props {
-  text: string;
+  text: ReactNode;
   label: string;
   align?: "center" | "end";
 }
