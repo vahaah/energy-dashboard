@@ -86,6 +86,8 @@ describe("today figures", () => {
     expect(tenths(figures.pipeline.stages.map((row) => row.gw))).toBe(tenths([figures.pipeline.gw]));
     expect(figures.pipeline.stages.reduce((sum, row) => sum + row.sites, 0)).toBe(figures.pipeline.sites);
     expect(figures.pipeline.filtered).toBe(true);
+    expect(figures.operating.missing).toBe(1);
+    expect(figures.pipeline.missing).toBe(1);
     expect(figures.pipeline.stages.find((row) => row.id === "under_construction")?.sites).toBe(2);
     expect(figures.nations.find((row) => row.id === "Wales")?.gw).toBeNull();
     expect(JSON.stringify(figures)).not.toMatch(/"gw":"0(?:\.0)?"/);
@@ -144,6 +146,8 @@ describe("today figures", () => {
     expect(tenths(figures.pipeline.stages.map((row) => row.gw))).toBe(tenths([figures.pipeline.gw]));
     expect(figures.pipeline.stages.reduce((sum, row) => sum + row.sites, 0)).toBe(figures.pipeline.sites);
     expect(figures.pipeline.filtered).toBe(true);
+    expect(figures.operating.missing).toBeGreaterThan(0);
+    expect(figures.pipeline.missing).toBeGreaterThan(0);
     expect(figures.largestLabels.slice(0, 3)).toEqual(["Gas", "Offshore wind", "Onshore wind"]);
     for (const row of [...figures.technologies, ...figures.nations, ...figures.pipeline.stages]) {
       expect(row.gw).not.toBe("0");

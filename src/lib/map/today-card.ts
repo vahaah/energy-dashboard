@@ -10,6 +10,11 @@ export const TODAY_MAP_CONSENT = "Consent does not mean a project will be built.
 
 export const TODAY_MAP_PIPELINE_UNFILTERED = "Pipeline figures are not yet filtered to GB.";
 
+export function missingCapacitySentence(count: number, noun: "site" | "project"): string {
+  const label = count === 1 ? noun : `${noun}s`;
+  return `Rated capacity is not published for ${count.toLocaleString("en-GB")} ${label}. The gigawatts are the published total.`;
+}
+
 export const TODAY_MAP_OPEN = "Open map →";
 
 export const TODAY_MAP_LIST = "View as list";
@@ -40,6 +45,8 @@ export type TodayMapStamp = {
   dukes_source_release_id: string;
   dno_sha256: string;
   batteries_sha256: string;
+  /** sha256 of data/catalogue/energy_projects.ndjson. Pipeline figures read that file. */
+  projects_sha256: string;
 };
 
 export type TodayMapCount = {
@@ -58,12 +65,13 @@ export type TodayMapCardFile = TodayMapStamp & {
   dark: string;
   alt: string;
   availability: TodayFigures["availability"];
-  operating: { gw: string | null; sites: number | null };
+  operating: { gw: string | null; sites: number | null; missing: number };
   technologies: TodayMapCount[];
   nations: TodayMapCount[];
   pipeline: {
     gw: string | null;
     sites: number | null;
+    missing: number;
     filtered: boolean;
     stages: TodayMapCount[];
   };
@@ -136,7 +144,8 @@ export function todayMapReleaseCurrent(stamp: TodayMapStamp, next: TodayMapStamp
     stamp.repd_source_release_id === next.repd_source_release_id &&
     stamp.dukes_source_release_id === next.dukes_source_release_id &&
     stamp.dno_sha256 === next.dno_sha256 &&
-    stamp.batteries_sha256 === next.batteries_sha256
+    stamp.batteries_sha256 === next.batteries_sha256 &&
+    stamp.projects_sha256 === next.projects_sha256
   );
 }
 

@@ -162,7 +162,7 @@ export function parseRepdProjects(text: string): SourceProject[] {
   const capacityIndex = column(header, "Installed Capacity (MWelec)");
   const statusIndex = column(header, "Development Status (short)");
   const countryIndex = column(header, "Country");
-  const regionIndex = header.findIndex((cell) => cell.trim() === "Region");
+  const regionIndex = column(header, "Region");
   const submittedIndex = column(header, "Planning Application Submitted");
   const withdrawnIndex = column(header, "Planning Application Withdrawn");
   const refusedIndex = column(header, "Planning Permission Refused");
@@ -187,7 +187,7 @@ export function parseRepdProjects(text: string): SourceProject[] {
       throw new Error(`REPD country is not mapped: ${countryRaw}`);
     }
     const country: Britain | null = countryRaw;
-    const region = regionIndex < 0 ? null : cleanCountry(cell(row, regionIndex));
+    const region = cleanCountry(cell(row, regionIndex));
     const shortStatus = cell(row, statusIndex).replace(/\u00a0/g, " ").trim();
     if (!isShortStatus(shortStatus)) {
       throw new Error(`REPD development status is not mapped: ${shortStatus}`);

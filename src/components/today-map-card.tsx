@@ -10,6 +10,7 @@ import {
   TODAY_MAP_SUMMARY,
   TODAY_MAP_TITLE,
   formatTodayCount,
+  missingCapacitySentence,
   registerFreshness,
   type TodayMapCardFile,
   type TodayMapCount,
@@ -39,7 +40,8 @@ export function TodayMapCardView({ file, now }: { file: TodayMapCardFile; now: D
     file.technologies.some((row) => row.gw === null) ||
     file.nations.some((row) => row.gw === null) ||
     file.pipeline.stages.some((row) => row.gw === null);
-  const amber = freshness.stale || !file.pipeline.filtered || file.availability !== "ready" || missingFigure;
+  const partial = file.operating.missing > 0 || file.pipeline.missing > 0;
+  const amber = freshness.stale || !file.pipeline.filtered || file.availability !== "ready" || missingFigure || partial;
   const showMap = file.availability === "ready";
   const maxGw = Math.max(0, ...file.technologies.map((row) => (row.gw === null ? 0 : Number(row.gw))));
 
@@ -79,6 +81,7 @@ export function TodayMapCardView({ file, now }: { file: TodayMapCardFile; now: D
             count={file.operating.sites}
             countNoun="sites"
           />
+          <MissingCapacity count={file.operating.missing} noun="site" />
           <ul className="mt-4 flex flex-col gap-2" aria-label="Operating capacity">
             {file.technologies.map((row) => (
               <TechnologyRow key={row.id} row={row} maxGw={maxGw} />
@@ -95,6 +98,7 @@ export function TodayMapCardView({ file, now }: { file: TodayMapCardFile; now: D
         </div>
         <div className="order-2 min-w-0 md:order-none md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1">
           <FigureBlock kicker="Pipeline" gw={file.pipeline.gw} count={file.pipeline.sites} countNoun="projects" />
+          <MissingCapacity count={file.pipeline.missing} noun="project" />
           <ul className="mt-4 flex flex-col gap-2" aria-label="Pipeline">
             {file.pipeline.stages.map((row) => (
               <li key={row.id} className="flex min-w-0 items-baseline justify-between gap-3">
@@ -124,6 +128,13 @@ export function TodayMapCardView({ file, now }: { file: TodayMapCardFile; now: D
       </div>
     </Card>
   );
+}
+
+function MissingCapacity({ count, noun }: { count: number; noun: "site" | "project" }) {
+  if (count <= 0) {
+    return null;
+  }
+  return <p className="mt-2 break-words text-copy-14 text-gray-900">{missingCapacitySentence(count, noun)}</p>;
 }
 
 function FigureBlock({

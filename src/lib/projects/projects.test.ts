@@ -302,6 +302,8 @@ describe("project parsers", () => {
     expect(parsed[0]?.commissioning_date).toBe("2021-04-03");
     expect(parsed[0]?.country).toBe("England");
     expect(parsed[0]?.region).toBe("Yorkshire and the Humber");
+    const withoutRegion = header.filter((name) => name !== "Region").join(",");
+    expect(() => parseRepdProjects(withoutRegion)).toThrow(/Region/);
   });
 
   it("collapses TEC stages and quarantines an unknown status", () => {

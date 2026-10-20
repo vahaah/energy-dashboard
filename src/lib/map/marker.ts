@@ -24,8 +24,12 @@ export const MAP_SIZE_STEPS = [
 
 export type MapSizeStep = (typeof MAP_SIZE_STEPS)[number];
 
-export function mapSizeStep(mw: number | null): MapSizeStep {
-  if (mw === null || mw < 50) {
+/** A missing or negative megawatt figure is not a size. It is not "under 50 MW". */
+export function mapSizeStep(mw: number | null): MapSizeStep | null {
+  if (mw === null || !Number.isFinite(mw) || mw < 0) {
+    return null;
+  }
+  if (mw < 50) {
     return MAP_SIZE_STEPS[0];
   }
   if (mw < 300) {

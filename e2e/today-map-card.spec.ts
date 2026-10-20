@@ -42,6 +42,7 @@ for (const theme of THEMES) {
       await expect(card.getByText("What is built and what is in the pipeline, from the public registers.")).toBeVisible();
       await expect(card.getByText("England, Scotland and Wales.")).toBeVisible();
       await expect(card.getByText("Consent does not mean a project will be built.")).toBeVisible();
+      await expect(card.getByText(/Rated capacity is not published for [\d,]+ projects\. The gigawatts are the published total\./)).toBeVisible();
       await expect(card.getByText("REPD Q2 2026 · DUKES May 2026")).toBeVisible();
       await expect(card.getByText("Contains public sector information licensed under the Open Government Licence v3.0.")).toBeVisible();
       const text = (await card.innerText()).toLowerCase();

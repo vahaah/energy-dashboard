@@ -15,6 +15,7 @@ import {
   TODAY_MAP_TITLE,
   addCalendarMonths,
   containsBannedTodayMapPhrase,
+  missingCapacitySentence,
   registerEditionLabel,
   registerFreshness,
   repdQuarterEnd,
@@ -22,7 +23,8 @@ import {
   todayMapReleaseCurrent,
   type TodayMapCardFile,
 } from "@/lib/map/today-card";
-import { renderTodayMapCard } from "@/lib/map/today-card-build";
+import { mapSizeStep } from "@/lib/map/marker";
+import { assertBatteryRelease, renderTodayMapCard } from "@/lib/map/today-card-build";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -106,8 +108,18 @@ describe("today map card", () => {
         dukes_source_release_id: manifest.dukes_source_release_id,
         dno_sha256: manifest.dno_sha256,
         batteries_sha256: manifest.batteries_sha256,
+        projects_sha256: manifest.projects_sha256,
       }),
     ).toBe(true);
+    expect(
+      todayMapReleaseCurrent(manifest, {
+        ...manifest,
+        projects_sha256: "sha256:0",
+      }),
+    ).toBe(false);
+    expect(() => assertBatteryRelease("other-release", manifest.repd_source_release_id)).toThrow(/battery pins/);
+    expect(mapSizeStep(null)).toBeNull();
+    expect(mapSizeStep(49)?.label).toBe("Under 50 MW");
     const rendered = renderTodayMapCard();
     expect(rendered.manifest).toEqual(manifest);
     expect(Buffer.from(rendered.light.png).equals(readFileSync(resolve(`public${manifest.light}`)))).toBe(true);
@@ -129,16 +141,30 @@ describe("today map card", () => {
     );
   });
 
-  it("draws an amber rule and an em dash when the edition is stale or the map is unavailable", () => {
-    const fresh = renderToStaticMarkup(<TodayMapCardView file={manifest} now={new Date("2026-10-20T12:00:00Z")} />);
-    expect(fresh).toContain(OGL_V3_ATTRIBUTION);
-    expect(fresh).toContain(manifest.edition);
-    expect(fresh).toContain("Open map →");
-    expect(fresh).toContain("View as list");
-    expect(fresh).toContain('loading="lazy"');
-    expect(fresh).not.toContain("border-amber-700");
-    expect(fresh).not.toContain(TODAY_MAP_PIPELINE_UNFILTERED);
-    expect(fresh).toContain(TODAY_MAP_CONSENT);
+  it("draws an amber rule and an em dash when the edition is stale, partial, or the map is unavailable", () => {
+    const shown = renderToStaticMarkup(<TodayMapCardView file={manifest} now={new Date("2026-10-20T12:00:00Z")} />);
+    expect(shown).toContain(OGL_V3_ATTRIBUTION);
+    expect(shown).toContain(manifest.edition);
+    expect(shown).toContain("Open map →");
+    expect(shown).toContain("View as list");
+    expect(shown).toContain('loading="lazy"');
+    expect(shown).toContain(missingCapacitySentence(manifest.pipeline.missing, "project"));
+    expect(shown).toContain("border-amber-700");
+    expect(shown).not.toContain(TODAY_MAP_PIPELINE_UNFILTERED);
+    expect(shown).toContain(TODAY_MAP_CONSENT);
+
+    const complete = renderToStaticMarkup(
+      <TodayMapCardView
+        file={{
+          ...manifest,
+          operating: { ...manifest.operating, missing: 0 },
+          pipeline: { ...manifest.pipeline, missing: 0 },
+        }}
+        now={new Date("2026-10-20T12:00:00Z")}
+      />,
+    );
+    expect(complete).not.toContain("border-amber-700");
+    expect(complete).not.toContain("Rated capacity is not published");
 
     const stale = renderToStaticMarkup(<TodayMapCardView file={manifest} now={new Date("2026-11-01T00:00:00Z")} />);
     expect(stale).toContain("border-amber-700");
@@ -148,10 +174,10 @@ describe("today map card", () => {
         file={{
           ...manifest,
           availability: "unavailable",
-          operating: { gw: null, sites: null },
+          operating: { gw: null, sites: null, missing: 0 },
           technologies: [],
           nations: manifest.nations.map((row) => ({ ...row, gw: null, sites: 0 })),
-          pipeline: { ...manifest.pipeline, gw: null, sites: null, stages: [] },
+          pipeline: { ...manifest.pipeline, gw: null, sites: null, missing: 0, stages: [] },
         }}
         now={new Date("2026-10-20T12:00:00Z")}
       />,

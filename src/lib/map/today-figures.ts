@@ -121,19 +121,20 @@ export type TodayCount = {
 
 export type TodayFigures = {
   availability: "ready" | "unavailable";
-  operating: { gw: string | null; sites: number | null };
+  operating: { gw: string | null; sites: number | null; missing: number };
   technologies: TodayCount[];
   nations: TodayCount[];
   pipeline: {
     gw: string | null;
     sites: number | null;
+    missing: number;
     filtered: boolean;
     stages: TodayCount[];
   };
   largestLabels: string[];
 };
 
-type Bucket = { exactGw: number; sites: number; publishedMw: boolean };
+type Bucket = { exactGw: number; sites: number; missing: number; publishedMw: boolean };
 
 export function isGbOperatingPlant(plant: TodayPlant): boolean {
   return isGbNation(plant.country) && !NON_GENERATION.has(plant.technology) && isPlantTechnology(plant.technology);
@@ -171,12 +172,17 @@ export function pipelineClass(project: TodayProject): "gb" | "tec" | "out" {
 }
 
 function emptyBucket(): Bucket {
-  return { exactGw: 0, sites: 0, publishedMw: false };
+  return { exactGw: 0, sites: 0, missing: 0, publishedMw: false };
+}
+
+function publishedMw(mw: number | null): mw is number {
+  return mw !== null && Number.isFinite(mw) && mw >= 0;
 }
 
 function addMw(bucket: Bucket, mw: number | null): void {
   bucket.sites += 1;
-  if (mw === null || !Number.isFinite(mw) || mw < 0) {
+  if (!publishedMw(mw)) {
+    bucket.missing += 1;
     return;
   }
   bucket.exactGw += mw / 1000;
@@ -246,6 +252,7 @@ export function buildTodayFigures(plants: readonly TodayPlant[], projects: reado
 
   const operatingExact = groupRows.reduce((sum, row) => sum + row.bucket.exactGw, 0);
   const operatingSites = groupRows.reduce((sum, row) => sum + row.bucket.sites, 0);
+  const operatingMissing = groupRows.reduce((sum, row) => sum + row.bucket.missing, 0);
   const operatingPublished = groupRows.some((row) => row.bucket.publishedMw);
 
   const staged = projects.filter((project) => isPipelineStage(project.displayStage));
@@ -269,6 +276,7 @@ export function buildTodayFigures(plants: readonly TodayPlant[], projects: reado
   const stages = displayParts(stageRows);
   const pipelineExact = stageRows.reduce((sum, row) => sum + row.bucket.exactGw, 0);
   const pipelineSites = stageRows.reduce((sum, row) => sum + row.bucket.sites, 0);
+  const pipelineMissing = stageRows.reduce((sum, row) => sum + row.bucket.missing, 0);
   const pipelinePublished = stageRows.some((row) => row.bucket.publishedMw);
 
   const ranked = groupRows
@@ -280,12 +288,14 @@ export function buildTodayFigures(plants: readonly TodayPlant[], projects: reado
     operating: {
       gw: operatingPublished ? formatDisplay(roundDisplay(operatingExact, GW_QUANTUM), GW_QUANTUM) : null,
       sites: operatingSites > 0 ? operatingSites : null,
+      missing: operatingMissing,
     },
     technologies,
     nations,
     pipeline: {
       gw: pipelinePublished ? formatDisplay(roundDisplay(pipelineExact, GW_QUANTUM), GW_QUANTUM) : null,
       sites: pipelineSites > 0 ? pipelineSites : null,
+      missing: pipelineMissing,
       filtered,
       stages,
     },

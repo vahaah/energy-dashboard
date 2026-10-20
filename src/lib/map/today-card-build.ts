@@ -82,7 +82,7 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
   const plants = readPlants();
   const projects = readProjects();
   const figures = buildTodayFigures(plants, projects);
-  const points = mapPoints(plants, readBatteries());
+  const points = mapPoints(plants, readBatteries(stamp.repd_source_release_id));
   const rings = readOutlineRings();
   const coordinates: LngLat[] = [];
   for (const ring of rings) {
@@ -175,7 +175,10 @@ function mapPoints(plants: readonly LocatedPlant[], batteries: BatteryFile): Sta
     if (!group) {
       continue;
     }
-    points.push(marker(plant.longitude, plant.latitude, group.color, group.shape, plant.mw));
+    const point = marker(plant.longitude, plant.latitude, group.color, group.shape, plant.mw);
+    if (point) {
+      points.push(point);
+    }
   }
   for (const site of batteries.sites) {
     if (!isGbNation(site.country)) {
@@ -185,19 +188,32 @@ function mapPoints(plants: readonly LocatedPlant[], batteries: BatteryFile): Sta
     if (!group) {
       continue;
     }
-    points.push(marker(site.longitude, site.latitude, group.color, group.shape, site.mw));
+    const point = marker(site.longitude, site.latitude, group.color, group.shape, site.mw);
+    if (point) {
+      points.push(point);
+    }
   }
   return points;
 }
 
-function marker(longitude: number, latitude: number, color: string, shape: MarkerShape, mw: number | null): StaticMapPoint {
+function marker(
+  longitude: number,
+  latitude: number,
+  color: string,
+  shape: MarkerShape,
+  mw: number | null,
+): StaticMapPoint | null {
+  const step = mapSizeStep(mw);
+  if (!step) {
+    return null;
+  }
   return {
     longitude,
     latitude,
     color,
     shape,
     filled: true,
-    radius: mapSizeStep(mw).radius,
+    radius: step.radius,
   };
 }
 
@@ -205,11 +221,18 @@ function isTechnology(value: string): value is Technology {
   return (TECHNOLOGIES as readonly string[]).includes(value);
 }
 
-function readBatteries(): BatteryFile {
+export function assertBatteryRelease(pinsReleaseId: string, registerReleaseId: string): void {
+  if (pinsReleaseId !== registerReleaseId) {
+    throw new Error(`today battery pins are ${pinsReleaseId}; the plant register is ${registerReleaseId}`);
+  }
+}
+
+function readBatteries(registerReleaseId: string): BatteryFile {
   const parsed = JSON.parse(readFileSync(BATTERIES_PATH, "utf8")) as BatteryFile;
-  if (!Array.isArray(parsed.sites)) {
+  if (typeof parsed.source_release_id !== "string" || !Array.isArray(parsed.sites)) {
     throw new Error("today battery file has no sites");
   }
+  assertBatteryRelease(parsed.source_release_id, registerReleaseId);
   return parsed;
 }
 
@@ -227,11 +250,13 @@ function readTodayMapStamp(): TodayMapStamp {
     throw new Error("map catalogue is missing the DNO layer");
   }
   const batteries = readFileSync(BATTERIES_PATH);
+  const projects = readFileSync(resolve("data/catalogue/energy_projects.ndjson"));
   return {
     repd_source_release_id: summary.repd_source_release_id,
     dukes_source_release_id: summary.dukes_source_release_id,
     dno_sha256: dno.sha256,
     batteries_sha256: `sha256:${createHash("sha256").update(batteries).digest("hex")}`,
+    projects_sha256: `sha256:${createHash("sha256").update(projects).digest("hex")}`,
   };
 }
 

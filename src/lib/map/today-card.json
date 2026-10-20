@@ -3,6 +3,7 @@
   "dukes_source_release_id": "desnz-dukes:dukes-5.11:2026-07-30T00:00:00.000Z",
   "dno_sha256": "sha256:45706a2dd90ea9f763df84fe916042074a113fa28da8597430d583f128398c89",
   "batteries_sha256": "sha256:913576815cdebbfca0d8aeaa53059613d1c82d960f4d9eec8ea8afe07e3eb918",
+  "projects_sha256": "sha256:0e211de8676e1840083065bef3fc734491b4167687f56bc1c9224960f9f956d5",
   "edition": "REPD Q2 2026 · DUKES May 2026",
   "repd_quarter_end": "2026-06-30",
   "dukes_published_on": "2026-07-30",
@@ -14,7 +15,8 @@
   "availability": "ready",
   "operating": {
     "gw": "99.8",
-    "sites": 3366
+    "sites": 3366,
+    "missing": 49
   },
   "technologies": [
     {
@@ -88,6 +90,7 @@
   "pipeline": {
     "gw": "283.9",
     "sites": 10126,
+    "missing": 2701,
     "filtered": true,
     "stages": [
       {
