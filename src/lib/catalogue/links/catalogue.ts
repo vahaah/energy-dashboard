@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssetDetail, AssetIndexRow } from "@/lib/assets/types";
+import { GEONAMES_ATTRIBUTION, GEONAMES_URL } from "@/lib/attribution";
 import { cataloguePageSources } from "@/lib/catalogue/page-sources";
 import {
   LINK_FILES,
@@ -17,6 +18,10 @@ export type LinkCatalogue = {
   elexonAttribution: string;
   nationalGasAttribution: string;
 };
+
+function geonamesRecord(id: string): { id: string; source: string; edition: string; href: string } {
+  return { id, source: "GeoNames", edition: "CC BY 4.0", href: GEONAMES_URL };
+}
 
 function attribution(id: "elexon-bmrs" | "national-gas"): string {
   const source = cataloguePageSources().find((item) => item.id === id);
@@ -84,8 +89,14 @@ export function readLinkCatalogue(root: string): LinkCatalogue {
             edition: "FUELINST",
             href: record.source_url,
           },
+          ...(record.coordinate_licence === "CC BY 4.0"
+            ? [geonamesRecord(`geonames:${record.gb_geonames_id}`)]
+            : []),
         ],
-        attributions: [elexonAttribution],
+        attributions: [
+          elexonAttribution,
+          ...(record.coordinate_licence === "CC BY 4.0" ? [GEONAMES_ATTRIBUTION] : []),
+        ],
       },
     });
     lines.push({
@@ -135,8 +146,12 @@ export function readLinkCatalogue(root: string): LinkCatalogue {
             edition: "NTS terminal names",
             href: record.source_url,
           },
+          ...(record.coordinate_licence === "CC BY 4.0" ? [geonamesRecord(`geonames:${record.key}`)] : []),
         ],
-        attributions: [nationalGasAttribution],
+        attributions: [
+          nationalGasAttribution,
+          ...(record.coordinate_licence === "CC BY 4.0" ? [GEONAMES_ATTRIBUTION] : []),
+        ],
       },
     });
   }

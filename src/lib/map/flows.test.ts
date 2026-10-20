@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { capacityFromRegister, capacityRowsFromCkan } from "@/lib/map/capacity";
 import { compactElectricity } from "@/lib/map/electricity-release";
 import {
@@ -11,10 +11,24 @@ import {
   formatFlowReading,
   gasDirectionWords,
   gasWidthPx,
+  netGasLabel,
   readingIsStale,
 } from "@/lib/map/flow-scale";
 import { FLOWS_HTML_BUDGET_BYTES, buildFlowsPageModel, catalogueFlowsInput, flowsModelBytes } from "@/lib/map/flows-model";
+import { flowSelectionFromQuery } from "@/lib/map/flows-selection";
 import { fixtureMapFlows } from "@/lib/map/flows-fixture";
+import {
+  MAP_FLOWS_ELECTRICITY,
+  MAP_FLOWS_GAS,
+  MAP_FLOWS_LATEST,
+  readMapFlowsRelease,
+  writeMapElectricityPointer,
+  writeMapGasPointer,
+} from "@/lib/map/flows-release";
+import { sparklinePath } from "@/lib/map/sparkline";
+import { STALE_CLOCK_INTERVAL_MS, startStaleClock } from "@/lib/map/stale-clock";
+import { MemoryGasStore, setGasStoreForTests } from "@/lib/gas/blob";
+import { OGL_V3_ATTRIBUTION } from "@/lib/attribution";
 import { parseInstantaneousFlows } from "@/lib/map/gas-terminal-flows";
 import { ABSENT_FIGURE } from "@/lib/data-state";
 import { loadAssetCatalogue } from "@/lib/assets/load";
@@ -79,6 +93,14 @@ describe("map flows model", () => {
     expect(moyle?.counterpartyOutsideGb).toBe(true);
     expect(model.straightLine).toBe("Straight line, not the cable route.");
     expect(model.title).toBe("Flows across GB borders");
+    const stationsCredit = model.credits.find((credit) => credit.id === "stations");
+    expect(stationsCredit?.layer).toBe("stations");
+    expect(stationsCredit?.text).toContain("REPD");
+    expect(stationsCredit?.text).toContain("DUKES");
+    expect(stationsCredit?.text).toContain("DESNZ");
+    expect(stationsCredit?.text).toContain(OGL_V3_ATTRIBUTION);
+    expect(model.gasMissing).toBe(0);
+    expect(model.netGasMcm).not.toBeNull();
     expect(JSON.stringify(model)).not.toMatch(/\blive\b/i);
     expect(JSON.stringify(model)).not.toMatch(/real-time/i);
   });
@@ -171,5 +193,135 @@ describe("gas terminals and NESO capacity", () => {
     expect(release.series).toHaveLength(1);
     expect(release.series[0]?.code).toBe("INTFR");
     expect(release.series[0]?.latestMw).toBe(250);
+  });
+});
+
+describe("flows map review fixes", () => {
+  afterEach(() => {
+    setGasStoreForTests(null);
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it("restores ?sel= and layers=ic from asset pages", () => {
+    expect(
+      flowSelectionFromQuery({ sel: "ast_5c5dc7c6656c3f93", asset: null, layers: "ic" }),
+    ).toEqual({ selectedId: "ast_5c5dc7c6656c3f93", interconnectors: true });
+    expect(flowSelectionFromQuery({ sel: null, asset: "ast_station", layers: "" })).toEqual({
+      selectedId: "ast_station",
+      interconnectors: true,
+    });
+    expect(flowSelectionFromQuery({ sel: null, asset: null, layers: "dno" })).toEqual({
+      selectedId: null,
+      interconnectors: false,
+    });
+    const source = readFileSync(resolve(process.cwd(), "src/components/flows-map.tsx"), "utf8");
+    expect(source).toContain("useQueryStates(mapViewParsers");
+    expect(source).toContain("flowSelectionFromQuery");
+    expect(source).toContain("stationsRef");
+    expect(source).toContain("chooseRef.current(id, null)");
+  });
+
+  it("ticks the staleness clock each minute and pauses while hidden", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-20T12:00:00.000Z"));
+    let hidden = false;
+    const ticks: number[] = [];
+    let onChange = (): void => undefined;
+    const stop = startStaleClock({
+      onTick: (now) => ticks.push(now),
+      hidden: () => hidden,
+      subscribeVisibility: (listener) => {
+        onChange = listener;
+        return () => {
+          onChange = () => undefined;
+        };
+      },
+    });
+    expect(ticks).toEqual([Date.parse("2026-10-20T12:00:00.000Z")]);
+    vi.advanceTimersByTime(STALE_CLOCK_INTERVAL_MS);
+    expect(ticks).toHaveLength(2);
+    hidden = true;
+    onChange();
+    vi.advanceTimersByTime(STALE_CLOCK_INTERVAL_MS * 3);
+    expect(ticks).toHaveLength(2);
+    hidden = false;
+    onChange();
+    expect(ticks).toHaveLength(3);
+    vi.advanceTimersByTime(STALE_CLOCK_INTERVAL_MS);
+    expect(ticks).toHaveLength(4);
+    stop();
+    vi.advanceTimersByTime(STALE_CLOCK_INTERVAL_MS);
+    expect(ticks).toHaveLength(4);
+    const source = readFileSync(resolve(process.cwd(), "src/components/flows-map.tsx"), "utf8");
+    expect(source).toContain("startStaleClock");
+    expect(source).toContain("document.hidden");
+  });
+
+  it("keeps electricity when gas publishes to its own pointer", async () => {
+    const store = new MemoryGasStore();
+    const reads: string[] = [];
+    const get = store.get.bind(store);
+    store.get = (pathname: string) => {
+      reads.push(pathname);
+      return get(pathname);
+    };
+    setGasStoreForTests(store);
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "test-token");
+    const now = new Date("2026-10-20T08:00:00.000Z");
+    const fixture = fixtureMapFlows(now);
+    store.files.set(MAP_FLOWS_LATEST, {
+      body: `${JSON.stringify({
+        generated_at: now.toISOString(),
+        electricity: fixture.electricity,
+        gas: fixture.gas,
+        capacity: fixture.capacity,
+      })}\n`,
+      uploadedAt: now,
+    });
+    const later = new Date("2026-10-20T09:00:00.000Z");
+    const gasOnly = { ...fixture.gas, generated_at: later.toISOString(), samples: fixture.gas.samples.slice(0, 3) };
+    reads.length = 0;
+    await writeMapGasPointer(gasOnly, later);
+    expect(reads.some((path) => path === MAP_FLOWS_ELECTRICITY || path === MAP_FLOWS_LATEST)).toBe(false);
+    const duringGas = await readMapFlowsRelease();
+    expect(duringGas?.electricity?.generated_at).toBe(now.toISOString());
+    expect(duringGas?.gas?.generated_at).toBe(later.toISOString());
+    expect(duringGas?.capacity?.rows.length).toBeGreaterThan(0);
+    await writeMapElectricityPointer({ electricity: { ...fixture.electricity, generated_at: later.toISOString() } }, later);
+    const split = await readMapFlowsRelease();
+    expect(split?.electricity?.generated_at).toBe(later.toISOString());
+    expect(split?.gas?.samples).toHaveLength(3);
+    expect(split?.capacity?.rows.length).toBeGreaterThan(0);
+    expect(store.files.get(MAP_FLOWS_ELECTRICITY)?.body).toContain("electricity");
+    expect(store.files.get(MAP_FLOWS_GAS)?.body).toContain("gas");
+    const legacy = store.files.get(MAP_FLOWS_LATEST)?.body ?? "";
+    expect(legacy).toContain(now.toISOString());
+  });
+
+  it("breaks a sparkline at a null sample", () => {
+    const path = sparklinePath([10, null, 30], 100, 10);
+    expect(path).toBe("M 0 9 M 100 1");
+    expect(path?.includes(" L ")).toBe(false);
+    const joined = sparklinePath([10, 30], 100, 10);
+    expect(joined).toBe("M 0 9 L 100 1");
+  });
+
+  it("omits the net gas total when a catalogue terminal has no sample", () => {
+    const now = new Date("2026-10-20T08:00:00.000Z");
+    const fixture = fixtureMapFlows(now);
+    const full = buildFlowsPageModel({ ...catalogueFlowsInput(), ...fixture });
+    expect(full.gasMissing).toBe(0);
+    expect(full.netGasMcm).toBeCloseTo(154.4, 5);
+    expect(netGasLabel(full.netGasMcm, full.gasMissing)).toBe("Net into the GB system 154.4 mcm/d");
+    const partial = buildFlowsPageModel({
+      ...catalogueFlowsInput(),
+      ...fixture,
+      gas: { ...fixture.gas, samples: fixture.gas.samples.filter((sample) => sample.key !== "moffat") },
+    });
+    expect(partial.gasFlows).toBe("published");
+    expect(partial.gasMissing).toBe(1);
+    expect(partial.netGasMcm).toBeNull();
+    expect(netGasLabel(partial.netGasMcm, partial.gasMissing)).toBe("Partial gas coverage, 1 terminal missing");
   });
 });

@@ -163,12 +163,18 @@ export function buildFlowsPageModel(input: FlowsModelInput): FlowsPageModel {
     ? present.reduce((sum, feature) => sum + (feature.value ?? 0), 0)
     : null;
 
-  let netGasMcm: number | null = null;
-  if (input.gas && input.gas.samples.length > 0) {
-    netGasMcm = 0;
-    for (const sample of input.gas.samples) {
-      netGasMcm += sample.role === "exit" ? -sample.mcmPerDay : sample.mcmPerDay;
+  let gasMissing = 0;
+  let netGasMcm: number | null = 0;
+  for (const terminal of input.terminals) {
+    const sample = gasByKey.get(terminal.key);
+    if (!sample) {
+      gasMissing += 1;
+      continue;
     }
+    netGasMcm += terminal.role === "exit" ? -sample.mcmPerDay : sample.mcmPerDay;
+  }
+  if (!input.gas || gasMissing > 0 || input.terminals.length === 0) {
+    netGasMcm = null;
   }
 
   const electricityTimes = present.map((feature) => feature.readingAt).filter((at): at is string => Boolean(at));
@@ -188,6 +194,7 @@ export function buildFlowsPageModel(input: FlowsModelInput): FlowsPageModel {
     electricityIncluded: present.length,
     electricityMissing: electricityValues.length - present.length,
     netGasMcm,
+    gasMissing,
     credits: [
       { id: "basemap", text: input.basemapAttribution, layer: "basemap" },
       { id: "dno", text: input.dnoAttribution, layer: "dno" },
@@ -195,7 +202,11 @@ export function buildFlowsPageModel(input: FlowsModelInput): FlowsPageModel {
       { id: "gas", text: input.nationalGasAttribution, layer: "gas" },
       { id: "places", text: input.geonamesAttribution, layer: "places" },
       { id: "capacity", text: `${input.nesoAttribution}.`, layer: "electricity" },
-      { id: "stations", text: OGL_V3_ATTRIBUTION, layer: "stations" },
+      {
+        id: "stations",
+        text: `DESNZ Renewable Energy Planning Database (REPD) and Digest of UK Energy Statistics (DUKES). ${OGL_V3_ATTRIBUTION}`,
+        layer: "stations",
+      },
       { id: "stations-edition", text: cardFile.edition, layer: "stations" },
       { id: "stations-scope", text: TODAY_MAP_SCOPE, layer: "stations" },
     ],

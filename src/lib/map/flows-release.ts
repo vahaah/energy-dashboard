@@ -19,8 +19,13 @@ import {
   type GasTerminalFlowsRelease,
 } from "@/lib/map/gas-terminal-flows";
 
+/** Legacy combined pointer. Read only when a per-feed file is missing. Writers do not touch it. */
 export const MAP_FLOWS_LATEST = "releases/map/flows/latest.json";
 export const MAP_FLOWS_PREVIOUS = "releases/map/flows/previous.json";
+export const MAP_FLOWS_ELECTRICITY = "releases/map/flows/latest/electricity.json";
+export const MAP_FLOWS_ELECTRICITY_PREVIOUS = "releases/map/flows/previous/electricity.json";
+export const MAP_FLOWS_GAS = "releases/map/flows/latest/gas.json";
+export const MAP_FLOWS_GAS_PREVIOUS = "releases/map/flows/previous/gas.json";
 export const MAP_STATIONS_LATEST = "releases/map/stations/latest.json";
 
 export const NESO_CAPACITY_SQL_URL = "https://api.neso.energy/api/3/action/datastore_search_sql";
@@ -33,6 +38,17 @@ export type MapFlowsRelease = {
   electricity: ElectricityFlowsRelease | null;
   gas: GasTerminalFlowsRelease | null;
   capacity: CapacityRelease | null;
+};
+
+type ElectricityPointer = {
+  generated_at: string;
+  electricity: ElectricityFlowsRelease | null;
+  capacity: CapacityRelease | null;
+};
+
+type GasPointer = {
+  generated_at: string;
+  gas: GasTerminalFlowsRelease | null;
 };
 
 function blobEnabled(): boolean {
@@ -56,15 +72,78 @@ export function parseMapFlowsRelease(text: string): MapFlowsRelease | null {
   }
 }
 
+function parseElectricityPointer(text: string): ElectricityPointer | null {
+  try {
+    const parsed = JSON.parse(text) as ElectricityPointer;
+    if (!parsed || typeof parsed.generated_at !== "string") {
+      return null;
+    }
+    return {
+      generated_at: parsed.generated_at,
+      electricity: parsed.electricity ?? null,
+      capacity: parsed.capacity ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseGasPointer(text: string): GasPointer | null {
+  try {
+    const parsed = JSON.parse(text) as GasPointer;
+    if (!parsed || typeof parsed.generated_at !== "string") {
+      return null;
+    }
+    return {
+      generated_at: parsed.generated_at,
+      gas: parsed.gas ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function readElectricityPointer(): Promise<ElectricityPointer | null> {
+  const stored = await gasStore().get(MAP_FLOWS_ELECTRICITY, false);
+  return stored ? parseElectricityPointer(stored.body) : null;
+}
+
+async function readGasPointer(): Promise<GasTerminalFlowsRelease | null> {
+  const stored = await gasStore().get(MAP_FLOWS_GAS, false);
+  return stored ? (parseGasPointer(stored.body)?.gas ?? null) : null;
+}
+
 export async function readMapFlowsRelease(): Promise<MapFlowsRelease | null> {
   if (!blobEnabled()) {
     return null;
   }
-  const stored = await gasStore().get(MAP_FLOWS_LATEST, false);
-  if (!stored) {
+  const store = gasStore();
+  const [electricityFile, gasFile] = await Promise.all([
+    store.get(MAP_FLOWS_ELECTRICITY, false),
+    store.get(MAP_FLOWS_GAS, false),
+  ]);
+  const electricityPointer = electricityFile ? parseElectricityPointer(electricityFile.body) : null;
+  const gasPointer = gasFile ? parseGasPointer(gasFile.body) : null;
+  let electricity = electricityPointer?.electricity ?? null;
+  let gas = gasPointer?.gas ?? null;
+  let capacity = electricityPointer?.capacity ?? null;
+  const legacyFile =
+    !electricity || !gas || capacity === null ? await store.get(MAP_FLOWS_LATEST, false) : null;
+  const legacy = legacyFile ? parseMapFlowsRelease(legacyFile.body) : null;
+  electricity = electricity ?? legacy?.electricity ?? null;
+  gas = gas ?? legacy?.gas ?? null;
+  capacity = capacity ?? legacy?.capacity ?? null;
+  if (!electricity && !gas && !capacity) {
     return null;
   }
-  return parseMapFlowsRelease(stored.body);
+  const generated = [electricityPointer?.generated_at, gasPointer?.generated_at, legacy?.generated_at]
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+  if (!generated) {
+    return null;
+  }
+  return { generated_at: generated, electricity, gas, capacity };
 }
 
 function revalidateMap(): void {
@@ -75,27 +154,40 @@ function revalidateMap(): void {
   }
 }
 
-export async function mergeMapFlows(
-  patch: Partial<Pick<MapFlowsRelease, "electricity" | "gas" | "capacity">>,
+async function putReplacing(pathname: string, previous: string, body: unknown): Promise<void> {
+  const store = gasStore();
+  const existing = await store.get(pathname, false);
+  if (existing) {
+    await store.put(previous, existing.body, mutablePut("application/json"));
+  }
+  await store.put(pathname, `${JSON.stringify(body)}\n`, mutablePut("application/json"));
+  revalidateMap();
+}
+
+/** Electricity and capacity share one pointer. Gas writes never read or replace this file. */
+export async function writeMapElectricityPointer(
+  patch: { electricity: ElectricityFlowsRelease; capacity?: CapacityRelease | null },
   now: Date,
 ): Promise<void> {
   if (!blobEnabled()) {
     return;
   }
-  const current = await readMapFlowsRelease();
-  const next: MapFlowsRelease = {
+  const current = await readElectricityPointer();
+  const next: ElectricityPointer = {
     generated_at: now.toISOString(),
-    electricity: patch.electricity !== undefined ? patch.electricity : (current?.electricity ?? null),
-    gas: patch.gas !== undefined ? patch.gas : (current?.gas ?? null),
+    electricity: patch.electricity,
     capacity: patch.capacity !== undefined ? patch.capacity : (current?.capacity ?? null),
   };
-  const store = gasStore();
-  const existing = await store.get(MAP_FLOWS_LATEST, false);
-  if (existing) {
-    await store.put(MAP_FLOWS_PREVIOUS, existing.body, mutablePut("application/json"));
+  await putReplacing(MAP_FLOWS_ELECTRICITY, MAP_FLOWS_ELECTRICITY_PREVIOUS, next);
+}
+
+/** Gas history lives on its own pointer so an electricity publish cannot restore a stale gas block. */
+export async function writeMapGasPointer(gas: GasTerminalFlowsRelease, now: Date): Promise<void> {
+  if (!blobEnabled()) {
+    return;
   }
-  await store.put(MAP_FLOWS_LATEST, `${JSON.stringify(next)}\n`, mutablePut("application/json"));
-  revalidateMap();
+  const next: GasPointer = { generated_at: now.toISOString(), gas };
+  await putReplacing(MAP_FLOWS_GAS, MAP_FLOWS_GAS_PREVIOUS, next);
 }
 
 async function fetchJsonRetry(url: string, timeoutMs: number): Promise<unknown> {
@@ -125,8 +217,8 @@ export async function fetchInterconnectorCapacity(now: Date): Promise<CapacityRe
 }
 
 /**
- * Writes the electricity half of `releases/map/flows/latest.json` from the
- * warmed 24h envelope. A miss leaves the previous file. No Tinybird query.
+ * Writes `releases/map/flows/latest/electricity.json` from the warmed 24h
+ * envelope. A miss leaves the previous file. No Tinybird query.
  */
 export async function publishMapElectricity(now: Date): Promise<void> {
   if (!blobEnabled()) {
@@ -141,7 +233,7 @@ export async function publishMapElectricity(now: Date): Promise<void> {
     return;
   }
   const electricity = compactElectricity(rows, now);
-  const current = await readMapFlowsRelease();
+  const current = await readElectricityPointer();
   const sameDay = current?.capacity?.generated_at.slice(0, 10) === now.toISOString().slice(0, 10);
   let capacity: CapacityRelease | undefined;
   if (!sameDay) {
@@ -151,10 +243,10 @@ export async function publishMapElectricity(now: Date): Promise<void> {
       capacity = undefined;
     }
   }
-  await mergeMapFlows(capacity ? { electricity, capacity } : { electricity }, now);
+  await writeMapElectricityPointer(capacity ? { electricity, capacity } : { electricity }, now);
 }
 
-/** Hourly per-terminal rates. A failed or empty read leaves the previous gas block. */
+/** Hourly per-terminal rates. A failed or empty read leaves the previous gas pointer. */
 export async function publishMapGasFlows(now: Date): Promise<void> {
   if (!blobEnabled()) {
     return;
@@ -164,6 +256,6 @@ export async function publishMapGasFlows(now: Date): Promise<void> {
   if (parsed.samples.length === 0) {
     return;
   }
-  const current = await readMapFlowsRelease();
-  await mergeMapFlows({ gas: rollGasHistory(current?.gas ?? null, parsed, now) }, now);
+  const current = await readGasPointer();
+  await writeMapGasPointer(rollGasHistory(current, parsed, now), now);
 }

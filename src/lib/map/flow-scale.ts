@@ -109,7 +109,11 @@ export function netElectricityLabel(mw: number | null, included: number, missing
   return `${words} ${formatFlowReading(Math.abs(mw), "MW")} across ${included} links${missingText}`;
 }
 
-export function netGasLabel(mcm: number | null): string {
+export function netGasLabel(mcm: number | null, missing = 0): string {
+  if (missing > 0) {
+    const noun = missing === 1 ? "terminal" : "terminals";
+    return `Partial gas coverage, ${missing} ${noun} missing`;
+  }
   if (mcm === null) {
     return "Net gas —";
   }

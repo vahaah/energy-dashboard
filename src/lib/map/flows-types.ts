@@ -61,6 +61,8 @@ export type FlowsPageModel = {
   electricityIncluded: number;
   electricityMissing: number;
   netGasMcm: number | null;
+  /** Catalogue terminals with no sample. A non-zero count omits `netGasMcm`. */
+  gasMissing: number;
   credits: FlowsCredit[];
   stationGroups: FlowsStationGroup[];
   sizeSteps: FlowsSizeStep[];

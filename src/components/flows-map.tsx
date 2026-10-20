@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useQueryStates } from "nuqs";
 import { useEffect, useRef, useState } from "react";
 import { assetPath } from "@/lib/assets/href";
+import { mapViewParsers } from "@/lib/assets/params";
 import { NI_FLOW_NOTE } from "@/lib/attribution";
 import { NI_PATH } from "@/lib/eirgrid/copy";
 import { SiteLegalNav } from "@/components/site-legal-nav";
@@ -24,8 +26,11 @@ import {
   londonClock,
   staleCopy,
 } from "@/lib/map/flows-copy";
+import { flowSelectionFromQuery, layerOn, withLayer } from "@/lib/map/flows-selection";
 import type { FlowsFeature, FlowsPageModel } from "@/lib/map/flows-types";
 import type { FlowsMapHandle, FlowsMapTheme } from "@/lib/map/flows-browser";
+import { sparklinePath } from "@/lib/map/sparkline";
+import { startStaleClock } from "@/lib/map/stale-clock";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
 import type { MarkerShape } from "@/lib/map/marker";
 
@@ -89,26 +94,12 @@ function ShapeMark({ shape, color }: { shape: MarkerShape; color: string }) {
 }
 
 function Sparkline({ values }: { values: (number | null)[] | null }) {
-  const points = values?.filter((value): value is number => value !== null) ?? [];
-  if (!values || points.length === 0) {
+  const path = values ? sparklinePath(values, 220, 36) : null;
+  if (!path) {
     return <p className="text-copy-14 text-gray-900">—</p>;
   }
-  const width = 220;
-  const height = 36;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const span = max - min || 1;
-  let path = "";
-  values.forEach((value, index) => {
-    if (value === null) {
-      return;
-    }
-    const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
-    const y = height - ((value - min) / span) * (height - 2) - 1;
-    path += path.length === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
-  });
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-9 w-full" role="img" aria-label="24 hour reading">
+    <svg viewBox="0 0 220 36" className="h-9 w-full" role="img" aria-label="24 hour reading">
       <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
@@ -202,6 +193,19 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const handle = useRef<FlowsMapHandle | null>(null);
   const focusRef = useRef<HTMLButtonElement | null>(null);
+  const stationsRef = useRef<StationFeatureCollection | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const chooseRef = useRef<
+    (id: string, button: HTMLButtonElement | null, syncUrl?: boolean) => boolean
+  >(() => false);
+  const loadStationsRef = useRef<() => void>(() => undefined);
+  const layersApplied = useRef<string | null>(null);
+  const electricityRef = useRef(true);
+  const gasRef = useRef(true);
+  const dnoRef = useRef(false);
+  const stationsOnRef = useRef(false);
+  const drawLinesRef = useRef<() => ReturnType<typeof drawLines>>(() => []);
+  const [url, setUrl] = useQueryStates(mapViewParsers, { history: "replace", shallow: true, scroll: false });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [preset, setPreset] = useState<Preset>("flows");
   const [electricity, setElectricity] = useState(true);
@@ -216,9 +220,22 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const [now, setNow] = useState<number | null>(null);
 
   const selected = model.features.find((feature) => feature.id === selectedId) ?? null;
+  stationsRef.current = stations;
+  selectedIdRef.current = selectedId;
+  electricityRef.current = electricity;
+  gasRef.current = gas;
+  dnoRef.current = dno;
+  stationsOnRef.current = stationsOn;
 
   useEffect(() => {
-    setNow(Date.now());
+    return startStaleClock({
+      onTick: setNow,
+      hidden: () => document.hidden,
+      subscribeVisibility(onChange) {
+        document.addEventListener("visibilitychange", onChange);
+        return () => document.removeEventListener("visibilitychange", onChange);
+      },
+    });
   }, []);
 
   function stale(feature: FlowsFeature): boolean {
@@ -249,13 +266,13 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           return;
         }
         handle.current = mod.mountFlowsMap(mapRef.current, overlayRef.current, {
-          lines: drawLines(),
+          lines: drawLinesRef.current(),
           dnoPath: model.dnoPath,
-          electricity: true,
-          gas: true,
-          dno: false,
-          stations: false,
-          selectedId: null,
+          electricity: electricityRef.current,
+          gas: gasRef.current,
+          dno: dnoRef.current,
+          stations: stationsOnRef.current,
+          selectedId: selectedIdRef.current,
           onStatus: (next) => {
             if (!disposed) {
               setStatus(next);
@@ -263,10 +280,13 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           },
           onSelect: (id) => {
             if (!disposed) {
-              choose(id, null);
+              chooseRef.current(id, null);
             }
           },
         });
+        if (stationsRef.current) {
+          handle.current.setStations(stationsRef.current);
+        }
       })
       .catch(() => {
         if (!disposed) {
@@ -278,8 +298,6 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       handle.current?.destroy();
       handle.current = null;
     };
-    // Mount once. Later effects push updates.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model.dnoPath]);
 
   function drawLines() {
@@ -298,6 +316,8 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           : null,
     }));
   }
+
+  drawLinesRef.current = drawLines;
 
   useEffect(() => {
     handle.current?.setLines(drawLines());
@@ -319,31 +339,67 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       if (event.key === "Escape" && (selectedId || about)) {
         event.preventDefault();
         setAbout(false);
+        selectedIdRef.current = null;
         setSelectedId(null);
         setStation(null);
         setSnap(140);
+        void setUrl({ sel: null });
         focusRef.current?.focus();
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [about, selectedId]);
+  }, [about, selectedId, setUrl]);
 
-  function choose(id: string, button: HTMLButtonElement | null) {
+  useEffect(() => {
+    const selection = flowSelectionFromQuery({
+      sel: url.sel ?? null,
+      asset: url.asset ?? null,
+      layers: url.layers,
+    });
+    if (url.layers.length > 0 && layersApplied.current !== url.layers) {
+      layersApplied.current = url.layers;
+      setElectricity(layerOn(url.layers, "ic"));
+    }
+    if (!selection.selectedId) {
+      return;
+    }
+    if (!chooseRef.current(selection.selectedId, null, false)) {
+      loadStationsRef.current();
+    }
+  }, [url.sel, url.asset, url.layers, stations, model.features]);
+
+  function choose(id: string, button: HTMLButtonElement | null, syncUrl = true): boolean {
     if (button) {
       focusRef.current = button;
     }
     const feature = model.features.find((item) => item.id === id);
     if (feature) {
+      selectedIdRef.current = id;
       setSelectedId(id);
       setStation(null);
       setSnap(430);
       handle.current?.setSelected(id);
-      return;
+      if (syncUrl) {
+        switch (feature.kind) {
+          case "interconnector":
+            void setUrl({ sel: id, layers: withLayer(url.layers, "ic") });
+            break;
+          case "gas_terminal":
+            void setUrl({ sel: id });
+            break;
+          default: {
+            const neverKind: never = feature.kind;
+            return neverKind;
+          }
+        }
+      }
+      return true;
     }
-    const match = stations?.features.find((feature) => feature.properties.id === id);
-    if (!match) {
-      return;
+    const collection = stationsRef.current;
+    const match = collection?.features.find((item) => item.properties.id === id);
+    if (!collection || !match) {
+      return false;
     }
     const group = model.stationGroups.find((item) => item.id === match.properties.group);
     setStation({
@@ -353,8 +409,15 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       mw: match.properties.mw,
       href: assetPath(match.properties.id, match.properties.name),
     });
+    selectedIdRef.current = id;
     setSelectedId(id);
+    setStationsOn(true);
     setSnap(430);
+    handle.current?.setStations(collection);
+    if (syncUrl) {
+      void setUrl({ sel: id });
+    }
+    return true;
   }
 
   function applyPreset(next: Preset) {
@@ -391,6 +454,9 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         setStations({ type: "FeatureCollection", features: [] });
       });
   }
+
+  chooseRef.current = choose;
+  loadStationsRef.current = loadStations;
 
   const visibleCredits = model.credits.filter((credit) => {
     switch (credit.layer) {
@@ -549,7 +615,12 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       <p className="text-copy-14 text-gray-1000">
         {netElectricityLabel(model.netElectricityMw, model.electricityIncluded, model.electricityMissing)}
       </p>
-      <p className="text-copy-14 text-gray-1000">{netGasLabel(model.gasFlows === "published" ? model.netGasMcm : null)}</p>
+      <p className="text-copy-14 text-gray-1000">
+        {netGasLabel(
+          model.gasFlows === "published" ? model.netGasMcm : null,
+          model.gasFlows === "published" ? model.gasMissing : 0,
+        )}
+      </p>
       <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
         {visibleCredits.map((credit) => (
           <p key={credit.id}>{credit.text}</p>

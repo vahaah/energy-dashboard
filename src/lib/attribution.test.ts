@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DNO_ATTRIBUTION, NESO_DNO_ACCURACY_WARNING, osBasemapAttribution } from "@/lib/map/constants";
 import {
@@ -25,7 +27,8 @@ import {
   PV_LIVE_ATTRIBUTION,
   WORLD_BANK_PINK_SHEET_ATTRIBUTION,
 } from "@/lib/attribution";
-import { dataSources } from "@/lib/catalogue/page-sources";
+import { readLinkCatalogue } from "@/lib/catalogue/links/catalogue";
+import { cataloguePageSources, dataSources } from "@/lib/catalogue/page-sources";
 
 describe("Elexon BMRS attribution", () => {
   it("uses the exact BMRS credit and licence URL", () => {
@@ -118,5 +121,21 @@ describe("Elexon BMRS attribution", () => {
     expect(eirgrid?.licenceUrl).toBe(EIRGRID_GROUP_LICENCE_URL);
     expect(eirgrid?.licence).toContain("15 Oct 2026");
     expect(JSON.stringify(sources)).not.toMatch(/OilPriceAPI|TTF/);
+  });
+
+  it("passes GeoNames CC BY 4.0 through link pages and the data-sources list", () => {
+    expect(cataloguePageSources().find((source) => source.id === "geonames")?.attribution).toBe(
+      GEONAMES_ATTRIBUTION,
+    );
+    const links = readLinkCatalogue(process.cwd());
+    const ifa = [...links.details.values()].find((detail) => detail.row.name === "IFA");
+    const bacton = [...links.details.values()].find((detail) => detail.row.name === "Bacton IPs");
+    expect(ifa?.link?.attributions).toContain(GEONAMES_ATTRIBUTION);
+    expect(ifa?.link?.attributions.some((line) => line.includes("Elexon"))).toBe(true);
+    expect(bacton?.link?.attributions).toEqual([NATIONAL_GAS_ATTRIBUTION, GEONAMES_ATTRIBUTION]);
+    expect(bacton?.link?.sourceRecords.some((record) => record.source === "GeoNames")).toBe(true);
+    expect(readFileSync(resolve(process.cwd(), "src/app/data-sources/page.tsx"), "utf8")).toContain(
+      "cataloguePageSources()",
+    );
   });
 });
