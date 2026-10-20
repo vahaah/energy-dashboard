@@ -24,6 +24,7 @@ export const CATALOGUE_SOURCE_IDS = [
   "neso-dno-areas",
   "os-open-zoomstack",
   "eirgrid-group",
+  "geonames",
 ] as const;
 
 /**

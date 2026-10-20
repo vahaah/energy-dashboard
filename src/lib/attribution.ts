@@ -116,7 +116,12 @@ export const DATA_SOURCE_IDS = [
   "neso-dno-areas",
   "os-open-zoomstack",
   "eirgrid-group",
+  "geonames",
 ] as const;
+
+export const GEONAMES_URL = "https://www.geonames.org/";
+
+export const GEONAMES_ATTRIBUTION = "Place coordinates from GeoNames, CC BY 4.0.";
 
 export type DataSourceId = (typeof DATA_SOURCE_IDS)[number];
 

@@ -109,7 +109,7 @@ export function readLinkCatalogue(root: string): LinkCatalogue {
       status: record.status,
       mw: null,
       region: "Great Britain",
-      location: located ? "Published coordinate" : "Location unavailable",
+      location: located ? "Approximate site" : "Location unavailable",
       country: "Great Britain",
       source: "National Gas",
       sources: ["National Gas"],

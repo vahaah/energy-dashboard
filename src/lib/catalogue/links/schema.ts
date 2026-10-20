@@ -22,6 +22,16 @@ export const GAS_PIN_BBOX = {
   north: 61.5,
 } as const;
 
+/** GB landing points. Counterparty ends use the wider schematic box. */
+export const GB_LANDING_BBOX = {
+  west: -7.5,
+  south: 49.8,
+  east: 1.8,
+  north: 58.8,
+} as const;
+
+export const STRAIGHT_LINE_LABEL = "Straight line, not the cable route.";
+
 /** Licences that permit storing a coordinate. National Gas route maps are not in this set. */
 export const PERMITTED_COORDINATE_LICENCES = ["Open Government Licence v3.0", "CC BY 4.0"] as const;
 
@@ -43,7 +53,14 @@ export const interconnectorSchema = z
     remote_longitude: z.number().finite(),
     remote_latitude: z.number().finite(),
     precision: z.literal("schematic"),
-    coordinate_basis: z.literal("country_label"),
+    coordinate_basis: z.literal("landing_point"),
+    remote_outside_gb: z.boolean(),
+    gb_geonames_id: z.number().int().positive(),
+    remote_geonames_id: z.number().int().positive(),
+    coordinate_licence: z.enum(PERMITTED_COORDINATE_LICENCES),
+    coordinate_licence_url: httpUrlSchema,
+    gb_coordinate_citation: text,
+    remote_coordinate_citation: text,
     source_id: z.literal("elexon-bmrs"),
     source_url: httpUrlSchema,
     citation: text,
@@ -57,6 +74,7 @@ export const gasTerminalSchema = z
     key: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     name: text,
     status: z.literal("operational"),
+    role: z.enum(["entry", "exit"]),
     latitude: z.number().finite().nullable(),
     longitude: z.number().finite().nullable(),
     coordinate_licence: z.enum(PERMITTED_COORDINATE_LICENCES).nullable(),

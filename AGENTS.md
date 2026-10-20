@@ -195,7 +195,7 @@ The header search button is on every page, including `/`. The dialog and `/searc
 
 Flow series attach only by exact INT* code, including the lowercased code the ingest stores. The page peeks the warmed `interconnector_flows` envelope and does not call Tinybird. Positive MW is an import to Great Britain. A plant or gas terminal with no evidenced series says the series will appear once that source is added. The canonical asset route revalidates every 1800s, the live warm cadence for the 24h flow envelope. Next requires that interval as a literal. The in-flight peek is shared only until that call settles.
 
-`data/catalogue/gas_terminals.json` lists NTS terminal names from the National Gas portal. No free licence-permitted coordinate source is cited, so every terminal has null coordinates and reads `Location unavailable` in `/assets`. No gas flow series is stored. Theddlethorpe is omitted. A pin is allowed only with an Open Government Licence v3.0 or CC BY 4.0 coordinate citation inside the GB pin box.
+`data/catalogue/gas_terminals.json` lists NTS terminal names from the National Gas portal, including the Moffat exit. Each pin is an approximate GeoNames site under CC BY 4.0 and reads `Approximate site` in `/assets`. Theddlethorpe is omitted. A pin is allowed only with an Open Government Licence v3.0 or CC BY 4.0 coordinate citation inside the GB pin box. Per-terminal rates are the map flows release, not this file.
 
 `publish-check` validates both files when they are present, and requires them for the full register. `/` stays `force-static` with `revalidate` 300. These pages add no Tinybird calls.
 
@@ -378,6 +378,16 @@ Operator pages that did not return 200 during curation are omitted: ENA's operat
 `scopeRejection` and `unsupportedFilter` in `src/lib/api/errors.ts` are wired on gas overview, gas series, projects, constraints, identifiers, data-health, and changes. Every repeated `scope` or `geography` value has to be `GB`. An empty projects filter is 404 `No results for these filters.` Data-health throws become 503 with the source-unavailable sentence and no invented readings. The data-health JSON keeps readings whose geography is `GB` or `GB_NTS`. Northern Ireland, Ireland, UK annual figures, and commodities outside GB are left out of that response. The data-health page still loads the full `loadDataHealth` list.
 
 The header keeps `Directory and tools` (`compactLabel` `Directory`) as a menu of Directory and Tools, then a Changes link, then API. Footer `SITE_NAV_LINKS` includes Tools and Changes. Sitemap: `/tools` monthly, `/changes` weekly. Both routes are in `SHIPPED_PAGE_ROUTES` and `llms.txt`.
+
+### Map flows
+
+`/map` is `force-static` with `revalidate` 1800. The page is full-bleed (`100dvh` minus the 64px header). `/` stays `force-static` with `revalidate` 300 and does not import MapLibre. Tinybird budget **+0**. The scheduled success path stays 378. `/map` does not call `queryPipe` or `/api/interconnectors`.
+
+Default view is Flows: interconnectors and gas entry points on, power stations and projects off. Projects stay off until each one has a coordinate and a country. The straight-line label is `Straight line, not the cable route.` Moyle's counterparty is Northern Ireland, outside GB. While interconnectors are on, the panel links `NI_FLOW_NOTE` to `/electricity/northern-ireland`. Landing points and gas terminal pins are GeoNames, CC BY 4.0 (`GEONAMES_ATTRIBUTION`).
+
+Electricity readings are written to `releases/map/flows/latest.json` from the warmed `interconnector_flows` 24h envelope at the end of `publishStep`. Gas terminal rates come from the National Gas instantaneous flow API inside the existing hourly gas publish step (`publishMapGasFlows`), not a new cron. Capacity is the NESO Interconnector Register Built rows, refreshed at most once per UTC day. A miss leaves the previous pointer. Station points are `GET /api/v1/map/stations` (Blob `releases/map/stations/latest.json` when that file exists, otherwise the checked-in register) and are not in the `/map` HTML.
+
+Direction words are `Importing to GB`, `Exporting from GB`, `Into the GB system`, and `Out of the GB system`. Widths are 2, 4 and 6 px. Chevrons drift on a 2.4 s cycle, stay static under `prefers-reduced-motion`, and pause when the tab is hidden or the reading is stale (60 min electricity, 2 h gas). A missing reading is `—`. The keyboard list is north to south. `/assets?preset=flows` is the table fallback.
 
 ## Environment Variables
 

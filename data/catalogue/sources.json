@@ -4,7 +4,7 @@
     "source_id": "elexon-bmrs",
     "name": "Elexon BMRS / Insights",
     "url": "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
-    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF. Interconnector pages attach the warmed FUELINST series by the exact INT fuel-type code. The map draws a schematic link, not the cable route. The storage page reads pumped-storage and battery charging and discharge from the warmed FUELINST envelope.",
+    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF. Interconnector pages attach the warmed FUELINST series by the exact INT fuel-type code. The map draws a straight schematic line between landing points, not the cable route, and reads the warmed interconnector envelope from Blob. The storage page reads pumped-storage and battery charging and discharge from the warmed FUELINST envelope.",
     "licence": "Elexon BMRS Data Licence",
     "licence_url": "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
     "attribution": "Contains BMRS data © Elexon Limited copyright and database right 2026.",
@@ -15,7 +15,7 @@
     "source_id": "neso-open-data",
     "name": "NESO Data Portal",
     "url": "https://www.neso.energy/data-portal",
-    "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records. Weekly constraint breakdown and weekday day-ahead boundary flows and limits, published to Blob. The transmission entry capacity register, including the Gate column, is fetched twice a week and published to Blob. NESO states that aggregated capacity may duplicate entries.",
+    "used_for": "Embedded wind, embedded wind and solar forecasts, and historic generation mix used for Year, All time, and records. Weekly constraint breakdown and weekday day-ahead boundary flows and limits, published to Blob. The transmission entry capacity register, including the Gate column, is fetched twice a week and published to Blob. NESO states that aggregated capacity may duplicate entries. The interconnector register supplies current import and export capacity in MW for the map. A duplicate stage at one connection site is not summed.",
     "licence": "NESO Open Data Licence",
     "licence_url": "https://www.neso.energy/data-portal/neso-open-data-licence",
     "attribution": "Supported by National Energy SO Open Data",
@@ -70,7 +70,7 @@
     "source_id": "national-gas",
     "name": "National Gas",
     "url": "https://data.nationalgas.com",
-    "used_for": "Operational National Transmission System flows and the Great Britain System Average Price (PUBOB603) in p/kWh. The asset directory lists NTS terminal names and does not store terminal flows or coordinates. Physical NTS flows and completed gas-day totals are published to Blob and listed on data health.",
+    "used_for": "Operational National Transmission System flows and the Great Britain System Average Price (PUBOB603) in p/kWh. The hourly job also reads the instantaneous per-site flow API, without a login, and publishes terminal readings to Blob for the map. Theddlethorpe is omitted. Moffat is included because the portal publishes that exit. Physical NTS flows and completed gas-day totals are published to Blob and listed on data health.",
     "licence": "National Gas Transmission confirmed in writing on 14 Oct 2026 that Grid may reuse Gas Data Portal and API data. Published as open operational data under the National Gas System Operator licence.",
     "licence_url": "https://data.nationalgas.com",
     "attribution": "Data sourced from the National Gas Transmission Data Portal.",
@@ -119,8 +119,7 @@
     "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
     "attribution": "Contains OS data © Crown copyright and database right 2026",
     "cadence": "P6M"
-  }
-,
+  },
   {
     "catalogue_schema_version": 1,
     "source_id": "eirgrid-group",
@@ -131,5 +130,16 @@
     "licence_url": "https://www.smartgriddashboard.com/all/open-data-license/",
     "attribution": "Supported by EirGrid Group Data",
     "cadence": "PT1H"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "geonames",
+    "name": "GeoNames",
+    "url": "https://www.geonames.org/",
+    "used_for": "Schematic landing points for the ten electricity interconnectors, and approximate sites for NTS gas terminals including Moffat. Each pin cites a GeoNames feature id. These are not surveyed cable routes or terminal centroids.",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Place coordinates from GeoNames, CC BY 4.0.",
+    "cadence": "P1Y"
   }
 ]

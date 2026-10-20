@@ -1,0 +1,162 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { capacityFromRegister, capacityRowsFromCkan } from "@/lib/map/capacity";
+import { compactElectricity } from "@/lib/map/electricity-release";
+import {
+  ELECTRICITY_STALE_MS,
+  GAS_STALE_MS,
+  electricityDirectionWords,
+  electricityWidthPx,
+  formatFlowReading,
+  gasDirectionWords,
+  gasWidthPx,
+  readingIsStale,
+} from "@/lib/map/flow-scale";
+import { FLOWS_HTML_BUDGET_BYTES, buildFlowsPageModel, catalogueFlowsInput, flowsModelBytes } from "@/lib/map/flows-model";
+import { fixtureMapFlows } from "@/lib/map/flows-fixture";
+import { parseInstantaneousFlows } from "@/lib/map/gas-terminal-flows";
+import { ABSENT_FIGURE } from "@/lib/data-state";
+import { loadAssetCatalogue } from "@/lib/assets/load";
+import { stationsFromPoints } from "@/lib/map/stations-layer";
+
+describe("flow direction, width, and staleness", () => {
+  it("names electricity and gas direction in words and leaves a missing reading blank", () => {
+    expect(electricityDirectionWords(10)).toBe("Importing to GB");
+    expect(electricityDirectionWords(-10)).toBe("Exporting from GB");
+    expect(electricityDirectionWords(0)).toBeNull();
+    expect(electricityDirectionWords(null)).toBeNull();
+    expect(gasDirectionWords("entry", 12)).toBe("Into the GB system");
+    expect(gasDirectionWords("exit", 12)).toBe("Out of the GB system");
+    expect(gasDirectionWords("entry", null)).toBeNull();
+    expect(formatFlowReading(null, "MW")).toBe(ABSENT_FIGURE);
+    expect(formatFlowReading(0, "MW")).toBe("0 MW");
+  });
+
+  it("uses the 2, 4 and 6 pixel steps", () => {
+    expect(electricityWidthPx(499)).toBe(2);
+    expect(electricityWidthPx(500)).toBe(4);
+    expect(electricityWidthPx(1000)).toBe(4);
+    expect(electricityWidthPx(1001)).toBe(6);
+    expect(electricityWidthPx(null)).toBeNull();
+    expect(gasWidthPx(19.9)).toBe(2);
+    expect(gasWidthPx(20)).toBe(4);
+    expect(gasWidthPx(50)).toBe(4);
+    expect(gasWidthPx(50.1)).toBe(6);
+    expect(gasWidthPx(null)).toBeNull();
+  });
+
+  it("goes stale after 60 minutes of electricity and 2 hours of gas", () => {
+    const now = new Date("2026-10-20T12:00:00.000Z");
+    expect(readingIsStale("2026-10-20T11:00:00.000Z", now, ELECTRICITY_STALE_MS)).toBe(false);
+    expect(readingIsStale("2026-10-20T10:59:00.000Z", now, ELECTRICITY_STALE_MS)).toBe(true);
+    expect(readingIsStale("2026-10-20T10:00:00.000Z", now, GAS_STALE_MS)).toBe(false);
+    expect(readingIsStale("2026-10-20T09:59:00.000Z", now, GAS_STALE_MS)).toBe(true);
+    expect(readingIsStale(null, now, ELECTRICITY_STALE_MS)).toBe(false);
+    expect(ELECTRICITY_STALE_MS).toBe(60 * 60 * 1000);
+    expect(GAS_STALE_MS).toBe(2 * 60 * 60 * 1000);
+  });
+});
+
+describe("map flows model", () => {
+  it("keeps the default payload under 20 KB and does not zero a missing reading", () => {
+    const now = new Date("2026-10-20T08:00:00.000Z");
+    const fixture = fixtureMapFlows(now);
+    const model = buildFlowsPageModel({
+      ...catalogueFlowsInput(),
+      ...fixture,
+    });
+    expect(flowsModelBytes(model)).toBeLessThanOrEqual(FLOWS_HTML_BUDGET_BYTES);
+    expect(model.features.map((feature) => feature.latitude)).toEqual(
+      [...model.features].sort((left, right) => right.latitude - left.latitude).map((feature) => feature.latitude),
+    );
+    const missing = model.features.find((feature) => feature.name === "Greenlink");
+    expect(missing?.reading).toBe(ABSENT_FIGURE);
+    expect(missing?.value).toBeNull();
+    expect(missing?.width).toBeNull();
+    const moyle = model.features.find((feature) => feature.name === "Moyle");
+    expect(moyle?.counterparty).toBe("Northern Ireland, outside GB");
+    expect(moyle?.counterpartyOutsideGb).toBe(true);
+    expect(model.straightLine).toBe("Straight line, not the cable route.");
+    expect(model.title).toBe("Flows across GB borders");
+    expect(JSON.stringify(model)).not.toMatch(/\blive\b/i);
+    expect(JSON.stringify(model)).not.toMatch(/real-time/i);
+  });
+
+  it("builds station points without embedding them in the map page", () => {
+    const collection = stationsFromPoints(loadAssetCatalogue().points);
+    expect(collection.features.length).toBeGreaterThan(3000);
+    expect(readFileSync(resolve(process.cwd(), "src/app/map/page.tsx"), "utf8")).not.toContain("stationsFromPoints");
+  });
+
+  it("does not query Tinybird from the map page", () => {
+    const files = [
+      "src/app/map/page.tsx",
+      "src/components/flows-map.tsx",
+      "src/lib/map/flows-browser.ts",
+      "src/lib/map/load-flows.ts",
+      "src/lib/map/flows-release.ts",
+    ];
+    for (const file of files) {
+      const text = readFileSync(resolve(process.cwd(), file), "utf8");
+      expect(text).not.toContain("queryPipe");
+      expect(text).not.toContain("/api/interconnectors");
+      expect(text).not.toContain("tinybird.co");
+    }
+  });
+});
+
+describe("gas terminals and NESO capacity", () => {
+  it("keeps parent terminal totals and ignores a child entry and a rejected quality", () => {
+    const parsed = parseInstantaneousFlows({
+      publishedTime: "2026-10-20T08:00:00Z",
+      instantaneousFlow: [
+        {
+          description: "Supply from entry points",
+          sites: [{ siteName: "BACTON PERENCO", siteGasDetail: [{ applicableAt: "2026-10-20T08:00:00Z", flowRate: 7, qualityIndicator: "" }] }],
+        },
+        {
+          description: "Supply from terminals",
+          sites: [
+            { siteName: "BACTON UKCS Terminal", siteGasDetail: [{ applicableAt: "2026-10-20T08:00:00Z", flowRate: 11.5, qualityIndicator: "" }] },
+            { siteName: "THEDDLETHORPE TERMINAL", siteGasDetail: [{ applicableAt: "2026-10-20T08:00:00Z", flowRate: 1, qualityIndicator: "E" }] },
+          ],
+        },
+        {
+          description: "Demand from interconnectors",
+          sites: [{ siteName: "Moffat Export", siteGasDetail: [{ applicableAt: "2026-10-20T08:00:00Z", flowRate: 13, qualityIndicator: "A" }] }],
+        },
+      ],
+    });
+    expect(parsed.samples.map((sample) => sample.key)).toEqual(["bacton-ukcs", "moffat"]);
+  });
+
+  it("keeps the larger built stage and reads numeric strings", () => {
+    const release = capacityFromRegister(
+      capacityRowsFromCkan([
+        { "Project Name": "Auchencrosh (interconnector CCT)", "Project Status": "Built", "Connection Site": "Auchencrosh 275kV", "MW Import - Current": "270.0", "MW Export - Current": "500.0" },
+        { "Project Name": "Auchencrosh (interconnector CCT)", "Project Status": "Built", "Connection Site": "Auchencrosh 275kV", "MW Import - Current": "475.0", "MW Export - Current": "500.0" },
+        { "Project Name": "Isle of Man Interconnector", "Project Status": "Built", "Connection Site": "Bispham", "MW Import - Current": "74", "MW Export - Current": "74" },
+      ]),
+      new Date("2026-10-20T00:00:00.000Z"),
+      "2026-10-20T00:00:00.000Z",
+    );
+    expect(release.rows).toEqual([
+      expect.objectContaining({ code: "INTIRL", importMw: 475, exportMw: 500 }),
+    ]);
+  });
+
+  it("compacts the warmed envelope without treating a lowercase code as missing", () => {
+    const release = compactElectricity(
+      [
+        { timestamp: "2026-10-20T07:00:00.000Z", interconnector: "intfr", generation_mw: 100, direction: "import" },
+        { timestamp: "2026-10-20T08:00:00.000Z", interconnector: "intfr", generation_mw: 250, direction: "import" },
+        { timestamp: "2026-10-20T08:00:00.000Z", interconnector: "intneso", generation_mw: 10, direction: "import" },
+      ],
+      new Date("2026-10-20T08:05:00.000Z"),
+    );
+    expect(release.series).toHaveLength(1);
+    expect(release.series[0]?.code).toBe("INTFR");
+    expect(release.series[0]?.latestMw).toBe(250);
+  });
+});

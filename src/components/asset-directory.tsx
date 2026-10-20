@@ -51,7 +51,9 @@ export function AssetDirectory({
   regions: readonly string[];
 }) {
   const [url, setUrl] = useQueryStates(assetListParsers, { history: "replace", shallow: true, scroll: false });
-  const result = queryAssets(rows, {
+  const scoped =
+    url.preset === "flows" ? rows.filter((row) => row.technology === "interconnector" || row.technology === "gas_terminal") : rows;
+  const result = queryAssets(scoped, {
     q: url.q,
     technology: url.technology,
     status: url.status,
@@ -62,7 +64,7 @@ export function AssetDirectory({
     page: url.page,
     pageSize: ASSET_PAGE_SIZE,
   });
-  const technologies = DIRECTORY_TECHNOLOGIES.filter((technology) => rows.some((row) => row.technology === technology));
+  const technologies = DIRECTORY_TECHNOLOGIES.filter((technology) => scoped.some((row) => row.technology === technology));
 
   function toggleSort(sort: AssetSort) {
     if (url.sort === sort) {
@@ -74,7 +76,7 @@ export function AssetDirectory({
 
   return (
     <Card
-      title="Assets"
+      title={url.preset === "flows" ? "Flows" : "Assets"}
       footer={
         <nav aria-label="Pagination" className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <button
@@ -143,7 +145,9 @@ export function AssetDirectory({
       ) : (
         <div className="mt-3 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[40rem] border-collapse text-left text-copy-14">
-            <caption className="sr-only">Power assets</caption>
+            <caption className="sr-only">
+              {url.preset === "flows" ? "Electricity interconnectors and gas entry points" : "Power assets"}
+            </caption>
             <thead>
               <tr className="text-label-13 text-gray-900">
                 {ASSET_SORTS.map((sort) => {

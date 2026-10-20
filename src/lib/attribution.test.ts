@@ -14,6 +14,7 @@ import {
   elexonBmrsAttribution,
   elexonBmrsAttributionBlock,
   EIA_ATTRIBUTION,
+  GEONAMES_ATTRIBUTION,
   NATIONAL_GAS_ATTRIBUTION,
   OGL_V3_ATTRIBUTION,
   OGL_V3_LICENCE_URL,
@@ -77,6 +78,7 @@ describe("Elexon BMRS attribution", () => {
       "neso-dno-areas",
       "os-open-zoomstack",
       "eirgrid-group",
+      "geonames",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -107,6 +109,8 @@ describe("Elexon BMRS attribution", () => {
     expect(dno?.usedFor).toContain(NESO_DNO_ACCURACY_WARNING);
     expect(dno?.attribution).toContain("Open Government Licence v3.0");
     const zoomstack = sources.find((source) => source.id === "os-open-zoomstack");
+    expect(sources.find((source) => source.id === "geonames")?.attribution).toBe(GEONAMES_ATTRIBUTION);
+    expect(GEONAMES_ATTRIBUTION).toContain("CC BY 4.0");
     expect(zoomstack?.attribution).toBe(osBasemapAttribution(2026));
     expect(zoomstack?.usedFor).toContain("2026-06");
     const eirgrid = sources.find((source) => source.id === "eirgrid-group");

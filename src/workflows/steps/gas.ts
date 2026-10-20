@@ -1,6 +1,7 @@
 import { RetryableError } from "workflow";
 import { emptyGasStatus, GAS_MAX_RETRIES, type GasStepStatus } from "@/lib/gas/budget";
 import { fetchGasBundle, publishGasBundle, validateGasBundle } from "@/lib/gas/pipeline";
+import { publishMapGasFlows } from "@/lib/map/flows-release";
 import { stepAttempt } from "@/lib/step-attempt";
 import { takeWorkflowSlot } from "@/lib/workflow-slot";
 
@@ -22,7 +23,11 @@ export async function validateGasIntradayStep(hash: string, nowIso: string): Pro
 
 export async function publishGasIntradayStep(hash: string, nowIso: string): Promise<GasStepStatus> {
   "use step";
-  return publishGasBundle(hash, "intraday", new Date(nowIso));
+  const status = await publishGasBundle(hash, "intraday", new Date(nowIso));
+  if (status.ok) {
+    await publishMapGasFlows(new Date(nowIso)).catch(() => undefined);
+  }
+  return status;
 }
 
 export async function publishCompletedGasDayStep(nowIso: string): Promise<GasStepStatus> {

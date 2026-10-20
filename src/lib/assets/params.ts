@@ -3,6 +3,7 @@ import { ASSET_SORTS, ASSET_SOURCES, DIRECTORY_TECHNOLOGIES } from "@/lib/assets
 
 export const assetListParsers = {
   q: parseAsString.withDefault(""),
+  preset: parseAsStringLiteral(["flows"] as const),
   technology: parseAsStringLiteral(DIRECTORY_TECHNOLOGIES),
   status: parseAsStringLiteral(["operational"] as const),
   source: parseAsStringLiteral(ASSET_SOURCES),

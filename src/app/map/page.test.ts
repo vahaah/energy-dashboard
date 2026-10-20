@@ -26,7 +26,17 @@ describe("map and asset pages", () => {
     expect(slug).toContain("permanentRedirect");
     expect(slug).not.toContain("maplibre-gl");
     expect(slug).not.toContain("power-map");
-    expect(map).toContain("MAP_COVERAGE_COPY");
+    expect(map).toContain("loadFlowsPageModel");
+    expect(map).not.toContain("loadAssetCatalogue");
+    expect(map).not.toContain("queryPipe");
+    expect(map).not.toContain("maplibre-gl");
+    const flows = source("src/components/flows-map.tsx");
+    expect(flows).toContain('import("@/lib/map/flows-browser")');
+    expect(flows).not.toContain('from "maplibre-gl"');
+    expect(flows).not.toContain("queryPipe");
+    expect(flows).not.toContain("/api/interconnectors");
+    expect(source("src/lib/map/flows-release.ts")).toContain("peekWarmedPipe");
+    expect(source("src/lib/map/flows-release.ts")).not.toContain("queryPipe");
     const search = source("src/components/asset-search.tsx");
     const dialog = source("src/components/asset-search-dialog.tsx");
     expect(power).toContain('import("@/lib/map/browser")');
@@ -43,6 +53,7 @@ describe("map and asset pages", () => {
       assets,
       detail,
       power,
+      flows.replaceAll("aria-live", "aria-region"),
       source("src/components/map-explorer.tsx"),
       search,
       dialog,
