@@ -45,5 +45,10 @@
       "path": "/api/cron-northern-ireland",
       "schedule": "15 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron-northern-ireland/route.ts": {
+      "regions": ["lhr1"]
+    }
+  }
 }

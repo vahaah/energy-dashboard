@@ -1,6 +1,5 @@
 import { EIRGRID_MAX_RETRIES, type EirgridStepStatus } from "@/lib/eirgrid/budget";
 import { fetchNiBundle, publishNiBundle, validateNiBundle } from "@/lib/eirgrid/pipeline";
-import { stepAttempt } from "@/lib/step-attempt";
 import { takeWorkflowSlot } from "@/lib/workflow-slot";
 
 export async function takeNiSlotStep(slot: string, owner: string): Promise<EirgridStepStatus> {
@@ -11,7 +10,7 @@ export async function takeNiSlotStep(slot: string, owner: string): Promise<Eirgr
 
 export async function fetchNiStep(nowIso: string): Promise<EirgridStepStatus> {
   "use step";
-  return fetchNiBundle(new Date(nowIso), stepAttempt());
+  return fetchNiBundle(new Date(nowIso));
 }
 
 export async function validateNiStep(hash: string): Promise<EirgridStepStatus> {

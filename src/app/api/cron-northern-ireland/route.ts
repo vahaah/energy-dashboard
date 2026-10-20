@@ -13,6 +13,9 @@ import { eirgridNi } from "@/workflows/eirgrid-ni";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
+// Project function regions are lhr1 and fra1. dub1 is not configured.
+// workflow 4.8 shares one step function and cannot pin this collector alone.
+export const preferredRegion = "lhr1";
 
 export async function GET(request: Request) {
   if (!isCronAuthorized(request.headers.get("authorization"), process.env.CRON_SECRET)) {

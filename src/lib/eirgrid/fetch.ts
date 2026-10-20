@@ -1,9 +1,29 @@
-import { FatalError, RetryableError } from "workflow";
+import { FatalError } from "workflow";
 import { getLondonDate, yesterdayLondonDate } from "@/lib/london-time";
-import { EIRGRID_MAX_RETRIES, EIRGRID_MIN_GAP_MS } from "@/lib/eirgrid/budget";
+import {
+  EIRGRID_FETCH_TIMEOUT_MS,
+  EIRGRID_MIN_GAP_MS,
+  EIRGRID_REQUEST_RETRIES,
+} from "@/lib/eirgrid/budget";
 import { CHART_AREAS, EIRGRID_CHART_ORIGIN } from "@/lib/eirgrid/spec";
 
 const REGIONS = ["NI", "ROI", "ALL"] as const;
+
+export const EIRGRID_PART_IDS = [
+  "chart:NI",
+  "interconnection:NI",
+  "fuel:NI",
+  "chart:ROI",
+  "interconnection:ROI",
+  "fuel:ROI",
+  "chart:ALL",
+  "interconnection:ALL",
+  "fuel:ALL",
+  "snsp",
+  "market",
+] as const;
+
+export type EirgridPartId = (typeof EIRGRID_PART_IDS)[number];
 
 export class EirgridHttpError extends Error {
   readonly status: number;
@@ -22,52 +42,64 @@ export type EirgridFetchBundle = {
   fuel: Record<string, string>;
   snsp: string;
   market: string;
+  /** Parts whose own retries were exhausted, or that failed with a non-retryable status. */
+  failed_parts?: EirgridPartId[];
 };
 
-export function eirgridRetryAfter(attempt: number, now = Date.now()): Date {
-  const base = attempt <= 1 ? 30_000 : 120_000;
-  const jitter = Math.floor(Math.random() * 10_000);
-  return new Date(now + base + jitter);
-}
+export type EirgridFetchOptions = {
+  fetchImpl?: typeof fetch;
+  gapMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
+};
 
-const EIRGRID_FETCH_TIMEOUT_MS = 10_000;
-
-function isEirgridDeadline(error: unknown): boolean {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "name" in error &&
-    (error.name === "TimeoutError" || error.name === "AbortError")
+export function failedPartIds(bundle: EirgridFetchBundle): EirgridPartId[] {
+  if (!Array.isArray(bundle.failed_parts)) {
+    return [];
+  }
+  return bundle.failed_parts.filter((part): part is EirgridPartId =>
+    (EIRGRID_PART_IDS as readonly string[]).includes(part),
   );
 }
 
-export function eirgridStepError(error: unknown, attempt: number): Error {
-  if (error instanceof FatalError || error instanceof RetryableError) {
-    return error;
-  }
-  const status = error instanceof EirgridHttpError ? error.status : 0;
-  const retryable = status === 429 || status >= 500 || isEirgridDeadline(error);
-  const message = error instanceof Error ? error.message : "EirGrid request failed";
-  if (!retryable) {
-    return new FatalError(message);
-  }
-  if (attempt > EIRGRID_MAX_RETRIES) {
-    return new FatalError(message);
-  }
-  return new RetryableError(message, { retryAfter: eirgridRetryAfter(attempt) });
+/** 1s then 2s, plus up to 250ms. Held inside the step, so it is not the old 30s/120s suspension. */
+export function eirgridRequestBackoffMs(attempt: number, random: () => number = Math.random): number {
+  const base = 1_000 * 2 ** Math.max(0, attempt - 1);
+  return base + Math.floor(random() * 250);
 }
 
-export async function fetchEirgridBundle(
-  now: Date,
-  attempt: number,
-  fetchImpl: typeof fetch = fetch,
-  gapMs = EIRGRID_MIN_GAP_MS,
-): Promise<EirgridFetchBundle> {
+function isEirgridDeadline(error: unknown, depth = 0): boolean {
+  if (!error || typeof error !== "object" || depth > 4) {
+    return false;
+  }
+  if ("name" in error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    return true;
+  }
+  return "cause" in error && isEirgridDeadline(error.cause, depth + 1);
+}
+
+function isPartFailure(error: unknown): boolean {
+  return error instanceof FatalError || error instanceof EirgridHttpError || isEirgridDeadline(error);
+}
+
+function isEirgridRequestRetryable(error: unknown): boolean {
+  if (isEirgridDeadline(error)) {
+    return true;
+  }
+  return error instanceof EirgridHttpError && (error.status === 429 || error.status >= 500);
+}
+
+export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions = {}): Promise<EirgridFetchBundle> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const gapMs = options.gapMs ?? EIRGRID_MIN_GAP_MS;
+  const sleep = options.sleep ?? defaultSleep;
+  const random = options.random ?? Math.random;
   const from = yesterdayLondonDate(now);
   const to = getLondonDate(now);
   const charts: Record<string, string> = {};
   const interconnection: Record<string, string> = {};
   const fuel: Record<string, string> = {};
+  const failed: EirgridPartId[] = [];
   let first = true;
   const pace = async () => {
     if (first) {
@@ -75,26 +107,49 @@ export async function fetchEirgridBundle(
       return;
     }
     if (gapMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, gapMs));
+      await sleep(gapMs);
     }
   };
-  try {
-    for (const region of REGIONS) {
-      await pace();
-      charts[region] = await getText(chartUrl(region, from, to, CHART_AREAS.join(",")), fetchImpl);
-      await pace();
-      interconnection[region] = await getText(chartUrl(region, from, to, "interconnection"), fetchImpl);
-      await pace();
-      fuel[region] = await getText(fuelUrl(region), fetchImpl);
+  const take = async (part: EirgridPartId, url: string): Promise<string | null> => {
+    await pace();
+    try {
+      return await getTextWithRetry(url, fetchImpl, sleep, random);
+    } catch (error) {
+      if (!isPartFailure(error)) {
+        throw error;
+      }
+      failed.push(part);
+      return null;
     }
-    await pace();
-    const snsp = await getText(snspUrl(from, to), fetchImpl);
-    await pace();
-    const market = await getText(`${EIRGRID_CHART_ORIGIN}/ni/market-pricing/`, fetchImpl);
-    return { retrieved_at: now.toISOString(), charts, interconnection, fuel, snsp, market };
-  } catch (error) {
-    throw eirgridStepError(error, attempt);
+  };
+  for (const region of REGIONS) {
+    const chart = await take(`chart:${region}`, chartUrl(region, from, to, CHART_AREAS.join(",")));
+    if (chart != null) {
+      charts[region] = chart;
+    }
+    const link = await take(`interconnection:${region}`, chartUrl(region, from, to, "interconnection"));
+    if (link != null) {
+      interconnection[region] = link;
+    }
+    const mix = await take(`fuel:${region}`, fuelUrl(region));
+    if (mix != null) {
+      fuel[region] = mix;
+    }
   }
+  const snsp = await take("snsp", snspUrl(from, to));
+  const market = await take("market", `${EIRGRID_CHART_ORIGIN}/ni/market-pricing/`);
+  if (failed.length === EIRGRID_PART_IDS.length) {
+    throw new FatalError("EirGrid requests failed");
+  }
+  return {
+    retrieved_at: now.toISOString(),
+    charts,
+    interconnection,
+    fuel,
+    snsp: snsp ?? "",
+    market: market ?? "",
+    failed_parts: failed,
+  };
 }
 
 function chartUrl(region: string, from: string, to: string, areas: string): string {
@@ -130,6 +185,25 @@ function isoToFeedDay(iso: string): string {
   return `${day}-${names[Number(month) - 1]}-${year}`;
 }
 
+async function getTextWithRetry(
+  url: string,
+  fetchImpl: typeof fetch,
+  sleep: (ms: number) => Promise<void>,
+  random: () => number,
+): Promise<string> {
+  for (let attempt = 1; attempt <= EIRGRID_REQUEST_RETRIES + 1; attempt += 1) {
+    try {
+      return await getText(url, fetchImpl);
+    } catch (error) {
+      if (!isEirgridRequestRetryable(error) || attempt > EIRGRID_REQUEST_RETRIES) {
+        throw error;
+      }
+      await sleep(eirgridRequestBackoffMs(attempt, random));
+    }
+  }
+  throw new FatalError("EirGrid request failed");
+}
+
 async function getText(url: string, fetchImpl: typeof fetch): Promise<string> {
   if (!url.startsWith(`${EIRGRID_CHART_ORIGIN}/`)) {
     throw new FatalError("EirGrid URL is not on the Smart Grid Dashboard");
@@ -146,4 +220,8 @@ async function getText(url: string, fetchImpl: typeof fetch): Promise<string> {
     throw new FatalError(`EirGrid responded ${response.status}`);
   }
   return body;
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
