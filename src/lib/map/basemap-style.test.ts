@@ -4,19 +4,32 @@ import { validateStyleMin, type StyleSpecification } from "@maplibre/maplibre-gl
 import { describe, expect, it } from "vitest";
 import { basemapStyle, pointZoomstackSource, themeColor } from "@/lib/map/basemap-style";
 import { SCHEMATIC_BBOX } from "@/lib/catalogue/links/schema";
-import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, MAP_MAX_BOUNDS, OVERVIEW_CAMERA_LIMIT, ZOOMSTACK_LAND_EXTENT, osBasemapAttribution } from "@/lib/map/constants";
+import {
+  BASEMAP_FONTSTACK,
+  BASEMAP_SOURCE_URL,
+  MAP_MAX_BOUNDS,
+  OVERVIEW_CAMERA_LIMIT,
+  ZOOMSTACK_LAND_EXTENT,
+  osBasemapAttribution,
+} from "@/lib/map/constants";
 import { decodeGlyphRange } from "@/lib/map/glyph-pbf";
 
 describe("basemap style", () => {
   it("checks in quiet light and dark styles that use the Geist tokens and the OS credit", () => {
     for (const theme of ["light", "dark"] as const) {
       const path = resolve(process.cwd(), `public/basemap/style-${theme}.json`);
-      const checkedIn = JSON.parse(readFileSync(path, "utf8")) as { sources: { zoomstack: { url: string; attribution: string } } };
-      const basemap = (JSON.parse(readFileSync(resolve(process.cwd(), "data/catalogue/layers.json"), "utf8")) as {
-        id: string;
-        url: string | null;
-      }[]).find((layer) => layer.id === "basemap");
-      const expected = basemapStyle(theme, 2026) as unknown as { sources: { zoomstack: { url: string; attribution: string } } };
+      const checkedIn = JSON.parse(readFileSync(path, "utf8")) as {
+        sources: { zoomstack: { url: string; attribution: string } };
+      };
+      const basemap = (
+        JSON.parse(readFileSync(resolve(process.cwd(), "data/catalogue/layers.json"), "utf8")) as {
+          id: string;
+          url: string | null;
+        }[]
+      ).find((layer) => layer.id === "basemap");
+      const expected = basemapStyle(theme, 2026) as unknown as {
+        sources: { zoomstack: { url: string; attribution: string } };
+      };
       if (basemap?.url) {
         expected.sources.zoomstack = pointZoomstackSource(expected.sources.zoomstack, basemap.url, 2026);
       }
@@ -45,6 +58,27 @@ describe("basemap style", () => {
     expect(light.glyphs).toBe("/basemap/glyphs/{fontstack}/{range}.pbf");
     expect(JSON.stringify(light)).toContain(BASEMAP_FONTSTACK);
     expect(JSON.stringify(light)).toContain("land-extent");
+    expect(JSON.stringify(light)).toContain("sea-margin");
+    expect(JSON.stringify(light)).toContain('"Wales","left"');
+    const seaMargin = (
+      light.sources as {
+        "sea-margin": { data: { geometry: { coordinates: number[][][] } } };
+      }
+    )["sea-margin"];
+    const outer = seaMargin.data.geometry.coordinates[0] ?? [];
+    const hole = seaMargin.data.geometry.coordinates[1] ?? [];
+    const xs = outer.map((point) => point[0] ?? 0);
+    const ys = outer.map((point) => point[1] ?? 0);
+    expect(Math.min(...xs)).toBeLessThan(MAP_MAX_BOUNDS[0][0]);
+    expect(Math.max(...xs)).toBeGreaterThan(MAP_MAX_BOUNDS[1][0]);
+    expect(Math.min(...ys)).toBeLessThan(MAP_MAX_BOUNDS[0][1]);
+    expect(Math.max(...ys)).toBeGreaterThan(MAP_MAX_BOUNDS[1][1]);
+    const holeXs = hole.map((point) => point[0] ?? 0);
+    const holeYs = hole.map((point) => point[1] ?? 0);
+    expect(Math.min(...holeXs)).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.west);
+    expect(Math.max(...holeXs)).toBeLessThan(ZOOMSTACK_LAND_EXTENT.east);
+    expect(Math.min(...holeYs)).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.south);
+    expect(Math.max(...holeYs)).toBeLessThan(ZOOMSTACK_LAND_EXTENT.north);
     expect(JSON.stringify(light)).toContain("/basemap/coastline.geojson");
     expect(JSON.stringify(light)).toContain("/basemap/names.geojson");
     expect(JSON.stringify(light)).toContain("names-overview");
@@ -52,8 +86,14 @@ describe("basemap style", () => {
     const names = JSON.parse(readFileSync(resolve(process.cwd(), "public/basemap/names.geojson"), "utf8")) as {
       features: { properties: { name1: string; type: string } }[];
     };
-    expect(names.features.some((feature) => feature.properties.name1 === "London" && feature.properties.type === "Capital")).toBe(true);
-    expect(names.features.some((feature) => feature.properties.name1 === "Scotland" && feature.properties.type === "Country")).toBe(true);
+    expect(
+      names.features.some((feature) => feature.properties.name1 === "London" && feature.properties.type === "Capital"),
+    ).toBe(true);
+    expect(
+      names.features.some(
+        (feature) => feature.properties.name1 === "Scotland" && feature.properties.type === "Country",
+      ),
+    ).toBe(true);
     expect(MAP_MAX_BOUNDS).toEqual([
       [SCHEMATIC_BBOX.west, SCHEMATIC_BBOX.south],
       [SCHEMATIC_BBOX.east, SCHEMATIC_BBOX.north],
@@ -144,9 +184,7 @@ describe("basemap style", () => {
       minzoom: 0,
       maxzoom: 13,
     };
-    expect(
-      pointZoomstackSource(source, "https://blob.example/tiles/basemap/2027-03.pmtiles", 2027),
-    ).toEqual({
+    expect(pointZoomstackSource(source, "https://blob.example/tiles/basemap/2027-03.pmtiles", 2027)).toEqual({
       ...source,
       url: "pmtiles://https://blob.example/tiles/basemap/2027-03.pmtiles",
       attribution: osBasemapAttribution(2027),

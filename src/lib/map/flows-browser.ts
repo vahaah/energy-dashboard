@@ -1,6 +1,7 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
+import { CHEVRON_STEPS, chevronDash } from "@/lib/map/chevron-dash";
 import {
   BASEMAP_DETAIL_MIN_ZOOM,
   GB_FRAME_BOUNDS,
@@ -9,9 +10,9 @@ import {
   clampOverviewBounds,
   clampToMapBounds,
 } from "@/lib/map/constants";
-import { basemapStartupFailed } from "@/lib/map/startup-error";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
+import { basemapStartupFailed } from "@/lib/map/startup-error";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
 import type { MarkerShape } from "@/lib/map/marker";
 
@@ -34,6 +35,17 @@ export type FlowDrawLine = {
 const WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 const HIT_RADIUS = 24;
 const HIT_LINE = 16;
+const LABEL_LAYERS = ["names-overview", "names-country", "names-city", "names-town"] as const;
+const FLOW_LINE_LAYERS = ["flow-quiet", "flow-fresh"] as const;
+const FLOW_MARKER_LAYERS = ["flow-dots"] as const;
+
+export type GridMapTestHook = {
+  labelCount: () => number;
+  flowCount: () => number;
+  flowLineCount: () => number;
+  flowMarkerCount: () => number;
+  project: (longitude: number, latitude: number) => { x: number; y: number } | null;
+};
 
 let protocolReady = false;
 
@@ -63,7 +75,14 @@ function cssColor(name: string, fallback: string): string {
 type LineFeature = {
   type: "Feature";
   geometry: { type: "LineString"; coordinates: [number, number][] };
-  properties: { id: string; name: string; kind: string; width: number; bucket: "fresh" | "quiet"; color: string };
+  properties: {
+    id: string;
+    name: string;
+    kind: string;
+    width: number;
+    bucket: "fresh" | "quiet";
+    color: string;
+  };
 };
 
 type PointFeature = {
@@ -79,12 +98,17 @@ function offshore(point: [number, number]): [number, number] {
   return [point[0] + (dx / length) * 0.45, point[1] + (dy / length) * 0.45];
 }
 
-function lineFeatures(lines: readonly FlowDrawLine[], imports: string, gas: string, amber: string, quiet: string): LineFeature[] {
+function lineFeatures(
+  lines: readonly FlowDrawLine[],
+  imports: string,
+  gas: string,
+  amber: string,
+  quiet: string,
+): LineFeature[] {
   const features: LineFeature[] = [];
   for (const line of lines) {
     const start = line.remote ?? offshore(line.gb);
-    const towardTerminal =
-      line.direction === ELECTRICITY_DIRECTION.import || line.direction === GAS_DIRECTION.into;
+    const towardTerminal = line.direction === ELECTRICITY_DIRECTION.import || line.direction === GAS_DIRECTION.into;
     const coordinates: [number, number][] = towardTerminal ? [start, line.gb] : [line.gb, start];
     const fresh = line.direction !== null && !line.stale && line.width !== null;
     const color = line.stale ? amber : line.kind === "gas_terminal" ? gas : line.direction ? imports : quiet;
@@ -112,7 +136,14 @@ function pointFeatures(lines: readonly FlowDrawLine[]): PointFeature[] {
   }));
 }
 
-function drawShape(context: CanvasRenderingContext2D, shape: MarkerShape, x: number, y: number, radius: number, color: string): void {
+function drawShape(
+  context: CanvasRenderingContext2D,
+  shape: MarkerShape,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+): void {
   context.save();
   context.translate(x, y);
   context.fillStyle = color;
@@ -214,12 +245,16 @@ export function mountFlowsMap(
   let gas = options.gas;
   let dno = options.dno;
   let stationsOn = options.stations;
-  let stations: StationFeatureCollection = { type: "FeatureCollection", features: [] };
+  let stations: StationFeatureCollection = {
+    type: "FeatureCollection",
+    features: [],
+  };
   let pointersBound = false;
   let ready = false;
   let styleLoaded = false;
   let basemapLoaded = false;
   let frame = 0;
+  let dashStep = -1;
   let hidden = document.visibilityState === "hidden";
 
   // MapLibre 6.14 only applies transformStyle inside setStyle. MapOptions
@@ -264,7 +299,10 @@ export function mountFlowsMap(
         type: "FeatureCollection" as const,
         features: lineFeatures(shown, palette.imports, palette.gas, palette.amber, palette.quiet),
       },
-      points: { type: "FeatureCollection" as const, features: pointFeatures(shown) },
+      points: {
+        type: "FeatureCollection" as const,
+        features: pointFeatures(shown),
+      },
     };
   }
 
@@ -285,7 +323,10 @@ export function mountFlowsMap(
     if (!map.getSource("flows")) {
       map.addSource("flows", { type: "geojson", data: data.lines });
       map.addSource("flow-points", { type: "geojson", data: data.points });
-      map.addSource("flow-hover", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("flow-hover", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
       map.addLayer({
         id: "flow-quiet",
         type: "line",
@@ -311,13 +352,21 @@ export function mountFlowsMap(
         id: "flow-hit",
         type: "line",
         source: "flows",
-        paint: { "line-color": "#000000", "line-width": HIT_LINE, "line-opacity": 0.01 },
+        paint: {
+          "line-color": "#000000",
+          "line-width": HIT_LINE,
+          "line-opacity": 0.01,
+        },
       });
       map.addLayer({
         id: "flow-marker-hit",
         type: "circle",
         source: "flow-points",
-        paint: { "circle-radius": HIT_RADIUS, "circle-color": "#000000", "circle-opacity": 0.01 },
+        paint: {
+          "circle-radius": HIT_RADIUS,
+          "circle-color": "#000000",
+          "circle-opacity": 0.01,
+        },
       });
       map.addLayer({
         id: "flow-dots",
@@ -381,7 +430,8 @@ export function mountFlowsMap(
         const name = feature?.properties.name;
         const geometry = feature?.geometry;
         const coordinates = geometry && geometry.type === "Point" ? (geometry.coordinates as [number, number]) : null;
-        const midpoint = geometry && geometry.type === "LineString" ? (geometry.coordinates[0] as [number, number]) : coordinates;
+        const midpoint =
+          geometry && geometry.type === "LineString" ? (geometry.coordinates[0] as [number, number]) : coordinates;
         hover(typeof id === "string" ? id : undefined, typeof name === "string" ? name : undefined, midpoint);
       });
       map.on("mouseleave", layer, () => hover(undefined, undefined, null));
@@ -408,7 +458,11 @@ export function mountFlowsMap(
         type: "circle",
         source: "stations",
         layout: { visibility: stationsOn ? "visible" : "none" },
-        paint: { "circle-radius": HIT_RADIUS, "circle-color": "#000000", "circle-opacity": 0.01 },
+        paint: {
+          "circle-radius": HIT_RADIUS,
+          "circle-color": "#000000",
+          "circle-opacity": 0.01,
+        },
       });
     } else {
       const source = map.getSource("stations");
@@ -432,11 +486,21 @@ export function mountFlowsMap(
     if (!map.getSource("dno")) {
       map.addSource("dno", { type: "geojson", data: options.dnoPath });
       map.addLayer(
-        { id: "dno-fill", type: "fill", source: "dno", paint: { "fill-color": "#3291ff", "fill-opacity": 0.12 } },
+        {
+          id: "dno-fill",
+          type: "fill",
+          source: "dno",
+          paint: { "fill-color": "#3291ff", "fill-opacity": 0.12 },
+        },
         map.getLayer("flow-quiet") ? "flow-quiet" : undefined,
       );
       map.addLayer(
-        { id: "dno-line", type: "line", source: "dno", paint: { "line-color": "#3291ff", "line-width": 1 } },
+        {
+          id: "dno-line",
+          type: "line",
+          source: "dno",
+          paint: { "line-color": "#3291ff", "line-width": 1 },
+        },
         map.getLayer("flow-quiet") ? "flow-quiet" : undefined,
       );
     }
@@ -458,20 +522,33 @@ export function mountFlowsMap(
     return overlap > 0 ? overlap : 0;
   }
 
-  function overviewPadding(): { top: number; right: number; bottom: number; left: number } {
+  function overviewPadding(): {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  } {
     const width = container.clientWidth;
     const height = container.clientHeight;
     // Below lg the sheet sits on the map. The frame inset keeps the canvas
     // above it; any part that still covers the canvas is added here so Great
     // Britain is not fitted underneath the sheet.
     if (window.innerWidth < 1024) {
-      return { top: 28, right: 28, bottom: Math.round(sheetOverlap()) + 16, left: 16 };
+      return {
+        top: 28,
+        right: 28,
+        bottom: Math.round(sheetOverlap()) + 16,
+        left: 16,
+      };
     }
     const side = Math.round(Math.min(width, height) * 0.06);
     return { top: side, right: side + 8, bottom: side, left: side };
   }
 
   function frameView(): void {
+    if (container.clientWidth < 2 || container.clientHeight < 2) {
+      return;
+    }
     let west = GB_FRAME_BOUNDS.west;
     let east = GB_FRAME_BOUNDS.east;
     let south = GB_FRAME_BOUNDS.south;
@@ -511,7 +588,17 @@ export function mountFlowsMap(
     }
     for (const feature of stations.features) {
       const projected = map.project(feature.geometry.coordinates);
-      drawShape(context, feature.properties.shape, projected.x, projected.y, feature.properties.radius, feature.properties.color);
+      if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
+        continue;
+      }
+      drawShape(
+        context,
+        feature.properties.shape,
+        projected.x,
+        projected.y,
+        feature.properties.radius,
+        feature.properties.color,
+      );
     }
   }
 
@@ -521,10 +608,11 @@ export function mountFlowsMap(
       return;
     }
     const phase = (performance.now() % CHEVRON_CYCLE_MS) / CHEVRON_CYCLE_MS;
-    const dash = 2;
-    const gap = 2;
-    const offset = phase * (dash + gap);
-    map.setPaintProperty("flow-fresh", "line-dasharray", [offset, dash, Math.max(0.01, gap + dash - offset), 0.01]);
+    const step = Math.floor(phase * CHEVRON_STEPS) % CHEVRON_STEPS;
+    if (step !== dashStep) {
+      dashStep = step;
+      map.setPaintProperty("flow-fresh", "line-dasharray", chevronDash(step));
+    }
     frame = window.requestAnimationFrame(tick);
   }
 
@@ -540,9 +628,18 @@ export function mountFlowsMap(
       window.cancelAnimationFrame(frame);
       frame = 0;
     }
+    dashStep = -1;
     if (map.getLayer("flow-fresh")) {
       map.setPaintProperty("flow-fresh", "line-dasharray", [2, 2]);
     }
+  }
+
+  function renderedCount(layers: readonly string[]): number {
+    const present = layers.filter((id) => map.getLayer(id));
+    if (present.length === 0) {
+      return 0;
+    }
+    return map.queryRenderedFeatures({ layers: present }).length;
   }
 
   function paint(): void {
@@ -554,6 +651,7 @@ export function mountFlowsMap(
       pointersBound = true;
     }
     if (!ready) {
+      map.resize();
       frameView();
       ready = true;
       options.onStatus("ready");
@@ -585,7 +683,35 @@ export function mountFlowsMap(
       options.onStatus("error");
     }
   });
-  (container as HTMLElement & { maplibreMap?: Map }).maplibreMap = map;
+  const tested = container as HTMLElement & {
+    maplibreMap?: Map;
+    __gridMapTest?: GridMapTestHook;
+  };
+  tested.maplibreMap = map;
+  // Playwright reads this. It is not a control on the page.
+  tested.__gridMapTest = {
+    labelCount: () => renderedCount(LABEL_LAYERS),
+    flowCount: () => renderedCount([...FLOW_LINE_LAYERS, ...FLOW_MARKER_LAYERS]),
+    flowLineCount: () => renderedCount(FLOW_LINE_LAYERS),
+    flowMarkerCount: () => renderedCount(FLOW_MARKER_LAYERS),
+    project: (longitude, latitude) => {
+      const projected = map.project([longitude, latitude]);
+      if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
+        return null;
+      }
+      return { x: projected.x, y: projected.y };
+    },
+  };
+  const resizeObserver = new ResizeObserver(() => {
+    map.resize();
+  });
+  resizeObserver.observe(container);
+  requestAnimationFrame(() => {
+    map.resize();
+    requestAnimationFrame(() => {
+      map.resize();
+    });
+  });
   map.setStyle(styleUrl(theme), { transformStyle });
 
   const onVisibility = () => {
@@ -602,7 +728,9 @@ export function mountFlowsMap(
     destroy: () => {
       document.removeEventListener("visibilitychange", onVisibility);
       stopMotion();
-      delete (container as HTMLElement & { maplibreMap?: Map }).maplibreMap;
+      resizeObserver.disconnect();
+      delete tested.maplibreMap;
+      delete tested.__gridMapTest;
       map.remove();
     },
     setLines: (next) => {

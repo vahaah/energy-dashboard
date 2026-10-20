@@ -21,9 +21,15 @@ import {
   FEED_FAILED,
   FLOWS_FALLBACK_HREF,
   FLOWS_KEYBOARD,
+  FLOWS_PANEL_EMPTY,
+  FLOWS_PANEL_LABEL,
   FLOW_WIDTH_KEY,
   MAP_FAILED,
   PROJECTS_LAYER_NOTE,
+  STATIONS_PANEL_EMPTY,
+  STATIONS_PANEL_LABEL,
+  STATIONS_STANDFIRST,
+  STATIONS_TITLE,
   londonClock,
   staleCopy,
 } from "@/lib/map/flows-copy";
@@ -196,9 +202,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const focusRef = useRef<HTMLButtonElement | null>(null);
   const stationsRef = useRef<StationFeatureCollection | null>(null);
   const selectedIdRef = useRef<string | null>(null);
-  const chooseRef = useRef<
-    (id: string, button: HTMLButtonElement | null, syncUrl?: boolean) => boolean
-  >(() => false);
+  const chooseRef = useRef<(id: string, button: HTMLButtonElement | null, syncUrl?: boolean) => boolean>(() => false);
   const loadStationsRef = useRef<() => void>(() => undefined);
   const layersApplied = useRef<string | null>(null);
   const electricityRef = useRef(true);
@@ -206,7 +210,11 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const dnoRef = useRef(false);
   const stationsOnRef = useRef(false);
   const drawLinesRef = useRef<() => ReturnType<typeof drawLines>>(() => []);
-  const [url, setUrl] = useQueryStates(mapViewParsers, { history: "replace", shallow: true, scroll: false });
+  const [url, setUrl] = useQueryStates(mapViewParsers, {
+    history: "replace",
+    shallow: true,
+    scroll: false,
+  });
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [preset, setPreset] = useState<Preset>("flows");
   const [electricity, setElectricity] = useState(true);
@@ -324,7 +332,12 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
 
   useEffect(() => {
     handle.current?.setLines(drawLines());
-    handle.current?.setVisibility({ electricity, gas, dno, stations: stationsOn });
+    handle.current?.setVisibility({
+      electricity,
+      gas,
+      dno,
+      stations: stationsOn,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [electricity, gas, dno, stationsOn, now, model.features]);
 
@@ -488,178 +501,208 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       ? `${station.name}. ${station.group}.`
       : "";
 
-  const details = selected ? (
-    <FlowDetails feature={selected} />
-  ) : station ? (
-    <StationDetails station={station} />
-  ) : (
-    <p className="text-copy-14 text-gray-900">Select a flow from the list.</p>
-  );
+  const details =
+    preset === "stations" ? (
+      station ? (
+        <StationDetails station={station} />
+      ) : (
+        <p className="text-copy-14 text-gray-900">{STATIONS_PANEL_EMPTY}</p>
+      )
+    ) : selected ? (
+      <FlowDetails feature={selected} />
+    ) : (
+      <p className="text-copy-14 text-gray-900">{FLOWS_PANEL_EMPTY}</p>
+    );
 
-  function Controls() {
+  const viewTitle = preset === "stations" ? STATIONS_TITLE : model.title;
+  const viewStandfirst = preset === "stations" ? STATIONS_STANDFIRST : model.standfirst;
+  const panelLabel = preset === "stations" ? STATIONS_PANEL_LABEL : FLOWS_PANEL_LABEL;
+
+  function Controls({ radioName }: { radioName: string }) {
     return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div>
-        <h1 className="text-heading-24 text-gray-1000">{model.title}</h1>
-        <p className="mt-2 text-copy-14 text-gray-900">{model.standfirst}</p>
-        <p className="mt-2 text-label-13 text-gray-900">
-          {model.electricityLatestAt ? `Electricity ${londonClock(new Date(model.electricityLatestAt))}` : "Electricity —"}
-          {model.gasFlows === "published" && model.gasLatestAt
-            ? `. Gas ${londonClock(new Date(model.gasLatestAt))}`
-            : ""}
-        </p>
-      </div>
-      {model.feed === "unavailable" ? (
-        <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">{FEED_FAILED}</p>
-      ) : null}
-      {(electricity && electricityStale) || (gas && gasStale) ? (
-        <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">
-          {staleCopy(
-            londonClock(
-              new Date(
-                (electricityStale ? model.electricityLatestAt : model.gasLatestAt) ??
-                  model.electricityLatestAt ??
-                  model.gasLatestAt ??
-                  Date.now(),
+      <div className="flex min-w-0 flex-col gap-4">
+        <div>
+          <h1 className="text-heading-24 text-gray-1000">{viewTitle}</h1>
+          <p className="mt-2 text-copy-14 text-gray-900">{viewStandfirst}</p>
+          {preset === "flows" ? (
+            <p className="mt-2 text-label-13 text-gray-900">
+              {model.electricityLatestAt
+                ? `Electricity ${londonClock(new Date(model.electricityLatestAt))}`
+                : "Electricity —"}
+              {model.gasFlows === "published" && model.gasLatestAt
+                ? `. Gas ${londonClock(new Date(model.gasLatestAt))}`
+                : ""}
+            </p>
+          ) : null}
+        </div>
+        {model.feed === "unavailable" ? (
+          <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">{FEED_FAILED}</p>
+        ) : null}
+        {(electricity && electricityStale) || (gas && gasStale) ? (
+          <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">
+            {staleCopy(
+              londonClock(
+                new Date(
+                  (electricityStale ? model.electricityLatestAt : model.gasLatestAt) ??
+                    model.electricityLatestAt ??
+                    model.gasLatestAt ??
+                    Date.now(),
+                ),
               ),
-            ),
-          )}
-        </p>
-      ) : null}
-      {model.gasFlows === "unavailable" ? (
-        <p className="text-copy-14 text-gray-1000">
-          {model.gasUnavailable}{" "}
-          <Link href="/gas" className="text-blue-700 underline-offset-2 hover:underline">
-            Gas page
-          </Link>
-        </p>
-      ) : null}
-      <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="text-label-13 text-gray-900">View</legend>
-        {(
-          [
-            ["flows", "Flows"],
-            ["stations", "Power stations"],
-          ] as const
-        ).map(([id, label]) => (
-          <label key={id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
-            <input
-              type="radio"
-              name="map-preset"
-              checked={preset === id}
-              onChange={() => applyPreset(id)}
-            />
-            {label}
-          </label>
-        ))}
-        <label className="flex items-center gap-2 text-copy-14 text-gray-900">
-          <input type="radio" name="map-preset" disabled />
-          Projects
-        </label>
-        <p className="text-copy-14 text-gray-900">{PROJECTS_LAYER_NOTE}</p>
-      </fieldset>
-      <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="text-label-13 text-gray-900">Layers</legend>
-        <LayerToggle label="Interconnectors" checked={electricity} onChange={setElectricity} />
-        <LayerToggle
-          label="Gas entry points"
-          checked={gas}
-          onChange={(on) => {
-            setGas(on);
-          }}
-        />
-        <LayerToggle
-          label="Power stations"
-          checked={stationsOn}
-          onChange={(on) => {
-            setStationsOn(on);
-            if (on) {
-              void loadStations();
-            }
-          }}
-        />
-        <LayerToggle label="DNO licence areas" checked={dno} onChange={setDno} />
-        <p className="text-copy-14 text-gray-900">{model.straightLine}</p>
-        {electricity ? (
-          <p className="text-copy-14 text-gray-900">
-            <Link href={NI_PATH} className="underline-offset-2 hover:underline">
-              {NI_FLOW_NOTE}
+            )}
+          </p>
+        ) : null}
+        {model.gasFlows === "unavailable" ? (
+          <p className="text-copy-14 text-gray-1000">
+            {model.gasUnavailable}{" "}
+            <Link href="/gas" className="text-blue-700 underline-offset-2 hover:underline">
+              Gas page
             </Link>
           </p>
         ) : null}
-      </fieldset>
-      <div>
-        <p className="text-label-13 text-gray-900">Line width</p>
-        <ul className="mt-1 flex flex-col gap-1">
-          {FLOW_WIDTH_KEY.map((step) => (
-            <li key={step.width} className="flex items-center gap-2 text-copy-14 text-gray-1000">
-              <span className="inline-block h-0 w-8 border-t border-gray-1000" style={{ borderTopWidth: step.width }} />
-              {step.electricity}. {step.gas}
-            </li>
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="text-label-13 text-gray-900">View</legend>
+          {(
+            [
+              ["flows", "Flows"],
+              ["stations", "Power stations"],
+            ] as const
+          ).map(([id, label]) => (
+            <label key={id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
+              <input type="radio" name={radioName} checked={preset === id} onChange={() => applyPreset(id)} />
+              {label}
+            </label>
           ))}
-        </ul>
-      </div>
-      <div>
-        <p className="text-label-13 text-gray-900">Station size</p>
-        <ul className="mt-1 flex flex-col gap-1">
-          {model.stationGroups.map((group) => (
-            <li key={group.id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
-              <ShapeMark shape={group.shape} color={group.color} />
-              {group.label}
-            </li>
+          <label className="flex items-center gap-2 text-copy-14 text-gray-900">
+            <input type="radio" name={radioName} disabled />
+            Projects
+          </label>
+          <p className="text-copy-14 text-gray-900">{PROJECTS_LAYER_NOTE}</p>
+        </fieldset>
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="text-label-13 text-gray-900">Layers</legend>
+          <LayerToggle label="Interconnectors" checked={electricity} onChange={setElectricity} />
+          <LayerToggle
+            label="Gas entry points"
+            checked={gas}
+            onChange={(on) => {
+              setGas(on);
+            }}
+          />
+          <LayerToggle
+            label="Power stations"
+            checked={stationsOn}
+            onChange={(on) => {
+              setStationsOn(on);
+              if (on) {
+                void loadStations();
+              }
+            }}
+          />
+          <LayerToggle label="DNO licence areas" checked={dno} onChange={setDno} />
+          <p className="text-copy-14 text-gray-900">{model.straightLine}</p>
+          {electricity ? (
+            <p className="text-copy-14 text-gray-900">
+              <Link href={NI_PATH} className="underline-offset-2 hover:underline">
+                {NI_FLOW_NOTE}
+              </Link>
+            </p>
+          ) : null}
+        </fieldset>
+        {preset === "flows" ? (
+          <div>
+            <p className="text-label-13 text-gray-900">Line width</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {FLOW_WIDTH_KEY.map((step) => (
+                <li key={step.width} className="flex items-center gap-2 text-copy-14 text-gray-1000">
+                  <span
+                    className="inline-block h-0 w-8 border-t border-gray-1000"
+                    style={{ borderTopWidth: step.width }}
+                  />
+                  {step.electricity}. {step.gas}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {preset === "stations" ? (
+          <div>
+            <p className="text-label-13 text-gray-900">Station size</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {model.stationGroups.map((group) => (
+                <li key={group.id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
+                  <ShapeMark shape={group.shape} color={group.color} />
+                  {group.label}
+                </li>
+              ))}
+              {model.sizeSteps.map((step) => (
+                <li key={step.id} className="text-copy-14 text-gray-900">
+                  {step.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {preset === "flows" ? (
+          <>
+            <p className="text-copy-14 text-gray-1000">
+              {netElectricityLabel(model.netElectricityMw, model.electricityIncluded, model.electricityMissing)}
+            </p>
+            <p className="text-copy-14 text-gray-1000">
+              {netGasLabel(
+                model.gasFlows === "published" ? model.netGasMcm : null,
+                model.gasFlows === "published" ? model.gasMissing : 0,
+              )}
+            </p>
+          </>
+        ) : null}
+        <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
+          {visibleCredits.map((credit) => (
+            <p key={credit.id}>{credit.text}</p>
           ))}
-          {model.sizeSteps.map((step) => (
-            <li key={step.id} className="text-copy-14 text-gray-900">
-              {step.label}
-            </li>
-          ))}
-        </ul>
+          {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
+          <button
+            type="button"
+            className="w-fit text-blue-700 underline-offset-2 hover:underline"
+            onClick={() => setAbout(true)}
+          >
+            About these layers
+          </button>
+          <p>
+            <Link href={FLOWS_FALLBACK_HREF} className="text-blue-700 underline-offset-2 hover:underline">
+              Flows table
+            </Link>
+          </p>
+          <p>{FLOWS_KEYBOARD}</p>
+          <SiteLegalNav />
+        </div>
       </div>
-      <p className="text-copy-14 text-gray-1000">
-        {netElectricityLabel(model.netElectricityMw, model.electricityIncluded, model.electricityMissing)}
-      </p>
-      <p className="text-copy-14 text-gray-1000">
-        {netGasLabel(
-          model.gasFlows === "published" ? model.netGasMcm : null,
-          model.gasFlows === "published" ? model.gasMissing : 0,
-        )}
-      </p>
-      <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
-        {visibleCredits.map((credit) => (
-          <p key={credit.id}>{credit.text}</p>
-        ))}
-        {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
-        <button type="button" className="w-fit text-blue-700 underline-offset-2 hover:underline" onClick={() => setAbout(true)}>
-          About these layers
-        </button>
-        <p>
-          <Link href={FLOWS_FALLBACK_HREF} className="text-blue-700 underline-offset-2 hover:underline">
-            Flows table
-          </Link>
-        </p>
-        <p>{FLOWS_KEYBOARD}</p>
-        <SiteLegalNav />
-      </div>
-    </div>
     );
   }
 
   return (
-    <div data-flows-stage className="relative flex h-full min-h-0 min-w-0">
+    <div
+      data-flows-stage
+      className="relative grid h-full min-h-0 min-w-0 grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)_340px]"
+    >
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
-      <aside className="hidden h-full w-80 shrink-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
-        {Controls()}
-        <FlowList features={model.features} selectedId={selectedId} onSelect={choose} />
+      <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
+        <Controls radioName="map-view-panel" />
+        {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
       </aside>
-      <div className="relative min-h-0 min-w-0 flex-1">
+      <div className="relative min-h-0 min-w-0">
         <div
           data-map-frame
           className="absolute inset-0"
-          style={{ "--flow-sheet-h": snap === "full" ? "100%" : `${snap}px` } as CSSProperties}
+          style={
+            {
+              "--flow-sheet-h": snap === "full" ? "100%" : `${snap}px`,
+            } as CSSProperties
+          }
         >
-          <div ref={mapRef} className="h-full w-full" data-map-status={status} />
+          <div ref={mapRef} className="absolute inset-0 h-full w-full" data-map-status={status} />
           <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         </div>
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
@@ -676,8 +719,8 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       </div>
       <aside
         data-flow-inspector
-        className="hidden h-full w-[340px] shrink-0 overflow-y-auto border-l border-gray-alpha-400 bg-background-100 p-4 lg:block"
-        aria-label="Flow details"
+        className="hidden h-full min-h-0 overflow-y-auto border-l border-gray-alpha-400 bg-background-100 p-4 lg:block"
+        aria-label={panelLabel}
       >
         {details}
       </aside>
@@ -690,7 +733,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <p id="flow-sheet-title" className="text-label-13 text-gray-900">
-            Flow details
+            {panelLabel}
           </p>
           <button
             type="button"
@@ -700,8 +743,8 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             {snap === "full" ? "Collapse" : "Expand"}
           </button>
         </div>
-        {Controls()}
-        <FlowList features={model.features} selectedId={selectedId} onSelect={choose} />
+        <Controls radioName="map-view-sheet" />
+        {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
         <div className="mt-4">{details}</div>
       </div>
       {about ? (
@@ -723,7 +766,11 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
               {model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
               <p>{PROJECTS_LAYER_NOTE}</p>
             </div>
-            <button type="button" className="mt-4 text-blue-700 underline-offset-2 hover:underline" onClick={() => setAbout(false)}>
+            <button
+              type="button"
+              className="mt-4 text-blue-700 underline-offset-2 hover:underline"
+              onClick={() => setAbout(false)}
+            >
               Close
             </button>
           </div>
@@ -744,7 +791,12 @@ function LayerToggle({
 }) {
   return (
     <label className="flex items-center gap-2 text-copy-14 text-gray-1000">
-      <input type="checkbox" className="size-4" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input
+        type="checkbox"
+        className="size-4"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
       {label}
     </label>
   );

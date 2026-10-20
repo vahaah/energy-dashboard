@@ -4,6 +4,7 @@ import {
   BASEMAP_SOURCE_URL,
   BASEMAP_ZOOM_MAX,
   BASEMAP_ZOOM_MIN,
+  MAP_MAX_BOUNDS,
   ZOOMSTACK_LAND_EXTENT,
   osBasemapAttribution,
 } from "@/lib/map/constants";
@@ -18,7 +19,9 @@ export type BasemapTheme = (typeof BASEMAP_THEMES)[number];
  * Zoomstack publishes sea polygons only inside a box around Britain (about
  * 12°W–4°E, 49°N–62°N). Land is the part of that box the sea does not cover.
  * The map background is sea, so the rest of the canvas is water rather than
- * the page colour. A land polygon the size of that box sits under the sea fill.
+ * the page colour. A land polygon the size of the extract sits under the sea
+ * fill. A second sea polygon covers the camera bounds, with a hole just inside
+ * the extract, so the land rectangle cannot draw a beige frame in the ocean.
  * The coastline is a separate line. Sea polygons are clipped to each vector
  * tile, so outlining those fills draws the tile grid and the extract box.
  */
@@ -75,28 +78,58 @@ type StyleLayer = {
   paint?: Record<string, unknown>;
 };
 
-/** Extra land past the extract so the overview camera, which stops inside the box, cannot see the cut. */
-const LAND_BLEED_DEGREES = 0.75;
+/** How far the sea fill extends past the camera limit, in degrees. */
+const SEA_MARGIN_DEGREES = 80;
+
+/** Pull the sea hole inside the extract so it overlaps the tile sea, not the coast.
+ * The extract edge sits in open water; 0.4° stays south of Scilly and east of Norfolk. */
+const SEA_HOLE_INSET_DEGREES = 0.4;
+
+function ring(west: number, south: number, east: number, north: number, clockwise: boolean): number[][] {
+  const sw: number[] = [west, south];
+  const se: number[] = [east, south];
+  const ne: number[] = [east, north];
+  const nw: number[] = [west, north];
+  const ordered = clockwise ? [sw, nw, ne, se] : [sw, se, ne, nw];
+  const close = ordered[0] ?? sw;
+  return [...ordered, [close[0] ?? west, close[1] ?? south]];
+}
 
 function landExtentFeature(): Record<string, unknown> {
-  const west = ZOOMSTACK_LAND_EXTENT.west - LAND_BLEED_DEGREES;
-  const south = ZOOMSTACK_LAND_EXTENT.south - LAND_BLEED_DEGREES;
-  const east = ZOOMSTACK_LAND_EXTENT.east + LAND_BLEED_DEGREES;
-  const north = ZOOMSTACK_LAND_EXTENT.north + LAND_BLEED_DEGREES;
   return {
     type: "Feature",
     properties: {},
     geometry: {
       type: "Polygon",
       coordinates: [
-        [
-          [west, south],
-          [east, south],
-          [east, north],
-          [west, north],
-          [west, south],
-        ],
+        ring(
+          ZOOMSTACK_LAND_EXTENT.west,
+          ZOOMSTACK_LAND_EXTENT.south,
+          ZOOMSTACK_LAND_EXTENT.east,
+          ZOOMSTACK_LAND_EXTENT.north,
+          false,
+        ),
       ],
+    },
+  };
+}
+
+function seaMarginFeature(): Record<string, unknown> {
+  const [[westLimit, southLimit], [eastLimit, northLimit]] = MAP_MAX_BOUNDS;
+  const west = Math.max(-180, westLimit - SEA_MARGIN_DEGREES);
+  const south = Math.max(-85, southLimit - SEA_MARGIN_DEGREES);
+  const east = Math.min(180, eastLimit + SEA_MARGIN_DEGREES);
+  const north = Math.min(85, northLimit + SEA_MARGIN_DEGREES);
+  const holeWest = ZOOMSTACK_LAND_EXTENT.west + SEA_HOLE_INSET_DEGREES;
+  const holeSouth = ZOOMSTACK_LAND_EXTENT.south + SEA_HOLE_INSET_DEGREES;
+  const holeEast = ZOOMSTACK_LAND_EXTENT.east - SEA_HOLE_INSET_DEGREES;
+  const holeNorth = ZOOMSTACK_LAND_EXTENT.north - SEA_HOLE_INSET_DEGREES;
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [ring(west, south, east, north, false), ring(holeWest, holeSouth, holeEast, holeNorth, true)],
     },
   };
 }
@@ -167,7 +200,10 @@ function overviewNames(color: string, halo: string): StyleLayer {
       "text-size": ["match", ["get", "type"], "Country", 14, 12],
       "symbol-sort-key": ["match", ["get", "type"], "Country", 0, 1],
       "text-max-width": 8,
-      "text-padding": 2,
+      "text-padding": 8,
+      // Wales sits on the west coast at the overview zoom, so a centred label loses the W.
+      "text-anchor": ["match", ["get", "name1"], "Wales", "left", "center"],
+      "text-offset": ["match", ["get", "name1"], "Wales", ["literal", [0.35, 0]], ["literal", [0, 0]]],
     },
     paint: {
       "text-color": color,
@@ -177,7 +213,14 @@ function overviewNames(color: string, halo: string): StyleLayer {
   };
 }
 
-function names(id: string, types: readonly string[], minzoom: number, size: number, color: string, halo: string): StyleLayer {
+function names(
+  id: string,
+  types: readonly string[],
+  minzoom: number,
+  size: number,
+  color: string,
+  halo: string,
+): StyleLayer {
   return {
     id,
     type: "symbol",
@@ -203,12 +246,22 @@ function names(id: string, types: readonly string[], minzoom: number, size: numb
 export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record<string, unknown> {
   const color = THEME_COLORS[theme];
   const layers: StyleLayer[] = [
-    { id: "background", type: "background", paint: { "background-color": color.sea } },
+    {
+      id: "background",
+      type: "background",
+      paint: { "background-color": color.sea },
+    },
     {
       id: "land",
       type: "fill",
       source: "land-extent",
       paint: { "fill-color": color.land },
+    },
+    {
+      id: "sea-margin",
+      type: "fill",
+      source: "sea-margin",
+      paint: { "fill-color": color.sea, "fill-opacity": 1 },
     },
     {
       id: "sea",
@@ -290,13 +343,19 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
         type: "geojson",
         data: landExtentFeature(),
       },
-      coastline: {
+      "sea-margin": {
         type: "geojson",
-        data: "/basemap/coastline.geojson",
+        data: seaMarginFeature(),
       },
       "place-names": {
         type: "geojson",
         data: "/basemap/names.geojson",
+        buffer: 256,
+        tolerance: 0,
+      },
+      coastline: {
+        type: "geojson",
+        data: "/basemap/coastline.geojson",
       },
     },
     sprite: `/basemap/sprites/${theme}`,

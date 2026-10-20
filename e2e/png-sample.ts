@@ -126,7 +126,107 @@ function exact(color: Rgb, page: Rgb): boolean {
 }
 
 function covered(x: number, y: number, exclude: readonly ImageRegion[]): boolean {
-  return exclude.some((region) => x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height);
+  return exclude.some(
+    (region) => x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height,
+  );
+}
+
+/**
+ * Land-coloured pixels in the right and bottom bands. A land rectangle that
+ * stops short of the sea fill shows up here as a beige or grey strip.
+ */
+export function landEdgePixels(
+  image: DecodedPng,
+  land: Rgb,
+  tolerance: number,
+  exclude: readonly ImageRegion[],
+): { right: number; bottom: number } {
+  const rightBand = Math.max(8, Math.round(image.width * 0.04));
+  const bottomBand = Math.max(6, Math.round(image.height * 0.015));
+  let right = 0;
+  let bottom = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = image.width - rightBand; x < image.width; x += 1) {
+      if (covered(x, y, exclude)) {
+        continue;
+      }
+      if (closeTo(pixel(image, x, y), land, tolerance)) {
+        right += 1;
+      }
+    }
+  }
+  for (let y = image.height - bottomBand; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (covered(x, y, exclude)) {
+        continue;
+      }
+      if (closeTo(pixel(image, x, y), land, tolerance)) {
+        bottom += 1;
+      }
+    }
+  }
+  return { right, bottom };
+}
+
+/** Low-chroma ink to the right of an anchor. The coast is bluer, so it does not count. */
+export function glyphSpan(
+  image: DecodedPng,
+  anchorX: number,
+  anchorY: number,
+  theme: "light" | "dark",
+): { width: number; left: number; count: number } | null {
+  const x0 = Math.max(0, Math.floor(anchorX - 6));
+  const x1 = Math.min(image.width - 1, Math.ceil(anchorX + 72));
+  const y0 = Math.max(0, Math.floor(anchorY - 12));
+  const y1 = Math.min(image.height - 1, Math.ceil(anchorY + 12));
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let count = 0;
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      const [red, green, blue] = pixel(image, x, y);
+      const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+      const luminance = (red + green + blue) / 3;
+      const ink =
+        theme === "dark" ? chroma < 16 && luminance > 70 && luminance < 200 : chroma < 16 && luminance > 90 && luminance < 200;
+      if (!ink) {
+        continue;
+      }
+      count += 1;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+    }
+  }
+  if (count < 24) {
+    return null;
+  }
+  return { width: maxX - minX + 1, left: minX, count };
+}
+
+/** Share of samples inside a square that match `color`. */
+export function sampleMatch(
+  image: DecodedPng,
+  x: number,
+  y: number,
+  radius: number,
+  color: Rgb,
+  tolerance: number,
+): number {
+  let hit = 0;
+  let total = 0;
+  const x0 = Math.max(0, Math.floor(x - radius));
+  const x1 = Math.min(image.width - 1, Math.ceil(x + radius));
+  const y0 = Math.max(0, Math.floor(y - radius));
+  const y1 = Math.min(image.height - 1, Math.ceil(y + radius));
+  for (let py = y0; py <= y1; py += 1) {
+    for (let px = x0; px <= x1; px += 1) {
+      total += 1;
+      if (closeTo(pixel(image, px, py), color, tolerance)) {
+        hit += 1;
+      }
+    }
+  }
+  return total === 0 ? 0 : hit / total;
 }
 
 /** Every pixel painted the page colour. Controls and the sheet are passed in `exclude`. */
@@ -154,7 +254,12 @@ function closeTo(color: Rgb, target: Rgb, tolerance: number): boolean {
  * Thin axis-aligned runs of one colour. Tile-edge strokes show up as several
  * of these across the sea; a shoreline does not.
  */
-export function axisLineRuns(image: DecodedPng, target: Rgb, tolerance: number, minLength: number): { horizontal: number; vertical: number } {
+export function axisLineRuns(
+  image: DecodedPng,
+  target: Rgb,
+  tolerance: number,
+  minLength: number,
+): { horizontal: number; vertical: number } {
   const hit = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= image.width || y >= image.height) {
       return false;
@@ -210,8 +315,20 @@ export function canvasRegions(image: DecodedPng): ImageRegion[] {
   return [
     { name: "north-west", x: 0, y: 0, width: halfW, height: halfH },
     { name: "north-east", x: halfW, y: 0, width: width - halfW, height: halfH },
-    { name: "south-west", x: 0, y: halfH, width: halfW, height: height - halfH },
-    { name: "south-east", x: halfW, y: halfH, width: width - halfW, height: height - halfH },
+    {
+      name: "south-west",
+      x: 0,
+      y: halfH,
+      width: halfW,
+      height: height - halfH,
+    },
+    {
+      name: "south-east",
+      x: halfW,
+      y: halfH,
+      width: width - halfW,
+      height: height - halfH,
+    },
     { name: "top", x: 0, y: 0, width, height: edgeY },
     { name: "bottom", x: 0, y: height - edgeY, width, height: edgeY },
     { name: "left", x: 0, y: 0, width: edgeX, height },

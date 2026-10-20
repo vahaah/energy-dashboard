@@ -12,3 +12,19 @@
     bottom: var(--flow-sheet-h, 140px) !important;
   }
 }
+
+/* MapLibre adds .maplibregl-map to the container and sets position: relative
+   in the base layer. An unlayered fill keeps the canvas on the frame. The
+   sea colour is the same wash as the style background, so a seam before
+   resize is water rather than the page. */
+[data-map-frame] .maplibregl-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #c5d7e6;
+}
+
+html.dark [data-map-frame] .maplibregl-map {
+  background: #0d1b27;
+}
