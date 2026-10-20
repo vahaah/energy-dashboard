@@ -155,6 +155,44 @@ function round(point: Point): Point {
   return [Math.round(point[0] * 1e5) / 1e5, Math.round(point[1] * 1e5) / 1e5];
 }
 
+/**
+ * Sea rings are clipped to each vector tile and to the extract. Those cuts are
+ * axis-aligned and, once stroked, draw a grid across the sea and Scotland.
+ * A real shore is not a long run of segments that share one rounded longitude
+ * or latitude. 0.4° is about 44 km; the tile cuts are many degrees.
+ */
+const GRID_RUN_DEGREES = 0.4;
+
+export function dropClipGrid(segments: Array<[Point, Point]>): Array<[Point, Point]> {
+  const groups = new Map<string, number>();
+  const keys = segments.map((segment) => {
+    const [a, b] = segment;
+    if (!a || !b) {
+      return null;
+    }
+    const dLon = Math.abs(a[0] - b[0]);
+    const dLat = Math.abs(a[1] - b[1]);
+    if (dLon === 0 && dLat > 0) {
+      const key = `v:${a[0].toFixed(5)}`;
+      groups.set(key, (groups.get(key) ?? 0) + dLat);
+      return key;
+    }
+    if (dLat === 0 && dLon > 0) {
+      const key = `h:${a[1].toFixed(5)}`;
+      groups.set(key, (groups.get(key) ?? 0) + dLon);
+      return key;
+    }
+    return null;
+  });
+  return segments.filter((segment, index) => {
+    const key = keys[index];
+    if (!key || !segment) {
+      return true;
+    }
+    return (groups.get(key) ?? 0) <= GRID_RUN_DEGREES;
+  });
+}
+
 async function main(): Promise<void> {
   const layers = JSON.parse(readFileSync(resolve(process.cwd(), "data/catalogue/layers.json"), "utf8")) as {
     id: string;
@@ -208,9 +246,8 @@ async function main(): Promise<void> {
       }
     }
   }
-  const lines = stitch(segments)
-    .map((line) => line.map(round))
-    .filter((line) => line.length >= 2);
+  const rounded = segments.map((segment): [Point, Point] => [round(segment[0]), round(segment[1])]);
+  const lines = stitch(dropClipGrid(rounded)).filter((line) => line.length >= 2);
   const collection = {
     type: "FeatureCollection",
     features: [

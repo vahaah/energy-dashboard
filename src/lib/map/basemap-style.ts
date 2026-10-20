@@ -1,10 +1,10 @@
 import {
-  BASEMAP_DETAIL_MIN_ZOOM,
   BASEMAP_FONTSTACK,
   BASEMAP_GLYPHS,
   BASEMAP_SOURCE_URL,
   BASEMAP_ZOOM_MAX,
   BASEMAP_ZOOM_MIN,
+  ZOOMSTACK_LAND_EXTENT,
   osBasemapAttribution,
 } from "@/lib/map/constants";
 
@@ -39,7 +39,7 @@ const THEME_COLORS = {
     rail: "#d4d4d4",
     boundary: "#e5e5e5",
     label: "#525252",
-    halo: "#ffffff",
+    halo: "#f3f1ec",
   },
   dark: {
     land: "#2c2e32",
@@ -57,7 +57,7 @@ const THEME_COLORS = {
     rail: "#2e2e2e",
     boundary: "#262626",
     label: "#a1a1a1",
-    halo: "#0a0a0a",
+    halo: "#2c2e32",
   },
 } as const;
 
@@ -75,20 +75,14 @@ type StyleLayer = {
   paint?: Record<string, unknown>;
 };
 
-/**
- * Geographic box of the sea features in the 2026-06 Zoomstack archive, read
- * from the z0 tile. The land fill uses this box. Outside it the sea background
- * continues, which is what the tiles do not draw.
- */
-const ZOOMSTACK_LAND_EXTENT = {
-  west: -11.865234375,
-  south: 49.38237278700956,
-  east: 3.603515625,
-  north: 61.56457388515458,
-} as const;
+/** Extra land past the extract so the camera, which stops inside the box, cannot see the cut. */
+const LAND_BLEED_DEGREES = 0.75;
 
 function landExtentFeature(): Record<string, unknown> {
-  const { west, south, east, north } = ZOOMSTACK_LAND_EXTENT;
+  const west = ZOOMSTACK_LAND_EXTENT.west - LAND_BLEED_DEGREES;
+  const south = ZOOMSTACK_LAND_EXTENT.south - LAND_BLEED_DEGREES;
+  const east = ZOOMSTACK_LAND_EXTENT.east + LAND_BLEED_DEGREES;
+  const north = ZOOMSTACK_LAND_EXTENT.north + LAND_BLEED_DEGREES;
   return {
     type: "Feature",
     properties: {},
@@ -156,6 +150,29 @@ function road(
       "line-color": color,
       "line-width": roadWidth(minzoom, width),
       "line-opacity": 0.9,
+    },
+  };
+}
+
+/** Country and capital points copied from z5. Zooms 0–4 have no names tiles. */
+function overviewNames(color: string, halo: string): StyleLayer {
+  return {
+    id: "names-overview",
+    type: "symbol",
+    source: "place-names",
+    maxzoom: 6,
+    layout: {
+      "text-field": ["get", "name1"],
+      "text-font": [BASEMAP_FONTSTACK],
+      "text-size": ["match", ["get", "type"], "Country", 14, 12],
+      "symbol-sort-key": ["match", ["get", "type"], "Country", 0, 1],
+      "text-max-width": 8,
+      "text-padding": 2,
+    },
+    paint: {
+      "text-color": color,
+      "text-halo-color": halo,
+      "text-halo-width": 1.2,
     },
   };
 }
@@ -244,9 +261,11 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
       source: "zoomstack",
       "source-layer": "boundaries",
       minzoom: 5,
+      filter: ["==", ["get", "type"], "National"],
       paint: { "line-color": color.boundary, "line-width": 0.6 },
     },
-    names("names-country", ["Country"], BASEMAP_DETAIL_MIN_ZOOM, 13, color.label, color.halo),
+    overviewNames(color.label, color.halo),
+    names("names-country", ["Country"], 6, 13, color.label, color.halo),
     names("names-city", ["Capital", "City"], 6, 12, color.label, color.halo),
     names("names-town", ["Town"], 8, 11, color.label, color.halo),
   ];
@@ -274,6 +293,10 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
       coastline: {
         type: "geojson",
         data: "/basemap/coastline.geojson",
+      },
+      "place-names": {
+        type: "geojson",
+        data: "/basemap/names.geojson",
       },
     },
     sprite: `/basemap/sprites/${theme}`,

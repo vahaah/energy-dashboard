@@ -3,10 +3,10 @@ import { Protocol } from "pmtiles";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
 import {
   BASEMAP_DETAIL_MIN_ZOOM,
-  FLOW_SHEET_PEEK_PX,
   GB_FRAME_BOUNDS,
   MAP_CAMERA_MIN_ZOOM,
   MAP_MAX_BOUNDS,
+  clampToMapBounds,
 } from "@/lib/map/constants";
 import { basemapStartupFailed } from "@/lib/map/startup-error";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
@@ -443,13 +443,28 @@ export function mountFlowsMap(
     map.setLayoutProperty("dno-line", "visibility", "visible");
   }
 
+  function sheetOverlap(): number {
+    const sheet = document.querySelector("[data-flow-sheet]");
+    if (!(sheet instanceof HTMLElement)) {
+      return 0;
+    }
+    const sheetRect = sheet.getBoundingClientRect();
+    const mapRect = container.getBoundingClientRect();
+    if (sheetRect.width <= 0 || sheetRect.height <= 0) {
+      return 0;
+    }
+    const overlap = Math.min(mapRect.bottom, sheetRect.bottom) - Math.max(mapRect.top, sheetRect.top);
+    return overlap > 0 ? overlap : 0;
+  }
+
   function overviewPadding(): { top: number; right: number; bottom: number; left: number } {
     const width = container.clientWidth;
     const height = container.clientHeight;
-    // The sheet covers the map below the lg breakpoint. The map pane itself is
-    // narrower than that once the desktop sidebars are open.
+    // Below lg the sheet sits on the map. The frame inset keeps the canvas
+    // above it; any part that still covers the canvas is added here so Great
+    // Britain is not fitted underneath the sheet.
     if (window.innerWidth < 1024) {
-      return { top: 28, right: 28, bottom: FLOW_SHEET_PEEK_PX + 16, left: 16 };
+      return { top: 28, right: 28, bottom: Math.round(sheetOverlap()) + 16, left: 16 };
     }
     const side = Math.round(Math.min(width, height) * 0.06);
     return { top: side, right: side + 8, bottom: side, left: side };
@@ -469,10 +484,11 @@ export function mountFlowsMap(
         north = Math.max(north, point[1]);
       }
     }
+    const camera = clampToMapBounds({ west, south, east, north });
     map.fitBounds(
       [
-        [west, south],
-        [east, north],
+        [camera.west, camera.south],
+        [camera.east, camera.north],
       ],
       { padding: overviewPadding(), maxZoom: 6.5, animate: false },
     );
@@ -568,6 +584,7 @@ export function mountFlowsMap(
       options.onStatus("error");
     }
   });
+  (container as HTMLElement & { maplibreMap?: Map }).maplibreMap = map;
   map.setStyle(styleUrl(theme), { transformStyle });
 
   const onVisibility = () => {
@@ -584,6 +601,7 @@ export function mountFlowsMap(
     destroy: () => {
       document.removeEventListener("visibilitychange", onVisibility);
       stopMotion();
+      delete (container as HTMLElement & { maplibreMap?: Map }).maplibreMap;
       map.remove();
     },
     setLines: (next) => {

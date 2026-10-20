@@ -121,6 +121,85 @@ function near(color: Rgb, page: Rgb): boolean {
   return Math.abs(color[0] - page[0]) <= 2 && Math.abs(color[1] - page[1]) <= 2 && Math.abs(color[2] - page[2]) <= 2;
 }
 
+function exact(color: Rgb, page: Rgb): boolean {
+  return color[0] === page[0] && color[1] === page[1] && color[2] === page[2];
+}
+
+function covered(x: number, y: number, exclude: readonly ImageRegion[]): boolean {
+  return exclude.some((region) => x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height);
+}
+
+/** Every pixel painted the page colour. Controls and the sheet are passed in `exclude`. */
+export function pageBackgroundPixels(image: DecodedPng, page: Rgb, exclude: readonly ImageRegion[]): number {
+  let count = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (covered(x, y, exclude)) {
+        continue;
+      }
+      if (exact(pixel(image, x, y), page)) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+function closeTo(color: Rgb, target: Rgb, tolerance: number): boolean {
+  const distance = Math.hypot(color[0] - target[0], color[1] - target[1], color[2] - target[2]);
+  return distance <= tolerance;
+}
+
+/**
+ * Thin axis-aligned runs of one colour. Tile-edge strokes show up as several
+ * of these across the sea; a shoreline does not.
+ */
+export function axisLineRuns(image: DecodedPng, target: Rgb, tolerance: number, minLength: number): { horizontal: number; vertical: number } {
+  const hit = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= image.width || y >= image.height) {
+      return false;
+    }
+    return closeTo(pixel(image, x, y), target, tolerance);
+  };
+  const thinRow = (x: number, y: number) => hit(x, y) && (!hit(x, y - 2) || !hit(x, y + 2));
+  const thinColumn = (x: number, y: number) => hit(x, y) && (!hit(x - 2, y) || !hit(x + 2, y));
+  let horizontal = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    let run = 0;
+    for (let x = 0; x < image.width; x += 1) {
+      if (thinRow(x, y)) {
+        run += 1;
+        continue;
+      }
+      if (run >= minLength) {
+        horizontal += 1;
+      }
+      run = 0;
+    }
+    if (run >= minLength) {
+      horizontal += 1;
+    }
+  }
+  let vertical = 0;
+  for (let x = 0; x < image.width; x += 1) {
+    let run = 0;
+    for (let y = 0; y < image.height; y += 1) {
+      if (thinColumn(x, y)) {
+        run += 1;
+        continue;
+      }
+      if (run >= minLength) {
+        vertical += 1;
+      }
+      run = 0;
+    }
+    if (run >= minLength) {
+      vertical += 1;
+    }
+  }
+  return { horizontal, vertical };
+}
+
 /** Quadrants plus a strip along each edge. */
 export function canvasRegions(image: DecodedPng): ImageRegion[] {
   const { width, height } = image;
