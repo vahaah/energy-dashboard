@@ -5,6 +5,7 @@ import {
   TODAY_MAP_CONSENT,
   TODAY_MAP_LIST,
   TODAY_MAP_OPEN,
+  TODAY_MAP_PIPELINE,
   TODAY_MAP_PIPELINE_UNFILTERED,
   TODAY_MAP_SCOPE,
   TODAY_MAP_SUMMARY,
@@ -123,6 +124,10 @@ export function TodayMapCardView({ file, now }: { file: TodayMapCardFile; now: D
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/assets" className={ACTION_CLASS}>
             {TODAY_MAP_LIST}
+          </a>
+          {/* Plain anchor. The homepage does not import the pipeline page. */}
+          <a href="/pipeline" className={ACTION_CLASS}>
+            {TODAY_MAP_PIPELINE}
           </a>
         </div>
       </div>

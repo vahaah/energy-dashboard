@@ -230,6 +230,7 @@ describe("og model", () => {
       "page-storage.png",
       "page-whole-energy.png",
       "page-projects.png",
+      "page-pipeline.png",
       "page-northern-ireland.png",
       "page-tools.png",
       "page-changes.png",

@@ -11,6 +11,7 @@ const SITEMAP_CANDIDATES = [
   { path: "/map", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/assets", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/projects", changeFrequency: "weekly" as const, priority: 0.7 },
+  { path: "/pipeline", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/directory", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/directory/identifiers", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/tools", changeFrequency: "monthly" as const, priority: 0.6 },

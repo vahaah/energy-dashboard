@@ -77,6 +77,7 @@ export const SHIPPED_PAGE_ROUTES = [
   "/privacy",
   "/records",
   "/system/storage",
+  "/pipeline",
   "/projects",
   "/electricity/northern-ireland",
   "/terms",

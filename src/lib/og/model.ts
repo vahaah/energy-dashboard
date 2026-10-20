@@ -24,6 +24,7 @@ import { NI_H1, NI_SCOPE_BANNER } from "@/lib/eirgrid/copy";
 import { CONSTRAINTS_STANDFIRST } from "@/lib/constraints/copy";
 import { PROJECTS_STANDFIRST } from "@/lib/projects/copy";
 import { WHOLE_ENERGY_EDITION_YEAR, wholeEnergyStandfirst } from "@/lib/whole-energy/copy";
+import { pipelineShare } from "@/lib/pipeline/share";
 import { GB_GAS_SAP_COMMODITY, formatSapPencePerTherm } from "@/lib/gb-gas-sap";
 import { DNO_ATTRIBUTION, osBasemapAttribution } from "@/lib/map/constants";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
@@ -48,6 +49,7 @@ export const OG_PAGE_IDS = [
   "storage",
   "whole-energy",
   "projects",
+  "pipeline",
   "northern-ireland",
   "tools",
   "changes",
@@ -116,7 +118,7 @@ export function gridEyebrow(section?: string): string {
   return section ? `Grid${OG_EYEBROW_SEPARATOR}${section}` : "Grid";
 }
 
-const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> = {
+const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard, "cached">> = {
   today: {
     eyebrow: gridEyebrow("Today"),
     title: "Britain's electricity today",
@@ -332,6 +334,20 @@ export function buildOgCard(variant: OgVariant, snapshot: OgCacheSnapshot): OgCa
   }
 }
 
+function pipelineCard(): OgCard {
+  const share = pipelineShare();
+  return {
+    eyebrow: gridEyebrow("Pipeline"),
+    title: share.title,
+    kicker: share.kicker,
+    metrics: [],
+    mix: [],
+    stamp: share.stamp,
+    source: share.source,
+    cached: true,
+  };
+}
+
 function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
   switch (page) {
     case "records":
@@ -357,6 +373,8 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "tools":
     case "changes":
       return { ...LEGAL_CARDS[page], cached: true };
+    case "pipeline":
+      return pipelineCard();
     default: {
       const exhaustive: never = page;
       return exhaustive;
@@ -778,6 +796,7 @@ function pageCacheControl(page: OgPageId): string {
     case "projects":
     case "tools":
     case "changes":
+    case "pipeline":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

@@ -28,6 +28,7 @@ const PAGES = [
   "/assets/ast_5c5dc7c6656c3f93/ifa",
   "/assets/ast_0789b8c8f94ec14a/bacton-ips",
   "/projects",
+  "/pipeline",
   "/projects/epj_12b1f540736598a6/reliance-worldwide-corporation-buildings-3-4-5-7-and-12-horton-road-solar-photov",
   "/assets/ast_6fd10c193ba2193d/moyle",
 ] as const;

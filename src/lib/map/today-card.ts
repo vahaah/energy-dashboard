@@ -19,6 +19,8 @@ export const TODAY_MAP_OPEN = "Open map →";
 
 export const TODAY_MAP_LIST = "View as list";
 
+export const TODAY_MAP_PIPELINE = "Pipeline";
+
 export const TODAY_MAP_BANNED_PHRASES = ["live map", "digital twin", "power flows"] as const;
 
 export const TODAY_MAP_MAX_BYTES = 25 * 1024;

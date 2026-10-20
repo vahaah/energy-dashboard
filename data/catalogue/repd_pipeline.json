@@ -1,0 +1,9 @@
+{
+  "catalogue_schema_version": 1,
+  "source_release_id": "desnz-repd:repd-quarterly:2026-08-03T09:00:03.000Z",
+  "edition": "REPD Q2 2026",
+  "published_at": "2026-08-03T09:00:03.000Z",
+  "edition_day": "2026-08-03",
+  "extract_sha256": "sha256:84c1b5f958a934d8b4b86ec88f50bdcf43830ded7ff2efc27bffca0c98695035",
+  "row_count": 14657
+}
