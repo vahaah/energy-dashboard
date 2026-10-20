@@ -24,24 +24,24 @@
           "coordinates": [
             [
               [
-                -11.865234375,
-                49.38237278700956
+                -12.615234375,
+                48.63237278700956
               ],
               [
-                3.603515625,
-                49.38237278700956
+                4.353515625,
+                48.63237278700956
               ],
               [
-                3.603515625,
-                61.56457388515458
+                4.353515625,
+                62.31457388515458
               ],
               [
-                -11.865234375,
-                61.56457388515458
+                -12.615234375,
+                62.31457388515458
               ],
               [
-                -11.865234375,
-                49.38237278700956
+                -12.615234375,
+                48.63237278700956
               ]
             ]
           ]
@@ -51,6 +51,10 @@
     "coastline": {
       "type": "geojson",
       "data": "/basemap/coastline.geojson"
+    },
+    "place-names": {
+      "type": "geojson",
+      "data": "/basemap/names.geojson"
     }
   },
   "sprite": "/basemap/sprites/light",
@@ -442,9 +446,59 @@
       "source": "zoomstack",
       "source-layer": "boundaries",
       "minzoom": 5,
+      "filter": [
+        "==",
+        [
+          "get",
+          "type"
+        ],
+        "National"
+      ],
       "paint": {
         "line-color": "#e5e5e5",
         "line-width": 0.6
+      }
+    },
+    {
+      "id": "names-overview",
+      "type": "symbol",
+      "source": "place-names",
+      "maxzoom": 6,
+      "layout": {
+        "text-field": [
+          "get",
+          "name1"
+        ],
+        "text-font": [
+          "Geist Sans Regular"
+        ],
+        "text-size": [
+          "match",
+          [
+            "get",
+            "type"
+          ],
+          "Country",
+          14,
+          12
+        ],
+        "symbol-sort-key": [
+          "match",
+          [
+            "get",
+            "type"
+          ],
+          "Country",
+          0,
+          1
+        ],
+        "text-max-width": 8,
+        "text-padding": 2
+      },
+      "paint": {
+        "text-color": "#525252",
+        "text-halo-color": "#f3f1ec",
+        "text-halo-width": 1.2
       }
     },
     {
@@ -452,7 +506,7 @@
       "type": "symbol",
       "source": "zoomstack",
       "source-layer": "names",
-      "minzoom": 5,
+      "minzoom": 6,
       "filter": [
         "match",
         [
@@ -479,7 +533,7 @@
       },
       "paint": {
         "text-color": "#525252",
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#f3f1ec",
         "text-halo-width": 1.2
       }
     },
@@ -516,7 +570,7 @@
       },
       "paint": {
         "text-color": "#525252",
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#f3f1ec",
         "text-halo-width": 1.2
       }
     },
@@ -552,7 +606,7 @@
       },
       "paint": {
         "text-color": "#525252",
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#f3f1ec",
         "text-halo-width": 1.2
       }
     }

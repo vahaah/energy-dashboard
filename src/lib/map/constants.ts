@@ -18,7 +18,8 @@ export const BASEMAP_ZOOM_MAX = 13;
  * First zoom that carries country labels, motorways, and urban areas in the
  * OS Open Zoomstack vector tiles. Zoom 0–4 is sea only, so a wider view never
  * requests glyphs. This is the opening zoom, not the camera minimum: the
- * overview has to fit Britain and the interconnector endpoints on a phone.
+ * overview has to fit Britain on a phone. Remote endpoints stay inside
+ * MAP_MAX_BOUNDS and are framed when that link is selected.
  */
 export const BASEMAP_DETAIL_MIN_ZOOM = 5;
 
@@ -26,13 +27,68 @@ export const BASEMAP_DETAIL_MIN_ZOOM = 5;
 export const MAP_CAMERA_MIN_ZOOM = 3;
 
 /**
- * Camera limit for the flows and power maps. Wide enough for GB, Ireland, and
- * the North Sea links, and short of a world view.
+ * Geographic box of the sea features in the 2026-06 Zoomstack archive.
+ * Land is this box with the sea polygons punched out. Past the edge the
+ * archive has no land, so the fill ends in a straight cut.
+ */
+export const ZOOMSTACK_LAND_EXTENT = {
+  west: -11.865234375,
+  south: 49.38237278700956,
+  east: 3.603515625,
+  north: 61.56457388515458,
+} as const;
+
+/**
+ * Camera limit. This is the schematic box (west -12, south 47, east 14, north 64):
+ * every interconnector endpoint, including NSL, Viking, and IFA2, sits inside it
+ * and can be panned into view. `basemap-style.test.ts` checks it against `SCHEMATIC_BBOX`.
  */
 export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
-  [-15, 45],
-  [16, 66],
+  [-12, 47],
+  [14, 64],
 ];
+
+/**
+ * Overview fit, inset from the Zoomstack extract. The land fill ends in a
+ * straight cut, and this keeps that cut off-screen on the opening frame.
+ * A selected link uses `MAP_MAX_BOUNDS` instead, so a remote endpoint outside
+ * this inset is still reachable.
+ */
+export const OVERVIEW_CAMERA_LIMIT: [[number, number], [number, number]] = [
+  [ZOOMSTACK_LAND_EXTENT.west + 0.4, ZOOMSTACK_LAND_EXTENT.south + 0.3],
+  [ZOOMSTACK_LAND_EXTENT.east - 0.4, ZOOMSTACK_LAND_EXTENT.north - 0.25],
+];
+
+function clampBox(
+  bounds: { west: number; south: number; east: number; north: number },
+  limit: [[number, number], [number, number]],
+): { west: number; south: number; east: number; north: number } {
+  const [[westLimit, southLimit], [eastLimit, northLimit]] = limit;
+  return {
+    west: Math.min(Math.max(bounds.west, westLimit), eastLimit),
+    east: Math.max(Math.min(bounds.east, eastLimit), westLimit),
+    south: Math.min(Math.max(bounds.south, southLimit), northLimit),
+    north: Math.max(Math.min(bounds.north, northLimit), southLimit),
+  };
+}
+
+export function clampToMapBounds(bounds: {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}): { west: number; south: number; east: number; north: number } {
+  return clampBox(bounds, MAP_MAX_BOUNDS);
+}
+
+export function clampOverviewBounds(bounds: {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}): { west: number; south: number; east: number; north: number } {
+  return clampBox(bounds, OVERVIEW_CAMERA_LIMIT);
+}
 
 /** Closed height of the mobile flow sheet. The overview padding clears it. */
 export const FLOW_SHEET_PEEK_PX = 140 as const;

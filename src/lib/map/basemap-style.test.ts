@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { validateStyleMin, type StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { describe, expect, it } from "vitest";
 import { basemapStyle, pointZoomstackSource, themeColor } from "@/lib/map/basemap-style";
-import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, osBasemapAttribution } from "@/lib/map/constants";
+import { SCHEMATIC_BBOX } from "@/lib/catalogue/links/schema";
+import { BASEMAP_FONTSTACK, BASEMAP_SOURCE_URL, MAP_MAX_BOUNDS, OVERVIEW_CAMERA_LIMIT, ZOOMSTACK_LAND_EXTENT, osBasemapAttribution } from "@/lib/map/constants";
 import { decodeGlyphRange } from "@/lib/map/glyph-pbf";
 
 describe("basemap style", () => {
@@ -45,7 +46,25 @@ describe("basemap style", () => {
     expect(JSON.stringify(light)).toContain(BASEMAP_FONTSTACK);
     expect(JSON.stringify(light)).toContain("land-extent");
     expect(JSON.stringify(light)).toContain("/basemap/coastline.geojson");
+    expect(JSON.stringify(light)).toContain("/basemap/names.geojson");
+    expect(JSON.stringify(light)).toContain("names-overview");
     expect(JSON.stringify(light)).not.toContain("fill-outline-color");
+    const names = JSON.parse(readFileSync(resolve(process.cwd(), "public/basemap/names.geojson"), "utf8")) as {
+      features: { properties: { name1: string; type: string } }[];
+    };
+    expect(names.features.some((feature) => feature.properties.name1 === "London" && feature.properties.type === "Capital")).toBe(true);
+    expect(names.features.some((feature) => feature.properties.name1 === "Scotland" && feature.properties.type === "Country")).toBe(true);
+    expect(MAP_MAX_BOUNDS).toEqual([
+      [SCHEMATIC_BBOX.west, SCHEMATIC_BBOX.south],
+      [SCHEMATIC_BBOX.east, SCHEMATIC_BBOX.north],
+    ]);
+    const [[overviewWest, overviewSouth], [overviewEast, overviewNorth]] = OVERVIEW_CAMERA_LIMIT;
+    expect(overviewWest).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.west);
+    expect(overviewSouth).toBeGreaterThan(ZOOMSTACK_LAND_EXTENT.south);
+    expect(overviewEast).toBeLessThan(ZOOMSTACK_LAND_EXTENT.east);
+    expect(overviewNorth).toBeLessThan(ZOOMSTACK_LAND_EXTENT.north);
+    expect(overviewEast).toBeLessThan(9.17726);
+    expect(overviewSouth).toBeGreaterThan(49.12425);
     const coast = JSON.parse(readFileSync(resolve(process.cwd(), "public/basemap/coastline.geojson"), "utf8")) as {
       features: { geometry: { type: string; coordinates: number[][][] } }[];
     };
@@ -69,6 +88,29 @@ describe("basemap style", () => {
       return maxLat - minLat > 1 && maxLon - minLon < 0.05 && Math.abs(minLon - clipEast) < 0.05;
     });
     expect(verticalBox).toBe(false);
+    const runs = new Map<string, number>();
+    for (const line of lines) {
+      for (let index = 1; index < line.length; index += 1) {
+        const start = line[index - 1];
+        const end = line[index];
+        if (!start || !end) {
+          continue;
+        }
+        const lon = start[0] ?? 0;
+        const lat = start[1] ?? 0;
+        const nextLon = end[0] ?? 0;
+        const nextLat = end[1] ?? 0;
+        if (lon === nextLon && lat !== nextLat) {
+          const key = `v:${lon.toFixed(5)}`;
+          runs.set(key, (runs.get(key) ?? 0) + Math.abs(nextLat - lat));
+        } else if (lat === nextLat && lon !== nextLon) {
+          const key = `h:${lat.toFixed(5)}`;
+          runs.set(key, (runs.get(key) ?? 0) + Math.abs(nextLon - lon));
+        }
+      }
+    }
+    const longest = Math.max(0, ...runs.values());
+    expect(longest).toBeLessThanOrEqual(0.4);
   });
 
   it("checks in a Geist glyph stack and empty sprites", () => {

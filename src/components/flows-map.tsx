@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { assetPath } from "@/lib/assets/href";
 import { mapViewParsers } from "@/lib/assets/params";
 import { NI_FLOW_NOTE } from "@/lib/attribution";
@@ -654,10 +654,14 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         <FlowList features={model.features} selectedId={selectedId} onSelect={choose} />
       </aside>
       <div className="relative min-h-0 min-w-0 flex-1">
-        <div className="absolute inset-0">
+        <div
+          data-map-frame
+          className="absolute inset-0"
+          style={{ "--flow-sheet-h": snap === "full" ? "100%" : `${snap}px` } as CSSProperties}
+        >
           <div ref={mapRef} className="h-full w-full" data-map-status={status} />
+          <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         </div>
-        <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (
           <div className="absolute inset-0 flex items-center justify-center bg-background-100 p-6">

@@ -7,7 +7,7 @@ import {
   capacityRadiusExpression,
   technologyColorExpression,
 } from "@/lib/map/asset-layer";
-import { BASEMAP_DETAIL_MIN_ZOOM, GB_FRAME_BOUNDS, MAP_CAMERA_MIN_ZOOM, MAP_MAX_BOUNDS } from "@/lib/map/constants";
+import { BASEMAP_DETAIL_MIN_ZOOM, GB_FRAME_BOUNDS, MAP_CAMERA_MIN_ZOOM, MAP_MAX_BOUNDS, clampOverviewBounds, clampToMapBounds } from "@/lib/map/constants";
 import type { MapBounds } from "@/lib/map/counts";
 import { interconnectorFeatureCollection, type InterconnectorLine } from "@/lib/map/interconnector-layer";
 import type { MapPoint } from "@/lib/assets/types";
@@ -325,10 +325,11 @@ export function mountPowerMap(
     }
     const width = container.clientWidth;
     const padding = width < 720 ? { top: 36, right: 44, bottom: 20, left: 12 } : 48;
+    const camera = clampOverviewBounds({ west, south, east, north });
     map.fitBounds(
       [
-        [west, south],
-        [east, north],
+        [camera.west, camera.south],
+        [camera.east, camera.north],
       ],
       { padding, maxZoom: 6.5, animate: false },
     );
@@ -489,7 +490,19 @@ export function mountPowerMap(
       if (!line) {
         return;
       }
-      focus((line.gbLongitude + line.remoteLongitude) / 2, (line.gbLatitude + line.remoteLatitude) / 2, 5);
+      const camera = clampToMapBounds({
+        west: Math.min(line.gbLongitude, line.remoteLongitude),
+        east: Math.max(line.gbLongitude, line.remoteLongitude),
+        south: Math.min(line.gbLatitude, line.remoteLatitude),
+        north: Math.max(line.gbLatitude, line.remoteLatitude),
+      });
+      map.fitBounds(
+        [
+          [camera.west, camera.south],
+          [camera.east, camera.north],
+        ],
+        { padding: 48, maxZoom: 6.5, animate: !reduceMotion },
+      );
     },
   };
 }

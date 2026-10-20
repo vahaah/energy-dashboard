@@ -3,3 +3,12 @@
    The map mounts import this file dynamically. A static import on the /map
    page would ride along with the header's prefetch while the visitor is on /. */
 @import "maplibre-gl/dist/maplibre-gl.css" layer(base);
+
+/* Chromium composites a WebGL canvas shifted down by the height of an
+   overlapping sheet, which leaves the top of the map the page colour.
+   Keep the canvas above the sheet. lg (1024) hides the sheet. */
+@media (max-width: 1023px) {
+  [data-map-frame] {
+    bottom: var(--flow-sheet-h, 140px) !important;
+  }
+}
