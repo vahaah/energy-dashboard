@@ -45,6 +45,9 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
     case "geonames":
       return "Curated";
     case "eirgrid-group":
+      return "Hourly";
+    case "elexon-isd":
+      return "Weekly";
     case "elexon-bmrs":
     case "neso-open-data":
     case "carbon-intensity":

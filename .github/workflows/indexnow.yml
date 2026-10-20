@@ -1,7 +1,7 @@
 name: IndexNow
 
 # Starts on the marker commit, then waits until production serves
-# public/release-1a.txt. A 200 from /gas is the previous deployment.
+# public/release-1b.txt. A 200 from /gas or /release-1a.txt is the previous deployment.
 on:
   workflow_dispatch:
   push:
@@ -9,6 +9,8 @@ on:
     paths:
       - data/indexnow/release-1a.txt
       - public/release-1a.txt
+      - data/indexnow/release-1b.txt
+      - public/release-1b.txt
       - .github/workflows/indexnow.yml
 
 jobs:

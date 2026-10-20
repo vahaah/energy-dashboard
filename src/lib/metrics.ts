@@ -82,6 +82,7 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   "os-open-zoomstack": "OS Open Zoomstack",
   "eirgrid-group": "EirGrid Group",
   geonames: "GeoNames",
+  "elexon-isd": "Elexon ISD",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {

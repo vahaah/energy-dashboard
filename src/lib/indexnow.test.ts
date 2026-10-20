@@ -10,8 +10,14 @@ import {
   INDEXNOW_KEY_LOCATION,
   INDEXNOW_KEY_PATH,
   INDEXNOW_MAX_BATCH,
+  INDEXNOW_PHASE_1A_PREFIXES,
+  INDEXNOW_PHASE_1B_MARKER,
+  INDEXNOW_PHASE_1B_PROBE_PATH,
   INDEXNOW_RELEASE_MARKER,
   INDEXNOW_SITEMAP_URL,
+  indexNowPhaseReady,
+  indexNowPhaseSitemapUrl,
+  phase1bSettledPaths,
   batchUrlList,
   indexNowReleaseReady,
   indexNowReleaseSitemapUrl,
@@ -175,6 +181,49 @@ describe("IndexNow", () => {
     expect(indexNowReleaseSitemapUrl()).toBe(
       "https://grid.vahaah.com/sitemap.xml?release=phase-1a",
     );
+  });
+
+  it("accepts the phase 1B marker and skips routes the 1A one-shot already posted", () => {
+    const marker = readFileSync(resolve(process.cwd(), `public${INDEXNOW_PHASE_1B_PROBE_PATH}`), "utf8");
+    expect(marker.trim()).toBe(INDEXNOW_PHASE_1B_MARKER);
+    expect(indexNowPhaseReady(200, marker, INDEXNOW_PHASE_1B_MARKER)).toBe(true);
+    expect(indexNowPhaseReady(200, "phase-1a", INDEXNOW_PHASE_1B_MARKER)).toBe(false);
+    expect(indexNowPhaseSitemapUrl(INDEXNOW_PHASE_1B_MARKER)).toBe(
+      "https://grid.vahaah.com/sitemap.xml?release=phase-1b",
+    );
+    const urls = unsubmittedIndexNowUrls(
+      [
+        "https://grid.vahaah.com/",
+        "https://grid.vahaah.com/gas",
+        "https://grid.vahaah.com/map",
+        "https://grid.vahaah.com/assets",
+        "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+        "https://grid.vahaah.com/system/constraints",
+        "https://grid.vahaah.com/system/storage",
+        "https://grid.vahaah.com/system/whole-energy",
+        "https://grid.vahaah.com/electricity/northern-ireland",
+        "https://grid.vahaah.com/projects",
+        "https://grid.vahaah.com/projects/epj_12b1f540736598a6/example",
+        "https://grid.vahaah.com/directory",
+        "https://grid.vahaah.com/directory/identifiers",
+        "https://grid.vahaah.com/tools",
+        "https://grid.vahaah.com/changes",
+      ],
+      phase1bSettledPaths(),
+      INDEXNOW_PHASE_1A_PREFIXES,
+    );
+    expect(urls.map((url) => new URL(url).pathname)).toEqual([
+      "/system/constraints",
+      "/system/storage",
+      "/system/whole-energy",
+      "/electricity/northern-ireland",
+      "/projects",
+      "/projects/epj_12b1f540736598a6/example",
+      "/directory",
+      "/directory/identifiers",
+      "/tools",
+      "/changes",
+    ]);
   });
 
   it("submits only urls outside the settled set and redacts the key", async () => {
