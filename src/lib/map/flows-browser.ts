@@ -1,7 +1,14 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
-import { BASEMAP_DETAIL_MIN_ZOOM } from "@/lib/map/constants";
+import {
+  BASEMAP_DETAIL_MIN_ZOOM,
+  FLOW_SHEET_PEEK_PX,
+  GB_FRAME_BOUNDS,
+  MAP_CAMERA_MIN_ZOOM,
+  MAP_MAX_BOUNDS,
+} from "@/lib/map/constants";
+import { basemapStartupFailed } from "@/lib/map/startup-error";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
@@ -209,6 +216,7 @@ export function mountFlowsMap(
   let stations: StationFeatureCollection = { type: "FeatureCollection", features: [] };
   let pointersBound = false;
   let ready = false;
+  let styleLoaded = false;
   let basemapLoaded = false;
   let frame = 0;
   let hidden = document.visibilityState === "hidden";
@@ -223,7 +231,8 @@ export function mountFlowsMap(
     fadeDuration: reduceMotion ? 0 : 300,
     center: [-2.2, 54.2],
     zoom: BASEMAP_DETAIL_MIN_ZOOM,
-    minZoom: BASEMAP_DETAIL_MIN_ZOOM,
+    minZoom: MAP_CAMERA_MIN_ZOOM,
+    maxBounds: MAP_MAX_BOUNDS,
   });
   map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
   const canvas = map.getCanvas();
@@ -434,16 +443,24 @@ export function mountFlowsMap(
     map.setLayoutProperty("dno-line", "visibility", "visible");
   }
 
-  function frameView(): void {
-    const shown = lines.filter((line) => visible(line.kind));
-    if (shown.length === 0) {
-      return;
+  function overviewPadding(): { top: number; right: number; bottom: number; left: number } {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    // The sheet covers the map below the lg breakpoint. The map pane itself is
+    // narrower than that once the desktop sidebars are open.
+    if (window.innerWidth < 1024) {
+      return { top: 28, right: 28, bottom: FLOW_SHEET_PEEK_PX + 16, left: 16 };
     }
-    let west = shown[0]?.gb[0] ?? -8;
-    let east = west;
-    let south = shown[0]?.gb[1] ?? 50;
-    let north = south;
-    for (const line of shown) {
+    const side = Math.round(Math.min(width, height) * 0.06);
+    return { top: side, right: side + 8, bottom: side, left: side };
+  }
+
+  function frameView(): void {
+    let west = GB_FRAME_BOUNDS.west;
+    let east = GB_FRAME_BOUNDS.east;
+    let south = GB_FRAME_BOUNDS.south;
+    let north = GB_FRAME_BOUNDS.north;
+    for (const line of lines) {
       const points = [line.gb, line.remote].filter((point): point is [number, number] => point !== null);
       for (const point of points) {
         west = Math.min(west, point[0]);
@@ -457,7 +474,7 @@ export function mountFlowsMap(
         [west, south],
         [east, north],
       ],
-      { padding: 36, maxZoom: 6, animate: false },
+      { padding: overviewPadding(), maxZoom: 6.5, animate: false },
     );
   }
 
@@ -528,9 +545,15 @@ export function mountFlowsMap(
     drawOverlay();
   }
 
-  map.on("style.load", paint);
+  map.on("style.load", () => {
+    styleLoaded = true;
+    paint();
+  });
   map.on("move", drawOverlay);
-  map.on("resize", drawOverlay);
+  map.on("resize", () => {
+    frameView();
+    drawOverlay();
+  });
   map.on("sourcedata", (event) => {
     if (event.sourceId !== "zoomstack" || !map.getSource("zoomstack") || !map.isSourceLoaded("zoomstack")) {
       return;
@@ -541,10 +564,9 @@ export function mountFlowsMap(
     if (process.env.NODE_ENV === "development") {
       console.error(ev.error);
     }
-    if (basemapLoaded || Reflect.get(ev, "sourceId") !== "zoomstack") {
-      return;
+    if (basemapStartupFailed(ev, styleLoaded, basemapLoaded)) {
+      options.onStatus("error");
     }
-    options.onStatus("error");
   });
   map.setStyle(styleUrl(theme), { transformStyle });
 
@@ -611,6 +633,8 @@ export function mountFlowsMap(
       theme = next;
       stopMotion();
       ready = false;
+      styleLoaded = false;
+      basemapLoaded = false;
       pointersBound = false;
       map.setStyle(styleUrl(next), { transformStyle });
     },

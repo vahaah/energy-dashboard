@@ -48,9 +48,15 @@ describe("map and asset pages", () => {
     expect(power).toContain('className="h-full w-full"');
     expect(source("src/lib/map/browser.ts")).not.toContain("maplibre-gl.css");
     expect(source("src/lib/map/flows-browser.ts")).not.toContain("maplibre-gl.css");
-    expect(source("src/lib/map/flows-browser.ts")).toContain("minZoom: BASEMAP_DETAIL_MIN_ZOOM");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("zoom: BASEMAP_DETAIL_MIN_ZOOM");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("minZoom: MAP_CAMERA_MIN_ZOOM");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("maxBounds: MAP_MAX_BOUNDS");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("GB_FRAME_BOUNDS");
     expect(source("src/lib/map/flows-browser.ts")).not.toContain("extendSea");
-    expect(source("src/lib/map/browser.ts")).toContain("minZoom: BASEMAP_DETAIL_MIN_ZOOM");
+    expect(source("src/lib/map/flows-browser.ts")).not.toContain("minZoom: BASEMAP_DETAIL_MIN_ZOOM");
+    expect(source("src/lib/map/browser.ts")).toContain("minZoom: MAP_CAMERA_MIN_ZOOM");
+    expect(source("src/lib/map/browser.ts")).toContain("basemapStartupFailed");
+    expect(source("src/lib/map/flows-browser.ts")).toContain("basemapStartupFailed");
     expect(header).not.toContain("maplibre-gl");
     expect(header).not.toContain("pmtiles");
     expect(search).toContain('import("@/components/asset-search-dialog")');

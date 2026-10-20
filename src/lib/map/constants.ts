@@ -17,9 +17,33 @@ export const BASEMAP_ZOOM_MAX = 13;
 /**
  * First zoom that carries country labels, motorways, and urban areas in the
  * OS Open Zoomstack vector tiles. Zoom 0–4 is sea only, so a wider view never
- * requests glyphs.
+ * requests glyphs. This is the opening zoom, not the camera minimum: the
+ * overview has to fit Britain and the interconnector endpoints on a phone.
  */
 export const BASEMAP_DETAIL_MIN_ZOOM = 5;
+
+/** Lowest zoom the camera allows. The overview on a 375px screen sits below the label zoom. */
+export const MAP_CAMERA_MIN_ZOOM = 3;
+
+/**
+ * Camera limit for the flows and power maps. Wide enough for GB, Ireland, and
+ * the North Sea links, and short of a world view.
+ */
+export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [-15, 45],
+  [16, 66],
+];
+
+/** Closed height of the mobile flow sheet. The overview padding clears it. */
+export const FLOW_SHEET_PEEK_PX = 140 as const;
+
+/** England, Scotland, and Wales, including the Outer Hebrides and Shetland. */
+export const GB_FRAME_BOUNDS: { west: number; south: number; east: number; north: number } = {
+  west: -8.2,
+  south: 49.85,
+  east: 1.85,
+  north: 60.86,
+};
 
 export const BASEMAP_LAYER_ID = "basemap";
 export const DNO_LAYER_ID = "dno";

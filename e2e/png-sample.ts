@@ -100,6 +100,65 @@ export function decodePng(buffer: Buffer): DecodedPng {
   return { width, height, pixels };
 }
 
+export type Rgb = readonly [number, number, number];
+
+export type ImageRegion = {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function pixel(image: DecodedPng, x: number, y: number): Rgb {
+  const clampedX = Math.max(0, Math.min(image.width - 1, x));
+  const clampedY = Math.max(0, Math.min(image.height - 1, y));
+  const offset = (clampedY * image.width + clampedX) * 4;
+  return [image.pixels[offset] ?? 0, image.pixels[offset + 1] ?? 0, image.pixels[offset + 2] ?? 0];
+}
+
+function near(color: Rgb, page: Rgb): boolean {
+  return Math.abs(color[0] - page[0]) <= 2 && Math.abs(color[1] - page[1]) <= 2 && Math.abs(color[2] - page[2]) <= 2;
+}
+
+/** Quadrants plus a strip along each edge. */
+export function canvasRegions(image: DecodedPng): ImageRegion[] {
+  const { width, height } = image;
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+  const edgeX = Math.max(4, Math.floor(width * 0.08));
+  const edgeY = Math.max(4, Math.floor(height * 0.08));
+  return [
+    { name: "north-west", x: 0, y: 0, width: halfW, height: halfH },
+    { name: "north-east", x: halfW, y: 0, width: width - halfW, height: halfH },
+    { name: "south-west", x: 0, y: halfH, width: halfW, height: height - halfH },
+    { name: "south-east", x: halfW, y: halfH, width: width - halfW, height: height - halfH },
+    { name: "top", x: 0, y: 0, width, height: edgeY },
+    { name: "bottom", x: 0, y: height - edgeY, width, height: edgeY },
+    { name: "left", x: 0, y: 0, width: edgeX, height },
+    { name: "right", x: width - edgeX, y: 0, width: edgeX, height },
+  ];
+}
+
+/** A region is blank when almost every sample matches the page colour. */
+export function regionMatchesPage(image: DecodedPng, region: ImageRegion, page: Rgb): boolean {
+  const x1 = Math.min(image.width, region.x + region.width);
+  const y1 = Math.min(image.height, region.y + region.height);
+  const span = Math.max(1, Math.min(region.width, region.height));
+  const step = Math.max(1, Math.floor(span / 10));
+  let match = 0;
+  let total = 0;
+  for (let y = region.y; y < y1; y += step) {
+    for (let x = region.x; x < x1; x += step) {
+      total += 1;
+      if (near(pixel(image, x, y), page)) {
+        match += 1;
+      }
+    }
+  }
+  return total > 0 && match / total >= 0.85;
+}
+
 /** Quantised colours. The mode is treated as the background wash. */
 export function paletteOf(image: DecodedPng): CanvasPalette {
   const step = Math.max(1, Math.floor(Math.min(image.width, image.height) / 80));

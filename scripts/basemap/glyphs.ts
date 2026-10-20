@@ -212,8 +212,9 @@ function drawGlyph(font: Font, code: number): GlyphBitmap | null {
     bitmap,
     width: glyphWidth,
     height: glyphHeight,
-    left: glyphLeft - BUFFER,
-    top: glyphTop + BUFFER,
+    // Bearings are the ink box. MapLibre adds the 3px SDF border itself.
+    left: glyphLeft,
+    top: glyphTop,
     advance,
   };
 }

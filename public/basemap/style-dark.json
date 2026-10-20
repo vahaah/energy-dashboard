@@ -13,6 +13,44 @@
       "attribution": "Contains OS data © Crown copyright and database right 2026",
       "minzoom": 0,
       "maxzoom": 13
+    },
+    "land-extent": {
+      "type": "geojson",
+      "data": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -11.865234375,
+                49.38237278700956
+              ],
+              [
+                3.603515625,
+                49.38237278700956
+              ],
+              [
+                3.603515625,
+                61.56457388515458
+              ],
+              [
+                -11.865234375,
+                61.56457388515458
+              ],
+              [
+                -11.865234375,
+                49.38237278700956
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    "coastline": {
+      "type": "geojson",
+      "data": "/basemap/coastline.geojson"
     }
   },
   "sprite": "/basemap/sprites/dark",
@@ -22,7 +60,15 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#0a0a0a"
+        "background-color": "#0d1b27"
+      }
+    },
+    {
+      "id": "land",
+      "type": "fill",
+      "source": "land-extent",
+      "paint": {
+        "fill-color": "#2c2e32"
       }
     },
     {
@@ -32,8 +78,21 @@
       "source-layer": "sea",
       "minzoom": 0,
       "paint": {
-        "fill-color": "#101820",
+        "fill-color": "#0d1b27",
         "fill-opacity": 1
+      }
+    },
+    {
+      "id": "coast",
+      "type": "line",
+      "source": "coastline",
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "paint": {
+        "line-color": "#8b98a4",
+        "line-width": 1.5
       }
     },
     {
