@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
@@ -26,8 +27,11 @@ export function SitePrimaryNav({
   compact?: boolean;
 }) {
   const items = visibleHeaderNav();
+  const rowClass = compact
+    ? "flex w-max flex-nowrap items-center gap-x-4"
+    : "flex flex-wrap items-center gap-x-4 gap-y-1";
   return (
-    <nav aria-label="Primary" className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${className}`.trim()}>
+    <nav aria-label="Primary" className={`${rowClass} ${className}`.trim()}>
       {items.map((item) => {
         switch (item.kind) {
           case "link": {
@@ -52,6 +56,7 @@ export function SitePrimaryNav({
                 items={item.items}
                 pathname={pathname}
                 menuId={`${idPrefix}-${item.id}`}
+                overlay={compact}
               />
             );
           default: {
@@ -83,12 +88,14 @@ function SiteNavMenu({
   items,
   pathname,
   menuId,
+  overlay,
 }: {
   label: string;
   shownLabel: string;
   items: SiteNavMenuItem[];
   pathname: string;
   menuId: string;
+  overlay: boolean;
 }) {
   const reactId = useId();
   const id = menuId || reactId;
@@ -96,6 +103,7 @@ function SiteNavMenu({
   const [index, setIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const current = items.some((item) => isNavCurrent(item.href, pathname));
 
@@ -111,13 +119,49 @@ function SiteNavMenu({
       return;
     }
     const onPointer = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", onPointer);
     return () => document.removeEventListener("mousedown", onPointer);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !overlay) {
+      return;
+    }
+    const close = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [open, overlay]);
+
+  function bindMenu(node: HTMLDivElement | null) {
+    menuRef.current = node;
+    if (!node || !overlay) {
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    const gutter = 8;
+    const maxLeft = Math.max(gutter, window.innerWidth - node.offsetWidth - gutter);
+    node.style.top = `${rect.bottom + 4}px`;
+    node.style.left = `${Math.min(Math.max(gutter, rect.left), maxLeft)}px`;
+    node.style.visibility = "visible";
+  }
 
   function applyKey(key: string, target: "button" | "item") {
     const motion = menuKeyMotion({ key, open, index, length: items.length, target });
@@ -166,46 +210,95 @@ function SiteNavMenu({
         <ChevronDown className={`size-3.5 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {open ? (
-        <div
+        <NavMenuPanel
           id={id}
-          role="menu"
-          aria-label={label}
-          className="absolute top-full left-0 z-30 mt-1 min-w-48 rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
-        >
-          {items.map((item, itemIndex) => {
-            const itemCurrent = isNavCurrent(item.href, pathname);
-            return (
-              <div key={item.id}>
-                {item.dividerBefore ? (
-                  <p className="border-t border-gray-alpha-400 px-3 pt-2 pb-1 text-label-12 text-gray-900">
-                    {item.dividerBefore}
-                  </p>
-                ) : null}
-                <Link
-                  href={item.href}
-                  role="menuitem"
-                  ref={(node) => {
-                    itemRefs.current[itemIndex] = node;
-                  }}
-                  aria-current={itemCurrent ? "page" : undefined}
-                  tabIndex={itemIndex === index ? 0 : -1}
-                  className={`flex min-h-11 items-center px-3 text-label-13 break-words focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none ${
-                    itemCurrent ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"
-                  }`}
-                  onClick={() => setOpen(false)}
-                  onKeyDown={(event) => {
-                    if (applyKey(event.key, "item") && event.key !== "Tab") {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  {item.label}
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+          label={label}
+          items={items}
+          pathname={pathname}
+          index={index}
+          overlay={overlay}
+          menuRef={bindMenu}
+          itemRefs={itemRefs}
+          onClose={() => setOpen(false)}
+          onKey={(key) => applyKey(key, "item")}
+        />
       ) : null}
     </div>
   );
+}
+
+function NavMenuPanel({
+  id,
+  label,
+  items,
+  pathname,
+  index,
+  overlay,
+  menuRef,
+  itemRefs,
+  onClose,
+  onKey,
+}: {
+  id: string;
+  label: string;
+  items: SiteNavMenuItem[];
+  pathname: string;
+  index: number;
+  overlay: boolean;
+  menuRef: (node: HTMLDivElement | null) => void;
+  itemRefs: { current: Array<HTMLAnchorElement | null> };
+  onClose: () => void;
+  onKey: (key: string) => boolean;
+}) {
+  const panel = (
+    <div
+      ref={menuRef}
+      id={id}
+      role="menu"
+      aria-label={label}
+      className={
+        overlay
+          ? "fixed z-30 max-h-[70vh] min-w-48 max-w-[calc(100vw-16px)] overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
+          : "absolute top-full left-0 z-30 mt-1 min-w-48 rounded-lg border border-gray-alpha-400 bg-background-100 py-1"
+      }
+      style={overlay ? { visibility: "hidden" } : undefined}
+    >
+      {items.map((item, itemIndex) => {
+        const itemCurrent = isNavCurrent(item.href, pathname);
+        return (
+          <div key={item.id}>
+            {item.dividerBefore ? (
+              <p className="border-t border-gray-alpha-400 px-3 pt-2 pb-1 text-label-12 text-gray-900">
+                {item.dividerBefore}
+              </p>
+            ) : null}
+            <Link
+              href={item.href}
+              role="menuitem"
+              ref={(node) => {
+                itemRefs.current[itemIndex] = node;
+              }}
+              aria-current={itemCurrent ? "page" : undefined}
+              tabIndex={itemIndex === index ? 0 : -1}
+              className={`flex min-h-11 items-center px-3 text-label-13 break-words focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none ${
+                itemCurrent ? "text-gray-1000" : "text-gray-900 hover:text-gray-1000"
+              }`}
+              onClick={onClose}
+              onKeyDown={(event) => {
+                if (onKey(event.key) && event.key !== "Tab") {
+                  event.preventDefault();
+                }
+              }}
+            >
+              {item.label}
+            </Link>
+          </div>
+        );
+      })}
+    </div>
+  );
+  if (overlay && typeof document !== "undefined") {
+    return createPortal(panel, document.body);
+  }
+  return panel;
 }

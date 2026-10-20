@@ -153,7 +153,37 @@ describe("pipeline figures", () => {
     expect(sumDisplayedGw(figures.nations)).toBe(267.4);
     expect(sumDisplayedGw(figures.storage)).toBe(267.4);
     expect(sumDisplayedGw(figures.technologies)).toBe(267.4);
+    for (const row of figures.technologies) {
+      expect(row.amount).not.toBe("—");
+      expect(row.amount).not.toContain("0.0 GW");
+      expect(row.amount).not.toContain("<0.1");
+      if (row.exactGw > 0 && row.exactGw < 0.1) {
+        expect(row.amount.endsWith(" MW")).toBe(true);
+        expect(row.gw).toBe("0.0");
+      }
+      if (row.exactGw >= 0.1) {
+        expect(row.amount).toBe(`${row.gw} GW`);
+      }
+    }
+    expect(figures.technologies.find((row) => row.technology === "liquid_air")?.amount).toBe("49.9 MW");
+    expect(figures.technologies.find((row) => row.technology === "compressed_air")?.amount).toBe("5.0 MW");
+    expect(figures.technologies.find((row) => row.technology === "heat_pump")?.amount).toBe("2.0 MW");
+    expect(figures.technologies.find((row) => row.technology === "unspecified")?.amount).toBe(PIPELINE_NOT_PUBLISHED);
     expect(Number(figures.totalGw)).toBe(267.4);
+    const mixed = buildPipelineFigures([
+      record({ ref: "bat", status: "under_construction", technology: "battery", mw: 1040 }),
+      record({ ref: "sun", status: "under_construction", technology: "solar_pv", mw: 1040 }),
+      record({ ref: "air", status: "under_construction", technology: "liquid_air", mw: 49.9 }),
+      record({ ref: "heat", status: "under_construction", technology: "heat_pump", mw: 2 }),
+      record({ ref: "none", status: "awaiting_construction", technology: "unspecified", mw: null }),
+    ]);
+    expect(sumDisplayedGw(mixed.technologies)).toBe(Number(mixed.totalGw));
+    expect(mixed.technologies.find((row) => row.technology === "liquid_air")?.amount).toBe("49.9 MW");
+    expect(mixed.technologies.find((row) => row.technology === "heat_pump")?.amount).toBe("2.0 MW");
+    expect(mixed.technologies.find((row) => row.technology === "unspecified")?.amount).toBe(PIPELINE_NOT_PUBLISHED);
+    expect(mixed.technologies.filter((row) => row.amount.endsWith(" GW")).reduce((sum, row) => sum + Number(row.gw), 0)).toBe(
+      Number(mixed.totalGw),
+    );
     const shown = largestRemainder([1.04, 1.04, 1.04], 0.1);
     expect(shown).toEqual([1.1, 1.0, 1.0]);
     expect(Number(shown.reduce((sum, value) => sum + value, 0).toFixed(1))).toBe(3.1);
@@ -297,7 +327,14 @@ describe("pipeline page", () => {
     expect(html).not.toContain("0.0 GW");
     expect(html).not.toContain("&lt;0.1 GW");
     expect(html).not.toContain("<0.1 GW");
+    expect(html).toContain("49.9 MW");
+    expect(html).toContain("5.0 MW");
+    expect(html).toContain("2.0 MW");
+    expect(html).toContain("A technology under 0.1 GW is shown in MW to one decimal.");
     expect(page).not.toContain("searchParams");
+    const table = source("src/components/pipeline/pipeline-table.tsx");
+    expect(table).toContain("relative mt-3 min-w-0 max-w-full overflow-x-auto");
+    expect(table).toContain('className="relative py-2 pr-3 font-normal"');
     for (const section of PIPELINE_EXPLAINER) {
       expect(html).toContain(section.title);
     }

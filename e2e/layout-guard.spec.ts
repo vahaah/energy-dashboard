@@ -64,6 +64,9 @@ const PRICE_FIXTURE = {
 
 const THEMES = ["dark", "light"] as const;
 
+/** Pages must not scroll sideways at these widths, in either theme. */
+const DOCUMENT_SCROLL_WIDTHS = new Set([375, 768, 1024, 1280]);
+
 type LayoutIssue = {
   kind: string;
   text: string;
@@ -543,6 +546,21 @@ for (const theme of THEMES) {
         expect(issues, issues.map((issue) => `${issue.kind}: ${issue.text} (${issue.detail})`).join("\n")).toEqual(
           []
         );
+        if (DOCUMENT_SCROLL_WIDTHS.has(viewport.width)) {
+          const scrollWidth = await page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0);
+          expect(
+            scrollWidth,
+            `document.scrollingElement.scrollWidth ${scrollWidth}px at ${viewport.width}px`,
+          ).toBeLessThanOrEqual(viewport.width);
+        }
+        if (viewport.width === 375) {
+          const nav = page.getByRole("navigation", { name: "Primary" });
+          const box = await nav.boundingBox();
+          expect(box, "primary nav").not.toBeNull();
+          if (box) {
+            expect(box.height, "primary nav wraps onto a second line").toBeLessThanOrEqual(52);
+          }
+        }
       });
     }
   }

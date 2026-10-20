@@ -59,7 +59,7 @@ export default async function PriceCapPage() {
             pounds-per-year figures are not on the same basis as the current cap.
           </p>
           <Card className="mt-4">
-            <div className="overflow-x-auto">
+            <div className="relative min-w-0 overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-copy-14">
                 <caption className="sr-only">Ofgem price caps published so far</caption>
                 <thead className="text-label-13 text-gray-900">

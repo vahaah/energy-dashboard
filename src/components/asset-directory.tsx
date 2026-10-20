@@ -143,7 +143,7 @@ export function AssetDirectory({
       {result.rows.length === 0 ? (
         <p className="mt-4 text-copy-14 text-gray-900">No assets match these filters.</p>
       ) : (
-        <div className="mt-3 min-w-0 overflow-x-auto">
+        <div className="relative mt-3 min-w-0 overflow-x-auto">
           <table className="w-full min-w-[40rem] border-collapse text-left text-copy-14">
             <caption className="sr-only">
               {url.preset === "flows" ? "Electricity interconnectors and gas entry points" : "Power assets"}
@@ -157,7 +157,7 @@ export function AssetDirectory({
                       key={sort}
                       scope="col"
                       aria-sort={current ? (url.dir === "asc" ? "ascending" : "descending") : "none"}
-                      className="border-b border-gray-alpha-400 py-2 pr-3 font-medium"
+                      className="relative border-b border-gray-alpha-400 py-2 pr-3 font-medium"
                     >
                       <button
                         type="button"

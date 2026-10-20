@@ -171,7 +171,7 @@ export default async function RecordsPage() {
             reached each whole gigawatt from 10 GW up, since Grid&apos;s records began.
           </p>
           <Card className="mt-4">
-            <div className="overflow-x-auto">
+            <div className="relative min-w-0 overflow-x-auto">
               <table className="w-full min-w-[480px] text-left text-copy-14">
                 <caption className="sr-only">Wind milestones since Grid&apos;s records began</caption>
                 <thead className="text-label-13 text-gray-900">

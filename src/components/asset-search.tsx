@@ -55,7 +55,7 @@ export function AssetSearchButton() {
     <button
       ref={buttonRef}
       type="button"
-      className="inline-flex h-8 min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 text-gray-1000 sm:min-h-8"
+      className="inline-flex h-8 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 text-gray-1000 sm:min-h-8"
       aria-label="Search assets"
       aria-keyshortcuts="Control+K Meta+K"
       aria-haspopup="dialog"

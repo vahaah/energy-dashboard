@@ -156,7 +156,7 @@ export function PipelineTable({ rows, forcedEmpty = false }: { rows: PipelineTab
           </button>
         </div>
       ) : (
-        <div className="mt-3 max-w-full overflow-x-auto">
+        <div className="relative mt-3 min-w-0 max-w-full overflow-x-auto">
           <table className="w-full min-w-[40rem] border-collapse text-left">
             <caption className="sr-only">Renewable and storage projects in the GB pipeline</caption>
             <thead>
@@ -238,7 +238,7 @@ function SortHeader({
   const active = sort.key === sortKey;
   const arrow = active ? (sort.direction === "asc" ? "↑" : "↓") : "";
   return (
-    <th scope="col" className="py-2 pr-3 font-normal">
+    <th scope="col" className="relative py-2 pr-3 font-normal">
       <button type="button" className="inline-flex h-11 items-center gap-1 text-left" onClick={() => onSort(sortKey)}>
         {label}
         <span aria-hidden="true">{arrow}</span>
