@@ -8,6 +8,9 @@ import {
   CARBON_INTENSITY_FORECAST_NOTE,
   CC_BY_4_0_LICENSE_URL,
   DATA_SOURCE_IDS,
+  ONS_POSTCODE_ATTRIBUTION,
+  ONS_POSTCODE_ATTRIBUTION_LINES,
+  ONS_POSTCODE_LICENCE_READ_ON,
   captionCarbon,
   captionGeneration,
   EIRGRID_GROUP_ATTRIBUTION,
@@ -87,6 +90,7 @@ describe("Elexon BMRS attribution", () => {
       "eirgrid-group",
       "geonames",
       "elexon-isd",
+      "ons-nspl",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);
@@ -127,6 +131,18 @@ describe("Elexon BMRS attribution", () => {
     expect(eirgrid?.licence).toContain("20 Oct 2026");
     expect(eirgrid?.licence).toContain("15 Oct 2026");
     expect(EIRGRID_GROUP_LICENCE_READ_ON).toBe("2026-10-20");
+    const nspl = sources.find((source) => source.id === "ons-nspl");
+    expect(nspl?.attribution).toBe(ONS_POSTCODE_ATTRIBUTION);
+    expect(ONS_POSTCODE_ATTRIBUTION_LINES).toEqual([
+      "Contains OS data © Crown copyright and database right 2026",
+      "Contains Royal Mail data © Royal Mail copyright and database right 2026",
+      "Source: Office for National Statistics licensed under the Open Government Licence v.3.0",
+    ]);
+    expect(nspl?.licenceUrl).toBe(OGL_V3_LICENCE_URL);
+    expect(nspl?.licence).toContain("20 Oct 2026");
+    expect(nspl?.usedFor).toContain("Northern Ireland postcodes are not included");
+    expect(nspl?.usedFor).toContain("not inferred");
+    expect(ONS_POSTCODE_LICENCE_READ_ON).toBe("2026-10-20");
     const isd = sources.find((source) => source.id === "elexon-isd");
     expect(isd?.attribution).toBe(ELEXON_ISD_ATTRIBUTION);
     expect(isd?.licence).toContain("20 Oct 2026");

@@ -152,5 +152,16 @@
     "licence_url": "https://www.elexon.co.uk/bsc/data/industry-standing-data/",
     "attribution": "Industry Standing Data from the Elexon ISD Data Store. The store is publicly available. Grid shows the fields needed to look up a code. Elexon has not identified ISD under the BSC Open Data Licence, so Grid does not offer a download of the extract.",
     "cadence": "P1W"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "ons-nspl",
+    "name": "ONS National Statistics Postcode Lookup",
+    "url": "https://www.ons.gov.uk/methodology/geography/geographicalproducts/postcodeproducts",
+    "used_for": "Postcode to local authority, stored separately from the DNO licence area and the Carbon Intensity region. Local authority comes from the National Statistics Postcode Lookup. DNO and Carbon Intensity come from their own boundary layers and are not inferred from the authority. The lookup is published to Blob. Northern Ireland postcodes are not included. Grid does not offer a download of the ONS file.",
+    "licence": "Open Government Licence v3.0. Read on 20 Oct 2026. Postcode products are derived from Code-Point Open. Northern Ireland postcodes are excluded.",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "Contains OS data © Crown copyright and database right 2026\nContains Royal Mail data © Royal Mail copyright and database right 2026\nSource: Office for National Statistics licensed under the Open Government Licence v.3.0",
+    "cadence": "P3M"
   }
 ]

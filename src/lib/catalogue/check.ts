@@ -2,6 +2,7 @@ import { DATA_SOURCE_IDS } from "@/lib/attribution";
 import { checkAssetFiles } from "@/lib/catalogue/assets/check";
 import { checkLinkFiles } from "@/lib/catalogue/links/check";
 import { checkProjectFiles } from "@/lib/projects/check";
+import { postcodeReleaseErrors } from "@/lib/postcode/catalogue";
 import { checkToolsFile } from "@/lib/tools/check";
 import { checkStorageRecords } from "@/lib/storage/check";
 import { checkLayerCatalogue } from "@/lib/catalogue/layers-check";
@@ -342,6 +343,7 @@ export function checkCatalogue(dir: string, options: CheckCatalogueOptions = {})
   );
   errors.push(...checkProjectFiles(dir, { required: fullRegistry }));
   errors.push(...checkToolsFile(dir, { required: fullRegistry }));
+  errors.push(...postcodeReleaseErrors(loaded.releases.data.map((record) => record.release)));
 
   if (errors.length > 0) {
     return fail(errors);

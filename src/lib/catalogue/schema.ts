@@ -26,6 +26,7 @@ export const CATALOGUE_SOURCE_IDS = [
   "eirgrid-group",
   "geonames",
   "elexon-isd",
+  "ons-nspl",
 ] as const;
 
 /**
@@ -112,8 +113,8 @@ export const datasetSchema = z
     catalogue_key: requiredText,
     cadence: isoDurationSchema,
     metric_ids: z.array(requiredText),
-    /** Plant or project register. Empty `metric_ids`. Not a homepage series. */
-    register: z.enum(["assets", "projects"]).optional(),
+    /** Plant, project, or lookup register. Empty `metric_ids`. Not a homepage series. */
+    register: z.enum(["assets", "projects", "lookup"]).optional(),
   })
   .strict()
   .refine(

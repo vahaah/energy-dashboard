@@ -1,0 +1,40 @@
+{
+  "rows": {
+    "SW1A1AA": {
+      "la": { "code": "E09000033", "name": "Westminster" },
+      "dno": { "id": "ukpn-london", "name": "London" },
+      "ci": { "id": 13, "name": "London" },
+      "terminated": false
+    },
+    "SY11HQ": {
+      "la": { "code": "E06000051", "name": "Shropshire" },
+      "dno": { "id": "nged-west-midlands", "name": "West Midlands" },
+      "ci": { "id": 8, "name": "West Midlands" },
+      "terminated": false
+    },
+    "SY107AA": {
+      "la": { "code": "E06000051", "name": "Shropshire" },
+      "dno": { "id": "spen-manweb", "name": "North Wales, Merseyside and Cheshire" },
+      "ci": { "id": 6, "name": "North Wales & Merseyside" },
+      "terminated": false
+    },
+    "CH12HQ": {
+      "la": { "code": "E06000050", "name": "Cheshire West and Chester" },
+      "dno": { "id": "spen-manweb", "name": "North Wales, Merseyside and Cheshire" },
+      "ci": { "id": 6, "name": "North Wales & Merseyside" },
+      "terminated": false
+    },
+    "TD151BN": {
+      "la": { "code": "E06000057", "name": "Northumberland" },
+      "dno": { "id": "spen-distribution", "name": "South and Central Scotland" },
+      "ci": { "id": 2, "name": "South Scotland" },
+      "terminated": false
+    },
+    "W1A0AA": {
+      "la": { "code": "E09000033", "name": "Westminster" },
+      "dno": null,
+      "ci": null,
+      "terminated": true
+    }
+  }
+}

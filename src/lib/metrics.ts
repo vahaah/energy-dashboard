@@ -83,6 +83,7 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   "eirgrid-group": "EirGrid Group",
   geonames: "GeoNames",
   "elexon-isd": "Elexon ISD",
+  "ons-nspl": "ONS National Statistics Postcode Lookup",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {

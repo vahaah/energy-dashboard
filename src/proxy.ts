@@ -64,7 +64,10 @@ function checkLimit(ip: string): { allowed: boolean; remaining: number } {
 function corsHeaders(pathname: string): Headers {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", "*");
-  const methods = pathname === "/api/v1/identifiers/resolve" ? "GET, POST, OPTIONS" : "GET, OPTIONS";
+  const methods =
+    pathname === "/api/v1/identifiers/resolve" || pathname === "/api/v1/postcode"
+      ? "GET, POST, OPTIONS"
+      : "GET, OPTIONS";
   headers.set("Access-Control-Allow-Methods", methods);
   headers.set("Access-Control-Allow-Headers", "Content-Type");
   return headers;
