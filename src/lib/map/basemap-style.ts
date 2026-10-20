@@ -1,4 +1,5 @@
 import {
+  BASEMAP_DETAIL_MIN_ZOOM,
   BASEMAP_FONTSTACK,
   BASEMAP_GLYPHS,
   BASEMAP_SOURCE_URL,
@@ -13,11 +14,19 @@ export type BasemapTheme = (typeof BASEMAP_THEMES)[number];
 /**
  * Hex values copied from the Geist tokens in `src/app/globals.css`.
  * Water and woodland are desaturated washes so the basemap stays behind the data.
+ *
+ * Zoomstack publishes sea polygons only inside a box around Britain (about
+ * 12°W–4°E, 49°N–62°N). Land is the part of that box the sea does not cover.
+ * The map background is sea, so the rest of the canvas is water rather than
+ * the page colour. A land polygon the size of that box sits under the sea fill.
+ * The coastline is a separate line. Sea polygons are clipped to each vector
+ * tile, so outlining those fills draws the tile grid and the extract box.
  */
 const THEME_COLORS = {
   light: {
-    background: "#fafafa",
-    sea: "#e7eef3",
+    land: "#f3f1ec",
+    sea: "#c5d7e6",
+    coast: "#5e6d78",
     foreshore: "#eef3f6",
     woodland: "#e6f0ea",
     urban: "#f5f5f5",
@@ -33,8 +42,9 @@ const THEME_COLORS = {
     halo: "#ffffff",
   },
   dark: {
-    background: "#0a0a0a",
-    sea: "#101820",
+    land: "#2c2e32",
+    sea: "#0d1b27",
+    coast: "#8b98a4",
     foreshore: "#141c24",
     woodland: "#122018",
     urban: "#1a1a1a",
@@ -64,6 +74,38 @@ type StyleLayer = {
   layout?: Record<string, unknown>;
   paint?: Record<string, unknown>;
 };
+
+/**
+ * Geographic box of the sea features in the 2026-06 Zoomstack archive, read
+ * from the z0 tile. The land fill uses this box. Outside it the sea background
+ * continues, which is what the tiles do not draw.
+ */
+const ZOOMSTACK_LAND_EXTENT = {
+  west: -11.865234375,
+  south: 49.38237278700956,
+  east: 3.603515625,
+  north: 61.56457388515458,
+} as const;
+
+function landExtentFeature(): Record<string, unknown> {
+  const { west, south, east, north } = ZOOMSTACK_LAND_EXTENT;
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [west, south],
+          [east, south],
+          [east, north],
+          [west, north],
+          [west, south],
+        ],
+      ],
+    },
+  };
+}
 
 function fill(id: string, sourceLayer: string, color: string, minzoom: number, maxzoom?: number): StyleLayer {
   return {
@@ -144,8 +186,34 @@ function names(id: string, types: readonly string[], minzoom: number, size: numb
 export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record<string, unknown> {
   const color = THEME_COLORS[theme];
   const layers: StyleLayer[] = [
-    { id: "background", type: "background", paint: { "background-color": color.background } },
-    fill("sea", "sea", color.sea, 0),
+    { id: "background", type: "background", paint: { "background-color": color.sea } },
+    {
+      id: "land",
+      type: "fill",
+      source: "land-extent",
+      paint: { "fill-color": color.land },
+    },
+    {
+      id: "sea",
+      type: "fill",
+      source: "zoomstack",
+      "source-layer": "sea",
+      minzoom: 0,
+      paint: {
+        "fill-color": color.sea,
+        "fill-opacity": 1,
+      },
+    },
+    {
+      id: "coast",
+      type: "line",
+      source: "coastline",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": color.coast,
+        "line-width": 1.5,
+      },
+    },
     fill("urban-areas", "urban_areas", color.urban, 5, 11),
     fill("woodland", "woodland", color.woodland, 6),
     fill("foreshore", "foreshore", color.foreshore, 8),
@@ -178,7 +246,7 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
       minzoom: 5,
       paint: { "line-color": color.boundary, "line-width": 0.6 },
     },
-    names("names-country", ["Country"], 4, 13, color.label, color.halo),
+    names("names-country", ["Country"], BASEMAP_DETAIL_MIN_ZOOM, 13, color.label, color.halo),
     names("names-city", ["Capital", "City"], 6, 12, color.label, color.halo),
     names("names-town", ["Town"], 8, 11, color.label, color.halo),
   ];
@@ -198,6 +266,14 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
         attribution: osBasemapAttribution(copyrightYear),
         minzoom: BASEMAP_ZOOM_MIN,
         maxzoom: BASEMAP_ZOOM_MAX,
+      },
+      "land-extent": {
+        type: "geojson",
+        data: landExtentFeature(),
+      },
+      coastline: {
+        type: "geojson",
+        data: "/basemap/coastline.geojson",
       },
     },
     sprite: `/basemap/sprites/${theme}`,

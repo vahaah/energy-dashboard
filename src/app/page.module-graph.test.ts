@@ -22,7 +22,7 @@ function resolveSpecifier(fromFile: string, specifier: string): string | null {
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
-function moduleGraph(entry: string): string[] {
+function moduleGraph(entry: string, includeDynamic = true): string[] {
   const seen = new Set<string>();
   const pending = [entry];
   while (pending.length > 0) {
@@ -34,8 +34,10 @@ function moduleGraph(entry: string): string[] {
     if (!file.endsWith(".ts") && !file.endsWith(".tsx") && !file.endsWith(".js")) {
       continue;
     }
-    const source = readFileSync(file, "utf8");
-    const specifiers = [IMPORT_FROM, IMPORT_BARE, IMPORT_DYNAMIC].flatMap((pattern) =>
+    const raw = readFileSync(file, "utf8");
+    const source = includeDynamic ? raw : raw.replace(/import\s+type\s+[\s\S]*?from\s+["'][^"']+["'];?/g, "");
+    const patterns = includeDynamic ? [IMPORT_FROM, IMPORT_BARE, IMPORT_DYNAMIC] : [IMPORT_FROM, IMPORT_BARE];
+    const specifiers = patterns.flatMap((pattern) =>
       [...source.matchAll(pattern)].map((match) => match[1] ?? ""),
     );
     for (const specifier of specifiers) {
@@ -60,6 +62,8 @@ describe("homepage module graph", () => {
     expect(files.some((file) => file === "maplibre-gl" || file === "pmtiles" || file.startsWith("maplibre-gl/") || file.startsWith("pmtiles/"))).toBe(false);
     const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
     expect(joined).not.toMatch(/["']maplibre-gl["']/);
+    expect(joined).not.toMatch(/maplibre-gl\.css/);
+    expect(joined).not.toMatch(/maplibre\.css/);
     expect(joined).not.toMatch(/["']pmtiles["']/);
     expect(files.some((file) => file.endsWith("static-map.ts") || file.endsWith("today-card-build.ts"))).toBe(false);
     expect(files.some((file) => file.includes(`${join("ingest", "national-gas")}`))).toBe(false);
@@ -76,6 +80,18 @@ describe("homepage module graph", () => {
     expect(joined).not.toContain("/api/v1/gas");
     expect(joined).not.toContain("releases/gas/");
     expect(joined).not.toContain("/tiles/");
+  });
+
+  it("keeps MapLibre off the static graph of /map so a homepage prefetch cannot pull it", () => {
+    const entry = resolve(process.cwd(), "src/app/map/page.tsx");
+    const page = readFileSync(entry, "utf8");
+    expect(page).not.toMatch(/maplibre/);
+    const files = moduleGraph(entry, false);
+    const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
+    expect(files.some((file) => file === "maplibre-gl" || file.endsWith("maplibre.css") || file.includes("maplibre-gl"))).toBe(false);
+    expect(joined).not.toMatch(/import\s+["'][^"']*maplibre/);
+    expect(joined).not.toMatch(/from\s+["']maplibre-gl["']/);
+    expect(joined).not.toMatch(/from\s+["']pmtiles["']/);
   });
 
   it("does not import maplibre-gl or pmtiles from an asset page", () => {

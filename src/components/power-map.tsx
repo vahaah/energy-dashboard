@@ -60,8 +60,8 @@ export function PowerMap({
       return;
     }
     let disposed = false;
-    void import("@/lib/map/browser")
-      .then((mod) => {
+    void Promise.all([import("@/app/map/maplibre.css"), import("@/lib/map/browser")])
+      .then(([, mod]) => {
         if (disposed || !ref.current) {
           return;
         }
@@ -134,11 +134,9 @@ export function PowerMap({
 
   return (
     <div className="min-w-0">
-      <div
-        ref={ref}
-        data-map-status={status}
-        className={`power-map w-full min-w-0 overflow-hidden rounded-lg bg-background-200 ${className}`}
-      />
+      <div className={`power-map relative w-full min-w-0 overflow-hidden rounded-lg bg-background-200 ${className}`}>
+        <div ref={ref} data-map-status={status} className="h-full w-full" />
+      </div>
       {status === "error" ? (
         <p className="pt-3 text-copy-14 text-gray-900" role="status">
           Basemap tiles did not load. The asset list is still available.

@@ -7,7 +7,12 @@ test.beforeEach(async ({ page }) => {
 test("homepage does not request maplibre or pmtiles", async ({ page }) => {
   const urls: string[] = [];
   page.on("request", (request) => urls.push(request.url()));
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/", { waitUntil: "networkidle" });
+  const mapLink = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Map" });
+  await expect(mapLink).toBeVisible();
+  await mapLink.hover();
+  await expect.poll(() => urls.some((url) => /\/map\?_rsc=/.test(url)), { timeout: 10_000 }).toBe(true);
   const joined = urls.join("\n");
   expect(joined).not.toMatch(/maplibre/i);
   expect(joined).not.toMatch(/pmtiles/i);

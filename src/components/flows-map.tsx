@@ -9,6 +9,7 @@ import { NI_FLOW_NOTE } from "@/lib/attribution";
 import { NI_PATH } from "@/lib/eirgrid/copy";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FLOW_SHEET_PEEK_PX } from "@/lib/map/constants";
 import {
   ELECTRICITY_STALE_MS,
   GAS_STALE_MS,
@@ -35,7 +36,7 @@ import type { StationFeatureCollection } from "@/lib/map/stations-layer";
 import type { MarkerShape } from "@/lib/map/marker";
 
 type Preset = "flows" | "stations";
-type Snap = 140 | 430 | "full";
+type Snap = typeof FLOW_SHEET_PEEK_PX | 430 | "full";
 
 type StationPick = {
   id: string;
@@ -215,7 +216,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [station, setStation] = useState<StationPick | null>(null);
   const [stations, setStations] = useState<StationFeatureCollection | null>(null);
-  const [snap, setSnap] = useState<Snap>(140);
+  const [snap, setSnap] = useState<Snap>(FLOW_SHEET_PEEK_PX);
   const [about, setAbout] = useState(false);
   const [now, setNow] = useState<number | null>(null);
 
@@ -260,8 +261,10 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       return;
     }
     let disposed = false;
-    void import("@/lib/map/flows-browser")
-      .then((mod) => {
+    // CSS stays on this dynamic import. A static import on the page is part of
+    // the /map prefetch, and the header link prefetches that route from /.
+    void Promise.all([import("@/app/map/maplibre.css"), import("@/lib/map/flows-browser")])
+      .then(([, mod]) => {
         if (disposed || !mapRef.current || !overlayRef.current) {
           return;
         }
@@ -651,7 +654,9 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         <FlowList features={model.features} selectedId={selectedId} onSelect={choose} />
       </aside>
       <div className="relative min-h-0 min-w-0 flex-1">
-        <div ref={mapRef} className="absolute inset-0" data-map-status={status} />
+        <div className="absolute inset-0">
+          <div ref={mapRef} className="h-full w-full" data-map-status={status} />
+        </div>
         <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (
@@ -686,7 +691,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           <button
             type="button"
             className="text-label-13 text-blue-700"
-            onClick={() => setSnap(snap === 140 ? 430 : snap === 430 ? "full" : 140)}
+            onClick={() => setSnap(snap === FLOW_SHEET_PEEK_PX ? 430 : snap === 430 ? "full" : FLOW_SHEET_PEEK_PX)}
           >
             {snap === "full" ? "Collapse" : "Expand"}
           </button>

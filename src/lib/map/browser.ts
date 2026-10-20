@@ -1,12 +1,13 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
+import { basemapStartupFailed } from "@/lib/map/startup-error";
 import {
   assetFeatureCollection,
   capacityRadiusExpression,
   technologyColorExpression,
 } from "@/lib/map/asset-layer";
+import { BASEMAP_DETAIL_MIN_ZOOM, GB_FRAME_BOUNDS, MAP_CAMERA_MIN_ZOOM, MAP_MAX_BOUNDS } from "@/lib/map/constants";
 import type { MapBounds } from "@/lib/map/counts";
 import { interconnectorFeatureCollection, type InterconnectorLine } from "@/lib/map/interconnector-layer";
 import type { MapPoint } from "@/lib/assets/types";
@@ -81,6 +82,7 @@ export function mountPowerMap(
   let selectedId = options.selectedId;
   let framed = false;
   let ready = false;
+  let styleLoaded = false;
   let basemapLoaded = false;
   let lineClicksBound = false;
 
@@ -93,7 +95,9 @@ export function mountPowerMap(
     cooperativeGestures: true,
     fadeDuration: reduceMotion ? 0 : 300,
     center: [-2.5, 54.5],
-    zoom: 5,
+    zoom: BASEMAP_DETAIL_MIN_ZOOM,
+    minZoom: MAP_CAMERA_MIN_ZOOM,
+    maxBounds: MAP_MAX_BOUNDS,
   });
   map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), "top-right");
 
@@ -303,36 +307,30 @@ export function mountPowerMap(
       });
       return;
     }
-    if (points.length === 0) {
-      return;
-    }
-    if (points.length === 1) {
-      const only = points[0];
-      if (only) {
-        map.jumpTo({ center: [only.longitude, only.latitude], zoom: 10 });
-      }
-      return;
-    }
-    const first = points[0];
-    if (!first) {
-      return;
-    }
-    let west = first.longitude;
-    let east = first.longitude;
-    let south = first.latitude;
-    let north = first.latitude;
+    let west = GB_FRAME_BOUNDS.west;
+    let east = GB_FRAME_BOUNDS.east;
+    let south = GB_FRAME_BOUNDS.south;
+    let north = GB_FRAME_BOUNDS.north;
     for (const point of points) {
       west = Math.min(west, point.longitude);
       east = Math.max(east, point.longitude);
       south = Math.min(south, point.latitude);
       north = Math.max(north, point.latitude);
     }
+    for (const line of lines) {
+      west = Math.min(west, line.gbLongitude, line.remoteLongitude);
+      east = Math.max(east, line.gbLongitude, line.remoteLongitude);
+      south = Math.min(south, line.gbLatitude, line.remoteLatitude);
+      north = Math.max(north, line.gbLatitude, line.remoteLatitude);
+    }
+    const width = container.clientWidth;
+    const padding = width < 720 ? { top: 36, right: 44, bottom: 20, left: 12 } : 48;
     map.fitBounds(
       [
         [west, south],
         [east, north],
       ],
-      { padding: 36, maxZoom: 8, animate: false },
+      { padding, maxZoom: 6.5, animate: false },
     );
   }
 
@@ -359,7 +357,17 @@ export function mountPowerMap(
     }
   }
 
-  map.on("style.load", paint);
+  map.on("style.load", () => {
+    styleLoaded = true;
+    paint();
+  });
+  map.on("resize", () => {
+    if (selectedId) {
+      return;
+    }
+    framed = false;
+    frame();
+  });
   map.on("moveend", reportBounds);
   map.on("click", "asset-clusters", (event) => {
     const feature = event.features?.[0];
@@ -410,10 +418,9 @@ export function mountPowerMap(
     if (process.env.NODE_ENV === "development") {
       console.error(ev.error);
     }
-    if (basemapLoaded) {
-      return;
+    if (basemapStartupFailed(ev, styleLoaded, basemapLoaded)) {
+      options.onStatus("error");
     }
-    options.onStatus("error");
   });
   map.setStyle(styleUrl(theme), { transformStyle });
 
@@ -464,6 +471,10 @@ export function mountPowerMap(
         return;
       }
       theme = next;
+      styleLoaded = false;
+      basemapLoaded = false;
+      ready = false;
+      framed = false;
       map.setStyle(styleUrl(next), { transformStyle });
     },
     setSelected: (id: string | null) => {

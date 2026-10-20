@@ -25,15 +25,50 @@ describe("basemap style", () => {
       expect(checkedIn.sources.zoomstack.attribution).toBe(osBasemapAttribution(2026));
       expect(JSON.stringify(checkedIn)).not.toMatch(/openstreetmap|osm\.org|tile\.openstreetmap/i);
     }
-    expect(themeColor("light", "background")).toBe("#fafafa");
+    expect(themeColor("light", "land")).toBe("#f3f1ec");
+    expect(themeColor("light", "sea")).toBe("#c5d7e6");
+    expect(themeColor("light", "coast")).toBe("#5e6d78");
+    expect(themeColor("dark", "land")).toBe("#2c2e32");
+    expect(themeColor("dark", "sea")).toBe("#0d1b27");
+    expect(themeColor("dark", "coast")).toBe("#8b98a4");
+    for (const token of ["land", "sea", "coast"] as const) {
+      for (const theme of ["light", "dark"] as const) {
+        expect(["#ffffff", "#fafafa", "#0a0a0a", "#000000"]).not.toContain(themeColor(theme, token));
+      }
+    }
     expect(themeColor("light", "label")).toBe("#525252");
-    expect(themeColor("dark", "background")).toBe("#0a0a0a");
     expect(themeColor("dark", "label")).toBe("#a1a1a1");
     expect(themeColor("light", "roadLocal")).toBe("#d4d4d4");
     expect(themeColor("dark", "roadLocal")).toBe("#2e2e2e");
     const light = basemapStyle("light", 2026);
     expect(light.glyphs).toBe("/basemap/glyphs/{fontstack}/{range}.pbf");
     expect(JSON.stringify(light)).toContain(BASEMAP_FONTSTACK);
+    expect(JSON.stringify(light)).toContain("land-extent");
+    expect(JSON.stringify(light)).toContain("/basemap/coastline.geojson");
+    expect(JSON.stringify(light)).not.toContain("fill-outline-color");
+    const coast = JSON.parse(readFileSync(resolve(process.cwd(), "public/basemap/coastline.geojson"), "utf8")) as {
+      features: { geometry: { type: string; coordinates: number[][][] } }[];
+    };
+    const lines = coast.features[0]?.geometry.coordinates ?? [];
+    expect(coast.features[0]?.geometry.type).toBe("MultiLineString");
+    expect(lines.length).toBeGreaterThan(100);
+    const clipEast = 3.603515625;
+    const verticalBox = lines.some((line) => {
+      let minLat = 90;
+      let maxLat = -90;
+      let minLon = 180;
+      let maxLon = -180;
+      for (const point of line) {
+        const lon = point[0] ?? 0;
+        const lat = point[1] ?? 0;
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+        minLon = Math.min(minLon, lon);
+        maxLon = Math.max(maxLon, lon);
+      }
+      return maxLat - minLat > 1 && maxLon - minLon < 0.05 && Math.abs(minLon - clipEast) < 0.05;
+    });
+    expect(verticalBox).toBe(false);
   });
 
   it("checks in a Geist glyph stack and empty sprites", () => {
@@ -43,11 +78,20 @@ describe("basemap style", () => {
     expect(glyphs.name).toBe(BASEMAP_FONTSTACK);
     expect(glyphs.range).toBe("0-255");
     const letter = glyphs.glyphs.find((glyph) => glyph.id === 65);
-    expect(letter?.advance).toBeGreaterThan(0);
-    expect(letter?.bitmap.length).toBeGreaterThan(0);
+    expect(letter).toBeDefined();
+    if (!letter) {
+      return;
+    }
+    expect(letter.advance).toBeGreaterThan(0);
+    expect(letter.bitmap.length).toBe((letter.width + 6) * (letter.height + 6));
     const sprite = readFileSync(resolve(process.cwd(), "public/basemap/sprites/light.json"), "utf8");
     expect(sprite.trim()).toBe("{}");
     expect(readFileSync(resolve(process.cwd(), "public/basemap/sprites/dark.png"))[0]).toBe(137);
+    const script = readFileSync(resolve(process.cwd(), "scripts/basemap/glyphs.ts"), "utf8");
+    expect(script).toContain("left: glyphLeft,");
+    expect(script).toContain("top: glyphTop,");
+    expect(script).not.toContain("glyphLeft - BUFFER");
+    expect(script).not.toContain("glyphTop + BUFFER");
   });
 
   it("stamps the edition year onto the style source when the PMTiles URL changes", () => {
