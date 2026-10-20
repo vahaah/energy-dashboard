@@ -5,7 +5,6 @@ import type { MapPoint } from "@/lib/assets/types";
 import type { MapBounds } from "@/lib/map/counts";
 import type { MapTheme, PowerMapHandle } from "@/lib/map/browser";
 import type { InterconnectorLine } from "@/lib/map/interconnector-layer";
-import "@/app/map/maplibre.css";
 
 /**
  * maplibre-gl and pmtiles load through this dynamic import so the homepage
@@ -61,8 +60,8 @@ export function PowerMap({
       return;
     }
     let disposed = false;
-    void import("@/lib/map/browser")
-      .then((mod) => {
+    void Promise.all([import("@/app/map/maplibre.css"), import("@/lib/map/browser")])
+      .then(([, mod]) => {
         if (disposed || !ref.current) {
           return;
         }

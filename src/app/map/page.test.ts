@@ -30,10 +30,12 @@ describe("map and asset pages", () => {
     expect(map).not.toContain("loadAssetCatalogue");
     expect(map).not.toContain("queryPipe");
     expect(map).not.toContain("maplibre-gl");
-    expect(map).toContain('import "./maplibre.css"');
+    expect(map).not.toContain("maplibre.css");
     expect(source("src/app/map/maplibre.css")).toContain('@import "maplibre-gl/dist/maplibre-gl.css" layer(base)');
     const flows = source("src/components/flows-map.tsx");
+    expect(flows).toContain('import("@/app/map/maplibre.css")');
     expect(flows).toContain('import("@/lib/map/flows-browser")');
+    expect(flows).not.toContain('import "@/app/map/maplibre.css"');
     expect(flows).not.toContain('from "maplibre-gl"');
     expect(flows).toContain('className="h-full w-full"');
     expect(flows).toContain("absolute inset-0");
@@ -43,7 +45,9 @@ describe("map and asset pages", () => {
     expect(source("src/lib/map/flows-release.ts")).not.toContain("queryPipe");
     const search = source("src/components/asset-search.tsx");
     const dialog = source("src/components/asset-search-dialog.tsx");
+    expect(power).toContain('import("@/app/map/maplibre.css")');
     expect(power).toContain('import("@/lib/map/browser")');
+    expect(power).not.toContain('import "@/app/map/maplibre.css"');
     expect(power).not.toContain('from "maplibre-gl"');
     expect(power).toContain('className="h-full w-full"');
     expect(source("src/lib/map/browser.ts")).not.toContain("maplibre-gl.css");

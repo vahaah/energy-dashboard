@@ -261,8 +261,10 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       return;
     }
     let disposed = false;
-    void import("@/lib/map/flows-browser")
-      .then((mod) => {
+    // CSS stays on this dynamic import. A static import on the page is part of
+    // the /map prefetch, and the header link prefetches that route from /.
+    void Promise.all([import("@/app/map/maplibre.css"), import("@/lib/map/flows-browser")])
+      .then(([, mod]) => {
         if (disposed || !mapRef.current || !overlayRef.current) {
           return;
         }
