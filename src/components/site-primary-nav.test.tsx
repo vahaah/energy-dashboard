@@ -24,17 +24,18 @@ describe("primary nav", () => {
     expect(home).not.toContain('href="/system/carbon"');
     expect(home).not.toContain('href="/system/transfers"');
     expect(home).toContain("Directory and tools");
-    expect(home).toContain('href="/directory"');
+    expect(home).toContain('href="/changes"');
     expect(home.indexOf(">Assets<")).toBeLessThan(home.indexOf("Directory and tools"));
-    expect(home.indexOf("Directory and tools")).toBeLessThan(home.indexOf(">API<"));
+    expect(home.indexOf("Directory and tools")).toBeLessThan(home.indexOf(">Changes<"));
+    expect(home.indexOf(">Changes<")).toBeLessThan(home.indexOf(">API<"));
 
     const directory = renderToStaticMarkup(<SitePrimaryNav pathname="/directory/identifiers" idPrefix="test" />);
-    expect(directory).toMatch(/<a[^>]*aria-current="page"[^>]*>Directory and tools<\/a>/);
+    expect(directory).toMatch(/<button[^>]*aria-current="page"[^>]*>Directory and tools/);
 
     const compact = renderToStaticMarkup(<SitePrimaryNav pathname="/directory" idPrefix="test" compact />);
     expect(compact).toContain(">Directory<");
     expect(compact).not.toContain("Directory and tools");
-    expect(compact).toMatch(/<a[^>]*aria-current="page"[^>]*>Directory<\/a>/);
+    expect(compact).toMatch(/<button[^>]*aria-current="page"[^>]*>Directory</);
 
     const api = renderToStaticMarkup(<SitePrimaryNav pathname="/api" idPrefix="test" />);
     expect(api).toMatch(/<a[^>]*aria-current="page"[^>]*>API<\/a>/);

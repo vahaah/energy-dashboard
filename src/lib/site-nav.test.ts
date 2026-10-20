@@ -52,6 +52,8 @@ describe("site nav shell", () => {
       "/projects",
       "/electricity/northern-ireland",
       "/directory",
+      "/tools",
+      "/changes",
       "/api",
     ]);
     expect(visibleHeaderNav().map((item) => item.label)).toEqual([
@@ -61,6 +63,7 @@ describe("site nav shell", () => {
       "Assets",
       "System",
       "Directory and tools",
+      "Changes",
       "API",
     ]);
     expect(hiddenNavHrefs()).toEqual([
@@ -76,6 +79,7 @@ describe("site nav shell", () => {
       "Assets",
       "System",
       "Directory and tools",
+      "Changes",
       "API",
     ]);
   });
@@ -98,6 +102,8 @@ describe("site nav shell", () => {
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/electricity/northern-ireland");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory");
     expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/directory/identifiers");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/tools");
+    expect(SITEMAP_PATHS.map((entry) => entry.path)).toContain("/changes");
     expect(urls).toContain("/api");
     expect(urls).toContain("/");
   });

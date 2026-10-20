@@ -22,6 +22,8 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/projects",
       "https://grid.vahaah.com/directory",
       "https://grid.vahaah.com/directory/identifiers",
+      "https://grid.vahaah.com/tools",
+      "https://grid.vahaah.com/changes",
       "https://grid.vahaah.com/llms.txt",
       "https://grid.vahaah.com/records",
       "https://grid.vahaah.com/explained/price-cap",
@@ -71,6 +73,8 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/projects", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/directory", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/directory/identifiers", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/tools", stamps)).toBeUndefined();
+    expect(lastModifiedForPath("/changes", stamps)).toBeUndefined();
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
       "2026-10-09T00:00:00.000Z"
     );

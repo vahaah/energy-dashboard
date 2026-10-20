@@ -20,13 +20,15 @@ export type SiteNavMenu = {
   kind: "menu";
   id: string;
   label: string;
+  /** Short header label below the md breakpoint. */
+  compactLabel?: string;
   items: SiteNavMenuItem[];
 };
 
 export type SiteNavEntry = SiteNavLink | SiteNavMenu;
 
 /**
- * Header order: Today, Gas, Map, Assets, System, Directory and tools, API.
+ * Header order: Today, Gas, Map, Assets, System, Directory and tools, Changes, API.
  * An item renders only when its page module is in SHIPPED_PAGE_ROUTES.
  */
 export const SITE_NAV_CATALOG: SiteNavEntry[] = [
@@ -40,7 +42,17 @@ export const SITE_NAV_CATALOG: SiteNavEntry[] = [
     label: "System",
     items: SYSTEM_NAV_ITEMS.map((item) => ({ ...item })),
   },
-  { kind: "link", id: "directory", label: "Directory and tools", compactLabel: "Directory", href: "/directory" },
+  {
+    kind: "menu",
+    id: "directory",
+    label: "Directory and tools",
+    compactLabel: "Directory",
+    items: [
+      { id: "directory", label: "Directory", href: "/directory" },
+      { id: "tools", label: "Tools", href: "/tools" },
+    ],
+  },
+  { kind: "link", id: "changes", label: "Changes", href: "/changes" },
   { kind: "link", id: "api", label: "API", href: "/api" },
 ];
 
@@ -53,6 +65,8 @@ export const SHIPPED_PAGE_ROUTES = [
   "/data-sources",
   "/directory",
   "/directory/identifiers",
+  "/tools",
+  "/changes",
   "/explained/price-cap",
   "/gas",
   "/map",

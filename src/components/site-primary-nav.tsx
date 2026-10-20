@@ -48,6 +48,7 @@ export function SitePrimaryNav({
               <SiteNavMenu
                 key={item.id}
                 label={item.label}
+                shownLabel={compact && item.compactLabel ? item.compactLabel : item.label}
                 items={item.items}
                 pathname={pathname}
                 menuId={`${idPrefix}-${item.id}`}
@@ -78,11 +79,13 @@ export function ConnectedSitePrimaryNav({
 
 function SiteNavMenu({
   label,
+  shownLabel,
   items,
   pathname,
   menuId,
 }: {
   label: string;
+  shownLabel: string;
   items: SiteNavMenuItem[];
   pathname: string;
   menuId: string;
@@ -159,7 +162,7 @@ function SiteNavMenu({
           }
         }}
       >
-        {label}
+        {shownLabel}
         <ChevronDown className={`size-3.5 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       {open ? (

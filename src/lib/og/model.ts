@@ -49,6 +49,8 @@ export const OG_PAGE_IDS = [
   "whole-energy",
   "projects",
   "northern-ireland",
+  "tools",
+  "changes",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -147,12 +149,9 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
   },
   api: {
     eyebrow: gridEyebrow("API"),
-    title: "Free GB electricity data API",
-    kicker: "JSON, no key, 60 requests a minute.",
-    metrics: [
-      { label: "Licence", value: "CC BY 4.0" },
-      { label: "Rate limit", value: "60 / min" },
-    ],
+    title: "What data can I get from Grid, and how?",
+    kicker: "JSON for the figures on the dashboard. Free, no account, rate limited.",
+    metrics: [{ label: "Rate limit", value: "60 / min" }],
     mix: [],
     stamp: null,
     source: null,
@@ -271,6 +270,24 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records">, Omit<OgCard, "cached">> 
     stamp: null,
     source: `${EIRGRID_GROUP_ATTRIBUTION}. Source: SONI. Source: SEMO.`,
   },
+  tools: {
+    eyebrow: gridEyebrow("Tools"),
+    title: "Where do I go to do this?",
+    kicker: "Official and useful services, grouped by task.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: null,
+  },
+  changes: {
+    eyebrow: gridEyebrow("Changes"),
+    title: "What has changed, and how do we know?",
+    kicker: "Changes found in published data, each with its source and comparison.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: NESO_OPEN_DATA_ATTRIBUTION,
+  },
 };
 
 export function parseOgFocus(value: string | null): OgFocus {
@@ -337,6 +354,8 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "whole-energy":
     case "projects":
     case "northern-ireland":
+    case "tools":
+    case "changes":
       return { ...LEGAL_CARDS[page], cached: true };
     default: {
       const exhaustive: never = page;
@@ -757,6 +776,8 @@ function pageCacheControl(page: OgPageId): string {
     case "assets":
     case "whole-energy":
     case "projects":
+    case "tools":
+    case "changes":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

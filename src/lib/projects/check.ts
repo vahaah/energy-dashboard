@@ -108,8 +108,19 @@ export function checkProjectFiles(dir: string, options: { required: boolean }): 
     errors.push(`${CHANGE_EVENTS_FILE}: ${changes.error.issues.map((issue) => issue.message).join("; ")}`);
   } else {
     for (const event of changes.data.events) {
-      if (event.comparison !== "field" && event.comparison !== "not_in_release") {
-        errors.push(`${CHANGE_EVENTS_FILE}: ${event.entity} comparison is not a known method`);
+      switch (event.comparison) {
+        case "field":
+        case "not_in_release":
+        case "correction":
+          break;
+        default: {
+          const comparison: never = event.comparison;
+          errors.push(`${CHANGE_EVENTS_FILE}: ${event.entity} comparison is not a known method (${String(comparison)})`);
+          break;
+        }
+      }
+      if (event.old_release_id.length === 0 || event.new_release_id.length === 0) {
+        errors.push(`${CHANGE_EVENTS_FILE}: ${event.entity} is missing a release id`);
       }
       if (event.old === "cancelled" || event.new === "cancelled") {
         errors.push(`${CHANGE_EVENTS_FILE}: ${event.entity} uses cancelled`);

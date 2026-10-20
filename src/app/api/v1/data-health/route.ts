@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { API_ERROR_SOURCE_UNAVAILABLE, scopeRejection, unsupportedFilter } from "@/lib/api/errors";
 import { cdnCacheHeaders } from "@/lib/api-route";
 import { loadDataHealth } from "@/lib/data-health";
 
@@ -13,9 +14,25 @@ import { loadDataHealth } from "@/lib/data-health";
  */
 const DATA_HEALTH_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=86400";
 
-export async function GET() {
+const ALLOWED = new Set(["scope", "geography"]);
+
+export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const scope = scopeRejection(params);
+  if (scope) {
+    return NextResponse.json(scope.body, { status: scope.status });
+  }
+  const extra = unsupportedFilter(params, ALLOWED);
+  if (extra) {
+    return NextResponse.json(extra.body, { status: extra.status });
+  }
   const now = new Date();
-  const readings = await loadDataHealth(now);
+  let readings;
+  try {
+    readings = await loadDataHealth(now);
+  } catch {
+    return NextResponse.json({ error: API_ERROR_SOURCE_UNAVAILABLE }, { status: 503 });
+  }
   return NextResponse.json(
     {
       checkedAt: now.toISOString(),

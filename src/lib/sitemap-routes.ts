@@ -13,6 +13,8 @@ const SITEMAP_CANDIDATES = [
   { path: "/projects", changeFrequency: "weekly" as const, priority: 0.7 },
   { path: "/directory", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/directory/identifiers", changeFrequency: "weekly" as const, priority: 0.6 },
+  { path: "/tools", changeFrequency: "monthly" as const, priority: 0.6 },
+  { path: "/changes", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/llms.txt", changeFrequency: "hourly" as const, priority: 0.4 },
   { path: "/records", changeFrequency: "daily" as const, priority: 0.8 },
   { path: "/explained/price-cap", changeFrequency: "weekly" as const, priority: 0.8 },
