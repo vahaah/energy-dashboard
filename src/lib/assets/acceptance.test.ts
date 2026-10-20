@@ -163,10 +163,10 @@ describe("asset page acceptance", () => {
     expect(counts.matching).toBe(matched.length);
     expect(counts.matching).toBe(catalogue.rows.length);
     expect(counts.inView + counts.unlocated).toBe(counts.matching);
-    expect(counts.unlocated).toBe(10);
+    expect(counts.unlocated).toBe(2);
     expect(counts.inView).toBe(catalogue.points.length + catalogue.lines.length);
     expect(counts.line).toBe(mapCountLine(counts));
-    expect(counts.line).toBe("3329 in view · 3339 matching filters · 10 without a location");
+    expect(counts.line).toBe("3338 in view · 3340 matching filters · 2 without a location");
     expect(counts.line).not.toMatch(/\d,\d/);
     const filtered = matchingAssets(catalogue.rows, {
       q: "",

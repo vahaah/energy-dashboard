@@ -15,28 +15,39 @@ test("homepage does not request maplibre or pmtiles", async ({ page }) => {
   expect(joined).not.toMatch(/\/search\/assets\.json/);
 });
 
-test("map page lists coverage, attribution, and a DNO layer that starts off", async ({ page }) => {
+test("map is full bleed, starts on flows, and opens a link from the keyboard", async ({ page }) => {
   const workerFailed: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error" && message.text().includes("Worker failed to load")) {
       workerFailed.push(message.text());
     }
   });
+  await page.setViewportSize({ width: 1280, height: 800 });
   const worker = page.waitForResponse((response) => response.url().includes("/maplibre/maplibre-gl-worker.mjs"));
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(request.url()));
   await page.goto("/map", { waitUntil: "domcontentloaded" });
   expect((await worker).status()).toBe(200);
   expect(workerFailed).toEqual([]);
-  await expect(page.getByText("The map shows Great Britain. Each layer lists its own coverage.")).toBeVisible();
-  await expect(page.getByText("Contains OS data © Crown copyright and database right 2026")).toBeVisible();
-  await expect(page.getByText(/not 100% accurate/)).toBeVisible();
-  const dno = page.getByRole("checkbox", { name: /DNO licence areas/ });
+  const stage = page.locator("[data-flows-stage]");
+  const box = await stage.boundingBox();
+  expect(box?.y ?? 999).toBeLessThan(120);
+  expect(box?.height ?? 0).toBeGreaterThan(600);
+  await expect(page.getByRole("heading", { name: "Flows across GB borders" })).toBeVisible();
+  await expect(page.locator("aside").getByText("Straight line, not the cable route.")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Interconnectors" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Gas entry points" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Power stations" })).not.toBeChecked();
+  const dno = page.getByRole("checkbox", { name: "DNO licence areas" });
   await expect(dno).not.toBeChecked();
-  await dno.focus();
-  await page.keyboard.press("Space");
-  await expect(dno).toBeChecked();
+  const first = page.locator("[data-flow-list] button").first();
+  await first.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-flow-inspector]")).toContainText("Asset page");
+  await page.keyboard.press("Escape");
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/\blive\b/i);
-  await page.keyboard.press("Tab");
+  expect(requests.join("\n")).not.toMatch(/tinybird|\/api\/interconnectors/i);
 });
 
 test("asset filters stay in the URL and the detail page shows capacity", async ({ page }) => {
@@ -113,16 +124,15 @@ test("a wrong slug redirects and an unknown id is missing", async ({ request }) 
   expect(missing.status()).toBe(404);
 });
 
-test("the map inspector links to the canonical asset and counts the list", async ({ page }) => {
-  await page.goto("/map?sel=ast_5c5dc7c6656c3f93&layers=ic", { waitUntil: "domcontentloaded" });
-  const inspector = page.locator("[data-map-inspector]");
+test("the map inspector links to the canonical asset", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/map", { waitUntil: "domcontentloaded" });
+  await page.locator("aside [data-flow-list] button").filter({ hasText: /^IFA\b/ }).click();
+  const inspector = page.locator("[data-flow-inspector]");
   await expect(inspector.getByRole("link", { name: "Asset page →" })).toHaveAttribute(
     "href",
     "/assets/ast_5c5dc7c6656c3f93/ifa",
   );
-  await expect(page.getByText("Schematic link, not the cable route.")).toBeVisible();
-  await expect(page.locator("[data-map-counts]")).toContainText("in view · ");
-  await expect(page.locator("[data-map-counts]")).toContainText("matching filters · ");
-  await expect(page.locator("[data-map-counts]")).toContainText("without a location");
-  await expect(page.getByRole("checkbox", { name: /Interconnectors/ })).toBeChecked();
+  await expect(inspector).toContainText("Sellindge");
+  await expect(page.locator("aside").getByText("Straight line, not the cable route.")).toBeVisible();
 });

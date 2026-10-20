@@ -118,11 +118,13 @@ describe("phase 1A release gate", () => {
     expect(matched.length).toBeLessThan(catalogue.rows.length);
   });
 
-  it("keeps the asset list when the basemap fails", () => {
-    const map = read("src/components/power-map.tsx");
+  it("keeps a flows table when the basemap fails", () => {
+    const map = read("src/components/flows-map.tsx");
     const page = read("src/app/map/page.tsx");
-    expect(map).toContain("Basemap tiles did not load. The asset list is still available.");
-    expect(page).toContain('id="asset-list"');
+    expect(map).toContain("MAP_FAILED");
+    expect(map).toContain("FLOWS_FALLBACK_HREF");
+    expect(page).toContain('id="flow-list"');
+    expect(page).not.toContain("loadAssetCatalogue");
   });
 
   it("stamps export metadata and route credits from the attribution module", () => {
@@ -138,7 +140,7 @@ describe("phase 1A release gate", () => {
     expect(catalogue.elexonAttribution.length).toBeGreaterThan(0);
     expect(catalogue.nationalGasAttribution).toBe(NATIONAL_GAS_ATTRIBUTION);
     expect(read("src/app/gas/page.tsx")).toContain("GAS_ATTRIBUTION");
-    expect(read("src/app/map/page.tsx")).toContain("nationalGasAttribution={catalogue.nationalGasAttribution}");
+    expect(read("src/lib/map/flows-model.ts")).toContain("nationalGasAttribution");
     expect(read("src/app/assets/[id]/[slug]/page.tsx")).toContain("withRegisterCredits");
     expect(read("src/lib/gas/copy.ts")).toContain("NATIONAL_GAS_ATTRIBUTION");
     expect(OGL_V3_ATTRIBUTION).toContain("Open Government Licence v3.0");

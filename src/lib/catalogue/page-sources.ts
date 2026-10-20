@@ -42,8 +42,9 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
       return "Daily";
     case "os-open-zoomstack":
       return "Twice a year";
+    case "geonames":
+      return "Curated";
     case "eirgrid-group":
-      return "Hourly";
     case "elexon-bmrs":
     case "neso-open-data":
     case "carbon-intensity":

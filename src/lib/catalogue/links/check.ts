@@ -4,6 +4,7 @@ import { stableId } from "@/lib/catalogue/assets/ids";
 import { isOrigin } from "@/lib/map/origin";
 import {
   GAS_PIN_BBOX,
+  GB_LANDING_BBOX,
   LINK_FILES,
   RESIDUAL_IMPORTS_CODE,
   SCHEMATIC_BBOX,
@@ -56,8 +57,20 @@ export function interconnectorErrors(records: readonly InterconnectorRecord[], p
       `${record.fuelinst_code} gb`,
       record.gb_longitude,
       record.gb_latitude,
-      SCHEMATIC_BBOX,
+      GB_LANDING_BBOX,
     );
+    if (record.remote_outside_gb !== (record.remote_country === "Northern Ireland")) {
+      errors.push(`${record.fuelinst_code} outside-GB flag does not match the counterparty`);
+    }
+    if (record.remote_outside_gb && record.remote_longitude > -5.5) {
+      errors.push(`${record.fuelinst_code} counterparty is not outside GB`);
+    }
+    if (!record.gb_coordinate_citation.includes(String(record.gb_geonames_id))) {
+      errors.push(`${record.fuelinst_code} GB citation does not name its GeoNames feature`);
+    }
+    if (!record.remote_coordinate_citation.includes(String(record.remote_geonames_id))) {
+      errors.push(`${record.fuelinst_code} counterparty citation does not name its GeoNames feature`);
+    }
     const remote = endpointError(
       `${record.fuelinst_code} remote`,
       record.remote_longitude,

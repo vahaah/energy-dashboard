@@ -35,9 +35,9 @@ export const METHODOLOGY_DESCRIPTION =
   "Every source, unit, refresh time and calculation behind Grid, including licences: Elexon BMRS, NESO, Carbon Intensity API and Sheffield Solar.";
 export const METHODOLOGY_H1 = "How Grid's numbers are made";
 
-export const MAP_TITLE = "GB power asset map: plants and DNO areas";
+export const MAP_TITLE = "Flows across GB borders";
 export const MAP_DESCRIPTION =
-  "Power stations from the REPD and DUKES registers, with DNO licence areas on an OS Open Zoomstack basemap.";
+  "Electricity interconnectors and gas entry points, with the latest published readings.";
 export const ASSETS_TITLE = "GB stations, interconnectors and gas terminals";
 export const ASSETS_DESCRIPTION =
   "Operational stations from REPD and DUKES, Elexon interconnectors, and National Gas terminal names.";
