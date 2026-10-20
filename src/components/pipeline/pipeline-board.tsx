@@ -4,6 +4,7 @@ import { MarkerSwatch } from "@/components/marker-swatch";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { PipelineTable } from "@/components/pipeline/pipeline-table";
 import { Card } from "@/components/ui/card";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { STAGE_COLORS } from "@/lib/pipeline/colors";
 import {
@@ -56,7 +57,12 @@ export function PipelineBoard({
           A missing figure is {PIPELINE_NOT_PUBLISHED}.
         </p>
         <p className="mt-3 break-words text-copy-14 text-gray-900">{PIPELINE_EXCLUDED}</p>
-        <ul className="mt-4 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap" aria-label="Storage split">
+        <p className="mt-4 flex min-w-0 flex-wrap items-center gap-1 text-copy-14 text-gray-1000">
+          <span className="text-gray-900">Storage</span>
+          <span className="tabular-nums">{figures.storageTotal.gw} GW</span>
+          <InfoTooltip text={figures.storageTotal.exactMwLabel} label="What is the storage total?" />
+        </p>
+        <ul className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap" aria-label="Storage split">
           {figures.storage.map((part) => (
             <li key={part.id} className="min-w-0 text-copy-14 text-gray-1000">
               <span className="text-gray-900">{part.label}</span>{" "}

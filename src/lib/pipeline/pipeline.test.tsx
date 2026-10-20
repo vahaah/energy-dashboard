@@ -5,21 +5,25 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { GET as pipelineCsvRoute } from "@/app/pipeline/projects.csv/route";
 import PipelinePage from "@/app/pipeline/page";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { largestRemainder } from "@/lib/display-rounding";
 import { buildOgCard } from "@/lib/og/model";
 import {
+  PIPELINE_CONSENTED_LABEL,
   PIPELINE_CREDIT,
   PIPELINE_DESCRIPTION,
   PIPELINE_EXCLUDED,
   PIPELINE_EXPLAINER,
+  PIPELINE_EXPLAINER_LABEL,
   PIPELINE_H1,
+  PIPELINE_METHODOLOGY,
   PIPELINE_MEDIAN_NOTE,
   PIPELINE_NOT_PUBLISHED,
   PIPELINE_NOT_UPDATED,
   PIPELINE_TITLE,
 } from "@/lib/pipeline/copy";
 import { PIPELINE_FETCH_ATTEMPTS, PIPELINE_FETCH_TIMEOUT_MS, pipelineRetryDelayMs, pipelineStatusRetries } from "@/lib/pipeline/fetch";
-import { pipelineEditionStale } from "@/lib/pipeline/freshness";
+import { pipelineEditionStale, pipelinePublicationDay } from "@/lib/pipeline/freshness";
 import { loadPipelineCatalogue } from "@/lib/pipeline/load";
 import {
   buildPipelineFigures,
@@ -79,13 +83,44 @@ describe("pipeline figures", () => {
       ["Scotland", "99.3"],
       ["Wales", "11.1"],
     ]);
-    expect(figures.storage.map((part) => [part.id, part.gw])).toEqual([
-      ["battery", "122.1"],
-      ["other_storage", "10.9"],
-      ["generation", "134.4"],
+    expect(figures.storage.map((part) => [part.id, part.label, part.gw])).toEqual([
+      ["battery", "Battery storage", "122.1"],
+      ["other_storage", "Other storage", "10.9"],
+      ["generation", "Generation", "134.4"],
     ]);
+    expect(figures.storageTotal).toEqual({ gw: "133.0", exactMwLabel: "133,083.5 MW" });
+    expect(figures.stages.map((stage) => stage.label)).toEqual([
+      "Under construction",
+      PIPELINE_CONSENTED_LABEL,
+      "In planning",
+    ]);
+    expect(figures.medians.map((step) => step.label)).toContain(PIPELINE_CONSENTED_LABEL);
+    expect(figures.cohort.outcomes.map((outcome) => outcome.label)).toContain(PIPELINE_CONSENTED_LABEL);
     expect(figures.northernIreland).toMatchObject({ projects: 282, gw: "3.2" });
     expect(figures.cohort).toMatchObject({ applications: 1814, consented: 1368, built: 779, operating: 616 });
+  });
+
+  it("excludes revised and no application required from the 2015–2020 group", () => {
+    const window = catalogue.records.filter((row) => {
+      if (row.country !== "England" && row.country !== "Scotland" && row.country !== "Wales") {
+        return false;
+      }
+      const year = row.submitted === null ? null : Number(row.submitted.slice(0, 4));
+      return year !== null && year >= 2015 && year <= 2020;
+    });
+    const revised = window.filter((row) => row.status === "revised").length;
+    const noApplicationRequired = window.filter((row) => row.status === "no_application_required").length;
+    expect(window.length).toBe(1962);
+    expect(revised).toBe(148);
+    expect(noApplicationRequired).toBe(0);
+    expect(window.length - revised - noApplicationRequired).toBe(1814);
+    expect(figures.cohort.applications).toBe(1814);
+    const heldOut = buildPipelineFigures([
+      record({ ref: "revised", status: "revised", submitted: "2017-06-01" }),
+      record({ ref: "none", status: "no_application_required", submitted: "2018-06-01" }),
+      record({ ref: "kept", status: "operational", submitted: "2016-06-01" }),
+    ]);
+    expect(heldOut.cohort.applications).toBe(1);
   });
 
   it("makes every displayed split add up to the shown total", () => {
@@ -147,10 +182,18 @@ describe("pipeline figures", () => {
     expect(figures.medians.every((step) => step.projects > 0)).toBe(true);
   });
 
-  it("marks the edition not updated 120 days after publication", () => {
-    expect(pipelineEditionStale("2026-08-03", new Date("2026-10-20T12:00:00Z"))).toBe(false);
-    expect(pipelineEditionStale("2026-08-03", new Date("2026-11-30T12:00:00Z"))).toBe(false);
-    expect(pipelineEditionStale("2026-08-03", new Date("2026-12-01T00:00:00Z"))).toBe(true);
+  it("marks the edition not updated 120 days after the publication date", () => {
+    const publication = pipelinePublicationDay(catalogue.edition);
+    expect(catalogue.edition.published_at.startsWith("2026-08-03")).toBe(true);
+    expect(publication).toBe("2026-08-03");
+    expect(publication).toBe(catalogue.edition.edition_day);
+    expect(pipelineEditionStale(publication, new Date("2026-10-20T12:00:00Z"))).toBe(false);
+    expect(pipelineEditionStale(publication, new Date("2026-11-21T00:00:00Z"))).toBe(false);
+    expect(pipelineEditionStale(publication, new Date("2026-11-30T12:00:00Z"))).toBe(false);
+    expect(pipelineEditionStale(publication, new Date("2026-12-01T00:00:00Z"))).toBe(true);
+    expect(pipelineEditionStale("2026-07-24", new Date("2026-11-21T00:00:00Z"))).toBe(true);
+    expect(source("src/lib/pipeline/parse.ts")).not.toContain("Record Last Updated");
+    expect(source("src/app/pipeline/page.tsx")).toContain("pipelinePublicationDay");
   });
 
   it("bounds the extract download", () => {
@@ -197,6 +240,19 @@ describe("pipeline page", () => {
     expect(html).toContain("122.1");
     expect(html).toContain("10.9");
     expect(html).toContain("134.4");
+    expect(html).toContain("Battery storage");
+    expect(html).toContain("Other storage");
+    expect(html).toContain("Generation");
+    expect(html).toContain("133.0 GW");
+    expect(html).toContain('aria-label="What is the storage total?"');
+    expect(html).toContain(PIPELINE_CONSENTED_LABEL);
+    expect(html).not.toContain("Consented, awaiting construction");
+    expect(html).not.toContain("Consented, not built");
+    expect(html.toLowerCase()).not.toContain("flywheel");
+    expect(PIPELINE_METHODOLOGY.join(" ").toLowerCase()).not.toContain("flywheel");
+    const shown = loadPipelineCatalogue().figures;
+    expect(shown.technologies.every((row) => !row.label.toLowerCase().includes("flywheel"))).toBe(true);
+    expect(shown.table.every((row) => !row.technologyLabel.toLowerCase().includes("flywheel") && !row.name.toLowerCase().includes("flywheel"))).toBe(true);
     expect(html).toContain("1,814");
     expect(html).toContain("1,368");
     expect(html).toContain("779");
@@ -231,12 +287,26 @@ describe("pipeline page", () => {
     expect(lines[0]).toBe("name,stage,technology,nation,capacity_mw,status_date,repd_ref,asset_path");
     expect(lines.length).toBe(7669);
     expect(body).not.toContain(",0,");
+    expect(body).toContain(`"${PIPELINE_CONSENTED_LABEL}"`);
+    expect(body.toLowerCase()).not.toContain("flywheel");
+  });
+
+  it("collapses the explainer behind the mobile label", () => {
+    const html = renderToStaticMarkup(<PipelineExplainer />);
+    expect(PIPELINE_EXPLAINER_LABEL).toBe("How the pipeline works");
+    expect(html).toContain(PIPELINE_EXPLAINER_LABEL);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("md:hidden");
+    expect(html).toContain("hidden");
+    expect(html).toContain("md:flex");
   });
 
   it("puts the GW total and the stage split on the share image", () => {
     const card = buildOgCard({ kind: "page", page: "pipeline" }, { facts: null, records: null, prices: null });
     expect(card.title).toBe("267.4 GW · 7,668 projects");
-    expect(card.kicker).toBe("27.9 GW under construction · 145.3 GW consented · 94.2 GW in planning");
+    expect(card.kicker).toBe(
+      "27.9 GW under construction · 145.3 GW consented, not yet built · 94.2 GW in planning",
+    );
     expect(card.source).toContain(PIPELINE_CREDIT);
     expect(card.stamp).toBe("July 2026 (Q2). Published 3 Aug 2026.");
   });

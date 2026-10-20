@@ -129,7 +129,7 @@ async function main(): Promise<void> {
     source_release_id: content.source_release_id,
     edition: content.edition,
     published_at: content.published_at,
-    edition_day: content.published_at.slice(0, 10),
+    edition_day: content.published_at.slice(0, 10), // publication date, not Record Last Updated
     extract_sha256: content.extract_sha256,
     row_count: records.length,
   });

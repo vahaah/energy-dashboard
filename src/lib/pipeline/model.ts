@@ -1,7 +1,7 @@
 import { formatDisplay, largestRemainder, roundDisplay, displayedPercents } from "@/lib/display-rounding";
 import { latestDate } from "@/lib/projects/dates";
 import { technologyLabel, type ProjectTechnology } from "@/lib/projects/technology";
-import { PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
+import { PIPELINE_CONSENTED_LABEL, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
 import { pipelineMarker } from "@/lib/pipeline/colors";
 import {
   GB_PIPELINE_COUNTRIES,
@@ -46,6 +46,11 @@ export type GwPart = {
 
 export type StagePart = GwPart & { id: PipelineStageId };
 
+export type StorageTotal = {
+  gw: string;
+  exactMwLabel: string;
+};
+
 export type TechnologyPart = GwPart & {
   technology: ProjectTechnology;
   shape: ReturnType<typeof pipelineMarker>["shape"];
@@ -88,6 +93,7 @@ export type PipelineFigures = {
   stages: StagePart[];
   nations: GwPart[];
   storage: GwPart[];
+  storageTotal: StorageTotal;
   technologies: TechnologyPart[];
   revised: number;
   noApplicationRequired: number;
@@ -154,7 +160,7 @@ export function stageLabel(stage: PipelineStageId): string {
     case "under_construction":
       return "Under construction";
     case "consented":
-      return "Consented";
+      return PIPELINE_CONSENTED_LABEL;
     case "in_planning":
       return "In planning";
     default: {
@@ -167,7 +173,7 @@ export function stageLabel(stage: PipelineStageId): string {
 export function storageLabel(bucket: StorageBucket): string {
   switch (bucket) {
     case "battery":
-      return "Battery";
+      return "Battery storage";
     case "other_storage":
       return "Other storage";
     case "generation":
@@ -229,7 +235,7 @@ export function outcomeLabel(id: OutcomeId): string {
     case "under_construction":
       return "Under construction";
     case "awaiting":
-      return "Consented, not built";
+      return PIPELINE_CONSENTED_LABEL;
     case "expired":
       return "Permission expired";
     case "abandoned":
@@ -536,6 +542,7 @@ export function buildPipelineFigures(
     stages,
     nations,
     storage,
+    storageTotal: storageTotalOf(storage, storageBuckets),
     technologies,
     revised,
     noApplicationRequired,
@@ -548,7 +555,7 @@ export function buildPipelineFigures(
     },
     medians: [
       { id: "in_planning", label: "In planning", days: medianDays(planningDays), projects: planningDays.length },
-      { id: "consented", label: "Consented, awaiting construction", days: medianDays(consentedDays), projects: consentedDays.length },
+      { id: "consented", label: stageLabel("consented"), days: medianDays(consentedDays), projects: consentedDays.length },
       { id: "under_construction", label: "Under construction", days: medianDays(constructionDays), projects: constructionDays.length },
     ],
     northernIreland: {
@@ -562,6 +569,20 @@ export function buildPipelineFigures(
 
 export function sumDisplayedGw(parts: readonly { gw: string }[]): number {
   return Number(parts.reduce((sum, part) => sum + Number(part.gw), 0).toFixed(1));
+}
+
+function storageTotalOf(storage: readonly GwPart[], buckets: ReadonlyMap<StorageBucket, Bucket>): StorageTotal {
+  const parts = storage.filter((part) => part.id === "battery" || part.id === "other_storage");
+  const exactMw = (buckets.get("battery")?.exactMw ?? 0) + (buckets.get("other_storage")?.exactMw ?? 0);
+  const roundedMw = Math.round(exactMw * 10) / 10;
+  const exactMwLabel = `${new Intl.NumberFormat("en-GB", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(roundedMw)} MW`;
+  return {
+    gw: sumDisplayedGw(parts).toFixed(1),
+    exactMwLabel,
+  };
 }
 
 /** A finished step. Under a year stays in days. */

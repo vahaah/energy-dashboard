@@ -111,7 +111,7 @@ export function PipelineTable({ rows }: { rows: PipelineTableRow[] }) {
         <Filter label="Stage" value={stage} onChange={(value) => { setStage(value); setPage(1); }}>
           <option value="all">All stages</option>
           <option value="under_construction">Under construction</option>
-          <option value="consented">Consented</option>
+          <option value="consented">{stageLabel("consented")}</option>
           <option value="in_planning">In planning</option>
         </Filter>
         <Filter label="Technology" value={technology} onChange={(value) => { setTechnology(value); setPage(1); }}>

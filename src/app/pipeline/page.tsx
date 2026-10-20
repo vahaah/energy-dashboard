@@ -10,7 +10,7 @@ import {
   PIPELINE_PATH,
   PIPELINE_TITLE,
 } from "@/lib/pipeline/copy";
-import { pipelineEditionStale } from "@/lib/pipeline/freshness";
+import { pipelineEditionStale, pipelinePublicationDay } from "@/lib/pipeline/freshness";
 import { loadPipelineCatalogue } from "@/lib/pipeline/load";
 
 export const dynamic = "force-static";
@@ -27,7 +27,7 @@ export const metadata: Metadata = buildPageMetadata({
 export default function PipelinePage() {
   const catalogue = loadPipelineCatalogue();
   const now = new Date();
-  const stale = pipelineEditionStale(catalogue.edition.edition_day, now);
+  const stale = pipelineEditionStale(pipelinePublicationDay(catalogue.edition), now);
   return (
     <SeoPage
       section="Pipeline"
