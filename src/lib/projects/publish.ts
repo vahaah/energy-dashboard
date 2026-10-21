@@ -187,9 +187,10 @@ async function prepare(hash: string, now: Date, rawText?: string, carriedMeta?: 
   if (!loaded) {
     throw blobReadbackError("NESO TEC raw body is missing", TEC_MAX_RETRIES);
   }
+  const meta = loaded.meta;
   const parsed = parseTecProjects(loaded.body, {
-    publishedAt: loaded.meta.issued_at,
-    releaseId: `${TEC_DATASET_ID}:${loaded.meta.issued_at}`,
+    publishedAt: meta.issued_at,
+    releaseId: `${TEC_DATASET_ID}:${meta.issued_at}`,
   });
   if (!parsed.ok) {
     await quarantine(now, hex, loaded.body);
@@ -198,7 +199,7 @@ async function prepare(hash: string, now: Date, rawText?: string, carriedMeta?: 
   const document: TecReleaseDocument = {
     catalogue_schema_version: 1,
     dataset_id: TEC_DATASET_ID,
-    published_at: loaded.meta.issued_at,
+    published_at: meta.issued_at,
     extract_sha256: sha256Bytes(Buffer.from(loaded.body)),
     bytes: loaded.size,
     rows: parsed.rows,
@@ -208,7 +209,7 @@ async function prepare(hash: string, now: Date, rawText?: string, carriedMeta?: 
     releaseId: tecBlobReleaseId(document),
     rows: parsed.rows.length,
     bytes: loaded.size,
-    issuedAt: loaded.meta.issued_at,
+    issuedAt: meta.issued_at,
   };
 }
 
