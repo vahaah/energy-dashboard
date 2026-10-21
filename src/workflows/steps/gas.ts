@@ -66,7 +66,7 @@ export async function publishCompletedGasDayStep(nowIso: string): Promise<GasSte
       throw error;
     }
     const message = error instanceof Error ? error.message : "completed gas day failed";
-    await recordJobFailure(JOB, message);
+    await recordJobFailure("cron-prices", message);
     console.error("[gas] completed-day kept the previous release");
     return emptyGasStatus();
   }

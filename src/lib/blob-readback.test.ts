@@ -5,7 +5,7 @@ import {
   BLOB_READBACK_BACKOFF_MS,
   STEP_INLINE_MAX_BYTES,
   blobReadbackError,
-  fitsInline,
+  fitsInlineResult,
   isBlobAlreadyExists,
   observeJobFailure,
   putImmutable,
@@ -82,8 +82,11 @@ describe("blob read-back", () => {
     expect(waits).toEqual([2_000, 3_000]);
     expect(BLOB_READBACK_ATTEMPTS).toBe(5);
     expect(BLOB_READBACK_BACKOFF_MS.reduce((sum, wait) => sum + wait, 0)).toBe(14_000);
-    expect(fitsInline(STEP_INLINE_MAX_BYTES)).toBe(true);
-    expect(fitsInline(STEP_INLINE_MAX_BYTES + 1)).toBe(false);
+    const quotes = '"'.repeat(800_000);
+    const quoted = { ok: true, rows: 0, bytes: quotes.length, hash: "sha256:abc", releaseId: "", raw: quotes };
+    expect(Buffer.byteLength(quotes)).toBeLessThan(STEP_INLINE_MAX_BYTES);
+    expect(fitsInlineResult(quoted)).toBe(false);
+    expect(fitsInlineResult({ ...quoted, raw: "a".repeat(32), bytes: 32 })).toBe(true);
   });
 
   it("is retryable until the step's last attempt", async () => {
@@ -96,10 +99,20 @@ describe("blob read-back", () => {
     );
 
     await observeJobFailure("cron-northern-ireland", new RetryableError("EirGrid extract is missing"), 2, 1);
+    await observeJobFailure("cron-northern-ireland", new Error("blob read failed"), 2, 1);
+    await observeJobFailure("cron-northern-ireland", new Error("blob read failed"), 2, 2);
     let health = await loadJobHealth();
     expect(health.find((job) => job.job === "cron-northern-ireland")?.consecutive_failures).toBe(0);
 
-    await observeJobFailure("cron-northern-ireland", fatal, 2, 3);
+    await observeJobFailure("cron-northern-ireland", new Error("blob read failed"), 2, 3);
+    health = await loadJobHealth();
+    expect(health.find((job) => job.job === "cron-northern-ireland")).toMatchObject({
+      consecutive_failures: 1,
+      last_error: "blob read failed",
+    });
+
+    resetJobHealthForTests();
+    await observeJobFailure("cron-northern-ireland", fatal, 2, 1);
     health = await loadJobHealth();
     expect(health.find((job) => job.job === "cron-northern-ireland")).toMatchObject({
       consecutive_failures: 1,

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { FatalError } from "workflow";
-import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import {
   CATALOGUE_SCHEMA_VERSION,
   catalogueDatasetId,
@@ -101,11 +101,11 @@ export async function fetchNiBundle(now: Date, options?: EirgridFetchOptions): P
   const hash = sha256Text(body);
   await putIfAbsent(niRawPath(hash.slice("sha256:".length)), body, "application/json");
   const result: NiFetchResult = { ok: true, rows: 0, bytes, hash, releaseId: "" };
-  if (fitsInline(bytes)) {
-    result.bundle = stripped;
-  } else {
-    console.warn("[eirgrid] extract left in blob", { bytes });
+  const inlined: NiFetchResult = { ...result, bundle: stripped };
+  if (fitsInlineResult(inlined)) {
+    return inlined;
   }
+  console.warn("[eirgrid] extract left in blob", { bytes });
   return result;
 }
 

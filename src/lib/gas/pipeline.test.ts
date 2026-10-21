@@ -8,6 +8,7 @@ import { GET as seriesRoute } from "@/app/api/v1/gas/series/route";
 import { setBlobReadbackSleepForTests } from "@/lib/blob-readback";
 import { checkCatalogue } from "@/lib/catalogue/check";
 import { loadDataHealth } from "@/lib/data-health";
+import { loadJobHealth } from "@/lib/job-health";
 import {
   GAS_CATALOGUE_RELEASES_PATH,
   GAS_CATALOGUE_STAMP_PATH,
@@ -630,6 +631,9 @@ describe("gas publish", () => {
     expect(status).toEqual({ ok: false, rows: 0, bytes: 0, hash: "", releaseId: "" });
     expect(store.files.has(GAS_LATEST_PATH)).toBe(false);
     expect(error).toHaveBeenCalled();
+    const jobs = await loadJobHealth();
+    expect(jobs.find((job) => job.job === "cron-prices")?.consecutive_failures).toBe(1);
+    expect(jobs.find((job) => job.job === "cron-gas")?.consecutive_failures).toBe(0);
   });
 
   it("revalidates gas paths only and adds no Tinybird ops", () => {

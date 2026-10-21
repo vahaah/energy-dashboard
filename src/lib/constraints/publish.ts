@@ -1,5 +1,5 @@
 import { FatalError } from "workflow";
-import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import {
   CATALOGUE_SCHEMA_VERSION,
   catalogueReleaseId,
@@ -104,12 +104,11 @@ export async function fetchConstraintsBundle(
       hash,
       releaseId: "",
     };
-    if (fitsInline(bytes)) {
-      result.raw = csv;
-      result.meta = meta;
-    } else {
-      console.warn("[constraints] raw body left in blob", { bundle, bytes });
+    const inlined: ConstraintsFetchResult = { ...result, raw: csv, meta };
+    if (fitsInlineResult(inlined)) {
+      return inlined;
     }
+    console.warn("[constraints] raw body left in blob", { bundle, bytes });
     return result;
   } catch (error) {
     throw constraintsStepError(error, attempt, CONSTRAINTS_MAX_RETRIES);

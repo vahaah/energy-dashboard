@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FatalError, RetryableError } from "workflow";
-import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import { sha256Bytes, sha256Prefixed } from "@/lib/catalogue/canonical";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -173,11 +173,11 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
     hash,
     releaseId: "",
   };
-  if (fitsInline(bytes)) {
-    result.raw = body;
-  } else {
-    console.warn("[gas] raw body left in blob", { bundle, bytes });
+  const inlined: GasFetchResult = { ...result, raw: body };
+  if (fitsInlineResult(inlined)) {
+    return inlined;
   }
+  console.warn("[gas] raw body left in blob", { bundle, bytes });
   return result;
 }
 

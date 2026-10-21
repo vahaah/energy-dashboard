@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { FatalError, RetryableError } from "workflow";
-import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import { canonicalJson, sha256Bytes, sha256Prefixed } from "@/lib/catalogue/canonical";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -127,12 +127,11 @@ export async function fetchTecRegister(now: Date, attempt: number, gapMs = NESO_
     await putIfAbsent(tecRawPath(hex), csv, "text/csv");
     await putIfAbsent(tecMetaPath(hex), `${JSON.stringify(meta)}\n`, "application/json");
     const result: TecFetchResult = { ok: true, rows: 0, bytes, hash, releaseId: "" };
-    if (fitsInline(bytes)) {
-      result.raw = csv;
-      result.meta = meta;
-    } else {
-      console.warn("[tec] raw body left in blob", { bytes });
+    const inlined: TecFetchResult = { ...result, raw: csv, meta };
+    if (fitsInlineResult(inlined)) {
+      return inlined;
     }
+    console.warn("[tec] raw body left in blob", { bytes });
     return result;
   } catch (error) {
     throw tecStepError(error, attempt);

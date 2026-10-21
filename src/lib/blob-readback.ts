@@ -1,11 +1,13 @@
 import { FatalError, RetryableError } from "workflow";
 import { recordJobFailure, type CronJobId } from "@/lib/job-health";
 import { stepAttempt } from "@/lib/step-attempt";
+import { jsonBytes } from "@/lib/step-status";
 
 /**
- * Workflow step results ride the event log. The runtime frames events at 10 MB
- * and Redis workflow bodies stop at 2 MB. Extracts under this go to the next
- * step in memory. Larger ones stay in Blob and are re-read with a bounded retry.
+ * Workflow step results ride the event log as JSON. Redis workflow bodies stop
+ * at 2 MB, and a raw CSV of quotes roughly doubles once it is escaped. The
+ * decision uses the serialized result, not the raw byte length. Larger extracts
+ * stay in Blob and are re-read with a bounded retry.
  */
 export const STEP_INLINE_MAX_BYTES = 1_500_000;
 
@@ -29,8 +31,13 @@ export function setBlobReadbackSleepForTests(sleep: ((ms: number) => Promise<voi
       }));
 }
 
-export function fitsInline(bytes: number): boolean {
-  return bytes <= STEP_INLINE_MAX_BYTES;
+/** True when the JSON the workflow would store is within the inline cap. */
+export function fitsInlineResult(value: unknown): boolean {
+  try {
+    return jsonBytes(value) <= STEP_INLINE_MAX_BYTES;
+  } catch {
+    return false;
+  }
 }
 
 /** Vercel Blob's already-exists failure, plus the in-memory stores' `blob exists:` error. */
@@ -100,14 +107,18 @@ export async function readUntilPresent<T>(
   return null;
 }
 
-/** Count a finished failure. A RetryableError still inside maxRetries is not a streak. */
+/**
+ * Count one finished run. Workflow retries every non-fatal error up to
+ * `maxRetries`, so an ordinary failure on an earlier attempt is not a streak.
+ * FatalError is not retried and counts immediately.
+ */
 export async function observeJobFailure(
   job: CronJobId,
   error: unknown,
   maxRetries: number,
   attempt = stepAttempt(),
 ): Promise<void> {
-  if (error instanceof RetryableError && attempt <= maxRetries) {
+  if (!(error instanceof FatalError) && attempt <= maxRetries) {
     return;
   }
   const message = error instanceof Error ? error.message : "cron step failed";
