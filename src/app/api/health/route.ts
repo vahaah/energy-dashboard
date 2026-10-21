@@ -14,6 +14,7 @@ import {
   streamFreshness,
 } from "@/lib/health";
 import { healthMetrics, loadDataHealth, type HealthMetric } from "@/lib/data-health";
+import { loadJobHealth, type JobHealth } from "@/lib/job-health";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 import { peekWarmedPipe } from "@/lib/warm-envelope";
 
@@ -40,6 +41,7 @@ function priceObservedAt(date: string | null | undefined): string | null {
 
 export async function GET() {
   const now = new Date();
+  const jobsPromise = loadJobHealth();
 
   try {
     const [snapshots, generation, prices] = await Promise.all([
@@ -97,11 +99,13 @@ export async function GET() {
     }
 
     const status = healthHttpStatus(streams);
+    const jobs = await jobsPromise;
     return NextResponse.json(
       {
         ok: status === 200,
         checkedAt: now.toISOString(),
         streams,
+        jobs,
         ...(metrics ? { metrics } : {}),
       },
       {
@@ -111,11 +115,13 @@ export async function GET() {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const jobs = await jobsPromise.catch((): JobHealth[] | undefined => undefined);
     return NextResponse.json(
       {
         ok: false,
         checkedAt: now.toISOString(),
         error: message,
+        ...(jobs ? { jobs } : {}),
       },
       { status: 503 }
     );

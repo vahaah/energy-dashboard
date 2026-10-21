@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { FatalError, RetryableError } from "workflow";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import { canonicalJson, sha256Bytes, sha256Prefixed } from "@/lib/catalogue/canonical";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -37,7 +38,7 @@ export const TEC_RESOURCE_NAME = "TEC Register";
 const FETCH_TIMEOUT_MS = 90_000;
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
-type FetchMeta = {
+export type FetchMeta = {
   source_url: string;
   issued_at: string;
   resource_name: string;
@@ -98,7 +99,13 @@ export function tecBlobReleaseId(document: Omit<TecReleaseDocument, "bytes"> & {
   }).slice("sha256:".length);
 }
 
-export async function fetchTecRegister(now: Date, attempt: number, gapMs = NESO_MIN_GAP_MS): Promise<TecStepStatus> {
+export type TecFetchResult = TecStepStatus & {
+  /** CSV and fetch meta when they fit in the step result. */
+  raw?: string;
+  meta?: FetchMeta;
+};
+
+export async function fetchTecRegister(now: Date, attempt: number, gapMs = NESO_MIN_GAP_MS): Promise<TecFetchResult> {
   try {
     await paceNeso(gapMs, now.getTime());
     const listed = JSON.parse(await fetchText(TEC_PACKAGE_URL)) as { result?: { resources?: NesoResource[] } };
@@ -116,23 +123,40 @@ export async function fetchTecRegister(now: Date, attempt: number, gapMs = NESO_
     const hash = sha256Text(csv);
     const hex = hash.slice("sha256:".length);
     const meta: FetchMeta = { source_url: selected.url, issued_at: issued, resource_name: selected.name };
+    const bytes = Buffer.byteLength(csv);
     await putIfAbsent(tecRawPath(hex), csv, "text/csv");
     await putIfAbsent(tecMetaPath(hex), `${JSON.stringify(meta)}\n`, "application/json");
-    return { ok: true, rows: 0, bytes: Buffer.byteLength(csv), hash, releaseId: "" };
+    const result: TecFetchResult = { ok: true, rows: 0, bytes, hash, releaseId: "" };
+    const inlined: TecFetchResult = { ...result, raw: csv, meta };
+    if (fitsInlineResult(inlined)) {
+      return inlined;
+    }
+    console.warn("[tec] raw body left in blob", { bytes });
+    return result;
   } catch (error) {
     throw tecStepError(error, attempt);
   }
 }
 
-export async function validateTecRegister(hash: string, now: Date): Promise<TecStepStatus> {
-  const prepared = await prepare(hash, now);
+export async function validateTecRegister(
+  hash: string,
+  now: Date,
+  raw?: string,
+  meta?: FetchMeta,
+): Promise<TecStepStatus> {
+  const prepared = await prepare(hash, now, raw, meta);
   return { ok: true, rows: prepared.rows, bytes: prepared.bytes, hash, releaseId: prepared.releaseId };
 }
 
-export async function publishTecRegister(hash: string, now: Date): Promise<TecStepStatus> {
-  const prepared = await prepare(hash, now);
+export async function publishTecRegister(
+  hash: string,
+  now: Date,
+  raw?: string,
+  meta?: FetchMeta,
+): Promise<TecStepStatus> {
+  const prepared = await prepare(hash, now, raw, meta);
   const path = tecReleasePath(prepared.releaseId);
-  const existing = await tecStore().get(path, true);
+  const existing = await tecStore().get(path, false);
   if (!existing) {
     await putIfAbsent(path, `${JSON.stringify(prepared.document)}\n`, "application/json");
   }
@@ -150,7 +174,7 @@ export async function publishTecRegister(hash: string, now: Date): Promise<TecSt
   return { ok: true, rows: prepared.rows, bytes: prepared.bytes, hash, releaseId: prepared.releaseId };
 }
 
-async function prepare(hash: string, now: Date): Promise<{
+async function prepare(hash: string, now: Date, rawText?: string, carriedMeta?: FetchMeta): Promise<{
   document: TecReleaseDocument;
   releaseId: string;
   rows: number;
@@ -158,35 +182,70 @@ async function prepare(hash: string, now: Date): Promise<{
   issuedAt: string;
 }> {
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
-  const raw = await tecStore().get(tecRawPath(hex), true);
-  const metaFile = await tecStore().get(tecMetaPath(hex), true);
-  if (!raw || !metaFile) {
-    throw new FatalError("NESO TEC raw body is missing");
+  const carried = carriedExtract(hash, rawText, carriedMeta);
+  const loaded = carried ?? (await loadStoredExtract(hex));
+  if (!loaded) {
+    throw blobReadbackError("NESO TEC raw body is missing", TEC_MAX_RETRIES);
   }
-  const meta = JSON.parse(metaFile.body) as FetchMeta;
-  const parsed = parseTecProjects(raw.body, {
+  const meta = loaded.meta;
+  const parsed = parseTecProjects(loaded.body, {
     publishedAt: meta.issued_at,
     releaseId: `${TEC_DATASET_ID}:${meta.issued_at}`,
   });
   if (!parsed.ok) {
-    await quarantine(now, hex, raw.body);
+    await quarantine(now, hex, loaded.body);
     throw new FatalError("NESO TEC file kept the previous release");
   }
   const document: TecReleaseDocument = {
     catalogue_schema_version: 1,
     dataset_id: TEC_DATASET_ID,
     published_at: meta.issued_at,
-    extract_sha256: sha256Bytes(Buffer.from(raw.body)),
-    bytes: raw.size,
+    extract_sha256: sha256Bytes(Buffer.from(loaded.body)),
+    bytes: loaded.size,
     rows: parsed.rows,
   };
   return {
     document,
     releaseId: tecBlobReleaseId(document),
     rows: parsed.rows.length,
-    bytes: raw.size,
+    bytes: loaded.size,
     issuedAt: meta.issued_at,
   };
+}
+
+function carriedExtract(
+  hash: string,
+  rawText: string | undefined,
+  meta: FetchMeta | undefined,
+): { body: string; size: number; meta: FetchMeta } | null {
+  if (rawText == null || meta == null) {
+    return null;
+  }
+  const digest = sha256Text(rawText);
+  if (hash !== digest && hash !== digest.slice("sha256:".length)) {
+    throw new FatalError("NESO TEC raw body does not match the hash");
+  }
+  return { body: rawText, size: Buffer.byteLength(rawText), meta };
+}
+
+async function loadStoredExtract(hex: string): Promise<{ body: string; size: number; meta: FetchMeta } | null> {
+  const loaded = await readUntilPresent(
+    async () => {
+      const raw = await tecStore().get(tecRawPath(hex), false);
+      const metaFile = await tecStore().get(tecMetaPath(hex), false);
+      if (!raw || !metaFile) {
+        return null;
+      }
+      return { raw, metaFile };
+    },
+    (attempt) => {
+      console.warn("[tec] raw body is missing", { attempt });
+    },
+  );
+  if (!loaded) {
+    return null;
+  }
+  return { body: loaded.raw.body, size: loaded.raw.size, meta: JSON.parse(loaded.metaFile.body) as FetchMeta };
 }
 
 async function quarantine(now: Date, hex: string, body: string): Promise<void> {
@@ -249,9 +308,8 @@ async function appendLine(path: string, line: string): Promise<void> {
 }
 
 async function putIfAbsent(path: string, body: string, contentType: string): Promise<void> {
-  const existing = await tecStore().get(path, true);
-  if (existing) {
-    return;
-  }
-  await tecStore().put(path, body, tecImmutablePut(contentType));
+  await putImmutable(
+    () => tecStore().put(path, body, tecImmutablePut(contentType)),
+    async () => (await tecStore().get(path, false)) != null,
+  );
 }

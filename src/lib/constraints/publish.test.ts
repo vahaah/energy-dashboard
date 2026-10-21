@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FatalError } from "workflow";
+import { FatalError, RetryableError } from "workflow";
+import { setBlobReadbackSleepForTests } from "@/lib/blob-readback";
 import {
   CONSTRAINTS_LATEST_PATH,
   MemoryConstraintsStore,
@@ -15,7 +16,7 @@ import {
   setConstraintsStoreForTests,
 } from "@/lib/constraints/blob";
 import { sha256Text } from "@/lib/constraints/parse";
-import { publishConstraintsBundle } from "@/lib/constraints/publish";
+import { publishConstraintsBundle, validateConstraintsBundle } from "@/lib/constraints/publish";
 import { constraintReleaseId, type FetchMeta } from "@/lib/constraints/release";
 
 const revalidated: string[] = [];
@@ -57,6 +58,7 @@ describe("constraint publish", () => {
 
   afterEach(() => {
     setConstraintsStoreForTests(null);
+    setBlobReadbackSleepForTests(null);
   });
 
   it("keeps the previous release when a period is revised and when a file is quarantined", async () => {
@@ -109,5 +111,46 @@ describe("constraint publish", () => {
     });
     const releaseBody = store.files.get(constraintsReleasePath(first.releaseId))?.body ?? "";
     expect(constraintReleaseId(JSON.parse(releaseBody))).toBe(first.releaseId);
+  });
+
+  it("reads the extract after the first two blob gets are not-found", async () => {
+    setBlobReadbackSleepForTests(async () => undefined);
+    const csv = readFileSync(join(process.cwd(), "tests/fixtures/constraints/breakdown.csv"), "utf8");
+    const hash = await stage(store, "breakdown.csv", csv);
+    let misses = 0;
+    const inner = store;
+    setConstraintsStoreForTests({
+      put: (pathname, body, options) => inner.put(pathname, body, options),
+      get: async (pathname) => {
+        if (pathname.includes("/raw/") && misses < 2) {
+          misses += 1;
+          return null;
+        }
+        return inner.get(pathname);
+      },
+      list: (prefix) => inner.list(prefix),
+      del: (pathnames) => inner.del(pathnames),
+    });
+
+    const validated = await validateConstraintsBundle(hash, "breakdown", NOW);
+    expect(validated.ok).toBe(true);
+    expect(misses).toBe(2);
+
+    misses = 0;
+    setConstraintsStoreForTests({
+      put: (pathname, body, options) => inner.put(pathname, body, options),
+      get: async () => {
+        misses += 1;
+        return null;
+      },
+      list: (prefix) => inner.list(prefix),
+      del: (pathnames) => inner.del(pathnames),
+    });
+    const error = await validateConstraintsBundle(hash, "breakdown", NOW).then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(RetryableError);
+    expect((error as Error).message).toBe("NESO constraint raw body is missing");
   });
 });

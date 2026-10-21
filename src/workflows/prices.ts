@@ -1,5 +1,6 @@
 import { FatalError } from "workflow";
 import { publishCompletedGasDayStep } from "@/workflows/steps/gas";
+import { recordJobFailureStep, recordJobSuccessStep } from "@/workflows/steps/job-health";
 import { publishStep } from "@/workflows/steps/publish";
 import {
   fetchEiaStep,
@@ -26,23 +27,36 @@ const LONG_PIPE_IDS = [
 export async function pricesSlot(slot: string, owner: string, nowIso: string) {
   "use workflow";
   await takeSlotStep("prices", slot, owner);
-  await fetchEiaStep(slot, nowIso);
-  await fetchPinkSheetStep(slot, nowIso);
-  await fetchSapStep(slot, nowIso);
-  const posted = await postPricesStep(slot, nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[0], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[1], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[2], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[3], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[4], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[5], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[6], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[7], nowIso);
-  await warmPipeStep(LONG_PIPE_IDS[8], nowIso);
-  await publishStep(nowIso, false);
-  await publishCompletedGasDayStep(nowIso);
-  if (!posted.ok) {
-    console.error("[workflow] prices required source failed", { slot });
-    throw new FatalError("required price source failed");
+  let gasFailed = false;
+  try {
+    await fetchEiaStep(slot, nowIso);
+    await fetchPinkSheetStep(slot, nowIso);
+    await fetchSapStep(slot, nowIso);
+    const posted = await postPricesStep(slot, nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[0], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[1], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[2], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[3], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[4], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[5], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[6], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[7], nowIso);
+    await warmPipeStep(LONG_PIPE_IDS[8], nowIso);
+    await publishStep(nowIso, false);
+    const gas = await publishCompletedGasDayStep(nowIso);
+    gasFailed = !gas.ok;
+    if (!posted.ok) {
+      console.error("[workflow] prices required source failed", { slot });
+      throw new FatalError("required price source failed");
+    }
+    if (!gasFailed) {
+      await recordJobSuccessStep("cron-prices", nowIso);
+    }
+  } catch (error) {
+    if (!gasFailed) {
+      const message = error instanceof Error ? error.message : "cron step failed";
+      await recordJobFailureStep("cron-prices", message);
+    }
+    throw error;
   }
 }

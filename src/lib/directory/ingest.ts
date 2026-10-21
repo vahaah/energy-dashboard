@@ -1,4 +1,5 @@
 import { ELEXON_ISD_API_URL } from "@/lib/attribution";
+import { putImmutable } from "@/lib/blob-readback";
 import {
   DIRECTORY_LATEST_PATH,
   DIRECTORY_PREVIOUS_PATH,
@@ -144,18 +145,10 @@ async function publishSnapshot(
 }
 
 async function putReleaseIfAbsent(store: DirectoryObjectStore, pathname: string, body: string): Promise<void> {
-  const existing = await store.get(pathname);
-  if (existing) {
-    return;
-  }
-  try {
-    await store.put(pathname, body, directoryImmutablePut());
-  } catch (error) {
-    const again = await store.get(pathname);
-    if (!again) {
-      throw error;
-    }
-  }
+  await putImmutable(
+    () => store.put(pathname, body, directoryImmutablePut()),
+    async () => (await store.get(pathname)) != null,
+  );
 }
 
 function emptyResult(): DirectoryIngestResult {

@@ -1,9 +1,13 @@
 import { RetryableError } from "workflow";
+import { observeJobFailure } from "@/lib/blob-readback";
 import { emptyGasStatus, GAS_MAX_RETRIES, type GasStepStatus } from "@/lib/gas/budget";
 import { fetchGasBundle, publishGasBundle, validateGasBundle } from "@/lib/gas/pipeline";
+import { recordJobFailure, recordJobSuccess } from "@/lib/job-health";
 import { publishMapGasFlows } from "@/lib/map/flows-release";
 import { stepAttempt } from "@/lib/step-attempt";
 import { takeWorkflowSlot } from "@/lib/workflow-slot";
+
+const JOB = "cron-gas" as const;
 
 export async function takeGasSlotStep(slot: string, owner: string): Promise<GasStepStatus> {
   "use step";
@@ -11,23 +15,43 @@ export async function takeGasSlotStep(slot: string, owner: string): Promise<GasS
   return { ok: true, rows: 0, bytes: 0, hash: "", releaseId: "" };
 }
 
-export async function fetchGasIntradayStep(nowIso: string): Promise<GasStepStatus> {
+export async function fetchGasIntradayStep(nowIso: string): Promise<GasStepStatus & { raw?: string }> {
   "use step";
-  return fetchGasBundle("intraday", new Date(nowIso), stepAttempt());
-}
-
-export async function validateGasIntradayStep(hash: string, nowIso: string): Promise<GasStepStatus> {
-  "use step";
-  return validateGasBundle(hash, "intraday", new Date(nowIso));
-}
-
-export async function publishGasIntradayStep(hash: string, nowIso: string): Promise<GasStepStatus> {
-  "use step";
-  const status = await publishGasBundle(hash, "intraday", new Date(nowIso));
-  if (status.ok) {
-    await publishMapGasFlows(new Date(nowIso)).catch(() => undefined);
+  try {
+    return await fetchGasBundle("intraday", new Date(nowIso), stepAttempt());
+  } catch (error) {
+    await observeJobFailure(JOB, error, GAS_MAX_RETRIES);
+    throw error;
   }
-  return status;
+}
+
+export async function validateGasIntradayStep(
+  hash: string,
+  nowIso: string,
+  raw?: string,
+): Promise<GasStepStatus> {
+  "use step";
+  try {
+    return await validateGasBundle(hash, "intraday", new Date(nowIso), raw);
+  } catch (error) {
+    await observeJobFailure(JOB, error, GAS_MAX_RETRIES);
+    throw error;
+  }
+}
+
+export async function publishGasIntradayStep(hash: string, nowIso: string, raw?: string): Promise<GasStepStatus> {
+  "use step";
+  try {
+    const status = await publishGasBundle(hash, "intraday", new Date(nowIso), undefined, raw);
+    if (status.ok) {
+      await publishMapGasFlows(new Date(nowIso)).catch(() => undefined);
+      await recordJobSuccess(JOB, new Date(nowIso));
+    }
+    return status;
+  } catch (error) {
+    await observeJobFailure(JOB, error, GAS_MAX_RETRIES);
+    throw error;
+  }
 }
 
 export async function publishCompletedGasDayStep(nowIso: string): Promise<GasStepStatus> {
@@ -35,12 +59,14 @@ export async function publishCompletedGasDayStep(nowIso: string): Promise<GasSte
   const attempt = stepAttempt();
   try {
     const fetched = await fetchGasBundle("completed-day", new Date(nowIso), attempt);
-    await validateGasBundle(fetched.hash, "completed-day", new Date(nowIso));
-    return await publishGasBundle(fetched.hash, "completed-day", new Date(nowIso));
+    await validateGasBundle(fetched.hash, "completed-day", new Date(nowIso), fetched.raw);
+    return await publishGasBundle(fetched.hash, "completed-day", new Date(nowIso), undefined, fetched.raw);
   } catch (error) {
     if (error instanceof RetryableError && attempt <= GAS_MAX_RETRIES) {
       throw error;
     }
+    const message = error instanceof Error ? error.message : "completed gas day failed";
+    await recordJobFailure("cron-prices", message);
     console.error("[gas] completed-day kept the previous release");
     return emptyGasStatus();
   }

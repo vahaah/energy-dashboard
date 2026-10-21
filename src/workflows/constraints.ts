@@ -16,6 +16,6 @@ export async function nesoConstraints(slot: string, owner: string, nowIso: strin
   "use workflow";
   await takeConstraintsSlotStep(slot, owner);
   const fetched = await fetchConstraintsStep(bundle, nowIso);
-  await validateConstraintsStep(fetched.hash, bundle, nowIso);
-  await publishConstraintsStep(fetched.hash, bundle, nowIso);
+  await validateConstraintsStep(fetched.hash, bundle, nowIso, fetched.raw, fetched.meta);
+  await publishConstraintsStep(fetched.hash, bundle, nowIso, fetched.raw, fetched.meta);
 }

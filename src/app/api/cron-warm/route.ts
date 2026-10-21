@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date();
-  const run = await start(electricitySlot, [halfHourSlot(now), crypto.randomUUID(), now.toISOString()]);
+  const run = await start(electricitySlot, [halfHourSlot(now), crypto.randomUUID(), now.toISOString(), "cron-warm"]);
   console.info("[cron-warm] started", { runId: run.runId });
   return NextResponse.json({ ok: true, runId: run.runId }, { status: 202 });
 }

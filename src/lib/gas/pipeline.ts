@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { FatalError, RetryableError } from "workflow";
+import { blobReadbackError, fitsInlineResult, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import { sha256Bytes, sha256Prefixed } from "@/lib/catalogue/canonical";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -90,9 +91,6 @@ export class GasBodyMissingError extends Error {
   }
 }
 
-const RAW_BODY_ATTEMPTS = 3;
-const RAW_BODY_BACKOFF_MS = [200, 800] as const;
-
 type CatalogueStamp = {
   sha256: string | null;
   fetched_at: string;
@@ -142,7 +140,12 @@ export function gasReleaseId(release: GasRelease): string {
   return sha256Prefixed(stable).slice("sha256:".length);
 }
 
-export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: number): Promise<GasStepStatus> {
+export type GasFetchResult = GasStepStatus & {
+  /** CSV when it fits in the step result. Later steps must not read it back. */
+  raw?: string;
+};
+
+export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: number): Promise<GasFetchResult> {
   try {
     await ensureCatalogueHash(now, attempt);
     await pruneQuarantine(now);
@@ -161,18 +164,30 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
   }
   const hash = sha256Text(body);
   const hex = hash.slice("sha256:".length);
+  const bytes = Buffer.byteLength(body);
   await putIfAbsent(gasRawPath(hex), body, "text/csv");
-  return {
+  const result: GasFetchResult = {
     ok: true,
     rows: parseGasCsvTable(body).rows.length,
-    bytes: Buffer.byteLength(body),
+    bytes,
     hash,
     releaseId: "",
   };
+  const inlined: GasFetchResult = { ...result, raw: body };
+  if (fitsInlineResult(inlined)) {
+    return inlined;
+  }
+  console.warn("[gas] raw body left in blob", { bundle, bytes });
+  return result;
 }
 
-export async function validateGasBundle(hash: string, bundle: GasBundle, now: Date): Promise<GasStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now);
+export async function validateGasBundle(
+  hash: string,
+  bundle: GasBundle,
+  now: Date,
+  raw?: string,
+): Promise<GasStepStatus> {
+  const prepared = await prepareRelease(hash, bundle, now, raw);
   return {
     ok: true,
     rows: prepared.rows,
@@ -187,8 +202,9 @@ export async function publishGasBundle(
   bundle: GasBundle,
   now: Date,
   catalogueDir?: string,
+  raw?: string,
 ): Promise<GasStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now);
+  const prepared = await prepareRelease(hash, bundle, now, raw);
   const { release, releaseId, bytes, rows } = prepared;
   const path = gasReleasePath(releaseId);
   const existing = await gasStore().get(path, true);
@@ -221,11 +237,17 @@ export async function publishGasBundle(
   return { ok: true, rows, bytes, hash, releaseId };
 }
 
-async function prepareRelease(hash: string, bundle: GasBundle, now: Date): Promise<PreparedRelease> {
+async function prepareRelease(
+  hash: string,
+  bundle: GasBundle,
+  now: Date,
+  rawText?: string,
+): Promise<PreparedRelease> {
+  const carried = carriedRaw(hash, rawText);
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
-  const raw = await readStoredRaw(hex, bundle);
+  const raw = carried ?? (await readStoredRaw(hex, bundle));
   if (!raw) {
-    throw new FatalError("National Gas raw body is missing");
+    throw blobReadbackError("National Gas raw body is missing", GAS_MAX_RETRIES);
   }
   const parsed = normaliseGasCsv(raw.body, bundle, now);
   if (!parsed.ok) {
@@ -574,19 +596,22 @@ async function writeCachedPointer(pointer: GasPointer): Promise<void> {
   await redis.set(GAS_POINTER_KEY, pointer, { ex: GAS_POINTER_TTL_SECONDS });
 }
 
+function carriedRaw(hash: string, rawText: string | undefined): { body: string; size: number } | null {
+  if (rawText == null) {
+    return null;
+  }
+  const digest = sha256Text(rawText);
+  if (hash !== digest && hash !== digest.slice("sha256:".length)) {
+    throw new FatalError("National Gas raw body does not match the hash");
+  }
+  return { body: rawText, size: Buffer.byteLength(rawText) };
+}
+
 async function putIfAbsent(pathname: string, body: string, contentType: string): Promise<void> {
-  const existing = await gasStore().get(pathname, true);
-  if (existing) {
-    return;
-  }
-  try {
-    await gasStore().put(pathname, body, immutablePut(contentType));
-  } catch {
-    const again = await gasStore().get(pathname, false);
-    if (!again) {
-      throw new FatalError("National Gas blob write failed");
-    }
-  }
+  await putImmutable(
+    () => gasStore().put(pathname, body, immutablePut(contentType)),
+    async () => (await gasStore().get(pathname, false)) != null,
+  );
 }
 
 async function readStoredRaw(
@@ -594,25 +619,18 @@ async function readStoredRaw(
   bundle: GasBundle,
 ): Promise<{ body: string; size: number } | null> {
   const path = gasRawPath(hex);
-  for (let attempt = 0; attempt < RAW_BODY_ATTEMPTS; attempt += 1) {
-    const raw = await gasStore().get(path, false);
-    if (raw && raw.body.trim().length > 0) {
+  return readUntilPresent(
+    async () => {
+      const raw = await gasStore().get(path, false);
+      if (!raw || raw.body.trim().length === 0) {
+        return null;
+      }
       return raw;
-    }
-    console.warn("[gas] National Gas raw body is missing", { bundle, attempt: attempt + 1 });
-    const wait = RAW_BODY_BACKOFF_MS[attempt];
-    if (wait == null) {
-      break;
-    }
-    await rawBodySleep(wait);
-  }
-  return null;
-}
-
-function rawBodySleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+    },
+    (attempt) => {
+      console.warn("[gas] National Gas raw body is missing", { bundle, attempt });
+    },
+  );
 }
 
 async function fetchGasText(url: string, timeoutMs: number): Promise<string> {

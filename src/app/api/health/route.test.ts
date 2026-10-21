@@ -9,6 +9,7 @@ vi.mock("@/lib/warm-envelope", () => ({
 }));
 
 import { GET } from "./route";
+import { CRON_JOB_IDS, recordJobFailure, recordJobSuccess, resetJobHealthForTests } from "@/lib/job-health";
 
 function tinybirdTimestamp(msAgo: number): string {
   return new Date(Date.now() - msAgo).toISOString().replace("T", " ").slice(0, 19);
@@ -16,6 +17,7 @@ function tinybirdTimestamp(msAgo: number): string {
 
 describe("/api/health", () => {
   beforeEach(() => {
+    resetJobHealthForTests();
     peekWarmedPipe.mockReset();
     peekWarmedEnvelope.mockReset();
     peekWarmedEnvelope.mockResolvedValue(null);
@@ -108,6 +110,10 @@ describe("/api/health", () => {
         critical: true,
       })
     );
+    expect(body.jobs.map((job: { job: string }) => job.job)).toEqual([...CRON_JOB_IDS]);
+    expect(body.jobs.every((job: { consecutive_failures: number; last_error: string | null }) => {
+      return job.consecutive_failures === 0 && job.last_error == null;
+    })).toBe(true);
   });
 
   it("adds optional metric freshness without changing the snapshot status code", async () => {
@@ -250,5 +256,33 @@ describe("/api/health", () => {
     expect(body.ok).toBe(false);
     expect(body.streams[0].stale).toBe(true);
     expect(body.streams[0].latest).toBeNull();
+  });
+
+  it("shows last_error and consecutive_failures per cron", async () => {
+    await recordJobFailure("cron-northern-ireland", "EirGrid extract is missing");
+    await recordJobFailure("cron-northern-ireland", "EirGrid extract is missing");
+    await recordJobFailure("cron-gas", "National Gas raw body is missing");
+
+    const response = await GET();
+    const body = await response.json();
+    const northernIreland = body.jobs.find((job: { job: string }) => job.job === "cron-northern-ireland");
+    const gas = body.jobs.find((job: { job: string }) => job.job === "cron-gas");
+
+    expect(response.status).toBe(200);
+    expect(northernIreland).toMatchObject({
+      last_error: "EirGrid extract is missing",
+      consecutive_failures: 2,
+    });
+    expect(gas).toMatchObject({
+      last_error: "National Gas raw body is missing",
+      consecutive_failures: 1,
+    });
+
+    await recordJobSuccess("cron-northern-ireland");
+    const recovered = await (await GET()).json();
+    expect(recovered.jobs.find((job: { job: string }) => job.job === "cron-northern-ireland")).toMatchObject({
+      last_error: null,
+      consecutive_failures: 0,
+    });
   });
 });
