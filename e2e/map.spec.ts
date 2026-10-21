@@ -41,6 +41,11 @@ const INLAND = { longitude: -1.8, latitude: 52.6 };
 const OPEN_SEA = { longitude: 3.85, latitude: 55.4 };
 
 type Box = { x: number; y: number; width: number; height: number };
+type StationDot = { x: number; y: number; radius: number };
+type MapShot = { image: DecodedPng; scaleX: number; scaleY: number };
+
+/** Largest station sprite. The hit test reaches three pixels past it. */
+const MARKER_RADIUS_MAX = 14;
 
 test.use({
   launchOptions: {
@@ -109,7 +114,7 @@ async function assertView(page: Page, view: "flows" | "stations") {
   }
 }
 
-async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkInk: boolean) {
+async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkInk: boolean): Promise<MapShot> {
   const container = page.locator("[data-map-status=ready]");
   await expect(container).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => hookNumber(page, "labelCount"), { timeout: 15_000 }).toBeGreaterThan(0);
@@ -232,8 +237,9 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkIn
   expect(windowLabels.labels).toBeGreaterThan(0);
   const runs = axisLineRuns(image, COAST[theme], 42, Math.round(90 * scaleX));
   expect(runs.horizontal + runs.vertical).toBeLessThanOrEqual(2);
+  const shot = { image, scaleX, scaleY };
   if (!checkInk) {
-    return;
+    return shot;
   }
   const inland = await project(page, INLAND.longitude, INLAND.latitude);
   const sea = await project(page, OPEN_SEA.longitude, OPEN_SEA.latitude);
@@ -269,9 +275,8 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkIn
     expect((span?.left ?? 0) / scaleX).toBeLessThan(wales.x);
     expect((span?.right ?? 0) / scaleX).toBeGreaterThan(wales.x + 8);
   }
+  return shot;
 }
-
-type StationDot = { x: number; y: number; radius: number };
 
 function rgbAt(image: DecodedPng, x: number, y: number): Rgb {
   const clampedX = Math.max(0, Math.min(image.width - 1, Math.round(x)));
@@ -345,21 +350,56 @@ async function assertZoomControl(page: Page, theme: (typeof THEMES)[number]) {
   expect(luminanceOf(corner)).toBeGreaterThan(240);
 }
 
-async function assertStationLand(page: Page) {
-  await expect.poll(async () => (await stationProbe(page)).dots.length, { timeout: 20_000 }).toBeGreaterThan(20);
-  const probe = await stationProbe(page);
-  expect(probe.above).toBe(true);
-  const canvas = page.locator("[data-map-status=ready] .maplibregl-canvas");
-  const box = await canvas.boundingBox();
-  expect(box).not.toBeNull();
-  if (!box) {
-    return;
+function stationGrid(dots: readonly StationDot[], scaleX: number, scaleY: number, cell: number): Map<string, StationDot[]> {
+  const grid = new Map<string, StationDot[]>();
+  for (const dot of dots) {
+    const key = `${Math.floor((dot.x * scaleX) / cell)}:${Math.floor((dot.y * scaleY) / cell)}`;
+    const bucket = grid.get(key);
+    if (bucket) {
+      bucket.push(dot);
+    } else {
+      grid.set(key, [dot]);
+    }
   }
-  const image = decodePng(await canvas.screenshot());
-  const scaleX = image.width / box.width;
-  const scaleY = image.height / box.height;
+  return grid;
+}
+
+function onMarker(
+  grid: Map<string, StationDot[]>,
+  cell: number,
+  x: number,
+  y: number,
+  scaleX: number,
+  scaleY: number,
+  scale: number,
+): boolean {
+  const cx = Math.floor(x / cell);
+  const cy = Math.floor(y / cell);
+  for (let oy = -1; oy <= 1; oy += 1) {
+    for (let ox = -1; ox <= 1; ox += 1) {
+      const bucket = grid.get(`${cx + ox}:${cy + oy}`);
+      if (!bucket) {
+        continue;
+      }
+      for (const other of bucket) {
+        const dx = x - other.x * scaleX;
+        const dy = y - other.y * scaleY;
+        const reach = (other.radius + 3) * scale;
+        if (dx * dx + dy * dy <= reach * reach) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function assertStationLand(shot: MapShot, dots: readonly StationDot[]) {
+  const { image, scaleX, scaleY } = shot;
   const scale = (scaleX + scaleY) / 2;
   const land = LAND.light;
+  const cell = Math.max(8, Math.ceil((MARKER_RADIUS_MAX + 3) * scale));
+  const grid = stationGrid(dots, scaleX, scaleY, cell);
   const offsets: ReadonlyArray<readonly [number, number]> = [
     [1, 0],
     [-1, 0],
@@ -373,7 +413,7 @@ async function assertStationLand(page: Page) {
   let checked = 0;
   let patches = 0;
   const margin = 6;
-  for (const dot of probe.dots) {
+  for (const dot of dots) {
     const cx = dot.x * scaleX;
     const cy = dot.y * scaleY;
     if (cx < margin || cy < margin || cx > image.width - margin || cy > image.height - margin) {
@@ -386,17 +426,7 @@ async function assertStationLand(page: Page) {
       if (x < margin || y < margin || x >= image.width - margin || y >= image.height - margin) {
         continue;
       }
-      let onMarker = false;
-      for (const other of probe.dots) {
-        const dx = x - other.x * scaleX;
-        const dy = y - other.y * scaleY;
-        const reach = (other.radius + 3) * scale;
-        if (dx * dx + dy * dy <= reach * reach) {
-          onMarker = true;
-          break;
-        }
-      }
-      if (onMarker) {
+      if (onMarker(grid, cell, x, y, scaleX, scaleY, scale)) {
         continue;
       }
       const color = rgbAt(image, x, y);
@@ -419,7 +449,7 @@ async function assertStationLand(page: Page) {
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
     test(`${theme} ${viewport.width} /map flows and power stations paint the basemap`, async ({ page }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(45_000);
       const pageErrors: string[] = [];
       page.on("pageerror", (error) => {
         pageErrors.push(error.message);
@@ -464,27 +494,24 @@ for (const theme of THEMES) {
       }
       await expect(page.getByRole("checkbox", { name: "Power stations" })).toBeChecked();
       await assertView(page, "stations");
-      await assertBasemap(page, theme, false);
-      await expect.poll(async () => (await stationProbe(page)).above, { timeout: 20_000 }).toBe(true);
+      await expect
+        .poll(async () => {
+          const probe = await stationProbe(page);
+          return probe.above && probe.dots.length > 20;
+        }, { timeout: 20_000 })
+        .toBe(true);
+      const stations = await assertBasemap(page, theme, false);
       if (theme === "light") {
-        await assertStationLand(page);
+        const probe = await stationProbe(page);
+        expect(probe.above).toBe(true);
+        expect(probe.dots.length).toBeGreaterThan(20);
+        assertStationLand(stations, probe.dots);
         const wales = await project(page, WALES.longitude, WALES.latitude);
         expect(wales).not.toBeNull();
         if (wales) {
-          const labelCanvas = page.locator("[data-map-status=ready] .maplibregl-canvas");
-          const labelBox = await labelCanvas.boundingBox();
-          expect(labelBox).not.toBeNull();
-          if (labelBox) {
-            const labelImage = decodePng(await labelCanvas.screenshot());
-            const span = glyphSpan(
-              labelImage,
-              wales.x * (labelImage.width / labelBox.width),
-              wales.y * (labelImage.height / labelBox.height),
-              theme,
-            );
-            expect(span).not.toBeNull();
-            expect((span?.width ?? 0) / (labelImage.width / labelBox.width)).toBeGreaterThanOrEqual(34);
-          }
+          const span = glyphSpan(stations.image, wales.x * stations.scaleX, wales.y * stations.scaleY, theme);
+          expect(span).not.toBeNull();
+          expect((span?.width ?? 0) / stations.scaleX).toBeGreaterThanOrEqual(34);
         }
       }
       expect(pageErrors).toEqual([]);
