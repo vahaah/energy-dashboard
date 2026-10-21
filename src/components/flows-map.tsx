@@ -198,7 +198,6 @@ function FlowList({
 export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
   const handle = useRef<FlowsMapHandle | null>(null);
   const focusRef = useRef<HTMLButtonElement | null>(null);
   const stationsRef = useRef<StationFeatureCollection | null>(null);
@@ -265,8 +264,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
 
   useEffect(() => {
     const element = mapRef.current;
-    const overlay = overlayRef.current;
-    if (!element || !overlay) {
+    if (!element) {
       return;
     }
     let disposed = false;
@@ -274,10 +272,10 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
     // the /map prefetch, and the header link prefetches that route from /.
     void Promise.all([import("@/app/map/maplibre.css"), import("@/lib/map/flows-browser")])
       .then(([, mod]) => {
-        if (disposed || !mapRef.current || !overlayRef.current) {
+        if (disposed || !mapRef.current) {
           return;
         }
-        handle.current = mod.mountFlowsMap(mapRef.current, overlayRef.current, {
+        handle.current = mod.mountFlowsMap(mapRef.current, {
           lines: drawLinesRef.current(),
           dnoPath: model.dnoPath,
           electricity: electricityRef.current,
@@ -712,7 +710,6 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           }
         >
           <div ref={mapRef} className="absolute inset-0 h-full w-full" data-map-status={status} />
-          <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true" />
         </div>
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (

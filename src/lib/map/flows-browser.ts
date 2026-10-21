@@ -1,6 +1,7 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
+import { themeColor } from "@/lib/map/basemap-style";
 import { CHEVRON_STEPS, chevronDash } from "@/lib/map/chevron-dash";
 import {
   BASEMAP_DETAIL_MIN_ZOOM,
@@ -12,9 +13,10 @@ import {
 } from "@/lib/map/constants";
 import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
+import { MAP_SIZE_STEPS, type MarkerShape } from "@/lib/map/marker";
 import { basemapStartupFailed } from "@/lib/map/startup-error";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
-import type { MarkerShape } from "@/lib/map/marker";
+import { TODAY_GROUPS } from "@/lib/map/today-figures";
 
 export type FlowsMapTheme = "light" | "dark";
 export type FlowsMapStatus = "ready" | "error";
@@ -45,6 +47,10 @@ export type GridMapTestHook = {
   flowLineCount: () => number;
   flowMarkerCount: () => number;
   project: (longitude: number, latitude: number) => { x: number; y: number } | null;
+  /** Place-name layers sit above the station symbol layer. */
+  labelsAboveStations: () => boolean;
+  /** Station centres in CSS pixels, for sampling the land between markers. */
+  stationDots: () => { x: number; y: number; radius: number }[];
 };
 
 let protocolReady = false;
@@ -136,24 +142,14 @@ function pointFeatures(lines: readonly FlowDrawLine[]): PointFeature[] {
   }));
 }
 
-function drawShape(
-  context: CanvasRenderingContext2D,
-  shape: MarkerShape,
-  x: number,
-  y: number,
-  radius: number,
-  color: string,
-): void {
-  context.save();
-  context.translate(x, y);
-  context.fillStyle = color;
-  context.strokeStyle = color;
-  context.lineWidth = 1.5;
+const MARKER_HALO_PX = 1.35;
+
+function traceShape(context: CanvasRenderingContext2D, shape: MarkerShape, radius: number): void {
   context.beginPath();
   switch (shape) {
     case "circle":
+    case "ring":
       context.arc(0, 0, radius, 0, Math.PI * 2);
-      context.fill();
       break;
     case "diamond":
       context.moveTo(0, -radius);
@@ -161,25 +157,21 @@ function drawShape(
       context.lineTo(0, radius);
       context.lineTo(-radius, 0);
       context.closePath();
-      context.fill();
       break;
     case "square":
       context.rect(-radius * 0.78, -radius * 0.78, radius * 1.56, radius * 1.56);
-      context.fill();
       break;
     case "triangle":
       context.moveTo(0, -radius);
       context.lineTo(radius * 0.92, radius * 0.78);
       context.lineTo(-radius * 0.92, radius * 0.78);
       context.closePath();
-      context.fill();
       break;
     case "triangle-down":
       context.moveTo(0, radius);
       context.lineTo(radius * 0.92, -radius * 0.78);
       context.lineTo(-radius * 0.92, -radius * 0.78);
       context.closePath();
-      context.fill();
       break;
     case "hexagon":
       for (let index = 0; index < 6; index += 1) {
@@ -193,16 +185,10 @@ function drawShape(
         }
       }
       context.closePath();
-      context.fill();
       break;
     case "plus":
       context.rect(-radius * 0.32, -radius, radius * 0.64, radius * 2);
       context.rect(-radius, -radius * 0.32, radius * 2, radius * 0.64);
-      context.fill();
-      break;
-    case "ring":
-      context.arc(0, 0, radius, 0, Math.PI * 2);
-      context.stroke();
       break;
     default: {
       const neverShape: never = shape;
@@ -210,7 +196,68 @@ function drawShape(
       break;
     }
   }
+}
+
+/**
+ * Filled technology shape. The halo is the basemap land colour for the theme,
+ * so the anti-aliased edge reads as land instead of a dark fringe. On a light
+ * map a dark fringe from hundreds of markers piles up into grey patches.
+ */
+function drawShape(
+  context: CanvasRenderingContext2D,
+  shape: MarkerShape,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  halo: string,
+): void {
+  context.save();
+  context.translate(x, y);
+  context.lineJoin = "round";
+  context.lineCap = "round";
+  if (shape !== "ring") {
+    traceShape(context, shape, radius + MARKER_HALO_PX);
+    context.fillStyle = halo;
+    context.fill();
+  }
+  traceShape(context, shape, radius);
+  if (shape === "ring") {
+    context.strokeStyle = halo;
+    context.lineWidth = 1.5 + MARKER_HALO_PX * 2;
+    context.stroke();
+    context.strokeStyle = color;
+    context.lineWidth = 1.5;
+    context.stroke();
+  } else {
+    context.fillStyle = color;
+    context.fill();
+  }
   context.restore();
+}
+
+function markerPixelRatio(): number {
+  return Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+}
+
+function markerIconId(theme: FlowsMapTheme, shape: string, radius: number, color: string): string {
+  return `station-${theme}-${shape}-${radius}-${color.replace("#", "")}`;
+}
+
+function rasterizeMarker(shape: MarkerShape, radius: number, color: string, halo: string, ratio: number): ImageData {
+  const pad = MARKER_HALO_PX + 1;
+  const css = Math.ceil((radius + pad) * 2);
+  const size = Math.max(1, Math.ceil(css * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) {
+    throw new Error("station marker image");
+  }
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  drawShape(context, shape, css / 2, css / 2, radius, color, halo);
+  return context.getImageData(0, 0, size, size);
 }
 
 export type FlowsMapHandle = {
@@ -224,7 +271,6 @@ export type FlowsMapHandle = {
 
 export function mountFlowsMap(
   container: HTMLElement,
-  overlay: HTMLCanvasElement,
   options: {
     lines: readonly FlowDrawLine[];
     dnoPath: string;
@@ -436,7 +482,10 @@ export function mountFlowsMap(
       });
       map.on("mouseleave", layer, () => hover(undefined, undefined, null));
     }
-    map.on("click", "station-hit", (event) => {
+    // Symbols sit above the hit discs. One query returns the topmost feature,
+    // so a click on a glyph selects that sprite and a click in the padding
+    // selects the same station from the disc.
+    map.on("click", ["station-markers", "station-hit"], (event) => {
       const id = event.features?.[0]?.properties.id;
       if (typeof id === "string") {
         options.onSelect(id);
@@ -450,28 +499,96 @@ export function mountFlowsMap(
     });
   }
 
-  function addStationHit(): void {
+  function stationVisibility(): "visible" | "none" {
+    return stationsOn ? "visible" : "none";
+  }
+
+  function beforeLabels(): string | undefined {
+    return map.getLayer("names-overview") ? "names-overview" : undefined;
+  }
+
+  function ensureMarkerImages(): void {
+    const halo = themeColor(theme, "land");
+    const ratio = markerPixelRatio();
+    for (const group of TODAY_GROUPS) {
+      for (const step of MAP_SIZE_STEPS) {
+        const id = markerIconId(theme, group.shape, step.radius, group.color);
+        if (map.hasImage(id)) {
+          continue;
+        }
+        map.addImage(id, rasterizeMarker(group.shape, step.radius, group.color, halo, ratio), {
+          pixelRatio: ratio,
+        });
+      }
+    }
+  }
+
+  function addStationLayers(): void {
+    ensureMarkerImages();
+    const land = themeColor(theme, "land");
     if (!map.getSource("stations")) {
       map.addSource("stations", { type: "geojson", data: stations });
-      map.addLayer({
-        id: "station-hit",
-        type: "circle",
-        source: "stations",
-        layout: { visibility: stationsOn ? "visible" : "none" },
-        paint: {
-          "circle-radius": HIT_RADIUS,
-          "circle-color": "#000000",
-          "circle-opacity": 0.01,
+      // Hit discs go in first, then the sprites, both before the place names.
+      // A land-coloured disc stays invisible when the discs stack; a black
+      // disc at the same opacity greys the land. Positive radius matches the
+      // static map: a larger marker is painted above a smaller one, and the
+      // hit layer uses that same key so the clicked station is the painted one.
+      map.addLayer(
+        {
+          id: "station-hit",
+          type: "circle",
+          source: "stations",
+          layout: {
+            visibility: stationVisibility(),
+            "circle-sort-key": ["get", "radius"],
+          },
+          paint: {
+            "circle-radius": HIT_RADIUS,
+            "circle-color": land,
+            "circle-opacity": 0.01,
+            "circle-stroke-width": 0,
+            "circle-blur": 0,
+          },
         },
-      });
-    } else {
-      const source = map.getSource("stations");
-      if (source instanceof GeoJSONSource) {
-        source.setData(stations);
+        beforeLabels(),
+      );
+      map.addLayer(
+        {
+          id: "station-markers",
+          type: "symbol",
+          source: "stations",
+          layout: {
+            visibility: stationVisibility(),
+            "icon-image": [
+              "concat",
+              `station-${theme}-`,
+              ["get", "shape"],
+              "-",
+              ["to-string", ["get", "radius"]],
+              "-",
+              ["slice", ["get", "color"], 1],
+            ],
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "icon-padding": 0,
+            "symbol-sort-key": ["get", "radius"],
+          },
+        },
+        beforeLabels(),
+      );
+      return;
+    }
+    const source = map.getSource("stations");
+    if (source instanceof GeoJSONSource) {
+      source.setData(stations);
+    }
+    for (const id of ["station-markers", "station-hit"] as const) {
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(id, "visibility", stationVisibility());
       }
-      if (map.getLayer("station-hit")) {
-        map.setLayoutProperty("station-hit", "visibility", stationsOn ? "visible" : "none");
-      }
+    }
+    if (map.getLayer("station-hit")) {
+      map.setPaintProperty("station-hit", "circle-color", land);
     }
   }
 
@@ -572,36 +689,6 @@ export function mountFlowsMap(
     );
   }
 
-  function drawOverlay(): void {
-    const rect = container.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
-    overlay.width = Math.max(1, Math.floor(rect.width * ratio));
-    overlay.height = Math.max(1, Math.floor(rect.height * ratio));
-    const context = overlay.getContext("2d");
-    if (!context) {
-      return;
-    }
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, rect.width, rect.height);
-    if (!stationsOn) {
-      return;
-    }
-    for (const feature of stations.features) {
-      const projected = map.project(feature.geometry.coordinates);
-      if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
-        continue;
-      }
-      drawShape(
-        context,
-        feature.properties.shape,
-        projected.x,
-        projected.y,
-        feature.properties.radius,
-        feature.properties.color,
-      );
-    }
-  }
-
   function tick(): void {
     frame = 0;
     if (!ready || reduceMotion || hidden || !map.getLayer("flow-fresh")) {
@@ -644,7 +731,7 @@ export function mountFlowsMap(
 
   function paint(): void {
     addFlowLayers();
-    addStationHit();
+    addStationLayers();
     addDno();
     if (!pointersBound) {
       bindPointers();
@@ -657,17 +744,14 @@ export function mountFlowsMap(
       options.onStatus("ready");
       startMotion();
     }
-    drawOverlay();
   }
 
   map.on("style.load", () => {
     styleLoaded = true;
     paint();
   });
-  map.on("move", drawOverlay);
   map.on("resize", () => {
     frameView();
-    drawOverlay();
   });
   map.on("sourcedata", (event) => {
     if (event.sourceId !== "zoomstack" || !map.getSource("zoomstack") || !map.isSourceLoaded("zoomstack")) {
@@ -702,6 +786,29 @@ export function mountFlowsMap(
         return null;
       }
       return { x: projected.x, y: projected.y };
+    },
+    labelsAboveStations: () => {
+      const ids = (map.getStyle()?.layers ?? []).map((layer) => layer.id);
+      const marker = ids.indexOf("station-markers");
+      const hit = ids.indexOf("station-hit");
+      if (marker < 0 || hit < 0 || hit > marker) {
+        return false;
+      }
+      return LABEL_LAYERS.every((id) => ids.indexOf(id) > marker);
+    },
+    stationDots: () => {
+      if (!stationsOn || !map.getLayer("station-markers")) {
+        return [];
+      }
+      const dots: { x: number; y: number; radius: number }[] = [];
+      for (const feature of stations.features) {
+        const projected = map.project(feature.geometry.coordinates);
+        if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
+          continue;
+        }
+        dots.push({ x: projected.x, y: projected.y, radius: feature.properties.radius });
+      }
+      return dots;
     },
   });
   tested.__gridMapTest = testHook;
@@ -749,7 +856,6 @@ export function mountFlowsMap(
       lines = next.slice();
       if (ready) {
         paintLines();
-        drawOverlay();
       }
     },
     setVisibility: (next) => {
@@ -762,10 +868,11 @@ export function mountFlowsMap(
       }
       paintLines();
       addDno();
-      if (map.getLayer("station-hit")) {
-        map.setLayoutProperty("station-hit", "visibility", stationsOn ? "visible" : "none");
+      for (const id of ["station-markers", "station-hit"] as const) {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", stationsOn ? "visible" : "none");
+        }
       }
-      drawOverlay();
     },
     setSelected: (id) => {
       const line = lines.find((item) => item.id === id);
@@ -808,8 +915,7 @@ export function mountFlowsMap(
     setStations: (collection) => {
       stations = collection;
       if (ready) {
-        addStationHit();
-        drawOverlay();
+        addStationLayers();
       }
     },
     setTheme: (next) => {
