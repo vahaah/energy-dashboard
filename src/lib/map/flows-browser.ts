@@ -482,7 +482,10 @@ export function mountFlowsMap(
       });
       map.on("mouseleave", layer, () => hover(undefined, undefined, null));
     }
-    map.on("click", "station-hit", (event) => {
+    // Symbols sit above the hit discs. One query returns the topmost feature,
+    // so a click on a glyph selects that sprite and a click in the padding
+    // selects the same station from the disc.
+    map.on("click", ["station-markers", "station-hit"], (event) => {
       const id = event.features?.[0]?.properties.id;
       if (typeof id === "string") {
         options.onSelect(id);
@@ -525,8 +528,30 @@ export function mountFlowsMap(
     const land = themeColor(theme, "land");
     if (!map.getSource("stations")) {
       map.addSource("stations", { type: "geojson", data: stations });
-      // Under the place names. A land-coloured hit disc stays invisible when
-      // the discs stack; a black disc at the same opacity greys the land.
+      // Hit discs go in first, then the sprites, both before the place names.
+      // A land-coloured disc stays invisible when the discs stack; a black
+      // disc at the same opacity greys the land. Positive radius matches the
+      // static map: a larger marker is painted above a smaller one, and the
+      // hit layer uses that same key so the clicked station is the painted one.
+      map.addLayer(
+        {
+          id: "station-hit",
+          type: "circle",
+          source: "stations",
+          layout: {
+            visibility: stationVisibility(),
+            "circle-sort-key": ["get", "radius"],
+          },
+          paint: {
+            "circle-radius": HIT_RADIUS,
+            "circle-color": land,
+            "circle-opacity": 0.01,
+            "circle-stroke-width": 0,
+            "circle-blur": 0,
+          },
+        },
+        beforeLabels(),
+      );
       map.addLayer(
         {
           id: "station-markers",
@@ -546,23 +571,7 @@ export function mountFlowsMap(
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
             "icon-padding": 0,
-            "symbol-sort-key": ["*", ["get", "radius"], -1],
-          },
-        },
-        beforeLabels(),
-      );
-      map.addLayer(
-        {
-          id: "station-hit",
-          type: "circle",
-          source: "stations",
-          layout: { visibility: stationVisibility() },
-          paint: {
-            "circle-radius": HIT_RADIUS,
-            "circle-color": land,
-            "circle-opacity": 0.01,
-            "circle-stroke-width": 0,
-            "circle-blur": 0,
+            "symbol-sort-key": ["get", "radius"],
           },
         },
         beforeLabels(),
@@ -781,7 +790,8 @@ export function mountFlowsMap(
     labelsAboveStations: () => {
       const ids = (map.getStyle()?.layers ?? []).map((layer) => layer.id);
       const marker = ids.indexOf("station-markers");
-      if (marker < 0) {
+      const hit = ids.indexOf("station-hit");
+      if (marker < 0 || hit < 0 || hit > marker) {
         return false;
       }
       return LABEL_LAYERS.every((id) => ids.indexOf(id) > marker);
