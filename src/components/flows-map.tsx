@@ -197,6 +197,7 @@ function FlowList({
 
 export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const handle = useRef<FlowsMapHandle | null>(null);
   const focusRef = useRef<HTMLButtonElement | null>(null);
@@ -310,6 +311,14 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       handle.current = null;
     };
   }, [model.dnoPath]);
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) {
+      return;
+    }
+    sheet.scrollTop = 0;
+  }, [preset]);
 
   function drawLines() {
     return model.features.map((feature) => ({
@@ -725,6 +734,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         {details}
       </aside>
       <div
+        ref={sheetRef}
         data-flow-sheet
         role="dialog"
         aria-labelledby="flow-sheet-title"

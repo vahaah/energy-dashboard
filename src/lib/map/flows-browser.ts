@@ -687,9 +687,11 @@ export function mountFlowsMap(
     maplibreMap?: Map;
     __gridMapTest?: GridMapTestHook;
   };
+  const testWindow = window as Window & { __gridMapTest?: GridMapTestHook };
   tested.maplibreMap = map;
-  // Playwright reads this. It is not a control on the page.
-  tested.__gridMapTest = {
+  // Read-only counts for live checks. The same object sits on the container,
+  // which Playwright already uses. It is not a control on the page.
+  const testHook: GridMapTestHook = Object.freeze({
     labelCount: () => renderedCount(LABEL_LAYERS),
     flowCount: () => renderedCount([...FLOW_LINE_LAYERS, ...FLOW_MARKER_LAYERS]),
     flowLineCount: () => renderedCount(FLOW_LINE_LAYERS),
@@ -701,7 +703,14 @@ export function mountFlowsMap(
       }
       return { x: projected.x, y: projected.y };
     },
-  };
+  });
+  tested.__gridMapTest = testHook;
+  Object.defineProperty(testWindow, "__gridMapTest", {
+    configurable: true,
+    enumerable: false,
+    writable: false,
+    value: testHook,
+  });
   const resizeObserver = new ResizeObserver(() => {
     map.resize();
   });
@@ -731,6 +740,9 @@ export function mountFlowsMap(
       resizeObserver.disconnect();
       delete tested.maplibreMap;
       delete tested.__gridMapTest;
+      if (testWindow.__gridMapTest === testHook) {
+        delete testWindow.__gridMapTest;
+      }
       map.remove();
     },
     setLines: (next) => {

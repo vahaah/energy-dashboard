@@ -39,9 +39,8 @@ function uintField(field: number, value: number, keepZero = false): number[] {
 }
 
 function sintField(field: number, value: number): number[] {
-  if (value === 0) {
-    return [];
-  }
+  // MapLibre's glyph parser leaves an omitted sint undefined. A left bearing of
+  // 0 then becomes a NaN quad, so the letter keeps its advance and draws nothing.
   return [...key(field, 0), ...varint(zigzag(value))];
 }
 
@@ -54,7 +53,7 @@ function encodeGlyph(glyph: GlyphBitmap): Uint8Array {
     ...uintField(4, glyph.height, true),
     ...sintField(5, glyph.left),
     ...sintField(6, glyph.top),
-    ...uintField(7, glyph.advance),
+    ...uintField(7, glyph.advance, true),
   ];
   return Uint8Array.from(bytes);
 }

@@ -22,6 +22,8 @@ export type BasemapTheme = (typeof BASEMAP_THEMES)[number];
  * the page colour. A land polygon the size of the extract sits under the sea
  * fill. A second sea polygon covers the camera bounds, with a hole just inside
  * the extract, so the land rectangle cannot draw a beige frame in the ocean.
+ * That hole still cuts mainland Europe on two straight edges. A sea fill above
+ * the coast covers that land; its northern edge sits in the Dover Strait.
  * The coastline is a separate line. Sea polygons are clipped to each vector
  * tile, so outlining those fills draws the tile grid and the extract box.
  */
@@ -187,6 +189,59 @@ function road(
   };
 }
 
+/**
+ * Northern edge of the continental sea cover, west to east, through the
+ * Strait of Dover. South of Kent (the English coast stays above 51.10°N
+ * here) and north of the French shore. The ring closes east and south of
+ * the Zoomstack extract, in water that is already sea.
+ */
+const SEA_CONTINENT_EDGE: readonly (readonly [number, number])[] = [
+  [0.05, 49.684],
+  [0.17, 49.809],
+  [0.29, 49.855],
+  [0.41, 49.865],
+  [0.53, 49.937],
+  [0.65, 49.956],
+  [0.77, 49.956],
+  [1.13, 50.059],
+  [1.25, 50.088],
+  [1.37, 50.212],
+  [1.49, 50.948],
+  [1.61, 51.007],
+  [1.73, 51.024],
+  [1.85, 51.076],
+  [1.97, 51.087],
+  [2.09, 51.1],
+  [2.21, 51.1],
+  [2.33, 51.139],
+  [2.45, 51.149],
+  [2.57, 51.182],
+  [2.69, 51.25],
+  [2.81, 51.25],
+  [2.93, 51.326],
+  [3.05, 51.41],
+  [3.17, 51.41],
+  [3.4, 51.72],
+];
+
+function seaContinentFeature(): Record<string, unknown> {
+  const first = SEA_CONTINENT_EDGE[0] ?? [0, 50];
+  const last = SEA_CONTINENT_EDGE[SEA_CONTINENT_EDGE.length - 1] ?? first;
+  const coordinates = [
+    ...SEA_CONTINENT_EDGE.map((point) => [point[0], point[1]]),
+    [8, last[1]],
+    [8, 47.5],
+    [0, 47.5],
+    [0, first[1]],
+    [first[0], first[1]],
+  ];
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Polygon", coordinates: [coordinates] },
+  };
+}
+
 /** Country and capital points copied from z5. Zooms 0–4 have no names tiles. */
 function overviewNames(color: string, halo: string): StyleLayer {
   return {
@@ -200,10 +255,7 @@ function overviewNames(color: string, halo: string): StyleLayer {
       "text-size": ["match", ["get", "type"], "Country", 14, 12],
       "symbol-sort-key": ["match", ["get", "type"], "Country", 0, 1],
       "text-max-width": 8,
-      "text-padding": 8,
-      // Wales sits on the west coast at the overview zoom, so a centred label loses the W.
-      "text-anchor": ["match", ["get", "name1"], "Wales", "left", "center"],
-      "text-offset": ["match", ["get", "name1"], "Wales", ["literal", [0.35, 0]], ["literal", [0, 0]]],
+      "text-padding": 4,
     },
     paint: {
       "text-color": color,
@@ -284,6 +336,12 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
         "line-width": 1.5,
       },
     },
+    {
+      id: "sea-continent",
+      type: "fill",
+      source: "sea-continent",
+      paint: { "fill-color": color.sea, "fill-opacity": 1 },
+    },
     fill("urban-areas", "urban_areas", color.urban, 5, 11),
     fill("woodland", "woodland", color.woodland, 6),
     fill("foreshore", "foreshore", color.foreshore, 8),
@@ -356,6 +414,10 @@ export function basemapStyle(theme: BasemapTheme, copyrightYear: number): Record
       coastline: {
         type: "geojson",
         data: "/basemap/coastline.geojson",
+      },
+      "sea-continent": {
+        type: "geojson",
+        data: seaContinentFeature(),
       },
     },
     sprite: `/basemap/sprites/${theme}`,

@@ -14,6 +14,29 @@ import {
 } from "@/lib/map/constants";
 import { decodeGlyphRange } from "@/lib/map/glyph-pbf";
 
+function pointInRing(longitude: number, latitude: number, ring: readonly (readonly number[])[]): boolean {
+  let hits = 0;
+  for (let index = 0; index < ring.length - 1; index += 1) {
+    const start = ring[index];
+    const end = ring[index + 1];
+    if (!start || !end) {
+      continue;
+    }
+    const x1 = start[0] ?? 0;
+    const y1 = start[1] ?? 0;
+    const x2 = end[0] ?? 0;
+    const y2 = end[1] ?? 0;
+    if ((y1 > latitude) === (y2 > latitude)) {
+      continue;
+    }
+    const x = ((x2 - x1) * (latitude - y1)) / (y2 - y1) + x1;
+    if (longitude < x) {
+      hits += 1;
+    }
+  }
+  return hits % 2 === 1;
+}
+
 describe("basemap style", () => {
   it("checks in quiet light and dark styles that use the Geist tokens and the OS credit", () => {
     for (const theme of ["light", "dark"] as const) {
@@ -59,7 +82,8 @@ describe("basemap style", () => {
     expect(JSON.stringify(light)).toContain(BASEMAP_FONTSTACK);
     expect(JSON.stringify(light)).toContain("land-extent");
     expect(JSON.stringify(light)).toContain("sea-margin");
-    expect(JSON.stringify(light)).toContain('"Wales","left"');
+    expect(JSON.stringify(light)).toContain("sea-continent");
+    expect(JSON.stringify(light)).not.toContain('"Wales"');
     const seaMargin = (
       light.sources as {
         "sea-margin": { data: { geometry: { coordinates: number[][][] } } };
@@ -151,6 +175,37 @@ describe("basemap style", () => {
     }
     const longest = Math.max(0, ...runs.values());
     expect(longest).toBeLessThanOrEqual(0.4);
+    const continentRing =
+      (
+        light.sources as {
+          "sea-continent": { data: { geometry: { coordinates: number[][][] } } };
+        }
+      )["sea-continent"].data.geometry.coordinates[0] ?? [];
+    const inside = (longitude: number, latitude: number) => pointInRing(longitude, latitude, continentRing);
+    expect(inside(1.31, 51.13)).toBe(false);
+    expect(inside(1.15, 51.28)).toBe(false);
+    expect(inside(1.76, 52.48)).toBe(false);
+    expect(inside(0.97, 50.91)).toBe(false);
+    expect(inside(-0.14, 50.82)).toBe(false);
+    expect(inside(3, 50.5)).toBe(true);
+    expect(inside(1.86, 50.96)).toBe(true);
+    expect(inside(2.38, 51.04)).toBe(true);
+    expect(inside(0.12, 49.49)).toBe(true);
+    const coastFailures: string[] = [];
+    for (const line of lines) {
+      for (const point of line) {
+        const longitude = point[0] ?? 0;
+        const latitude = point[1] ?? 0;
+        const covered = inside(longitude, latitude);
+        if (longitude > 2 && latitude < 51.45 && !covered) {
+          coastFailures.push(`continent ${longitude},${latitude}`);
+        }
+        if (latitude > 51.08 && longitude < 1.65 && covered) {
+          coastFailures.push(`britain ${longitude},${latitude}`);
+        }
+      }
+    }
+    expect(coastFailures).toEqual([]);
   });
 
   it("checks in a Geist glyph stack and empty sprites", () => {
