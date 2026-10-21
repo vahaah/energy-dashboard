@@ -19,6 +19,6 @@ export async function eirgridNi(slot: string, owner: string, nowIso: string) {
   "use workflow";
   await takeNiSlotStep(slot, owner);
   const fetched = await fetchNiStep(nowIso);
-  await validateNiStep(fetched.hash);
-  await publishNiStep(fetched.hash, nowIso);
+  await validateNiStep(fetched.hash, fetched.bundle);
+  await publishNiStep(fetched.hash, nowIso, fetched.bundle);
 }

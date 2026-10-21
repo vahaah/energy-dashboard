@@ -1,3 +1,4 @@
+import { putImmutable } from "@/lib/blob-readback";
 import {
   POSTCODE_LATEST_PATH,
   POSTCODE_PREVIOUS_PATH,
@@ -41,10 +42,10 @@ export async function publishPostcodeRelease(
   const shards = shardsFromRows(rows);
   for (const [outward, shard] of shards) {
     const path = postcodeShardPath(releaseId, outward);
-    const existing = await store.get(path);
-    if (!existing) {
-      await store.put(path, JSON.stringify(shard), postcodeImmutablePut());
-    }
+    await putImmutable(
+      () => store.put(path, JSON.stringify(shard), postcodeImmutablePut()),
+      async () => (await store.get(path)) != null,
+    );
   }
   const current = await store.get(POSTCODE_LATEST_PATH);
   if (current) {

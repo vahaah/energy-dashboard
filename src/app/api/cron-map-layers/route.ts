@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-route";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { recordJobFailure, recordJobSuccess } from "@/lib/job-health";
 import { runDnoLayerWatch } from "@/lib/map/layer-watch";
 
 /**
@@ -17,5 +18,10 @@ export async function GET(request: Request) {
     return unauthorized();
   }
   const result = await runDnoLayerWatch();
+  if (result.ok) {
+    await recordJobSuccess("cron-map-layers");
+  } else {
+    await recordJobFailure("cron-map-layers", result.error ?? "map layer watch failed");
+  }
   return NextResponse.json(result, { status: result.ok ? 200 : 503 });
 }

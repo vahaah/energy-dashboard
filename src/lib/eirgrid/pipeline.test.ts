@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { RetryableError } from "workflow";
+import { setBlobReadbackSleepForTests } from "@/lib/blob-readback";
 import {
   NI_CATALOGUE_RELEASES_PATH,
   NI_LATEST_PATH,
@@ -8,10 +10,11 @@ import {
   niImmutablePut,
   niRawPath,
   setNiStoreForTests,
+  type NiObjectStore,
 } from "@/lib/eirgrid/blob";
 import type { EirgridFetchBundle } from "@/lib/eirgrid/fetch";
 import { parseMarketPricingDocument } from "@/lib/eirgrid/parse";
-import { publishNiBundle, stripMarketSterling } from "@/lib/eirgrid/pipeline";
+import { publishNiBundle, validateNiBundle, stripMarketSterling } from "@/lib/eirgrid/pipeline";
 import { revalidateNiPaths } from "@/lib/eirgrid/revalidate";
 
 vi.mock("@/lib/eirgrid/revalidate", () => ({
@@ -51,6 +54,7 @@ function sha256Text(value: string): string {
 
 afterEach(() => {
   setNiStoreForTests(null);
+  setBlobReadbackSleepForTests(null);
   vi.mocked(revalidateNiPaths).mockReset();
 });
 
@@ -116,4 +120,61 @@ describe("Northern Ireland publish", () => {
     expect(market?.published_at).toBeNull();
     expect(market?.source_release_id.startsWith("eirgrid-group:marketPricing:sha256:")).toBe(true);
   });
+
+  it("publishes from the step bundle when blob reads are not-found", async () => {
+    const inner = new MemoryNiStore();
+    setNiStoreForTests(inner);
+    const carried = bundle();
+    const published = await publishNiBundle("sha256:unused", new Date("2026-10-15T15:15:00.000Z"), carried);
+    expect(published.ok).toBe(true);
+    expect(published.releaseId.length).toBeGreaterThan(0);
+    const reads = hidingRaw(inner, Number.POSITIVE_INFINITY);
+    setNiStoreForTests(reads.store);
+    await expect(validateNiBundle("sha256:unused", carried)).resolves.toMatchObject({ ok: true });
+    expect(reads.rawMisses).toBe(0);
+  });
+
+  it("reads the extract after the first two blob gets are not-found", async () => {
+    setBlobReadbackSleepForTests(async () => undefined);
+    const inner = new MemoryNiStore();
+    const body = JSON.stringify(bundle());
+    const hash = sha256Text(body);
+    await inner.put(niRawPath(hash.slice("sha256:".length)), body, niImmutablePut("application/json"));
+    const reads = hidingRaw(inner, 2);
+    setNiStoreForTests(reads.store);
+
+    const validated = await validateNiBundle(hash);
+    expect(validated.ok).toBe(true);
+    expect(reads.rawMisses).toBe(2);
+
+    const exhausted = hidingRaw(inner, 5);
+    setNiStoreForTests(exhausted.store);
+    const error = await validateNiBundle(hash).then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(RetryableError);
+    expect((error as Error).message).toBe("EirGrid extract is missing");
+  });
 });
+
+function hidingRaw(inner: MemoryNiStore, misses: number): { store: NiObjectStore; rawMisses: number } {
+  const state = { rawMisses: 0 };
+  const store: NiObjectStore = {
+    put: (pathname, body, options) => inner.put(pathname, body, options),
+    get: async (pathname) => {
+      if (pathname.includes("/raw/") && state.rawMisses < misses) {
+        state.rawMisses += 1;
+        return null;
+      }
+      return inner.get(pathname);
+    },
+    del: (pathnames) => inner.del(pathnames),
+  };
+  return {
+    store,
+    get rawMisses() {
+      return state.rawMisses;
+    },
+  };
+}

@@ -14,6 +14,6 @@ export async function gasIntraday(slot: string, owner: string, nowIso: string) {
   "use workflow";
   await takeGasSlotStep(slot, owner);
   const fetched = await fetchGasIntradayStep(nowIso);
-  await validateGasIntradayStep(fetched.hash, nowIso);
-  await publishGasIntradayStep(fetched.hash, nowIso);
+  await validateGasIntradayStep(fetched.hash, nowIso, fetched.raw);
+  await publishGasIntradayStep(fetched.hash, nowIso, fetched.raw);
 }

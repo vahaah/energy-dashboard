@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FatalError, RetryableError } from "workflow";
 import { GET as overviewRoute } from "@/app/api/v1/gas/overview/route";
 import { GET as seriesRoute } from "@/app/api/v1/gas/series/route";
+import { setBlobReadbackSleepForTests } from "@/lib/blob-readback";
 import { checkCatalogue } from "@/lib/catalogue/check";
 import { loadDataHealth } from "@/lib/data-health";
 import {
@@ -172,11 +173,12 @@ async function publishFixture(
     throw new Error(`unexpected fetch ${url}`);
   });
   const fetched = await fetchGasBundle(bundle, now, 1);
-  expect(Object.keys(fetched).sort()).toEqual(["bytes", "hash", "ok", "releaseId", "rows"]);
+  expect(Object.keys(fetched).sort()).toEqual(["bytes", "hash", "ok", "raw", "releaseId", "rows"]);
   expect(fetched.ok).toBe(true);
   expect(typeof fetched.rows).toBe("number");
-  const validated = await validateGasBundle(fetched.hash, bundle, now);
-  const published = await publishGasBundle(fetched.hash, bundle, now, catalogueDir);
+  expect(fetched.raw && fetched.raw.length).toBeGreaterThan(0);
+  const validated = await validateGasBundle(fetched.hash, bundle, now, fetched.raw);
+  const published = await publishGasBundle(fetched.hash, bundle, now, catalogueDir, fetched.raw);
   expect(published.releaseId).toBe(validated.releaseId);
   expect(published.releaseId.length).toBeGreaterThan(0);
   return { hash: fetched.hash, releaseId: published.releaseId };
@@ -195,11 +197,13 @@ describe("gas publish", () => {
     store = new MemoryGasStore();
     setGasStoreForTests(store);
     setRedisForTests(new MemoryRedis());
+    setBlobReadbackSleepForTests(async () => undefined);
     revalidated.length = 0;
   });
 
   afterEach(() => {
     setGasStoreForTests(null);
+    setBlobReadbackSleepForTests(null);
     resetRedisClient();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -359,6 +363,22 @@ describe("gas publish", () => {
       attempt: 2,
     });
     warn.mockRestore();
+    setGasStoreForTests(store);
+
+    const empty = {
+      put: (pathname: string, body: string, options: Parameters<MemoryGasStore["put"]>[2]) =>
+        store.put(pathname, body, options),
+      get: async () => null,
+      list: (prefix: string) => store.list(prefix),
+      del: (pathnames: readonly string[]) => store.del(pathnames),
+    };
+    setGasStoreForTests(empty);
+    const missing = await validateGasBundle(published.hash, "intraday", INTRADAY_PUBLISH).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(missing).toBeInstanceOf(RetryableError);
+    expect((missing as Error).message).toBe("National Gas raw body is missing");
     setGasStoreForTests(store);
   });
 

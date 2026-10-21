@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { FatalError } from "workflow";
+import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import {
   CATALOGUE_SCHEMA_VERSION,
   catalogueDatasetId,
@@ -24,7 +25,7 @@ import {
   niStore,
   parseNiPointer,
 } from "@/lib/eirgrid/blob";
-import type { EirgridStepStatus } from "@/lib/eirgrid/budget";
+import { EIRGRID_MAX_RETRIES, type EirgridStepStatus } from "@/lib/eirgrid/budget";
 import {
   EIRGRID_PART_IDS,
   failedPartIds,
@@ -76,7 +77,12 @@ function noteFilteredEmpty(
   bundle.part_failures = [...partFailures(bundle), { part, reason: "zero rows" }];
 }
 
-export async function fetchNiBundle(now: Date, options?: EirgridFetchOptions): Promise<EirgridStepStatus> {
+export type NiFetchResult = EirgridStepStatus & {
+  /** Stripped bundle when it fits in the step result. Later steps must not read it back. */
+  bundle?: EirgridFetchBundle;
+};
+
+export async function fetchNiBundle(now: Date, options?: EirgridFetchOptions): Promise<NiFetchResult> {
   const bundle = await fetchEirgridBundle(now, options);
   noteFilteredEmpty(bundle, "snsp", bundle.snsp, parseSnspDocument);
   noteFilteredEmpty(bundle, "market", bundle.market, parseMarketFeed);
@@ -89,14 +95,22 @@ export async function fetchNiBundle(now: Date, options?: EirgridFetchOptions): P
       console.warn("[eirgrid] zero rows", { part: failure.part });
     }
   }
-  const body = JSON.stringify({ ...bundle, market: stripMarketSterling(bundle.market) });
+  const stripped: EirgridFetchBundle = { ...bundle, market: stripMarketSterling(bundle.market) };
+  const body = JSON.stringify(stripped);
+  const bytes = Buffer.byteLength(body);
   const hash = sha256Text(body);
   await putIfAbsent(niRawPath(hash.slice("sha256:".length)), body, "application/json");
-  return { ok: true, rows: 0, bytes: Buffer.byteLength(body), hash, releaseId: "" };
+  const result: NiFetchResult = { ok: true, rows: 0, bytes, hash, releaseId: "" };
+  if (fitsInline(bytes)) {
+    result.bundle = stripped;
+  } else {
+    console.warn("[eirgrid] extract left in blob", { bytes });
+  }
+  return result;
 }
 
-export async function validateNiBundle(hash: string): Promise<EirgridStepStatus> {
-  const stored = await loadStoredBundle(hash);
+export async function validateNiBundle(hash: string, carried?: EirgridFetchBundle): Promise<EirgridStepStatus> {
+  const stored = await loadStoredBundle(hash, carried);
   const previous = await previousFor(stored.bundle);
   const release = releaseFromBundle(stored.bundle, previous);
   if (!bundleHasNiDemand(release)) {
@@ -111,8 +125,12 @@ export async function validateNiBundle(hash: string): Promise<EirgridStepStatus>
   };
 }
 
-export async function publishNiBundle(hash: string, now: Date): Promise<EirgridStepStatus> {
-  const stored = await loadStoredBundle(hash);
+export async function publishNiBundle(
+  hash: string,
+  now: Date,
+  carried?: EirgridFetchBundle,
+): Promise<EirgridStepStatus> {
+  const stored = await loadStoredBundle(hash, carried);
   const pointerFile = await niStore().get(NI_LATEST_PATH, false);
   const previous = await previousFor(stored.bundle);
   const release = releaseFromBundle(stored.bundle, previous);
@@ -121,10 +139,7 @@ export async function publishNiBundle(hash: string, now: Date): Promise<EirgridS
   }
   const bundle = stored.bundle;
   const path = niReleasePath(release.release_id);
-  const existing = await niStore().get(path, false);
-  if (!existing) {
-    await niStore().put(path, JSON.stringify(release), niImmutablePut("application/json"));
-  }
+  await putIfAbsent(path, JSON.stringify(release), "application/json");
   const failed = failedPartIds(bundle);
   await recordCatalogue(release, bundle, now, failed.length > 0 ? "partial" : "succeeded", previous);
   revalidateNiPaths();
@@ -142,10 +157,22 @@ export async function publishNiBundle(hash: string, now: Date): Promise<EirgridS
   };
 }
 
-async function loadStoredBundle(hash: string): Promise<{ bundle: EirgridFetchBundle; bytes: number }> {
-  const raw = await niStore().get(niRawPath(hash.slice("sha256:".length)), false);
+async function loadStoredBundle(
+  hash: string,
+  carried?: EirgridFetchBundle,
+): Promise<{ bundle: EirgridFetchBundle; bytes: number }> {
+  if (carried) {
+    return { bundle: carried, bytes: Buffer.byteLength(JSON.stringify(carried)) };
+  }
+  const path = niRawPath(hash.slice("sha256:".length));
+  const raw = await readUntilPresent(
+    () => niStore().get(path, false),
+    (attempt) => {
+      console.warn("[eirgrid] extract is missing", { attempt });
+    },
+  );
   if (!raw) {
-    throw new FatalError("EirGrid extract is missing");
+    throw blobReadbackError("EirGrid extract is missing", EIRGRID_MAX_RETRIES);
   }
   return { bundle: JSON.parse(raw.body) as EirgridFetchBundle, bytes: raw.size };
 }
@@ -295,11 +322,10 @@ async function appendLine(pathname: string, line: string): Promise<void> {
 }
 
 async function putIfAbsent(pathname: string, body: string, contentType: string): Promise<void> {
-  const existing = await niStore().get(pathname, false);
-  if (existing) {
-    return;
-  }
-  await niStore().put(pathname, body, niImmutablePut(contentType));
+  await putImmutable(
+    () => niStore().put(pathname, body, niImmutablePut(contentType)),
+    async () => (await niStore().get(pathname, false)) != null,
+  );
 }
 
 function sha256Text(value: string): string {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api-route";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { runDirectoryIngest } from "@/lib/directory/ingest";
+import { recordJobFailure, recordJobSuccess } from "@/lib/job-health";
 
 /**
  * GET /api/cron-directory
@@ -19,8 +20,10 @@ export async function GET(request: Request) {
   }
   const result = await runDirectoryIngest();
   if (!result.ok) {
+    await recordJobFailure("cron-directory", result.error ?? "directory ingest failed");
     return NextResponse.json({ ok: false, error: result.error ?? "directory ingest failed" }, { status: 503 });
   }
+  await recordJobSuccess("cron-directory");
   revalidatePath("/directory");
   revalidatePath("/directory/identifiers");
   console.info("[cron-directory] published", {

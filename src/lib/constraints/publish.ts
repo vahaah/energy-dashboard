@@ -1,4 +1,5 @@
 import { FatalError } from "workflow";
+import { blobReadbackError, fitsInline, putImmutable, readUntilPresent } from "@/lib/blob-readback";
 import {
   CATALOGUE_SCHEMA_VERSION,
   catalogueReleaseId,
@@ -8,7 +9,7 @@ import {
   type SourceRelease,
 } from "@/lib/catalogue/schema";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
-import { CONSTRAINTS_MAX_RETRIES } from "@/lib/constraints/budget";
+import { CONSTRAINTS_MAX_RETRIES, type ConstraintsStepStatus } from "@/lib/constraints/budget";
 import {
   CONSTRAINTS_CATALOGUE_RELEASES_PATH,
   CONSTRAINTS_CATALOGUE_RUNS_PATH,
@@ -28,7 +29,6 @@ import {
 } from "@/lib/constraints/blob";
 import { buildRelease } from "@/lib/constraints/build";
 import { readConstraintsPointer } from "@/lib/constraints/load";
-import type { ConstraintsStepStatus } from "@/lib/constraints/budget";
 import {
   ConstraintsHttpError,
   constraintsStepError,
@@ -59,12 +59,18 @@ export type PreparedConstraints = {
   rows: number;
 };
 
+export type ConstraintsFetchResult = ConstraintsStepStatus & {
+  /** CSV and fetch meta when they fit in the step result. */
+  raw?: string;
+  meta?: FetchMeta;
+};
+
 export async function fetchConstraintsBundle(
   bundle: ConstraintsBundle,
   now: Date,
   attempt: number,
   gapMs?: number,
-): Promise<ConstraintsStepStatus> {
+): Promise<ConstraintsFetchResult> {
   try {
     await paceNeso(gapMs);
     const listed = await fetchNesoJson(packageUrl(bundle));
@@ -88,15 +94,23 @@ export async function fetchConstraintsBundle(
       financial_year: bundle === "breakdown" ? nesoFinancialYear(now) : null,
       resource_name: selected.name,
     };
+    const bytes = Buffer.byteLength(csv);
     await putIfAbsent(constraintsRawPath(hex), csv, "text/csv");
     await putIfAbsent(constraintsMetaPath(hex), `${JSON.stringify(meta)}\n`, "application/json");
-    return {
+    const result: ConstraintsFetchResult = {
       ok: true,
       rows: 0,
-      bytes: Buffer.byteLength(csv),
+      bytes,
       hash,
       releaseId: "",
     };
+    if (fitsInline(bytes)) {
+      result.raw = csv;
+      result.meta = meta;
+    } else {
+      console.warn("[constraints] raw body left in blob", { bundle, bytes });
+    }
+    return result;
   } catch (error) {
     throw constraintsStepError(error, attempt, CONSTRAINTS_MAX_RETRIES);
   }
@@ -106,8 +120,10 @@ export async function validateConstraintsBundle(
   hash: string,
   bundle: ConstraintsBundle,
   now: Date,
+  raw?: string,
+  meta?: FetchMeta,
 ): Promise<ConstraintsStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now);
+  const prepared = await prepareRelease(hash, bundle, now, raw, meta);
   return {
     ok: true,
     rows: prepared.rows,
@@ -121,11 +137,13 @@ export async function publishConstraintsBundle(
   hash: string,
   bundle: ConstraintsBundle,
   now: Date,
+  raw?: string,
+  meta?: FetchMeta,
 ): Promise<ConstraintsStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now);
+  const prepared = await prepareRelease(hash, bundle, now, raw, meta);
   const { release, releaseId, bytes, rows } = prepared;
   const path = constraintsReleasePath(releaseId);
-  const existing = await constraintsStore().get(path, true);
+  const existing = await constraintsStore().get(path, false);
   if (!existing) {
     await putIfAbsent(path, `${JSON.stringify(release)}\n`, "application/json");
   }
@@ -164,20 +182,26 @@ export async function publishConstraintsBundle(
   return { ok: true, rows, bytes, hash, releaseId };
 }
 
-async function prepareRelease(hash: string, bundle: ConstraintsBundle, now: Date): Promise<PreparedConstraints> {
+async function prepareRelease(
+  hash: string,
+  bundle: ConstraintsBundle,
+  now: Date,
+  rawText?: string,
+  carriedMeta?: FetchMeta,
+): Promise<PreparedConstraints> {
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
-  const raw = await constraintsStore().get(constraintsRawPath(hex), true);
-  const metaFile = await constraintsStore().get(constraintsMetaPath(hex), true);
-  if (!raw || !metaFile) {
-    throw new FatalError("NESO constraint raw body is missing");
+  const carried = carriedExtract(hash, rawText, carriedMeta);
+  const loaded = carried ?? (await loadStoredExtract(hex));
+  if (!loaded) {
+    throw blobReadbackError("NESO constraint raw body is missing", CONSTRAINTS_MAX_RETRIES);
   }
-  const meta = JSON.parse(metaFile.body) as FetchMeta;
+  const { body: rawBody, size: rawSize, meta } = loaded;
   if (meta.bundle !== bundle) {
     throw new FatalError("NESO constraint bundle does not match the stored extract");
   }
-  const built = buildRelease(raw.body, meta, now, raw.size);
+  const built = buildRelease(rawBody, meta, now, rawSize);
   if (!built.ok) {
-    await quarantineRaw(now, hex, raw.body);
+    await quarantineRaw(now, hex, rawBody);
     throw new FatalError("NESO constraint file kept the previous release");
   }
   const releaseId = constraintReleaseId(built.release);
@@ -185,8 +209,49 @@ async function prepareRelease(hash: string, bundle: ConstraintsBundle, now: Date
     release: built.release,
     releaseId,
     hash: built.release.extract_sha256,
-    bytes: raw.size,
+    bytes: rawSize,
     rows: built.release.row_count,
+  };
+}
+
+function carriedExtract(
+  hash: string,
+  rawText: string | undefined,
+  meta: FetchMeta | undefined,
+): { body: string; size: number; meta: FetchMeta } | null {
+  if (rawText == null || meta == null) {
+    return null;
+  }
+  const digest = sha256Text(rawText);
+  if (hash !== digest && hash !== digest.slice("sha256:".length)) {
+    throw new FatalError("NESO constraint raw body does not match the hash");
+  }
+  return { body: rawText, size: Buffer.byteLength(rawText), meta };
+}
+
+async function loadStoredExtract(
+  hex: string,
+): Promise<{ body: string; size: number; meta: FetchMeta } | null> {
+  const loaded = await readUntilPresent(
+    async () => {
+      const raw = await constraintsStore().get(constraintsRawPath(hex), false);
+      const metaFile = await constraintsStore().get(constraintsMetaPath(hex), false);
+      if (!raw || !metaFile) {
+        return null;
+      }
+      return { raw, metaFile };
+    },
+    (attempt) => {
+      console.warn("[constraints] raw body is missing", { attempt });
+    },
+  );
+  if (!loaded) {
+    return null;
+  }
+  return {
+    body: loaded.raw.body,
+    size: loaded.raw.size,
+    meta: JSON.parse(loaded.metaFile.body) as FetchMeta,
   };
 }
 
@@ -253,11 +318,10 @@ async function appendBlobLine(pathname: string, line: string): Promise<void> {
 }
 
 async function putIfAbsent(pathname: string, body: string, contentType: string): Promise<void> {
-  const existing = await constraintsStore().get(pathname, true);
-  if (existing) {
-    return;
-  }
-  await constraintsStore().put(pathname, body, constraintsImmutablePut(contentType));
+  await putImmutable(
+    () => constraintsStore().put(pathname, body, constraintsImmutablePut(contentType)),
+    async () => (await constraintsStore().get(pathname, false)) != null,
+  );
 }
 
 async function fetchNesoText(url: string): Promise<string> {

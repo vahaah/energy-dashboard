@@ -9,6 +9,6 @@ export async function tecRegister(slot: string, owner: string, nowIso: string) {
   "use workflow";
   await takeTecSlotStep(slot, owner);
   const fetched = await fetchTecStep(nowIso);
-  await validateTecStep(fetched.hash, nowIso);
-  await publishTecStep(fetched.hash, nowIso);
+  await validateTecStep(fetched.hash, nowIso, fetched.raw, fetched.meta);
+  await publishTecStep(fetched.hash, nowIso, fetched.raw, fetched.meta);
 }
