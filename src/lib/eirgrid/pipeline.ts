@@ -25,7 +25,17 @@ import {
   parseNiPointer,
 } from "@/lib/eirgrid/blob";
 import type { EirgridStepStatus } from "@/lib/eirgrid/budget";
-import { failedPartIds, fetchEirgridBundle, type EirgridFetchBundle, type EirgridFetchOptions, type EirgridPartId } from "@/lib/eirgrid/fetch";
+import {
+  EIRGRID_PART_IDS,
+  failedPartIds,
+  fetchEirgridBundle,
+  valuedFeedRows,
+  type EirgridFetchBundle,
+  type EirgridFetchOptions,
+  type EirgridPartFailure,
+  type EirgridPartId,
+} from "@/lib/eirgrid/fetch";
+import { parseMarketFeed, parseSnspDocument } from "@/lib/eirgrid/parse";
 import { revalidateNiPaths } from "@/lib/eirgrid/revalidate";
 import { niReleaseSchema, type NiRelease } from "@/lib/eirgrid/release";
 import { CHART_AREAS, EIRGRID_SERIES } from "@/lib/eirgrid/spec";
@@ -36,11 +46,48 @@ export function stripMarketSterling(market: string): string {
   return market.replace(new RegExp(`,(\\s*)${field}`, "g"), "").replace(new RegExp(`${field}\\s*,`, "g"), "");
 }
 
+function partFailures(bundle: EirgridFetchBundle): EirgridPartFailure[] {
+  if (!Array.isArray(bundle.part_failures)) {
+    return failedPartIds(bundle).map((part) => ({ part, reason: "request failed" }));
+  }
+  return bundle.part_failures.filter(
+    (failure): failure is EirgridPartFailure =>
+      Boolean(failure) &&
+      typeof failure.reason === "string" &&
+      (EIRGRID_PART_IDS as readonly string[]).includes(failure.part),
+  );
+}
+
+/** Valued rows that the parser drops (wrong region, unknown field) must not replace the previous series. */
+function noteFilteredEmpty(
+  bundle: EirgridFetchBundle,
+  part: EirgridPartId,
+  body: string,
+  parse: (body: string) => { series: readonly { points: readonly { value: number | null }[] }[] },
+): void {
+  if (failedPartIds(bundle).includes(part) || valuedFeedRows(body) == null) {
+    return;
+  }
+  const kept = parse(body).series.some((series) => series.points.some((point) => point.value != null));
+  if (kept) {
+    return;
+  }
+  bundle.failed_parts = [...failedPartIds(bundle), part];
+  bundle.part_failures = [...partFailures(bundle), { part, reason: "zero rows" }];
+}
+
 export async function fetchNiBundle(now: Date, options?: EirgridFetchOptions): Promise<EirgridStepStatus> {
   const bundle = await fetchEirgridBundle(now, options);
-  const failed = failedPartIds(bundle);
+  noteFilteredEmpty(bundle, "snsp", bundle.snsp, parseSnspDocument);
+  noteFilteredEmpty(bundle, "market", bundle.market, parseMarketFeed);
+  const failed = partFailures(bundle);
   if (failed.length > 0) {
     console.warn("[eirgrid] partial fetch", { failed });
+  }
+  for (const failure of failed) {
+    if (failure.reason === "zero rows") {
+      console.warn("[eirgrid] zero rows", { part: failure.part });
+    }
   }
   const body = JSON.stringify({ ...bundle, market: stripMarketSterling(bundle.market) });
   const hash = sha256Text(body);

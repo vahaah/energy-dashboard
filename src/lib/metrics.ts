@@ -906,7 +906,41 @@ export const WHOLE_ENERGY_METRICS = {
 
 export type WholeEnergyMetricId = keyof typeof WHOLE_ENERGY_METRICS;
 
+/**
+ * SEMO BM-026 is published about 1.5h after the half-hour. The NI cron is hourly,
+ * so the stored period stays fresh until the next run (cadence 30m + this grace = 3h).
+ * A point still missing 3h after it opened has missed a collect and goes stale.
+ */
+const SEMO_PUBLICATION_LAG = "PT1H30M";
+const SEMO_STALE_GRACE = "PT2H30M";
+
+/**
+ * Carbon intensity's own edge is about 1.5h behind, and the series sometimes
+ * skips further. Cadence plus this grace is 3h, so a multi-hour outage still goes stale.
+ */
+const CARBON_PUBLICATION_LAG = "PT1H30M";
+const CARBON_STALE_GRACE = "PT2H45M";
+
+const CARBON_INTENSITY_METRICS = new Set([
+  "elec.ni.carbon.intensity",
+  "elec.ie.carbon.intensity",
+  "elec.all_island.carbon.intensity",
+]);
+
+const SEMO_METRICS = new Set(["elec.all_island.price.imbalance", "elec.all_island.imbalance.volume"]);
+
+function eirgridFreshness(metricId: string): { publication_lag: string; stale_grace: string } {
+  if (SEMO_METRICS.has(metricId)) {
+    return { publication_lag: SEMO_PUBLICATION_LAG, stale_grace: SEMO_STALE_GRACE };
+  }
+  if (CARBON_INTENSITY_METRICS.has(metricId)) {
+    return { publication_lag: CARBON_PUBLICATION_LAG, stale_grace: CARBON_STALE_GRACE };
+  }
+  return { publication_lag: "PT0S", stale_grace: "PT1H" };
+}
+
 function eirgridMetric(series: EirgridSeriesSpec): MetricDefinition {
+  const freshness = eirgridFreshness(series.metric_id);
   return {
     metric_definition_version: 1,
     metric_id: series.metric_id,
@@ -921,8 +955,8 @@ function eirgridMetric(series: EirgridSeriesSpec): MetricDefinition {
     dataset_id: series.area,
     coverage: series.coverage,
     expected_cadence: series.expected_cadence,
-    publication_lag: "PT0S",
-    stale_grace: "PT1H",
+    publication_lag: freshness.publication_lag,
+    stale_grace: freshness.stale_grace,
   };
 }
 

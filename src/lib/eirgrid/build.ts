@@ -1,7 +1,7 @@
 import { EIRGRID_GROUP_LICENCE_READ_ON, EIRGRID_GROUP_LICENCE_URL } from "@/lib/attribution";
 import { resolveLondonWallSequence } from "@/lib/ingest/national-gas/gas-day";
 import { failedPartIds, type EirgridFetchBundle, type EirgridPartId } from "@/lib/eirgrid/fetch";
-import { eirgridStampToWall, mergeParseReports, parseChartDocument, parseFuelMixDocument, parseMarketPricingDocument, parseSnspDocument } from "@/lib/eirgrid/parse";
+import { eirgridStampToWall, mergeParseReports, parseChartDocument, parseFuelMixDocument, parseMarketFeed, parseSnspDocument } from "@/lib/eirgrid/parse";
 import { buildNiRelease, type NiRelease } from "@/lib/eirgrid/release";
 import { CHART_AREAS, EIRGRID_SERIES, geographyFromFeedRegion, type EirgridSeriesSpec } from "@/lib/eirgrid/spec";
 
@@ -36,7 +36,7 @@ export function releaseFromBundle(bundle: EirgridFetchBundle, previous: NiReleas
     ...Object.values(bundle.interconnection).map(parseChartDocument),
     ...Object.values(bundle.fuel).map(parseFuelMixDocument),
     parseSnspDocument(bundle.snsp),
-    parseMarketPricingDocument(bundle.market),
+    parseMarketFeed(bundle.market),
   ];
   const merged = mergeParseReports(reports);
   const carryIds = new Set(failedPartIds(bundle).flatMap((part) => metricIdsForEirgridPart(part)));
@@ -102,18 +102,48 @@ export function bundleHasNiDemand(release: NiRelease): boolean {
 function newestStamp(bodies: readonly string[]): string | null {
   let newest: Date | null = null;
   for (const body of bodies) {
-    let lastUpdated = "";
-    try {
-      const parsed = JSON.parse(body) as { LastUpdated?: unknown };
-      lastUpdated = typeof parsed.LastUpdated === "string" ? parsed.LastUpdated : "";
-    } catch {
-      continue;
-    }
-    const wall = eirgridStampToWall(lastUpdated);
-    const instant = wall ? resolveLondonWallSequence([wall])[0] : null;
+    const instant = newestDataInstant(body);
     if (instant && (!newest || instant.getTime() > newest.getTime())) {
       newest = instant;
     }
   }
   return newest ? newest.toISOString() : null;
+}
+
+/** `LastUpdated` when the feed sends it. Otherwise the newest valued row, so a chart body still moves the stamp. */
+function newestDataInstant(body: string): Date | null {
+  let parsed: { LastUpdated?: unknown; Rows?: unknown };
+  try {
+    parsed = JSON.parse(body) as { LastUpdated?: unknown; Rows?: unknown };
+  } catch {
+    return null;
+  }
+  const updated = typeof parsed.LastUpdated === "string" ? wallInstant(parsed.LastUpdated) : null;
+  if (updated) {
+    return updated;
+  }
+  if (!Array.isArray(parsed.Rows)) {
+    return null;
+  }
+  let newest: Date | null = null;
+  for (const row of parsed.Rows) {
+    if (!row || typeof row !== "object") {
+      continue;
+    }
+    const value = (row as { Value?: unknown }).Value;
+    const stamp = (row as { EffectiveTime?: unknown }).EffectiveTime;
+    if (typeof value !== "number" || !Number.isFinite(value) || typeof stamp !== "string") {
+      continue;
+    }
+    const instant = wallInstant(stamp);
+    if (instant && (!newest || instant.getTime() > newest.getTime())) {
+      newest = instant;
+    }
+  }
+  return newest;
+}
+
+function wallInstant(stamp: string): Date | null {
+  const wall = eirgridStampToWall(stamp);
+  return wall ? (resolveLondonWallSequence([wall])[0] ?? null) : null;
 }

@@ -64,36 +64,47 @@ export function gasSlot(now: Date): string {
 }
 
 /**
- * First step of a run. SET NX EX. The same run may retry this step and still
- * owns the key. A second start() for the slot throws FatalError before any
- * upstream call.
+ * SET NX EX. The same run may retry this step and still owns the key.
+ * `"held"` means another start already owns the slot.
  *
  * Without Upstash the lock is skipped so local ingest can still run. The
  * request path then reads Tinybird directly. See AGENTS.md.
  */
-export async function takeWorkflowSlot(
+export async function claimWorkflowSlot(
   job: WorkflowJob,
   slot: string,
-  owner: string
-): Promise<void> {
+  owner: string,
+): Promise<"acquired" | "held"> {
   const redis = getRedis();
   if (!redis) {
     console.warn("[workflow] redis unset; slot lock skipped");
-    return;
+    return "acquired";
   }
 
   const key = workflowSlotKey(job, slot);
   const locked = await redis.set(key, owner, { nx: true, ex: SLOT_TTL_SECONDS[job] });
   if (locked === "OK") {
-    return;
+    return "acquired";
   }
 
   const current = await redis.get<string>(key);
   if (current === owner) {
-    return;
+    return "acquired";
   }
+  return "held";
+}
 
-  // /api/cron and /api/cron-warm both start this slot. The loser stops here.
-  console.warn(`[workflow] slot held: ${job}`);
-  throw new FatalError(`workflow slot held: ${job}`);
+/**
+ * First step of a run. A second start() for the slot throws FatalError before
+ * any upstream call. Electricity uses `claimWorkflowSlot` and skips instead.
+ */
+export async function takeWorkflowSlot(
+  job: WorkflowJob,
+  slot: string,
+  owner: string,
+): Promise<void> {
+  if ((await claimWorkflowSlot(job, slot, owner)) === "held") {
+    console.warn(`[workflow] slot held: ${job}`);
+    throw new FatalError(`workflow slot held: ${job}`);
+  }
 }

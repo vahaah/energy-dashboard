@@ -19,7 +19,8 @@ import {
   takeWorkflowSlot,
 } from "@/lib/workflow-slot";
 import { publishStep } from "@/workflows/steps/publish";
-import { takeSlotStep } from "@/workflows/steps/slot";
+import { takeElectricitySlotStep, takeSlotStep } from "@/workflows/steps/slot";
+import { electricitySlot } from "@/workflows/electricity";
 import { warmPipeStep } from "@/workflows/steps/warm";
 
 class MemoryRedis implements RedisCommands {
@@ -217,6 +218,27 @@ describe("workflow budget", () => {
     expect(fetchPipeRows).not.toHaveBeenCalled();
     warn.mockRestore();
     error.mockRestore();
+  });
+
+  it("skips a held electricity slot instead of failing the run", async () => {
+    setRedisForTests(new MemoryRedis());
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const slot = halfHourSlot(new Date("2026-10-21T02:07:00.000Z"));
+    const first = await takeElectricitySlotStep(slot, "owner-a");
+    const second = await takeElectricitySlotStep(slot, "owner-b");
+
+    expect(first).toMatchObject({ ok: true, skipped: false });
+    expect(second).toMatchObject({ ok: true, skipped: true });
+    expect(info).toHaveBeenCalledWith("[workflow] slot skipped", { job: "electricity" });
+    expect(error).not.toHaveBeenCalled();
+
+    await electricitySlot(slot, "owner-b", "2026-10-21T02:07:00.000Z");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    info.mockRestore();
+    error.mockRestore();
+    fetchSpy.mockRestore();
   });
 
   it("is fatal once the daily counter is already 450", async () => {

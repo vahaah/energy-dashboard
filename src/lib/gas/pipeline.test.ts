@@ -35,6 +35,7 @@ import {
   publishGasBundle,
   readPointer,
   validateGasBundle,
+  GasBodyMissingError,
   GasHttpError,
   pruneQuarantine,
 } from "@/lib/gas/pipeline";
@@ -306,6 +307,59 @@ describe("gas publish", () => {
     });
     const quarantined = [...store.files.keys()].filter((path) => path.startsWith("quarantine/"));
     expect(quarantined).toEqual([gasQuarantinePath("2026-10-14", bad.hash.slice("sha256:".length))]);
+  });
+
+  it("retries an empty National Gas body and does not store it", async () => {
+    await seedStamp(INTRADAY_NOW);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    mockFetch(() => new Response("", { status: 200 }));
+    const retry = await fetchGasBundle("intraday", INTRADAY_NOW, 1).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(retry).toBeInstanceOf(RetryableError);
+    expect((retry as Error).message).toBe("National Gas raw body is missing");
+    await expect(fetchGasBundle("intraday", INTRADAY_NOW, GAS_MAX_RETRIES + 1)).rejects.toBeInstanceOf(FatalError);
+    expect(gasStepError(new GasBodyMissingError(), 1)).toBeInstanceOf(RetryableError);
+    expect(gasStepError(new GasBodyMissingError(), GAS_MAX_RETRIES + 1)).toBeInstanceOf(FatalError);
+    expect(warn).toHaveBeenCalledWith("[gas] National Gas raw body is missing", { status: 200 });
+    expect([...store.files.keys()].some((path) => path.includes("/raw/"))).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("retries a missing stored raw body and then reads it", async () => {
+    const published = await publishFixture("intraday", INTRADAY_PUBLISH);
+    const rawKey = [...store.files.keys()].find((path) => path.includes("/raw/"));
+    expect(rawKey).toBeTruthy();
+    let misses = 0;
+    const inner = store;
+    setGasStoreForTests({
+      put: (pathname, body, options) => inner.put(pathname, body, options),
+      get: async (pathname) => {
+        if (pathname === rawKey && misses < 2) {
+          misses += 1;
+          return null;
+        }
+        return inner.get(pathname);
+      },
+      list: (prefix) => inner.list(prefix),
+      del: (pathnames) => inner.del(pathnames),
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const validated = await validateGasBundle(published.hash, "intraday", INTRADAY_PUBLISH);
+    expect(validated.ok).toBe(true);
+    expect(validated.releaseId).toBe(published.releaseId);
+    expect(misses).toBe(2);
+    expect(warn).toHaveBeenCalledWith("[gas] National Gas raw body is missing", {
+      bundle: "intraday",
+      attempt: 1,
+    });
+    expect(warn).toHaveBeenCalledWith("[gas] National Gas raw body is missing", {
+      bundle: "intraday",
+      attempt: 2,
+    });
+    warn.mockRestore();
+    setGasStoreForTests(store);
   });
 
   it("retries 429 with jitter and then keeps the previous release", async () => {

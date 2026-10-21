@@ -82,6 +82,17 @@ export class GasHttpError extends Error {
   }
 }
 
+/** Upstream or Blob returned no CSV. Retried, then fatal. The previous release stays. */
+export class GasBodyMissingError extends Error {
+  constructor() {
+    super("National Gas raw body is missing");
+    this.name = "GasBodyMissingError";
+  }
+}
+
+const RAW_BODY_ATTEMPTS = 3;
+const RAW_BODY_BACKOFF_MS = [200, 800] as const;
+
 type CatalogueStamp = {
   sha256: string | null;
   fetched_at: string;
@@ -107,7 +118,10 @@ export function gasStepError(error: unknown, attempt: number): Error {
     return error;
   }
   const retryable = isRetryableGasError(error);
-  const message = error instanceof GasHttpError ? error.message : "National Gas request failed";
+  const message =
+    error instanceof GasHttpError || error instanceof GasBodyMissingError
+      ? error.message
+      : "National Gas request failed";
   if (!retryable) {
     return new FatalError(message);
   }
@@ -209,7 +223,7 @@ export async function publishGasBundle(
 
 async function prepareRelease(hash: string, bundle: GasBundle, now: Date): Promise<PreparedRelease> {
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
-  const raw = await gasStore().get(gasRawPath(hex), true);
+  const raw = await readStoredRaw(hex, bundle);
   if (!raw) {
     throw new FatalError("National Gas raw body is missing");
   }
@@ -575,12 +589,47 @@ async function putIfAbsent(pathname: string, body: string, contentType: string):
   }
 }
 
+async function readStoredRaw(
+  hex: string,
+  bundle: GasBundle,
+): Promise<{ body: string; size: number } | null> {
+  const path = gasRawPath(hex);
+  for (let attempt = 0; attempt < RAW_BODY_ATTEMPTS; attempt += 1) {
+    const raw = await gasStore().get(path, false);
+    if (raw && raw.body.trim().length > 0) {
+      return raw;
+    }
+    console.warn("[gas] National Gas raw body is missing", { bundle, attempt: attempt + 1 });
+    const wait = RAW_BODY_BACKOFF_MS[attempt];
+    if (wait == null) {
+      break;
+    }
+    await rawBodySleep(wait);
+  }
+  return null;
+}
+
+function rawBodySleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function fetchGasText(url: string, timeoutMs: number): Promise<string> {
   const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   if (!response.ok) {
     throw new GasHttpError(response.status);
   }
-  return response.text();
+  if (response.body == null) {
+    console.warn("[gas] National Gas raw body is missing", { status: response.status });
+    throw new GasBodyMissingError();
+  }
+  const body = await response.text();
+  if (body.trim().length === 0) {
+    console.warn("[gas] National Gas raw body is missing", { status: response.status });
+    throw new GasBodyMissingError();
+  }
+  return body;
 }
 
 function sha256Text(value: string): string {
@@ -588,6 +637,9 @@ function sha256Text(value: string): string {
 }
 
 function isRetryableGasError(error: unknown): boolean {
+  if (error instanceof GasBodyMissingError) {
+    return true;
+  }
   if (error instanceof GasHttpError) {
     return error.status === 429 || error.status >= 500;
   }

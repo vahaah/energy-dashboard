@@ -6,7 +6,7 @@ import {
 } from "@/workflows/steps/electricity-fetch";
 import { postGenerationStep, postSnapshotsStep } from "@/workflows/steps/electricity-post";
 import { publishStep } from "@/workflows/steps/publish";
-import { takeSlotStep } from "@/workflows/steps/slot";
+import { takeElectricitySlotStep } from "@/workflows/steps/slot";
 import { warmPipeStep } from "@/workflows/steps/warm";
 
 const LIVE_PIPE_IDS = [
@@ -24,7 +24,10 @@ const LIVE_PIPE_IDS = [
  */
 export async function electricitySlot(slot: string, owner: string, nowIso: string) {
   "use workflow";
-  await takeSlotStep("electricity", slot, owner);
+  const claimed = await takeElectricitySlotStep(slot, owner);
+  if (claimed.skipped) {
+    return;
+  }
   if (slot.slice(14, 16) === "00") {
     await fetchCarbonStep(slot, nowIso);
     await fetchElexonStep(slot, nowIso);
