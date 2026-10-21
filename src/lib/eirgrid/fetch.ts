@@ -35,6 +35,11 @@ export class EirgridHttpError extends Error {
   }
 }
 
+export type EirgridPartFailure = {
+  part: EirgridPartId;
+  reason: string;
+};
+
 export type EirgridFetchBundle = {
   retrieved_at: string;
   charts: Record<string, string>;
@@ -42,8 +47,10 @@ export type EirgridFetchBundle = {
   fuel: Record<string, string>;
   snsp: string;
   market: string;
-  /** Parts whose own retries were exhausted, or that failed with a non-retryable status. */
+  /** Parts whose own retries were exhausted, that failed with a non-retryable status, or that returned no valued rows. */
   failed_parts?: EirgridPartId[];
+  /** Same parts as `failed_parts`, with the timeout, status, or zero-row reason. */
+  part_failures?: EirgridPartFailure[];
 };
 
 export type EirgridFetchOptions = {
@@ -99,7 +106,7 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
   const charts: Record<string, string> = {};
   const interconnection: Record<string, string> = {};
   const fuel: Record<string, string> = {};
-  const failed: EirgridPartId[] = [];
+  const failures: EirgridPartFailure[] = [];
   let first = true;
   const pace = async () => {
     if (first) {
@@ -113,12 +120,17 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
   const take = async (part: EirgridPartId, url: string): Promise<string | null> => {
     await pace();
     try {
-      return await getTextWithRetry(url, fetchImpl, sleep, random);
+      const body = await getTextWithRetry(url, fetchImpl, sleep, random);
+      if (valuedFeedRows(body) === 0) {
+        failures.push({ part, reason: "zero rows" });
+        return null;
+      }
+      return body;
     } catch (error) {
       if (!isPartFailure(error)) {
         throw error;
       }
-      failed.push(part);
+      failures.push({ part, reason: failureReason(error) });
       return null;
     }
   };
@@ -137,8 +149,8 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
     }
   }
   const snsp = await take("snsp", snspUrl(from, to));
-  const market = await take("market", `${EIRGRID_CHART_ORIGIN}/ni/market-pricing/`);
-  if (failed.length === EIRGRID_PART_IDS.length) {
+  const market = await take("market", marketUrl(from, to));
+  if (failures.length === EIRGRID_PART_IDS.length) {
     throw new FatalError("EirGrid requests failed");
   }
   return {
@@ -148,7 +160,8 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
     fuel,
     snsp: snsp ?? "",
     market: market ?? "",
-    failed_parts: failed,
+    failed_parts: failures.map((failure) => failure.part),
+    part_failures: failures,
   };
 }
 
@@ -169,20 +182,55 @@ function fuelUrl(region: string): string {
   return `${EIRGRID_CHART_ORIGIN}/api/average-fuel-mix/?${params.toString()}`;
 }
 
+/**
+ * Chart API, same ISO window as the other areas.
+ * `DashboardService.svc/data` with a date-only `dateto` stops at midnight on that
+ * Irish day (23:00Z during summer time) and 503s if `dateto` is tomorrow.
+ */
 function snspUrl(from: string, to: string): string {
-  const params = new URLSearchParams({
-    area: "SnspAll",
-    region: "ALL",
-    datefrom: isoToFeedDay(from),
-    dateto: isoToFeedDay(to),
-  });
-  return `${EIRGRID_CHART_ORIGIN}/DashboardService.svc/data?${params.toString()}`;
+  return chartUrl("ALL", from, to, "SnspAll");
 }
 
-function isoToFeedDay(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${day}-${names[Number(month) - 1]}-${year}`;
+/** Full settlement-period series. The NI page table can stop one period earlier. */
+function marketUrl(from: string, to: string): string {
+  return chartUrl("ALL", from, to, "imbalancePrice,imbalanceVolume");
+}
+
+/** Rows with a finite `Value`. Null when the body is not a `{ Rows }` document. */
+export function valuedFeedRows(body: string): number | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body) as unknown;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || !("Rows" in parsed)) {
+    return null;
+  }
+  const rows = (parsed as { Rows?: unknown }).Rows;
+  if (!Array.isArray(rows)) {
+    return null;
+  }
+  return rows.filter((row) => {
+    if (!row || typeof row !== "object") {
+      return false;
+    }
+    const value = (row as { Value?: unknown }).Value;
+    return typeof value === "number" && Number.isFinite(value);
+  }).length;
+}
+
+function failureReason(error: unknown): string {
+  if (error instanceof EirgridHttpError) {
+    return `HTTP ${error.status}`;
+  }
+  if (isEirgridDeadline(error)) {
+    return "timeout";
+  }
+  if (error instanceof FatalError || error instanceof Error) {
+    return error.message.length > 0 ? error.message : error.name;
+  }
+  return "request failed";
 }
 
 async function getTextWithRetry(

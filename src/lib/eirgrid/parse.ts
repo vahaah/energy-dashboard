@@ -80,6 +80,23 @@ export function parseSnspDocument(body: string): ParseReport {
   return parseChartDocument(body);
 }
 
+/** Chart JSON drops unpublished null slots. The NI page table stays on the HTML parser. */
+export function parseMarketFeed(body: string): ParseReport {
+  if (body.includes("\"Rows\"") || body.includes("\"EffectiveTime\"")) {
+    const parsed = parseChartDocument(body);
+    return {
+      quarantined: parsed.quarantined,
+      series: parsed.series
+        .map((series) => ({
+          ...series,
+          points: series.points.filter((point) => point.value != null),
+        }))
+        .filter((series) => series.points.length > 0),
+    };
+  }
+  return parseMarketPricingDocument(body);
+}
+
 type MarketRow = {
   date?: unknown;
   IMBALANCE_SETTLEMENT_PRICE?: unknown;

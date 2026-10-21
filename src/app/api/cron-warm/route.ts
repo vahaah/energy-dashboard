@@ -9,7 +9,7 @@ import { electricitySlot } from "@/workflows/electricity";
  * GET /api/cron-warm
  *
  * Same half-hour electricity workflow as /api/cron. A double fire loses the
- * slot lock before any upstream or Tinybird call.
+ * slot lock before any upstream or Tinybird call and the run ends as a skip.
  */
 
 export const maxDuration = 60;

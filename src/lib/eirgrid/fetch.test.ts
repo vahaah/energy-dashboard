@@ -58,8 +58,12 @@ function partOf(url: string): string {
   if (parsed.pathname.includes("market-pricing")) {
     return "market";
   }
-  if (parsed.searchParams.get("area") === "SnspAll") {
+  const areas = parsed.searchParams.get("areas");
+  if (parsed.searchParams.get("area") === "SnspAll" || areas === "SnspAll") {
     return "snsp";
+  }
+  if (areas?.includes("imbalancePrice") || areas?.includes("imbalanceVolume")) {
+    return "market";
   }
   if (parsed.searchParams.get("area") === "fuelmix") {
     return `fuel:${parsed.searchParams.get("region")}`;
@@ -84,6 +88,11 @@ function textResponse(body: string, status = 200): Response {
 function valueOf(release: NiRelease, metricId: string): number | null {
   const series = release.series.find((row) => row.metric_id === metricId);
   return series?.points.find((point) => point.value != null)?.value ?? null;
+}
+
+function newestValue(release: NiRelease, metricId: string): number | null {
+  const series = release.series.find((row) => row.metric_id === metricId);
+  return [...(series?.points ?? [])].reverse().find((point) => point.value != null)?.value ?? null;
 }
 
 async function publishedRelease(store: MemoryNiStore, releaseId: string): Promise<NiRelease> {
@@ -303,6 +312,119 @@ describe("EirGrid fetch", () => {
     ).rejects.toBeInstanceOf(FatalError);
     const latest = JSON.parse((await store.get(NI_LATEST_PATH))?.body ?? "{}") as { release_id: string };
     expect(latest.release_id).toBe(first.releaseId);
+  });
+
+  it("requests SNSP and SEMO on the chart API through the London day, and keeps a zero-row SNSP series", async () => {
+    const store = new MemoryNiStore();
+    setNiStoreForTests(store);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const snsp = feed("21-Oct-2026 03:00:00", [
+      { EffectiveTime: "21-Oct-2026 00:00:00", FieldName: "SNSP_ALL", Region: "ALL", Value: 71.173 },
+      { EffectiveTime: "21-Oct-2026 03:00:00", FieldName: "SNSP_ALL", Region: "ALL", Value: 70.65 },
+    ]);
+    const market = JSON.stringify({
+      Rows: [
+        { EffectiveTime: "21-Oct-2026 01:00:00", FieldName: "IMBALANCE_SETTLEMENT_PRICE", Region: "ALL", Value: 28.13 },
+        { EffectiveTime: "21-Oct-2026 01:30:00", FieldName: "IMBALANCE_SETTLEMENT_PRICE", Region: "ALL", Value: 36.63 },
+        { EffectiveTime: "21-Oct-2026 02:00:00", FieldName: "IMBALANCE_SETTLEMENT_PRICE", Region: "ALL", Value: null },
+        { EffectiveTime: "21-Oct-2026 01:00:00", FieldName: "NET_IMBALANCE_VOLUME", Region: "ALL", Value: -28.621 },
+        { EffectiveTime: "21-Oct-2026 01:30:00", FieldName: "NET_IMBALANCE_VOLUME", Region: "ALL", Value: -27.332 },
+      ],
+    });
+    let snspUrl = "";
+    let marketUrl = "";
+    const first = await fetchNiBundle(new Date("2026-10-21T02:15:00.000Z"), {
+      fetchImpl: async (input) => {
+        const url = String(input);
+        const part = partOf(url);
+        if (part === "snsp") {
+          snspUrl = url;
+          return textResponse(snsp);
+        }
+        if (part === "market") {
+          marketUrl = url;
+          return textResponse(market);
+        }
+        if (part === "chart:NI") {
+          return textResponse(chart(636));
+        }
+        return textResponse("{}");
+      },
+      gapMs: 0,
+      sleep: async () => undefined,
+    });
+    const published = await publishNiBundle(first.hash, new Date("2026-10-21T02:15:00.000Z"));
+    const release = await publishedRelease(store, published.releaseId);
+    const snspParams = new URL(snspUrl).searchParams;
+    const marketParams = new URL(marketUrl).searchParams;
+
+    expect(new URL(snspUrl).pathname).toBe("/api/chart/");
+    expect(snspParams.get("region")).toBe("ALL");
+    expect(snspParams.get("areas")).toBe("SnspAll");
+    expect(snspParams.get("dateFrom")).toBe("2026-10-20");
+    expect(snspParams.get("dateTo")).toBe("2026-10-21");
+    expect(snspUrl).not.toContain("DashboardService.svc");
+    expect(marketParams.get("region")).toBe("ALL");
+    expect(marketParams.get("areas")).toBe("imbalancePrice,imbalanceVolume");
+    expect(marketParams.get("dateFrom")).toBe("2026-10-20");
+    expect(marketParams.get("dateTo")).toBe("2026-10-21");
+    const snspPoints = release.series.find((series) => series.metric_id === "elec.all_island.snsp.share")?.points ?? [];
+    expect(snspPoints.map((point) => point.time)).toEqual(["2026-10-20T23:00:00.000Z", "2026-10-21T02:00:00.000Z"]);
+    expect(snspPoints[1]?.value).toBe(70.65);
+    const pricePoints = release.series.find((series) => series.metric_id === "elec.all_island.price.imbalance")?.points ?? [];
+    expect(pricePoints.at(-1)).toEqual({ time: "2026-10-21T00:30:00.000Z", value: 36.63 });
+    expect(pricePoints.some((point) => point.value == null)).toBe(false);
+
+    warn.mockClear();
+    const failed = await fetchNiBundle(new Date("2026-10-21T03:15:00.000Z"), {
+      fetchImpl: async (input) => {
+        const part = partOf(String(input));
+        if (part === "snsp") {
+          return textResponse("down", 503);
+        }
+        if (part === "chart:NI") {
+          return textResponse(chart(640));
+        }
+        if (part === "market") {
+          return textResponse(market);
+        }
+        return textResponse("{}");
+      },
+      gapMs: 0,
+      sleep: async () => undefined,
+    });
+    await publishNiBundle(failed.hash, new Date("2026-10-21T03:15:00.000Z"));
+    expect(warn).toHaveBeenCalledWith("[eirgrid] partial fetch", {
+      failed: expect.arrayContaining([{ part: "snsp", reason: "HTTP 503" }]),
+    });
+    expect(newestValue(await publishedRelease(store, (JSON.parse((await store.get(NI_LATEST_PATH))?.body ?? "{}") as { release_id: string }).release_id), "elec.all_island.snsp.share")).toBe(70.65);
+
+    warn.mockClear();
+    const empty = await fetchNiBundle(new Date("2026-10-21T04:15:00.000Z"), {
+      fetchImpl: async (input) => {
+        const part = partOf(String(input));
+        if (part === "snsp") {
+          return textResponse(JSON.stringify({ Rows: [] }));
+        }
+        if (part === "chart:NI") {
+          return textResponse(chart(641));
+        }
+        if (part === "market") {
+          return textResponse(market);
+        }
+        return textResponse("{}");
+      },
+      gapMs: 0,
+      sleep: async () => undefined,
+    });
+    await publishNiBundle(empty.hash, new Date("2026-10-21T04:15:00.000Z"));
+    const latestId = (JSON.parse((await store.get(NI_LATEST_PATH))?.body ?? "{}") as { release_id: string }).release_id;
+    expect(warn).toHaveBeenCalledWith("[eirgrid] zero rows", { part: "snsp" });
+    expect(warn).toHaveBeenCalledWith("[eirgrid] partial fetch", {
+      failed: expect.arrayContaining([{ part: "snsp", reason: "zero rows" }]),
+    });
+    expect(newestValue(await publishedRelease(store, latestId), "elec.all_island.snsp.share")).toBe(70.65);
+    expect(valueOf(await publishedRelease(store, latestId), "elec.ni.demand.system")).toBe(641);
   });
 
   it("prefers London for the cron entry and does not move the hourly schedule", () => {
