@@ -28,3 +28,44 @@
 html.dark [data-map-frame] .maplibregl-map {
   background: #0d1b27;
 }
+
+/* MapLibre paints the zoom group white with a #333 icon. Geist dark tokens
+   replace that. The rules stay in this file so they load with the map. */
+[data-map-frame] .maplibregl-ctrl-group {
+  background: var(--background-100);
+  border-radius: 6px;
+}
+
+[data-map-frame] .maplibregl-ctrl-group:not(:empty) {
+  box-shadow: none;
+  border: 1px solid var(--gray-alpha-400);
+}
+
+[data-map-frame] .maplibregl-ctrl-group button {
+  width: 32px;
+  height: 32px;
+}
+
+[data-map-frame] .maplibregl-ctrl-group button + button {
+  border-top-color: var(--gray-alpha-400);
+}
+
+@media (hover: hover) {
+  [data-map-frame] .maplibregl-ctrl-group button:not(:disabled):hover {
+    background-color: var(--gray-100);
+  }
+}
+
+html.dark [data-map-frame] .maplibregl-ctrl-group {
+  background: var(--gray-100);
+}
+
+html.dark [data-map-frame] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.16);
+}
+
+@media (hover: hover) {
+  html.dark [data-map-frame] .maplibregl-ctrl-group button:not(:disabled):hover {
+    background-color: var(--gray-200);
+  }
+}

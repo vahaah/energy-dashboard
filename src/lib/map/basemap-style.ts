@@ -260,7 +260,8 @@ function overviewNames(color: string, halo: string): StyleLayer {
     paint: {
       "text-color": color,
       "text-halo-color": halo,
-      "text-halo-width": 1.2,
+      // Land-coloured halo so a name stays readable when a station marker sits underneath.
+      "text-halo-width": 2,
     },
   };
 }
@@ -290,7 +291,7 @@ function names(
     paint: {
       "text-color": color,
       "text-halo-color": halo,
-      "text-halo-width": 1.2,
+      "text-halo-width": 2,
     },
   };
 }

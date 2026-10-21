@@ -712,7 +712,7 @@
       "paint": {
         "text-color": "#a1a1a1",
         "text-halo-color": "#2c2e32",
-        "text-halo-width": 1.2
+        "text-halo-width": 2
       }
     },
     {
@@ -748,7 +748,7 @@
       "paint": {
         "text-color": "#a1a1a1",
         "text-halo-color": "#2c2e32",
-        "text-halo-width": 1.2
+        "text-halo-width": 2
       }
     },
     {
@@ -785,7 +785,7 @@
       "paint": {
         "text-color": "#a1a1a1",
         "text-halo-color": "#2c2e32",
-        "text-halo-width": 1.2
+        "text-halo-width": 2
       }
     },
     {
@@ -821,7 +821,7 @@
       "paint": {
         "text-color": "#a1a1a1",
         "text-halo-color": "#2c2e32",
-        "text-halo-width": 1.2
+        "text-halo-width": 2
       }
     }
   ]

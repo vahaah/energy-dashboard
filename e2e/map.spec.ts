@@ -3,6 +3,7 @@ import {
   axisLineRuns,
   decodePng,
   glyphSpan,
+  type DecodedPng,
   landEdgePixels,
   straightLandSeaEdge,
   pageBackgroundPixels,
@@ -270,6 +271,151 @@ async function assertBasemap(page: Page, theme: (typeof THEMES)[number], checkIn
   }
 }
 
+type StationDot = { x: number; y: number; radius: number };
+
+function rgbAt(image: DecodedPng, x: number, y: number): Rgb {
+  const clampedX = Math.max(0, Math.min(image.width - 1, Math.round(x)));
+  const clampedY = Math.max(0, Math.min(image.height - 1, Math.round(y)));
+  const offset = (clampedY * image.width + clampedX) * 4;
+  return [image.pixels[offset] ?? 0, image.pixels[offset + 1] ?? 0, image.pixels[offset + 2] ?? 0];
+}
+
+function chromaOf(color: Rgb): number {
+  return Math.max(color[0], color[1], color[2]) - Math.min(color[0], color[1], color[2]);
+}
+
+function luminanceOf(color: Rgb): number {
+  return (color[0] + color[1] + color[2]) / 3;
+}
+
+/** Neutral grey, clearly darker than the land wash. Label ink sits below this band. */
+function isNeutralDark(color: Rgb, land: Rgb): boolean {
+  const lum = luminanceOf(color);
+  const neutral = chromaOf(color) < 14 && Math.abs(color[0] - color[2]) < 12;
+  return neutral && lum < luminanceOf(land) - 45 && lum > 100;
+}
+
+/**
+ * A stacked marker halo fills the neighbourhood. A road or a coastline is a thin line,
+ * so the same window stays mostly land.
+ */
+function surroundedByGrey(image: DecodedPng, x: number, y: number, land: Rgb): boolean {
+  let grey = 0;
+  let total = 0;
+  for (let dy = -4; dy <= 4; dy += 1) {
+    for (let dx = -4; dx <= 4; dx += 1) {
+      total += 1;
+      if (isNeutralDark(rgbAt(image, x + dx, y + dy), land)) {
+        grey += 1;
+      }
+    }
+  }
+  return total > 0 && grey / total > 0.55;
+}
+
+async function stationProbe(page: Page): Promise<{ above: boolean; dots: StationDot[] }> {
+  return page.evaluate(() => {
+    const hook = (
+      window as Window & {
+        __gridMapTest?: {
+          labelsAboveStations: () => boolean;
+          stationDots: () => StationDot[];
+        };
+      }
+    ).__gridMapTest;
+    return {
+      above: hook?.labelsAboveStations() ?? false,
+      dots: hook?.stationDots() ?? [],
+    };
+  });
+}
+
+async function assertZoomControl(page: Page, theme: (typeof THEMES)[number]) {
+  const group = page.locator("[data-map-frame] .maplibregl-ctrl-group");
+  await expect(group).toBeVisible();
+  const background = await group.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const image = decodePng(await group.screenshot());
+  const corner = rgbAt(image, 4, 4);
+  if (theme === "dark") {
+    expect(background).toBe("rgb(26, 26, 26)");
+    expect(luminanceOf(corner)).toBeLessThan(48);
+    return;
+  }
+  expect(background).toBe("rgb(255, 255, 255)");
+  expect(luminanceOf(corner)).toBeGreaterThan(240);
+}
+
+async function assertStationLand(page: Page) {
+  await expect.poll(async () => (await stationProbe(page)).dots.length, { timeout: 20_000 }).toBeGreaterThan(20);
+  const probe = await stationProbe(page);
+  expect(probe.above).toBe(true);
+  const canvas = page.locator("[data-map-status=ready] .maplibregl-canvas");
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) {
+    return;
+  }
+  const image = decodePng(await canvas.screenshot());
+  const scaleX = image.width / box.width;
+  const scaleY = image.height / box.height;
+  const scale = (scaleX + scaleY) / 2;
+  const land = LAND.light;
+  const offsets: ReadonlyArray<readonly [number, number]> = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [0.7, 0.7],
+    [-0.7, 0.7],
+    [0.7, -0.7],
+    [-0.7, -0.7],
+  ];
+  let checked = 0;
+  let patches = 0;
+  const margin = 6;
+  for (const dot of probe.dots) {
+    const cx = dot.x * scaleX;
+    const cy = dot.y * scaleY;
+    if (cx < margin || cy < margin || cx > image.width - margin || cy > image.height - margin) {
+      continue;
+    }
+    const gap = (dot.radius + 8) * scale;
+    for (const [ox, oy] of offsets) {
+      const x = cx + ox * gap;
+      const y = cy + oy * gap;
+      if (x < margin || y < margin || x >= image.width - margin || y >= image.height - margin) {
+        continue;
+      }
+      let onMarker = false;
+      for (const other of probe.dots) {
+        const dx = x - other.x * scaleX;
+        const dy = y - other.y * scaleY;
+        const reach = (other.radius + 3) * scale;
+        if (dx * dx + dy * dy <= reach * reach) {
+          onMarker = true;
+          break;
+        }
+      }
+      if (onMarker) {
+        continue;
+      }
+      const color = rgbAt(image, x, y);
+      if (!isNeutralDark(color, land) && luminanceOf(color) <= 110) {
+        continue;
+      }
+      if (chromaOf(color) >= 18) {
+        continue;
+      }
+      checked += 1;
+      if (isNeutralDark(color, land) && surroundedByGrey(image, x, y, land)) {
+        patches += 1;
+      }
+    }
+  }
+  expect(checked).toBeGreaterThan(30);
+  expect(patches).toBe(0);
+}
+
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
     test(`${theme} ${viewport.width} /map flows and power stations paint the basemap`, async ({ page }) => {
@@ -295,6 +441,7 @@ for (const theme of THEMES) {
         expect(await hookNumber(page, "flowMarkerCount")).toBeGreaterThan(0);
       }
       await assertBasemap(page, theme, true);
+      await assertZoomControl(page, theme);
       const scroll = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
@@ -318,6 +465,28 @@ for (const theme of THEMES) {
       await expect(page.getByRole("checkbox", { name: "Power stations" })).toBeChecked();
       await assertView(page, "stations");
       await assertBasemap(page, theme, false);
+      await expect.poll(async () => (await stationProbe(page)).above, { timeout: 20_000 }).toBe(true);
+      if (theme === "light") {
+        await assertStationLand(page);
+        const wales = await project(page, WALES.longitude, WALES.latitude);
+        expect(wales).not.toBeNull();
+        if (wales) {
+          const labelCanvas = page.locator("[data-map-status=ready] .maplibregl-canvas");
+          const labelBox = await labelCanvas.boundingBox();
+          expect(labelBox).not.toBeNull();
+          if (labelBox) {
+            const labelImage = decodePng(await labelCanvas.screenshot());
+            const span = glyphSpan(
+              labelImage,
+              wales.x * (labelImage.width / labelBox.width),
+              wales.y * (labelImage.height / labelBox.height),
+              theme,
+            );
+            expect(span).not.toBeNull();
+            expect((span?.width ?? 0) / (labelImage.width / labelBox.width)).toBeGreaterThanOrEqual(34);
+          }
+        }
+      }
       expect(pageErrors).toEqual([]);
     });
   }
