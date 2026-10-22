@@ -363,6 +363,58 @@ describe("gas release contract", () => {
     expect(errors).toMatch(/sites GET/);
   });
 
+  it("keeps the newest revision when the same publication is generated twice", () => {
+    const base = observations("PUBOB637");
+    const first = base[0];
+    expect(first).toBeDefined();
+    if (!first) {
+      return;
+    }
+    const revised = { ...first, value: (first.value ?? 0) + 7, published_at: "2026-10-14T18:00:00.000Z" };
+    const older = { ...first, value: 1, published_at: "2026-10-14T08:00:00.000Z" };
+    const revisedRelease = buildGasRelease({
+      catalogue,
+      observations: [older, ...base, revised],
+      quarantine: [],
+      gasDayLabel: first.gas_day.label,
+      retrievedAt: GAS_SPIKE_RETRIEVED_AT,
+      instantaneous: [
+        {
+          role: "demand",
+          name: "NTS Demand Flow",
+          unit: "mscm/d",
+          value: 9,
+          applicable_at: "2026-10-13T12:00:00.000Z",
+          published_at: "2026-10-13T11:00:00.000Z",
+        },
+        {
+          role: "demand",
+          name: "NTS Demand Flow",
+          unit: "mscm/d",
+          value: 10,
+          applicable_at: "2026-10-13T12:00:00.000Z",
+          published_at: "2026-10-13T12:00:00.000Z",
+        },
+        {
+          role: "demand",
+          name: "NTS Demand Flow",
+          unit: "mscm/d",
+          value: 12,
+          applicable_at: "2026-10-13T12:00:00.000Z",
+          published_at: "2026-10-13T13:00:00.000Z",
+        },
+      ],
+    });
+    const matches = revisedRelease.components.filter(
+      (component) => component.publication_id === first.publication_id && component.applicable_at === first.applicable_at,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.value).toBe(revised.value);
+    expect(revisedRelease.instantaneous).toEqual([
+      expect.objectContaining({ value: 12, published_at: "2026-10-13T13:00:00.000Z" }),
+    ]);
+  });
+
   it("rejects a release that counts a rate", () => {
     const broken = structuredClone(release);
     const rate = broken.components.find((component) => component.quantity_kind === "rate");

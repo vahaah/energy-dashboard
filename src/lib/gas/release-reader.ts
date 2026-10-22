@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadBundleReleases, loadGasRelease } from "@/lib/gas/query";
+import { preferGasRelease } from "@/lib/gas/rank";
+import { loadBundleReleases, loadGasRelease, loadRecentDayReleases } from "@/lib/gas/query";
 import { gasReleaseSchema, type GasRelease } from "@/lib/ingest/national-gas/release";
 
 function fixtureReleasePath(cwd: string): string {
@@ -9,8 +10,9 @@ function fixtureReleasePath(cwd: string): string {
 
 /**
  * Latest National Gas NTS release and the recent gas days the page compares.
- * `readLatestGasRelease` is the Blob latest pointer. History is that release
- * plus the intraday and completed-day bundle releases, newest gas day first.
+ * `readLatestGasRelease` is the Blob latest pointer. History is that release,
+ * the intraday and completed-day bundle releases, and the recent day pointers,
+ * newest gas day first. A richer release for a day wins over a thinner one.
  */
 export type GasReleaseReader = {
   readLatestGasRelease(): Promise<GasRelease | null>;
@@ -44,31 +46,23 @@ export function blobGasReleaseReader(): GasReleaseReader {
       return loaded?.release ?? null;
     },
     async readGasReleaseHistory() {
-      const [latest, bundles] = await Promise.all([loadGasRelease(null), loadBundleReleases()]);
-      const releases = [...bundles];
+      const [latest, bundles, days] = await Promise.all([
+        loadGasRelease(null),
+        loadBundleReleases(),
+        loadRecentDayReleases(),
+      ]);
+      const releases = [...bundles, ...days];
       if (latest) {
         releases.push(latest.release);
       }
       const byDay = new Map<string, GasRelease>();
       for (const release of releases) {
         const existing = byDay.get(release.gas_day.label);
-        if (!existing || newestPublishedAt(release) >= newestPublishedAt(existing)) {
-          byDay.set(release.gas_day.label, release);
-        }
+        byDay.set(release.gas_day.label, existing ? preferGasRelease(existing, release) : release);
       }
       return [...byDay.values()].sort((left, right) => right.gas_day.label.localeCompare(left.gas_day.label));
     },
   };
-}
-
-function newestPublishedAt(release: GasRelease): string {
-  let stamp = "";
-  for (const component of release.components) {
-    if (component.published_at > stamp) {
-      stamp = component.published_at;
-    }
-  }
-  return stamp;
 }
 
 /**

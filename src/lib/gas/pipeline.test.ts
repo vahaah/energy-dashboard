@@ -17,6 +17,8 @@ import {
   GAS_PREVIOUS_PATH,
   MemoryGasStore,
   gasBundlePointerPath,
+  gasDayPointerPath,
+  gasInstantaneousPath,
   gasQuarantinePath,
   gasReleasePath,
   gasSeriesPath,
@@ -33,8 +35,10 @@ import {
   GAS_WORKFLOW_EVENTS_PER_RUN,
   fetchGasBundle,
   gasRetryAfter,
+  inlineGasBodies,
   gasStepError,
   publishGasBundle,
+  setGasPauseForTests,
   readPointer,
   validateGasBundle,
   GasBodyMissingError,
@@ -51,7 +55,9 @@ import {
   GAS_INTRADAY_PUBLICATION_IDS,
   gasBundleCsvUrl,
   gasBundleWindow,
+  gasDaysForBundle,
 } from "@/lib/ingest/national-gas/bundles";
+import { GAS_INSTANTANEOUS_URL } from "@/lib/ingest/national-gas/instantaneous";
 import { partsReconcile } from "@/lib/ingest/national-gas/total";
 import type { GasRelease } from "@/lib/ingest/national-gas/release";
 import { getRedis, resetRedisClient, setRedisForTests, type RedisCommands } from "@/lib/redis-cache";
@@ -171,10 +177,17 @@ async function publishFixture(
     if (url.startsWith(GAS_DOWNLOAD_URL)) {
       return new Response(bundleCsv(ids), { status: 200 });
     }
+    if (url === GAS_INSTANTANEOUS_URL) {
+      return new Response(JSON.stringify({ publishedTime: now.toISOString(), instantaneousFlow: [] }), { status: 200 });
+    }
     throw new Error(`unexpected fetch ${url}`);
   });
   const fetched = await fetchGasBundle(bundle, now, 1);
-  expect(Object.keys(fetched).sort()).toEqual(["bytes", "hash", "ok", "raw", "releaseId", "rows"]);
+  const keys = ["bytes", "hash", "ok", "raw", "releaseId", "rows"];
+  if (bundle === "intraday") {
+    keys.push("instantaneous");
+  }
+  expect(Object.keys(fetched).sort()).toEqual(keys.sort());
   expect(fetched.ok).toBe(true);
   expect(typeof fetched.rows).toBe("number");
   expect(fetched.raw && fetched.raw.length).toBeGreaterThan(0);
@@ -206,16 +219,33 @@ describe("gas publish", () => {
     setGasStoreForTests(null);
     setBlobReadbackSleepForTests(null);
     resetRedisClient();
+    setGasPauseForTests(null);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("keeps the intraday window on London 05:00 stamps and leaves SAP out", () => {
+  it("keeps gas-day stamps and leaves SAP out", () => {
     const window = gasBundleWindow("intraday", INTRADAY_NOW);
-    expect(window).toEqual({ from: "2026-10-15T05:00:00", to: "2026-10-16T05:00:00" });
+    expect(window).toEqual({ from: "2026-10-15T00:00:00", to: "2026-10-16T05:00:00" });
     expect(window.from).toHaveLength(19);
     const completed = gasBundleWindow("completed-day", COMPLETED_NOW);
-    expect(completed).toEqual({ from: "2026-10-11T05:00:00", to: "2026-10-14T05:00:00" });
+    expect(completed).toEqual({ from: "2026-10-11T05:00:00", to: "2026-10-15T05:00:00" });
+    const duringDay = new Date("2026-10-22T06:47:00.000Z");
+    expect(gasBundleWindow("completed-day", duringDay)).toEqual({
+      from: "2026-10-19T05:00:00",
+      to: "2026-10-23T05:00:00",
+    });
+    expect(gasBundleWindow("intraday", duringDay)).toEqual({
+      from: "2026-10-22T00:00:00",
+      to: "2026-10-23T05:00:00",
+    });
+    const days = gasDaysForBundle("completed-day", ["2026-10-20", "2026-10-21", "2026-10-22"], duringDay);
+    expect(days).toEqual(["2026-10-20", "2026-10-21"]);
+    expect(days.at(-1)).toBe("2026-10-21");
+    const completedUrl = new URL(
+      gasBundleCsvUrl(["PUBOB637"], "2026-10-19T05:00:00", "2026-10-23T05:00:00", "N"),
+    );
+    expect(completedUrl.searchParams.get("latestFlag")).toBe("N");
     const url = new URL(gasBundleCsvUrl(GAS_INTRADAY_PUBLICATION_IDS, window.from, window.to));
     expect(url.searchParams.get("ids")?.split(",")).toEqual([...GAS_INTRADAY_PUBLICATION_IDS]);
     expect(url.searchParams.get("ids")).not.toContain("PUBOB603");
@@ -256,6 +286,10 @@ describe("gas publish", () => {
     expect(release.components.some((row) => row.quantity_kind === "rate")).toBe(false);
     const downloads = vi.mocked(fetch).mock.calls.filter((call) => String(call[0]).startsWith(GAS_DOWNLOAD_URL));
     expect(downloads).toHaveLength(1);
+    expect(new URL(String(downloads[0]?.[0])).searchParams.get("latestFlag")).toBe("N");
+    expect(await readPointer(gasDayPointerPath("2026-10-11"))).toMatchObject({ release_id: expect.any(String) });
+    expect(await readPointer(gasDayPointerPath("2026-10-12"))).toMatchObject({ release_id: expect.any(String) });
+    expect(await readPointer(gasDayPointerPath("2026-10-13"))).toMatchObject({ release_id: releaseId });
     expect(vi.mocked(fetch).mock.calls.some((call) => String(call[0]).startsWith(GAS_CATALOGUE_URL))).toBe(false);
   });
 
@@ -289,12 +323,15 @@ describe("gas publish", () => {
   it("creates no second release when the same CSV is published again", async () => {
     const first = await publishFixture("completed-day", COMPLETED_NOW);
     revalidated.length = 0;
+    const before = [...store.files.keys()].sort();
     const again = await publishGasBundle(first.hash, "completed-day", new Date(COMPLETED_NOW.getTime() + 60_000));
     expect(again.releaseId).toBe(first.releaseId);
+    expect([...store.files.keys()].sort()).toEqual(before);
     const files = [...store.files.keys()].filter((path) => /^releases\/gas\/[a-f0-9]{64}\.json$/.test(path));
-    expect(files).toEqual([gasReleasePath(first.releaseId)]);
+    expect(files).toContain(gasReleasePath(first.releaseId));
+    expect(files.length).toBeGreaterThan(1);
     const lines = store.files.get(GAS_CATALOGUE_RELEASES_PATH)?.body.trim().split("\n") ?? [];
-    expect(lines).toHaveLength(1);
+    expect(lines.length).toBe(files.length);
     expect(revalidated).toEqual([]);
     const pointer = await readPointer(GAS_LATEST_PATH);
     expect(pointer).toEqual({ release_id: first.releaseId, generated_at: COMPLETED_NOW.toISOString() });
@@ -479,7 +516,8 @@ describe("gas publish", () => {
     }
     const points = series.body.points as Array<{ applicable_at: string; gas_day: string; value: number }>;
     expect(points.some((point) => point.value === DEMAND_PARENT && point.gas_day === "2026-10-13")).toBe(true);
-    expect(points.every((point) => point.applicable_at.endsWith("Z") && point.gas_day === "2026-10-13")).toBe(true);
+    expect(points.every((point) => point.applicable_at.endsWith("Z"))).toBe(true);
+    expect(points.some((point) => point.gas_day === "2026-10-11" || point.gas_day === "2026-10-12")).toBe(true);
     expect((await gasSeriesResponse("not-a-metric", "2026-10-13", "2026-10-15")).status).toBe(400);
     expect((await gasSeriesResponse("elec.gb.demand.itsdo", "2026-10-13", "2026-10-15")).status).toBe(400);
     expect((await gasOverviewResponse("2026-02-31")).status).toBe(400);
@@ -539,7 +577,8 @@ describe("gas publish", () => {
     });
     expect(store.files.has(gasSeriesPath("gas.gb_nts.demand.actual_volume"))).toBe(true);
     const lines = store.files.get(GAS_CATALOGUE_RELEASES_PATH)?.body.trim().split("\n") ?? [];
-    expect(lines).toHaveLength(1);
+    const releaseFiles = [...store.files.keys()].filter((path) => /^releases\/gas\/[a-f0-9]{64}\.json$/.test(path));
+    expect(lines).toHaveLength(releaseFiles.filter((path) => path !== gasReleasePath(intraday.releaseId)).length);
     expect(revalidated).toEqual(["/gas", "/api/v1/gas/overview", "/api/v1/gas/series"]);
   });
 
@@ -610,7 +649,8 @@ describe("gas publish", () => {
     const replay = checkCatalogue(dir);
     expect(replay.ok, replay.errors.join("\n")).toBe(true);
     const blobLines = store.files.get(GAS_CATALOGUE_RELEASES_PATH)?.body.trim().split("\n") ?? [];
-    expect(blobLines).toHaveLength(1);
+    const releaseFiles = [...store.files.keys()].filter((path) => /^releases\/gas\/[a-f0-9]{64}\.json$/.test(path));
+    expect(blobLines).toHaveLength(releaseFiles.length);
   });
 
   it("holds the gas slot and lets a failed completed day leave prices a status", async () => {
@@ -634,6 +674,94 @@ describe("gas publish", () => {
     const jobs = await loadJobHealth();
     expect(jobs.find((job) => job.job === "cron-prices")?.consecutive_failures).toBe(1);
     expect(jobs.find((job) => job.job === "cron-gas")?.consecutive_failures).toBe(0);
+  });
+
+  it("retries the within-day feed and still publishes the CSV", async () => {
+    setGasPauseForTests(async () => undefined);
+    await seedStamp(INTRADAY_PUBLISH);
+    const site = (name: string, flowRate: number) => ({
+      siteName: name,
+      siteGasDetail: [{ applicableAt: "2026-10-14T12:00:00.000Z", flowRate, qualityIndicator: "E" }],
+    });
+    const body = {
+      publishedTime: "2026-10-14T13:00:00.000Z",
+      currentGasDay: "2026-10-14",
+      instantaneousFlow: [
+        {
+          description: "Demand by category",
+          sites: [
+            site("Industrial Demand Flow", 2),
+            site("Interconnector Export Demand Flow", 39),
+            site("LDZ Offtake Flow", 134),
+            site("Power Station Demand Flow", 20),
+            site("Storage Demand Flow", 1.1),
+          ],
+        },
+        { description: "Total Demand", sites: [site("NTS Demand Flow", 197.4)] },
+        { description: "Actual linepack", sites: [site("NTS Actual Linepack", 343.2)] },
+        {
+          description: "Supply from entry points",
+          sites: [site("ALDBROUGH", 10), site("STUBLACH", 0), site("MILFORD HAVEN - DRAGON", 50), site("NOT A SITE", 9)],
+        },
+      ],
+    };
+    let hits = 0;
+    mockFetch((url) => {
+      if (url.startsWith(GAS_DOWNLOAD_URL)) {
+        expect(new URL(url).searchParams.get("latestFlag")).toBe("Y");
+        return new Response(bundleCsv(GAS_INTRADAY_PUBLICATION_IDS), { status: 200 });
+      }
+      if (url === GAS_INSTANTANEOUS_URL) {
+        hits += 1;
+        if (hits < 2) {
+          return new Response("no", { status: 500 });
+        }
+        return new Response(JSON.stringify(body), { status: 200 });
+      }
+      throw new Error(url);
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetched = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+    expect(hits).toBe(2);
+    const published = await publishGasBundle(
+      fetched.hash,
+      "intraday",
+      INTRADAY_PUBLISH,
+      undefined,
+      fetched.raw,
+      fetched.instantaneous,
+    );
+    const release = await readRelease(published.releaseId);
+    expect(release.instantaneous.find((sample) => sample.role === "demand")?.value).toBe(197.4);
+    expect(release.instantaneous.some((sample) => sample.name === "MILFORD HAVEN - DRAGON")).toBe(false);
+    expect(release.instantaneous.some((sample) => sample.name === "STUBLACH" && sample.value === 0)).toBe(true);
+
+    hits = 0;
+    mockFetch((url) => {
+      if (url.startsWith(GAS_DOWNLOAD_URL)) {
+        return new Response(bundleCsv(GAS_INTRADAY_PUBLICATION_IDS), { status: 200 });
+      }
+      hits += 1;
+      return new Response("no", { status: 400 });
+    });
+    const skipped = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+    expect(hits).toBe(1);
+    expect(skipped.ok).toBe(true);
+    expect(skipped.instantaneous).toBeUndefined();
+
+    hits = 0;
+    mockFetch((url) => {
+      if (url.startsWith(GAS_DOWNLOAD_URL)) {
+        return new Response(bundleCsv(GAS_INTRADAY_PUBLICATION_IDS), { status: 200 });
+      }
+      hits += 1;
+      return new Response("no", { status: 503 });
+    });
+    const exhausted = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+    expect(hits).toBe(3);
+    expect(exhausted.ok).toBe(true);
+    expect(exhausted.instantaneous).toBeUndefined();
+    warn.mockRestore();
   });
 
   it("revalidates gas paths only and adds no Tinybird ops", () => {
@@ -694,5 +822,108 @@ describe("gas publish", () => {
     const steps = readFileSync(join(process.cwd(), "src/workflows/steps/gas.ts"), "utf8");
     expect(steps.match(/maxRetries = GAS_MAX_RETRIES/g)).toHaveLength(5);
     expect(store.files.has(GAS_PREVIOUS_PATH)).toBe(false);
+  });
+
+  it("keeps the within-day body when it fits and the CSV does not fit beside it", () => {
+    const result = { ok: true as const, rows: 1, bytes: 1, hash: "sha256:abc", releaseId: "" };
+    const raw = "a".repeat(900_000);
+    const instantaneous = "b".repeat(700_000);
+    const spilled = inlineGasBodies(result, raw, instantaneous);
+    expect(spilled.storeInstantaneous).toBe(false);
+    expect(spilled.body.raw).toBeUndefined();
+    expect(spilled.body.instantaneous).toBe(instantaneous);
+
+    const huge = "c".repeat(1_600_000);
+    const stored = inlineGasBodies(result, "csv", huge);
+    expect(stored.storeInstantaneous).toBe(true);
+    expect(stored.body.raw).toBe("csv");
+    expect(stored.body.instantaneous).toBeUndefined();
+
+    const both = inlineGasBodies(result, "csv", "{\"ok\":true}");
+    expect(both.storeInstantaneous).toBe(false);
+    expect(both.body.raw).toBe("csv");
+    expect(both.body.instantaneous).toBe("{\"ok\":true}");
+  });
+
+  it("moves the latest pointer when only the within-day publication is newer", async () => {
+    setGasPauseForTests(async () => undefined);
+    await seedStamp(INTRADAY_PUBLISH);
+    const csv = bundleCsv(GAS_INTRADAY_PUBLICATION_IDS);
+    const feed = (publishedTime: string, demand: number) =>
+      JSON.stringify({
+        publishedTime,
+        currentGasDay: "2026-10-14",
+        instantaneousFlow: [
+          {
+            description: "Total Demand",
+            sites: [
+              {
+                siteName: "NTS Demand Flow",
+                siteGasDetail: [{ applicableAt: "2026-10-14T12:00:00.000Z", flowRate: demand, qualityIndicator: "E" }],
+              },
+            ],
+          },
+        ],
+      });
+    const publishFeed = async (publishedTime: string, demand: number) => {
+      mockFetch((url) => {
+        if (url.startsWith(GAS_DOWNLOAD_URL)) {
+          return new Response(csv, { status: 200 });
+        }
+        if (url === GAS_INSTANTANEOUS_URL) {
+          return new Response(feed(publishedTime, demand), { status: 200 });
+        }
+        throw new Error(url);
+      });
+      const fetched = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+      return publishGasBundle(fetched.hash, "intraday", INTRADAY_PUBLISH, undefined, fetched.raw, fetched.instantaneous);
+    };
+    const first = await publishFeed("2026-10-14T13:00:00.000Z", 100);
+    const second = await publishFeed("2026-10-15T08:00:00.000Z", 180);
+    expect(second.releaseId).not.toBe(first.releaseId);
+    expect(await readPointer(GAS_LATEST_PATH)).toMatchObject({ release_id: second.releaseId });
+    expect(await readPointer(gasBundlePointerPath("intraday"))).toMatchObject({ release_id: second.releaseId });
+    const release = await readRelease(second.releaseId);
+    expect(release.instantaneous.find((sample) => sample.role === "demand")?.value).toBe(180);
+  });
+
+  it("reads a stored within-day body when the step result omitted it", async () => {
+    setGasPauseForTests(async () => undefined);
+    await seedStamp(INTRADAY_PUBLISH);
+    const body = {
+      publishedTime: "2026-10-14T13:00:00.000Z",
+      currentGasDay: "2026-10-14",
+      instantaneousFlow: [
+        {
+          description: "Total Demand",
+          sites: [
+            {
+              siteName: "NTS Demand Flow",
+              siteGasDetail: [{ applicableAt: "2026-10-14T12:00:00.000Z", flowRate: 197.4, qualityIndicator: "E" }],
+            },
+          ],
+        },
+      ],
+    };
+    mockFetch((url) => {
+      if (url.startsWith(GAS_DOWNLOAD_URL)) {
+        return new Response(bundleCsv(GAS_INTRADAY_PUBLICATION_IDS), { status: 200 });
+      }
+      if (url === GAS_INSTANTANEOUS_URL) {
+        return new Response(JSON.stringify(body), { status: 200 });
+      }
+      throw new Error(url);
+    });
+    const fetched = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+    expect(fetched.instantaneous).toBeDefined();
+    const hex = fetched.hash.slice("sha256:".length);
+    await store.put(
+      gasInstantaneousPath(hex),
+      fetched.instantaneous ?? "",
+      immutablePut("application/json"),
+    );
+    const published = await publishGasBundle(fetched.hash, "intraday", INTRADAY_PUBLISH);
+    const release = await readRelease(published.releaseId);
+    expect(release.instantaneous.find((sample) => sample.role === "demand")?.value).toBe(197.4);
   });
 });
