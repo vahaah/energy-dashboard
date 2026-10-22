@@ -255,8 +255,8 @@ export function buildGasRelease(input: {
   if (!sample) {
     throw new Error(`no observations for gas day ${input.gasDayLabel}`);
   }
-  const components = dayRows
-    .map((row) => ({
+  const components = dedupeComponents(
+    dayRows.map((row) => ({
       publication_id: row.publication_id,
       metric_id: row.metric_id,
       name: row.name,
@@ -270,8 +270,8 @@ export function buildGasRelease(input: {
       retrieved_at: retrievedAt,
       forecast_issued_at: row.forecast_issued_at,
       parent_publication_id: row.parent_publication_id,
-    }))
-    .sort(compareComponents);
+    })),
+  ).sort(compareComponents);
 
   const bases = [...new Set(components.map((component) => component.basis))].sort();
   const counted = uniqueSorted(components.filter((component) => component.counts).map((component) => component.publication_id));
@@ -309,11 +309,24 @@ function samplesForGasDay(
       continue;
     }
     const key = `${sample.role}\t${sample.name}\t${sample.applicable_at}`;
-    if (!seen.has(key)) {
+    const previous = seen.get(key);
+    if (!previous || sample.published_at >= previous.published_at) {
       seen.set(key, sample);
     }
   }
   return [...seen.values()].sort(compareSamples);
+}
+
+function dedupeComponents(rows: readonly GasComponent[]): GasComponent[] {
+  const seen = new Map<string, GasComponent>();
+  for (const row of rows) {
+    const key = `${row.publication_id}\t${row.basis}\t${row.applicable_at}`;
+    const previous = seen.get(key);
+    if (!previous || row.published_at >= previous.published_at) {
+      seen.set(key, row);
+    }
+  }
+  return [...seen.values()];
 }
 
 function compareSamples(left: GasInstantaneousSample, right: GasInstantaneousSample): number {

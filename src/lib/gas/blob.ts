@@ -71,6 +71,11 @@ export function gasRawPath(hex: string): string {
   return `releases/gas/raw/${hex}.csv`;
 }
 
+/** Within-day JSON that did not fit beside the CSV in the workflow step result. Keyed by the CSV sha256. */
+export function gasInstantaneousPath(hex: string): string {
+  return `releases/gas/instantaneous/${hex}.json`;
+}
+
 export function gasQuarantinePath(day: string, hex: string): string {
   return `quarantine/${day}/${hex}.csv`;
 }

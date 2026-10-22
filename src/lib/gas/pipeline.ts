@@ -23,6 +23,7 @@ import {
   GAS_QUARANTINE_DAYS,
   gasBundlePointerPath,
   gasDayPointerPath,
+  gasInstantaneousPath,
   gasQuarantinePath,
   gasRawPath,
   gasReleasePath,
@@ -37,7 +38,7 @@ import {
   GAS_MAX_RETRIES,
   type GasStepStatus,
 } from "@/lib/gas/budget";
-import { preferGasRelease } from "@/lib/gas/rank";
+import { newestGasPublishedAt, preferGasRelease } from "@/lib/gas/rank";
 import { revalidateGasPaths } from "@/lib/gas/revalidate";
 import {
   GAS_CATALOGUE_URL,
@@ -204,17 +205,43 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
     hash,
     releaseId: "",
   };
-  const withBoth: GasFetchResult = instantaneous == null ? { ...result, raw: body } : { ...result, raw: body, instantaneous };
+  const choice = inlineGasBodies(result, body, instantaneous);
+  if (choice.storeInstantaneous && instantaneous != null) {
+    await putIfAbsent(gasInstantaneousPath(hex), instantaneous, "application/json");
+    console.warn("[gas] within-day body left in blob", { bytes: instantaneous.length });
+  }
+  if (!choice.body.raw) {
+    console.warn("[gas] raw body left in blob", { bundle, bytes });
+  }
+  return choice.body;
+}
+
+/**
+ * The CSV is already in Blob. When both bodies do not fit in the step result,
+ * keep the instantaneous JSON inline if it fits on its own. Store it only when
+ * it does not fit at all, so a later step can still read it back.
+ */
+export function inlineGasBodies(
+  result: GasFetchResult,
+  raw: string,
+  instantaneous: string | undefined,
+): { body: GasFetchResult; storeInstantaneous: boolean } {
+  const withBoth: GasFetchResult =
+    instantaneous == null ? { ...result, raw } : { ...result, raw, instantaneous };
   if (fitsInlineResult(withBoth)) {
-    return withBoth;
+    return { body: withBoth, storeInstantaneous: false };
   }
-  const withRaw: GasFetchResult = { ...result, raw: body };
+  if (instantaneous != null) {
+    const withInstantaneous: GasFetchResult = { ...result, instantaneous };
+    if (fitsInlineResult(withInstantaneous)) {
+      return { body: withInstantaneous, storeInstantaneous: false };
+    }
+  }
+  const withRaw: GasFetchResult = { ...result, raw };
   if (fitsInlineResult(withRaw)) {
-    console.warn("[gas] within-day body left out of the step result", { bytes: instantaneous?.length ?? 0 });
-    return withRaw;
+    return { body: withRaw, storeInstantaneous: instantaneous != null };
   }
-  console.warn("[gas] raw body left in blob", { bundle, bytes });
-  return result;
+  return { body: result, storeInstantaneous: instantaneous != null };
 }
 
 /**
@@ -326,7 +353,12 @@ async function prepareReleases(
   if (!raw) {
     throw blobReadbackError("National Gas raw body is missing", GAS_MAX_RETRIES);
   }
-  const parsed = await normaliseGasCsv(raw.body, bundle, now, instantaneousText);
+  const parsed = await normaliseGasCsv(
+    raw.body,
+    bundle,
+    now,
+    instantaneousText ?? (await readStoredInstantaneous(hex)),
+  );
   if (!parsed.ok) {
     await quarantineRaw(now, hex, raw.body);
     throw new FatalError("National Gas CSV kept the previous release");
@@ -546,7 +578,12 @@ async function releaseIsNewer(release: GasRelease, pointer: GasPointer): Promise
 }
 
 function newestPublishedAt(release: GasRelease): string {
-  return release.components.reduce((max, component) => (component.published_at > max ? component.published_at : max), "");
+  return newestGasPublishedAt(release);
+}
+
+async function readStoredInstantaneous(hex: string): Promise<string | undefined> {
+  const stored = await gasStore().get(gasInstantaneousPath(hex), true);
+  return stored?.body;
 }
 
 type GasPoint = {

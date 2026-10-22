@@ -18,6 +18,7 @@ import {
   MemoryGasStore,
   gasBundlePointerPath,
   gasDayPointerPath,
+  gasInstantaneousPath,
   gasQuarantinePath,
   gasReleasePath,
   gasSeriesPath,
@@ -34,6 +35,7 @@ import {
   GAS_WORKFLOW_EVENTS_PER_RUN,
   fetchGasBundle,
   gasRetryAfter,
+  inlineGasBodies,
   gasStepError,
   publishGasBundle,
   setGasPauseForTests,
@@ -820,5 +822,108 @@ describe("gas publish", () => {
     const steps = readFileSync(join(process.cwd(), "src/workflows/steps/gas.ts"), "utf8");
     expect(steps.match(/maxRetries = GAS_MAX_RETRIES/g)).toHaveLength(5);
     expect(store.files.has(GAS_PREVIOUS_PATH)).toBe(false);
+  });
+
+  it("keeps the within-day body when it fits and the CSV does not fit beside it", () => {
+    const result = { ok: true as const, rows: 1, bytes: 1, hash: "sha256:abc", releaseId: "" };
+    const raw = "a".repeat(900_000);
+    const instantaneous = "b".repeat(700_000);
+    const spilled = inlineGasBodies(result, raw, instantaneous);
+    expect(spilled.storeInstantaneous).toBe(false);
+    expect(spilled.body.raw).toBeUndefined();
+    expect(spilled.body.instantaneous).toBe(instantaneous);
+
+    const huge = "c".repeat(1_600_000);
+    const stored = inlineGasBodies(result, "csv", huge);
+    expect(stored.storeInstantaneous).toBe(true);
+    expect(stored.body.raw).toBe("csv");
+    expect(stored.body.instantaneous).toBeUndefined();
+
+    const both = inlineGasBodies(result, "csv", "{\"ok\":true}");
+    expect(both.storeInstantaneous).toBe(false);
+    expect(both.body.raw).toBe("csv");
+    expect(both.body.instantaneous).toBe("{\"ok\":true}");
+  });
+
+  it("moves the latest pointer when only the within-day publication is newer", async () => {
+    setGasPauseForTests(async () => undefined);
+    await seedStamp(INTRADAY_PUBLISH);
+    const csv = bundleCsv(GAS_INTRADAY_PUBLICATION_IDS);
+    const feed = (publishedTime: string, demand: number) =>
+      JSON.stringify({
+        publishedTime,
+        currentGasDay: "2026-10-14",
+        instantaneousFlow: [
+          {
+            description: "Total Demand",
+            sites: [
+              {
+                siteName: "NTS Demand Flow",
+                siteGasDetail: [{ applicableAt: "2026-10-14T12:00:00.000Z", flowRate: demand, qualityIndicator: "E" }],
+              },
+            ],
+          },
+        ],
+      });
+    const publishFeed = async (publishedTime: string, demand: number) => {
+      mockFetch((url) => {
+        if (url.startsWith(GAS_DOWNLOAD_URL)) {
+          return new Response(csv, { status: 200 });
+        }
+        if (url === GAS_INSTANTANEOUS_URL) {
+          return new Response(feed(publishedTime, demand), { status: 200 });
+        }
+        throw new Error(url);
+      });
+      const fetched = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+      return publishGasBundle(fetched.hash, "intraday", INTRADAY_PUBLISH, undefined, fetched.raw, fetched.instantaneous);
+    };
+    const first = await publishFeed("2026-10-14T13:00:00.000Z", 100);
+    const second = await publishFeed("2026-10-15T08:00:00.000Z", 180);
+    expect(second.releaseId).not.toBe(first.releaseId);
+    expect(await readPointer(GAS_LATEST_PATH)).toMatchObject({ release_id: second.releaseId });
+    expect(await readPointer(gasBundlePointerPath("intraday"))).toMatchObject({ release_id: second.releaseId });
+    const release = await readRelease(second.releaseId);
+    expect(release.instantaneous.find((sample) => sample.role === "demand")?.value).toBe(180);
+  });
+
+  it("reads a stored within-day body when the step result omitted it", async () => {
+    setGasPauseForTests(async () => undefined);
+    await seedStamp(INTRADAY_PUBLISH);
+    const body = {
+      publishedTime: "2026-10-14T13:00:00.000Z",
+      currentGasDay: "2026-10-14",
+      instantaneousFlow: [
+        {
+          description: "Total Demand",
+          sites: [
+            {
+              siteName: "NTS Demand Flow",
+              siteGasDetail: [{ applicableAt: "2026-10-14T12:00:00.000Z", flowRate: 197.4, qualityIndicator: "E" }],
+            },
+          ],
+        },
+      ],
+    };
+    mockFetch((url) => {
+      if (url.startsWith(GAS_DOWNLOAD_URL)) {
+        return new Response(bundleCsv(GAS_INTRADAY_PUBLICATION_IDS), { status: 200 });
+      }
+      if (url === GAS_INSTANTANEOUS_URL) {
+        return new Response(JSON.stringify(body), { status: 200 });
+      }
+      throw new Error(url);
+    });
+    const fetched = await fetchGasBundle("intraday", INTRADAY_PUBLISH, 1);
+    expect(fetched.instantaneous).toBeDefined();
+    const hex = fetched.hash.slice("sha256:".length);
+    await store.put(
+      gasInstantaneousPath(hex),
+      fetched.instantaneous ?? "",
+      immutablePut("application/json"),
+    );
+    const published = await publishGasBundle(fetched.hash, "intraday", INTRADAY_PUBLISH);
+    const release = await readRelease(published.releaseId);
+    expect(release.instantaneous.find((sample) => sample.role === "demand")?.value).toBe(197.4);
   });
 });

@@ -34,6 +34,7 @@ import {
   NTS_ACTUAL_LINEPACK,
   NTS_DEMAND_FLOW,
   STORAGE_DEMAND_FLOW,
+  STORAGE_WITHDRAWAL_SITES,
 } from "@/lib/ingest/national-gas/instantaneous";
 import type { GasQuantityKind } from "@/lib/ingest/national-gas/quantity";
 import type { GasComponent, GasInstantaneousSample, GasRelease } from "@/lib/ingest/national-gas/release";
@@ -149,9 +150,10 @@ function buildSlice(
   const state = basisState(release, basis, now);
   const rows = componentsFor(release, basis);
   const stampSource = rows.length > 0 ? rows : release.components;
-  const stamp = stampFrom(stampSource);
   const published = latestPublished(stampSource);
-  const stale = published ? isStalePublication(published, now) : false;
+  const freshness = flowFreshness(release, basis, stampFrom(stampSource), published ? isStalePublication(published, now) : false, now);
+  const stamp = freshness.stamp;
+  const stale = freshness.stale;
   const coverage = coverageBounds(rows);
   const dayLabel = gasDayLabel(release);
   const partialText =
@@ -510,8 +512,7 @@ function demandShareBlock(
     if (other.gas_day.label === release.gas_day.label) {
       continue;
     }
-    const flow = basis === "completed" ? [] : flowDemandShares(other);
-    const rows = flow.length > 0 ? flow : completedDemandShares(other);
+    const rows = completedDemandShares(other);
     if (rows.length > 0) {
       return { rows, asOfLabel: formatLondonDayMonthYear(other.gas_day.label) };
     }
@@ -731,7 +732,11 @@ function latestAny(release: GasRelease, publicationId: string): GasComponent | n
 function latestOf(rows: readonly GasComponent[]): GasComponent | null {
   let best: GasComponent | null = null;
   for (const row of rows) {
-    if (!best || row.applicable_at > best.applicable_at) {
+    if (
+      !best ||
+      row.applicable_at > best.applicable_at ||
+      (row.applicable_at === best.applicable_at && row.published_at > best.published_at)
+    ) {
       best = row;
     }
   }
@@ -1062,12 +1067,6 @@ function storagePair(release: GasRelease, history: readonly GasRelease[], basis:
         flow: false,
       };
     }
-    if (basis !== "completed") {
-      const flow = flowStorage(other);
-      if (flow) {
-        return { ...flow, unit: GAS_UNIT_DAY, asOfLabel: formatLondonDayMonthYear(other.gas_day.label), flow: true };
-      }
-    }
   }
   return null;
 }
@@ -1097,15 +1096,16 @@ function withdrawalSum(release: GasRelease): number | null {
       continue;
     }
     const previous = latest.get(sample.name);
-    if (!previous || sample.applicable_at > previous.applicable_at) {
+    if (!previous || prefersSample(sample, previous)) {
       latest.set(sample.name, sample);
     }
   }
-  if (latest.size === 0) {
-    return null;
-  }
   let sum = 0;
-  for (const sample of latest.values()) {
+  for (const name of STORAGE_WITHDRAWAL_SITES) {
+    const sample = latest.get(name);
+    if (!sample) {
+      return null;
+    }
     sum += sample.value;
   }
   return sum;
@@ -1121,11 +1121,81 @@ function latestInstantaneous(
     if (sample.role !== role || (name != null && sample.name !== name)) {
       continue;
     }
-    if (!best || sample.applicable_at > best.applicable_at) {
+    if (!best || prefersSample(sample, best)) {
       best = sample;
     }
   }
   return best;
+}
+
+function prefersSample(candidate: GasInstantaneousSample, current: GasInstantaneousSample): boolean {
+  return (
+    candidate.applicable_at > current.applicable_at ||
+    (candidate.applicable_at === current.applicable_at && candidate.published_at > current.published_at)
+  );
+}
+
+const FLOW_FRESHNESS = GAS_METRICS["gas.gb_nts.entry.physical.national"];
+
+function flowFreshness(
+  release: GasRelease,
+  basis: GasPageBasis,
+  stamp: GasSlice["stamp"],
+  csvStale: boolean,
+  now: Date,
+): { stamp: GasSlice["stamp"]; stale: boolean } {
+  if (basis !== "flow") {
+    return { stamp, stale: csvStale };
+  }
+  const oldest = oldestDisplayedFlowSample(release);
+  if (!oldest || !isInstantaneousStale(oldest.published_at, now)) {
+    return { stamp, stale: csvStale };
+  }
+  return {
+    stale: true,
+    stamp: {
+      ...stamp,
+      dataTime: oldest.applicable_at,
+      dataTimeLabel: formatLondonDateTimeStamp(parseUtcDateTime(oldest.applicable_at)),
+      publishedAt: oldest.published_at,
+      publishedLabel: formatLondonDateTimeStamp(parseUtcDateTime(oldest.published_at)),
+    },
+  };
+}
+
+function oldestDisplayedFlowSample(release: GasRelease): GasInstantaneousSample | null {
+  const samples: GasInstantaneousSample[] = [];
+  const demand = latestInstantaneous(release, "demand");
+  if (demand) {
+    samples.push(demand);
+  }
+  const linepack = latestInstantaneous(release, "linepack", NTS_ACTUAL_LINEPACK);
+  if (linepack) {
+    samples.push(linepack);
+  }
+  if (flowStorage(release)) {
+    const injection = latestInstantaneous(release, "demand_part", STORAGE_DEMAND_FLOW);
+    if (injection) {
+      samples.push(injection);
+    }
+    for (const name of STORAGE_WITHDRAWAL_SITES) {
+      const site = latestInstantaneous(release, "storage_withdrawal", name);
+      if (site) {
+        samples.push(site);
+      }
+    }
+  }
+  let oldest: GasInstantaneousSample | null = null;
+  for (const sample of samples) {
+    if (!oldest || sample.published_at < oldest.published_at) {
+      oldest = sample;
+    }
+  }
+  return oldest;
+}
+
+function isInstantaneousStale(publishedAt: string, now: Date): boolean {
+  return isBeyondCadence(publishedAt, now, FLOW_FRESHNESS.expected_cadence, "calendar", staleGrace(FLOW_FRESHNESS));
 }
 
 function formatQuantity(value: number | null): string {

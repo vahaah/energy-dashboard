@@ -11,6 +11,7 @@ import {
 import { basisState, buildGasDocument, generationSamples, sameBasisComparison, visibleGasBases } from "@/lib/gas/page-model";
 import { gasReleasePath } from "@/lib/ingest/national-gas/check";
 import { gasDayFromLabel } from "@/lib/ingest/national-gas/gas-day";
+import { DEMAND_PART_NAMES } from "@/lib/ingest/national-gas/instantaneous";
 import { gasReleaseSchema, type GasComponent, type GasInstantaneousSample, type GasRelease } from "@/lib/ingest/national-gas/release";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
 import type { Generation5min } from "@/lib/types";
@@ -412,5 +413,106 @@ describe("gas page model", () => {
     expect(flow?.storage.withdrawalAsOf).toBe(dated);
     expect(flow?.demandAsOfLabel).toBe(dated);
     expect(flow?.demand.length).toBeGreaterThan(0);
+    expect(flow?.demand.every((row) => row.unit === "million m³")).toBe(true);
+  });
+
+  it("does not publish a storage withdrawal that is missing a site", () => {
+    const release = fixtureRelease();
+    const at = "2026-10-22T06:46:00.000Z";
+    const published = "2026-10-22T06:47:00.000Z";
+    const sample = (name: string, value: number): GasInstantaneousSample => ({
+      role: "storage_withdrawal",
+      name,
+      unit: "mscm/d",
+      value,
+      applicable_at: at,
+      published_at: published,
+    });
+    const today: GasRelease = {
+      ...release,
+      gas_day: gasDayFromLabel("2026-10-22"),
+      instantaneous: [
+        { role: "demand_part", name: "Storage Demand Flow", unit: "mscm/d", value: 1.123, applicable_at: at, published_at: published },
+        sample("ALDBROUGH", 15.54475),
+        sample("EASINGTON ROUGH ST", 3.16863),
+        sample("HILLTOP", 0),
+        sample("HOLE HOUSE FARM", 0),
+        sample("HOLFORD", 0),
+        sample("HORNSEA", 0),
+      ],
+    };
+    const document = buildGasDocument([today], new Date(published), null);
+    if (!document.available) {
+      throw new Error("within-day release missing");
+    }
+    const storage = document.slices
+      .find((slice) => slice.basis === "flow")
+      ?.stats.find((stat) => stat.id === "storage");
+    expect(storage?.valueLabel).not.toBe("17.6");
+    expect(storage?.unit).toBe("million m³");
+  });
+
+  it("borrows the completed demand breakdown when another day also has flow rates", () => {
+    const prior = fixtureRelease();
+    const at = "2026-10-13T12:00:00.000Z";
+    const withFlow: GasRelease = {
+      ...prior,
+      instantaneous: DEMAND_PART_NAMES.map((name) => ({
+        role: "demand_part" as const,
+        name,
+        unit: "mscm/d" as const,
+        value: 10,
+        applicable_at: at,
+        published_at: at,
+      })),
+    };
+    const thin: GasRelease = {
+      ...withFlow,
+      gas_day: gasDayFromLabel("2026-10-21"),
+      bases: ["flow"],
+      components: withFlow.components.filter((row) => row.basis === "flow"),
+      instantaneous: [],
+    };
+    const document = buildGasDocument([thin, withFlow], new Date("2026-10-22T06:47:00.000Z"), null);
+    if (!document.available) {
+      throw new Error("thin release missing");
+    }
+    const flow = document.slices.find((slice) => slice.day === "2026-10-21" && slice.basis === "flow");
+    expect(flow?.demandAsOfLabel).toBe(formatLondonDayMonthYear("2026-10-13"));
+    expect(flow?.demand.length).toBeGreaterThan(0);
+    expect(flow?.demand.every((row) => row.unit === "million m³")).toBe(true);
+    expect(flow?.demand.some((row) => row.valueLabel === "10.0")).toBe(false);
+  });
+
+  it("stamps carried within-day figures with their own publication time", () => {
+    const release = fixtureRelease();
+    const now = new Date("2026-10-22T06:47:00.000Z");
+    const fresh = "2026-10-22T06:40:00.000Z";
+    const oldPublished = "2026-10-22T02:00:00.000Z";
+    const oldApplicable = "2026-10-22T01:55:00.000Z";
+    const today: GasRelease = {
+      ...release,
+      gas_day: gasDayFromLabel("2026-10-22"),
+      components: release.components.map((row) => ({ ...row, published_at: fresh, retrieved_at: fresh })),
+      instantaneous: [
+        {
+          role: "demand",
+          name: "NTS Demand Flow",
+          unit: "mscm/d",
+          value: 197.4,
+          applicable_at: oldApplicable,
+          published_at: oldPublished,
+        },
+      ],
+    };
+    const document = buildGasDocument([today], now, null);
+    if (!document.available) {
+      throw new Error("within-day release missing");
+    }
+    const flow = document.slices.find((slice) => slice.day === "2026-10-22" && slice.basis === "flow");
+    expect(flow?.staleText).toContain("Latest gas data is from");
+    expect(flow?.stamp.publishedAt).toBe(oldPublished);
+    expect(flow?.stamp.dataTime).toBe(oldApplicable);
+    expect(flow?.stats.find((stat) => stat.id === "demand")?.valueLabel).toBe("197.4");
   });
 });
