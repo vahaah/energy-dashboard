@@ -4,9 +4,11 @@ import {
   GAS_LATEST_PATH,
   MemoryGasStore,
   gasBundlePointerPath,
+  gasDayPointerPath,
   gasReleasePath,
   setGasStoreForTests,
 } from "@/lib/gas/blob";
+import { preferGasRelease } from "@/lib/gas/rank";
 import { blobGasReleaseReader, fixtureGasReleaseReader, getGasReleaseReader } from "@/lib/gas/release-reader";
 import { gasDayFromLabel } from "@/lib/ingest/national-gas/gas-day";
 import { gasReleaseSchema, type GasRelease } from "@/lib/ingest/national-gas/release";
@@ -69,5 +71,33 @@ describe("gas release reader", () => {
     expect(latest?.gas_day.label).toBe("2026-10-13");
     const history = await blobGasReleaseReader().readGasReleaseHistory();
     expect(history.map((release) => release.gas_day.label)).toEqual(["2026-10-13", "2026-10-12"]);
+  });
+
+  it("reads a day pointer that is not a bundle pointer and keeps the richer release", async () => {
+    process.env[TOKEN] = "configured";
+    const store = new MemoryGasStore();
+    const current = fixtureRelease();
+    const thin: GasRelease = {
+      ...current,
+      components: current.components.filter((row) => row.publication_id === "PUBOB693"),
+    };
+    const older: GasRelease = { ...current, gas_day: gasDayFromLabel("2026-10-11") };
+    const put = async (pathname: string, body: string) => {
+      await store.put(pathname, body, { allowOverwrite: true, contentType: "application/json", cacheControlMaxAge: 60 });
+    };
+    await put(gasReleasePath("full"), JSON.stringify(current));
+    await put(gasReleasePath("thin"), JSON.stringify(thin));
+    await put(gasReleasePath("older"), JSON.stringify(older));
+    await put(GAS_LATEST_PATH, JSON.stringify({ release_id: "thin", generated_at: "2026-10-14T11:40:00.000Z" }));
+    await put(gasBundlePointerPath("intraday"), JSON.stringify({ release_id: "full", generated_at: "2026-10-14T03:05:00.000Z" }));
+    await put(gasDayPointerPath("2026-10-13"), JSON.stringify({ release_id: "full", generated_at: "2026-10-14T03:05:00.000Z" }));
+    await put(gasDayPointerPath("2026-10-11"), JSON.stringify({ release_id: "older", generated_at: "2026-10-12T12:00:00.000Z" }));
+    setGasStoreForTests(store);
+
+    expect(preferGasRelease(thin, current)).toBe(current);
+    expect(preferGasRelease(current, thin)).toBe(current);
+    const history = await blobGasReleaseReader().readGasReleaseHistory();
+    expect(history.map((release) => release.gas_day.label)).toEqual(["2026-10-13", "2026-10-11"]);
+    expect(history[0]?.components.some((row) => row.publication_id === "PUBOB2042")).toBe(true);
   });
 });

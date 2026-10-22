@@ -236,6 +236,34 @@ export function latestObservedComponent(releases: readonly GasRelease[], metricI
   return chosen;
 }
 
+const DAY_POINTER_LIMIT = 8;
+
+/** Recent per-day pointers. A list failure leaves history on the bundle pointers. */
+export async function loadRecentDayReleases(limit = DAY_POINTER_LIMIT): Promise<GasRelease[]> {
+  let listed: Array<{ pathname: string }>;
+  try {
+    listed = await gasStore().list("releases/gas/days/");
+  } catch {
+    return [];
+  }
+  const labels = listed
+    .map((item) => /^releases\/gas\/days\/(\d{4}-\d{2}-\d{2})\.json$/.exec(item.pathname)?.[1])
+    .filter((label): label is string => label != null)
+    .sort()
+    .reverse()
+    .slice(0, limit);
+  const loaded = await Promise.all(
+    labels.map(async (label) => {
+      try {
+        return await loadGasRelease(label);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return loaded.flatMap((item) => (item ? [item.release] : []));
+}
+
 export async function loadBundleReleases(): Promise<GasRelease[]> {
   const releases = await Promise.all([
     readPointedRelease(gasBundlePointerPath("intraday")),

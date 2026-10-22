@@ -37,22 +37,36 @@ import {
   GAS_MAX_RETRIES,
   type GasStepStatus,
 } from "@/lib/gas/budget";
+import { preferGasRelease } from "@/lib/gas/rank";
 import { revalidateGasPaths } from "@/lib/gas/revalidate";
 import {
   GAS_CATALOGUE_URL,
   gasBundleCsvUrl,
+  gasBundleLatestFlag,
   gasBundlePublicationIds,
   gasBundleWindow,
+  gasDaysForBundle,
   type GasBundle,
 } from "@/lib/ingest/national-gas/bundles";
+import {
+  GAS_INSTANTANEOUS_ATTEMPTS,
+  GAS_INSTANTANEOUS_BACKOFF_MS,
+  GAS_INSTANTANEOUS_TIMEOUT_MS,
+  GAS_INSTANTANEOUS_URL,
+  parseInstantaneousFlow,
+} from "@/lib/ingest/national-gas/instantaneous";
 import {
   NATIONAL_GAS_CATALOGUE_SHA256,
   loadNationalGasCatalogue,
 } from "@/lib/ingest/national-gas/catalogue";
 import { parseGasCsvTable } from "@/lib/ingest/national-gas/csv";
-import { gasDayContaining } from "@/lib/ingest/national-gas/gas-day";
 import { parseGasCsv } from "@/lib/ingest/national-gas/parse";
-import { buildGasRelease, gasReleaseSchema, type GasRelease } from "@/lib/ingest/national-gas/release";
+import {
+  buildGasRelease,
+  gasReleaseSchema,
+  type GasInstantaneousSample,
+  type GasRelease,
+} from "@/lib/ingest/national-gas/release";
 import { addUtcDays } from "@/lib/london-time";
 import { getRedis } from "@/lib/redis-cache";
 
@@ -72,6 +86,20 @@ const RETRY_BASE_MS = [30_000, 120_000] as const;
 const RETRY_JITTER_MS = 10_000;
 const CSV_TIMEOUT_MS = 20_000;
 const CATALOGUE_TIMEOUT_MS = 30_000;
+
+let pauseImpl: (ms: number) => Promise<void> = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+export function setGasPauseForTests(pause: ((ms: number) => Promise<void>) | null): void {
+  pauseImpl =
+    pause ??
+    ((ms) =>
+      new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      }));
+}
 
 export class GasHttpError extends Error {
   readonly status: number;
@@ -143,6 +171,8 @@ export function gasReleaseId(release: GasRelease): string {
 export type GasFetchResult = GasStepStatus & {
   /** CSV when it fits in the step result. Later steps must not read it back. */
   raw?: string;
+  /** Within-day JSON for the intraday bundle. A failed read leaves this unset. */
+  instantaneous?: string;
 };
 
 export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: number): Promise<GasFetchResult> {
@@ -155,7 +185,7 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
 
   const ids = gasBundlePublicationIds(bundle);
   const window = gasBundleWindow(bundle, now);
-  const url = gasBundleCsvUrl(ids, window.from, window.to);
+  const url = gasBundleCsvUrl(ids, window.from, window.to, gasBundleLatestFlag(bundle));
   let body: string;
   try {
     body = await fetchGasText(url, CSV_TIMEOUT_MS);
@@ -166,6 +196,7 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
   const hex = hash.slice("sha256:".length);
   const bytes = Buffer.byteLength(body);
   await putIfAbsent(gasRawPath(hex), body, "text/csv");
+  const instantaneous = bundle === "intraday" ? await readInstantaneousFeed() : undefined;
   const result: GasFetchResult = {
     ok: true,
     rows: parseGasCsvTable(body).rows.length,
@@ -173,12 +204,41 @@ export async function fetchGasBundle(bundle: GasBundle, now: Date, attempt: numb
     hash,
     releaseId: "",
   };
-  const inlined: GasFetchResult = { ...result, raw: body };
-  if (fitsInlineResult(inlined)) {
-    return inlined;
+  const withBoth: GasFetchResult = instantaneous == null ? { ...result, raw: body } : { ...result, raw: body, instantaneous };
+  if (fitsInlineResult(withBoth)) {
+    return withBoth;
+  }
+  const withRaw: GasFetchResult = { ...result, raw: body };
+  if (fitsInlineResult(withRaw)) {
+    console.warn("[gas] within-day body left out of the step result", { bytes: instantaneous?.length ?? 0 });
+    return withRaw;
   }
   console.warn("[gas] raw body left in blob", { bundle, bytes });
   return result;
+}
+
+/**
+ * One GET after the CSV. Timeout 10s, two retries on 429, 5xx, timeout, or a network error.
+ * A miss does not fail the CSV publish.
+ */
+async function readInstantaneousFeed(): Promise<string | undefined> {
+  let last: unknown;
+  for (let attempt = 0; attempt < GAS_INSTANTANEOUS_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetchGasText(GAS_INSTANTANEOUS_URL, GAS_INSTANTANEOUS_TIMEOUT_MS);
+    } catch (error) {
+      last = error;
+      const retryable = isRetryableGasError(error);
+      if (!retryable || attempt >= GAS_INSTANTANEOUS_ATTEMPTS - 1) {
+        break;
+      }
+      const wait = GAS_INSTANTANEOUS_BACKOFF_MS[attempt] ?? GAS_INSTANTANEOUS_BACKOFF_MS[GAS_INSTANTANEOUS_BACKOFF_MS.length - 1];
+      await pauseImpl(wait);
+    }
+  }
+  const status = last instanceof GasHttpError ? last.status : last instanceof Error ? last.name : "error";
+  console.warn("[gas] within-day feed skipped", { status });
+  return undefined;
 }
 
 export async function validateGasBundle(
@@ -186,14 +246,19 @@ export async function validateGasBundle(
   bundle: GasBundle,
   now: Date,
   raw?: string,
+  instantaneous?: string,
 ): Promise<GasStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now, raw);
+  const prepared = await prepareReleases(hash, bundle, now, raw, instantaneous);
+  const primary = prepared[prepared.length - 1];
+  if (!primary) {
+    throw new FatalError("National Gas CSV kept the previous release");
+  }
   return {
     ok: true,
-    rows: prepared.rows,
-    bytes: prepared.bytes,
+    rows: primary.rows,
+    bytes: primary.bytes,
     hash,
-    releaseId: prepared.releaseId,
+    releaseId: primary.releaseId,
   };
 }
 
@@ -203,27 +268,38 @@ export async function publishGasBundle(
   now: Date,
   catalogueDir?: string,
   raw?: string,
+  instantaneous?: string,
 ): Promise<GasStepStatus> {
-  const prepared = await prepareRelease(hash, bundle, now, raw);
-  const { release, releaseId, bytes, rows } = prepared;
+  const prepared = await prepareReleases(hash, bundle, now, raw, instantaneous);
+  const primary = prepared[prepared.length - 1];
+  if (!primary) {
+    throw new FatalError("National Gas CSV kept the previous release");
+  }
+  const { release, releaseId, bytes, rows } = primary;
   const path = gasReleasePath(releaseId);
   const existing = await gasStore().get(path, true);
   const pointer = await readPointer(GAS_LATEST_PATH);
   const bundlePointer = await readPointer(gasBundlePointerPath(bundle));
   if (
     existing &&
+    (await dayPointersMatch(prepared)) &&
     bundlePointer?.release_id === releaseId &&
     (pointer?.release_id === releaseId || (pointer != null && !(await releaseIsNewer(release, pointer))))
   ) {
     return { ok: true, rows, bytes: existing.size, hash, releaseId };
   }
-  if (!existing) {
-    await putIfAbsent(path, `${JSON.stringify(release)}\n`, "application/json");
+  for (const item of prepared) {
+    const itemPath = gasReleasePath(item.releaseId);
+    const stored = item.releaseId === releaseId ? existing : await gasStore().get(itemPath, true);
+    if (!stored) {
+      await putIfAbsent(itemPath, `${JSON.stringify(item.release)}\n`, "application/json");
+    }
+    await recordCatalogue(bundle, item.release, item.releaseId, hash, item.bytes, now, catalogueDir);
+    await mergeSeries(item.release);
+    const dayPointer: GasPointer = { release_id: item.releaseId, generated_at: now.toISOString() };
+    await writeDayPointer(item.release, dayPointer);
   }
-  await recordCatalogue(bundle, release, releaseId, hash, bytes, now, catalogueDir);
-  await mergeSeries(release);
   const next: GasPointer = { release_id: releaseId, generated_at: now.toISOString() };
-  await writePointerIfNewer(gasDayPointerPath(release.gas_day.label), release, next);
   await writePointerIfNewer(gasBundlePointerPath(bundle), release, next);
   const ownsLatest = pointer == null || pointer.release_id === releaseId || (await releaseIsNewer(release, pointer));
   if (ownsLatest && pointer?.release_id !== releaseId) {
@@ -237,37 +313,49 @@ export async function publishGasBundle(
   return { ok: true, rows, bytes, hash, releaseId };
 }
 
-async function prepareRelease(
+async function prepareReleases(
   hash: string,
   bundle: GasBundle,
   now: Date,
   rawText?: string,
-): Promise<PreparedRelease> {
+  instantaneousText?: string,
+): Promise<PreparedRelease[]> {
   const carried = carriedRaw(hash, rawText);
   const hex = hash.startsWith("sha256:") ? hash.slice("sha256:".length) : hash;
   const raw = carried ?? (await readStoredRaw(hex, bundle));
   if (!raw) {
     throw blobReadbackError("National Gas raw body is missing", GAS_MAX_RETRIES);
   }
-  const parsed = normaliseGasCsv(raw.body, bundle, now);
+  const parsed = await normaliseGasCsv(raw.body, bundle, now, instantaneousText);
   if (!parsed.ok) {
     await quarantineRaw(now, hex, raw.body);
     throw new FatalError("National Gas CSV kept the previous release");
   }
-  return {
-    release: parsed.release,
-    releaseId: gasReleaseId(parsed.release),
+  return parsed.releases.map((release) => ({
+    release,
+    releaseId: gasReleaseId(release),
     hash,
     bytes: raw.size,
-    rows: parsed.release.components.length,
-  };
+    rows: release.components.length,
+  }));
 }
 
-function normaliseGasCsv(
+async function dayPointersMatch(prepared: readonly PreparedRelease[]): Promise<boolean> {
+  for (const item of prepared) {
+    const pointer = await readPointer(gasDayPointerPath(item.release.gas_day.label));
+    if (pointer?.release_id !== item.releaseId) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function normaliseGasCsv(
   text: string,
   bundle: GasBundle,
   now: Date,
-): { ok: true; release: GasRelease } | { ok: false } {
+  instantaneousText?: string,
+): Promise<{ ok: true; releases: GasRelease[] } | { ok: false }> {
   const trimmed = text.replace(/^\uFEFF/, "").trim();
   if (trimmed.length === 0 || trimmed.startsWith("<")) {
     return { ok: false };
@@ -284,47 +372,72 @@ function normaliseGasCsv(
     return { ok: false };
   }
   const parsed = parseGasCsv(text, catalogue);
-  const label = chooseGasDay(bundle, parsed.observations, now);
-  if (!label) {
+  const labels = gasDaysForBundle(
+    bundle,
+    parsed.observations.map((row) => row.gas_day.label),
+    now,
+  );
+  const primary = labels[labels.length - 1];
+  if (!primary) {
     return { ok: false };
   }
-  let release: GasRelease;
-  try {
-    release = buildGasRelease({
-      catalogue,
-      observations: parsed.observations,
-      quarantine: parsed.quarantine,
-      gasDayLabel: label,
-      retrievedAt: now.toISOString(),
-    });
-  } catch {
+  const fresh = instantaneousText ? parseInstantaneousFlow(instantaneousText) : [];
+  const releases: GasRelease[] = [];
+  for (const label of labels) {
+    const instantaneous = await samplesForDay(label, fresh);
+    let release: GasRelease;
+    try {
+      release = buildGasRelease({
+        catalogue,
+        observations: parsed.observations,
+        quarantine: parsed.quarantine,
+        gasDayLabel: label,
+        retrievedAt: now.toISOString(),
+        instantaneous,
+      });
+    } catch {
+      if (label === primary) {
+        return { ok: false };
+      }
+      continue;
+    }
+    const checked = gasReleaseSchema.safeParse(release);
+    if (!checked.success) {
+      if (label === primary) {
+        return { ok: false };
+      }
+      continue;
+    }
+    releases.push(checked.data);
+  }
+  if (releases.length === 0 || releases[releases.length - 1]?.gas_day.label !== primary) {
     return { ok: false };
   }
-  const checked = gasReleaseSchema.safeParse(release);
-  if (!checked.success) {
-    return { ok: false };
-  }
-  return { ok: true, release: checked.data };
+  return { ok: true, releases };
 }
 
-function chooseGasDay(
-  bundle: GasBundle,
-  observations: readonly { gas_day: { label: string } }[],
-  now: Date,
-): string | null {
-  const current = gasDayContaining(now).label;
-  const labels = [...new Set(observations.map((row) => row.gas_day.label))].sort();
-  switch (bundle) {
-    case "intraday":
-      return labels.includes(current) ? current : null;
-    case "completed-day": {
-      const finished = labels.filter((label) => label < current);
-      return finished[finished.length - 1] ?? null;
+async function samplesForDay(label: string, fresh: readonly GasInstantaneousSample[]): Promise<GasInstantaneousSample[]> {
+  const prior = await readPriorInstantaneous(label);
+  return [...prior, ...fresh];
+}
+
+async function readPriorInstantaneous(label: string): Promise<GasInstantaneousSample[]> {
+  const pointer = await readPointer(gasDayPointerPath(label));
+  if (!pointer) {
+    return [];
+  }
+  const stored = await gasStore().get(gasReleasePath(pointer.release_id), true);
+  if (!stored) {
+    return [];
+  }
+  try {
+    const parsed = gasReleaseSchema.safeParse(JSON.parse(stored.body));
+    if (!parsed.success) {
+      return [];
     }
-    default: {
-      const neverBundle: never = bundle;
-      return neverBundle;
-    }
+    return parsed.data.instantaneous;
+  } catch {
+    return [];
   }
 }
 
@@ -383,6 +496,28 @@ export async function pruneQuarantine(now: Date): Promise<number> {
 function quarantineDay(pathname: string): string | null {
   const match = /^quarantine\/(\d{4}-\d{2}-\d{2})\//.exec(pathname);
   return match?.[1] ?? null;
+}
+
+async function writeDayPointer(release: GasRelease, next: GasPointer): Promise<void> {
+  const pathname = gasDayPointerPath(release.gas_day.label);
+  const current = await readPointer(pathname);
+  if (current?.release_id === next.release_id) {
+    return;
+  }
+  if (current) {
+    const stored = await gasStore().get(gasReleasePath(current.release_id), true);
+    if (stored) {
+      try {
+        const parsed = gasReleaseSchema.parse(JSON.parse(stored.body));
+        if (preferGasRelease(parsed, release) !== release) {
+          return;
+        }
+      } catch {
+        // An unreadable release does not block the new pointer.
+      }
+    }
+  }
+  await gasStore().put(pathname, `${JSON.stringify(next)}\n`, mutablePut("application/json"));
 }
 
 async function writePointerIfNewer(pathname: string, release: GasRelease, next: GasPointer): Promise<void> {

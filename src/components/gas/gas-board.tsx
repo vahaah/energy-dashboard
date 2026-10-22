@@ -114,6 +114,9 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
       </div>
       <div className="col-span-12 lg:col-span-6">
         <Card title="Demand">
+          {slice.demandAsOfLabel ? (
+            <p className="mb-3 text-label-12 text-gray-900">{`${GAS_BASIS_LABEL.completed}, ${slice.demandAsOfLabel}`}</p>
+          ) : null}
           <ShareList rows={slice.demand} />
         </Card>
       </div>
@@ -122,18 +125,35 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
         <Card title="Linepack">
           <p className="text-copy-14 text-gray-900">{slice.linepack.description}</p>
           <dl className="mt-4 flex flex-col gap-3">
-            <Line label="Opening" value={slice.linepack.opening} unit={slice.linepack.unit} />
-            <Line label="Current" value={slice.linepack.current} unit={slice.linepack.unit} />
-            <Line label="Predicted close" value={slice.linepack.predictedClose} unit={slice.linepack.unit} />
-            {slice.linepack.close ? <Line label="Close" value={slice.linepack.close} unit={slice.linepack.unit} /> : null}
+            <Line label="Opening" value={slice.linepack.opening} unit={slice.linepack.unit} asOf={slice.linepack.openingAsOf} />
+            <Line label="Current" value={slice.linepack.current} unit={slice.linepack.unit} asOf={slice.linepack.currentAsOf} />
+            <Line
+              label="Predicted close"
+              value={slice.linepack.predictedClose}
+              unit={slice.linepack.unit}
+              asOf={slice.linepack.predictedCloseAsOf}
+            />
+            {slice.linepack.close ? (
+              <Line label="Close" value={slice.linepack.close} unit={slice.linepack.unit} asOf={slice.linepack.closeAsOf} />
+            ) : null}
           </dl>
         </Card>
       </div>
       <div className="col-span-12 lg:col-span-6">
         <Card title="Storage">
           <dl className="flex flex-col gap-3">
-            <Line label="Injection" value={slice.storage.injection} unit={slice.storage.unit} />
-            <Line label="Withdrawal" value={slice.storage.withdrawal} unit={slice.storage.unit} />
+            <Line
+              label="Injection"
+              value={slice.storage.injection}
+              unit={slice.storage.unit}
+              asOf={slice.storage.injectionAsOf}
+            />
+            <Line
+              label="Withdrawal"
+              value={slice.storage.withdrawal}
+              unit={slice.storage.unit}
+              asOf={slice.storage.withdrawalAsOf}
+            />
           </dl>
           <p className="mt-4 break-words text-copy-14 text-gray-900">{slice.storage.notice}</p>
         </Card>
@@ -253,12 +273,14 @@ function BasisControl({
 }
 
 function StatCard({ stat }: { stat: GasStat }) {
+  const absent = stat.valueLabel === ABSENT_FIGURE;
+  const basis = stat.asOfLabel ? `${GAS_BASIS_LABEL.completed}, ${stat.asOfLabel}` : stat.basisLabel;
   return (
     <Card size="stat" title={stat.title} className="h-full">
       {stat.state ? <DataStateNotice state={stat.state} /> : null}
-      <p className="mt-2 font-sans text-heading-24 tabular-nums text-gray-1000">{stat.valueLabel}</p>
-      <p className="text-label-13 text-gray-900">{stat.unit}</p>
-      <p className="mt-2 text-label-12 text-gray-900">{stat.basisLabel}</p>
+      {absent ? null : <p className="mt-2 font-sans text-heading-24 tabular-nums text-gray-1000">{stat.valueLabel}</p>}
+      {absent ? null : <p className="text-label-13 text-gray-900">{stat.unit}</p>}
+      <p className="mt-2 text-label-12 text-gray-900">{basis}</p>
     </Card>
   );
 }
@@ -266,6 +288,7 @@ function StatCard({ stat }: { stat: GasStat }) {
 function SeriesCard({ slice }: { slice: GasSlice }) {
   const [showTable, setShowTable] = useState(true);
   const showForecast = slice.series.some((point) => point.supplyForecast != null || point.demandForecast != null);
+  const showDemand = slice.series.some((point) => point.demand != null);
   return (
     <Card
       title="Supply and demand"
@@ -287,7 +310,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
                 <tr className="text-label-12 text-gray-900">
                   <th className="py-2 pr-3 font-normal">Time</th>
                   <th className="py-2 pr-3 font-normal">Supply</th>
-                  <th className="py-2 pr-3 font-normal">Demand</th>
+                  {showDemand ? <th className="py-2 pr-3 font-normal">Demand</th> : null}
                   {showForecast ? <th className="py-2 font-normal">Forecast</th> : null}
                 </tr>
               </thead>
@@ -296,7 +319,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
                   <tr key={point.at}>
                     <td className="py-2 pr-3">{point.label}</td>
                     <td className="py-2 pr-3 tabular-nums">{quantityCell(point.supply)}</td>
-                    <td className="py-2 pr-3 tabular-nums">{quantityCell(point.demand)}</td>
+                    {showDemand ? <td className="py-2 pr-3 tabular-nums">{quantityCell(point.demand)}</td> : null}
                     {showForecast ? (
                       <td className="py-2 tabular-nums">{quantityCell(point.supplyForecast ?? point.demandForecast)}</td>
                     ) : null}
@@ -340,12 +363,16 @@ function ShareList({ rows }: { rows: readonly GasShareRow[] }) {
   );
 }
 
-function Line({ label, value, unit }: { label: string; value: string; unit: string }) {
+function Line({ label, value, unit, asOf }: { label: string; value: string; unit: string; asOf: string | null }) {
+  if (value === ABSENT_FIGURE) {
+    return null;
+  }
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
       <dt className="text-copy-14 text-gray-900">{label}</dt>
       <dd className="text-copy-14 tabular-nums text-gray-1000">
-        {value} {value === ABSENT_FIGURE ? null : unit}
+        {value} {unit}
+        {asOf ? <span className="text-gray-900">{` · ${asOf}`}</span> : null}
       </dd>
     </div>
   );

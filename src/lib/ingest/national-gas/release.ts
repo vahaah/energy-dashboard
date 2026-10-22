@@ -7,7 +7,7 @@ import {
   type NationalGasCatalogue,
 } from "@/lib/ingest/national-gas/catalogue";
 import type { GasObservation } from "@/lib/ingest/national-gas/parse";
-import { gasDayBounds } from "@/lib/ingest/national-gas/gas-day";
+import { gasDayBounds, gasDayContaining } from "@/lib/ingest/national-gas/gas-day";
 import {
   DEFERRED_PUBLICATION_IDS,
   GAS_FAMILIES,
@@ -99,6 +99,33 @@ export const gasDaySchema = z
     }
   });
 
+export const GAS_INSTANTANEOUS_ROLES = ["demand", "demand_part", "linepack", "storage_withdrawal"] as const;
+
+export const GAS_INSTANTANEOUS_UNITS = ["mscm/d", "mscm"] as const;
+
+/**
+ * Within-day samples from the Instantaneous Flow API. The operational catalogue
+ * (v2.3.7, fetched 22 Oct 2026) has no publication id for NTS demand by category,
+ * NTS Demand Flow, NTS Actual Linepack, or storage flow rates. Those series are
+ * identified by site name. Opening and predicted linepack stay on PUBOB29/30/31.
+ */
+export const gasInstantaneousSampleSchema = z
+  .object({
+    role: z.enum(GAS_INSTANTANEOUS_ROLES),
+    name: z.string().min(1),
+    unit: z.enum(GAS_INSTANTANEOUS_UNITS),
+    value: z.number().finite(),
+    applicable_at: instantSchema,
+    published_at: instantSchema,
+  })
+  .strict()
+  .superRefine((sample, ctx) => {
+    const unit = sample.role === "linepack" ? "mscm" : "mscm/d";
+    if (sample.unit !== unit) {
+      ctx.addIssue({ code: "custom", message: `${sample.role} unit must be ${unit}` });
+    }
+  });
+
 export const gasCoverageSchema = z
   .object({
     geography_id: z.literal("GB_NTS"),
@@ -119,6 +146,7 @@ export const gasReleaseSchema = z
     coverage: gasCoverageSchema,
     components: z.array(gasComponentSchema),
     quarantine: z.array(gasQuarantineSchema),
+    instantaneous: z.array(gasInstantaneousSampleSchema).default([]),
   })
   .strict()
   .superRefine((release, ctx) => {
@@ -203,6 +231,7 @@ function sameIds(left: readonly string[], right: readonly string[]): boolean {
 
 export type GasRelease = z.infer<typeof gasReleaseSchema>;
 export type GasComponent = z.infer<typeof gasComponentSchema>;
+export type GasInstantaneousSample = z.infer<typeof gasInstantaneousSampleSchema>;
 
 export function buildGasRelease(input: {
   catalogue: NationalGasCatalogue;
@@ -210,6 +239,7 @@ export function buildGasRelease(input: {
   quarantine: readonly GasQuarantine[];
   gasDayLabel: string;
   retrievedAt?: string;
+  instantaneous?: readonly GasInstantaneousSample[];
 }): GasRelease {
   if (
     input.catalogue.catalogueVersion !== NATIONAL_GAS_CATALOGUE_VERSION ||
@@ -264,7 +294,34 @@ export function buildGasRelease(input: {
     },
     components,
     quarantine: input.quarantine.map((item) => ({ ...item })),
+    instantaneous: samplesForGasDay(input.instantaneous ?? [], input.gasDayLabel),
   };
+}
+
+function samplesForGasDay(
+  samples: readonly GasInstantaneousSample[],
+  label: string,
+): GasInstantaneousSample[] {
+  const seen = new Map<string, GasInstantaneousSample>();
+  for (const sample of samples) {
+    const at = new Date(sample.applicable_at);
+    if (Number.isNaN(at.getTime()) || gasDayContaining(at).label !== label) {
+      continue;
+    }
+    const key = `${sample.role}\t${sample.name}\t${sample.applicable_at}`;
+    if (!seen.has(key)) {
+      seen.set(key, sample);
+    }
+  }
+  return [...seen.values()].sort(compareSamples);
+}
+
+function compareSamples(left: GasInstantaneousSample, right: GasInstantaneousSample): number {
+  return (
+    left.role.localeCompare(right.role) ||
+    left.name.localeCompare(right.name) ||
+    left.applicable_at.localeCompare(right.applicable_at)
+  );
 }
 
 function compareComponents(left: GasComponent, right: GasComponent): number {

@@ -15,7 +15,9 @@ export async function takeGasSlotStep(slot: string, owner: string): Promise<GasS
   return { ok: true, rows: 0, bytes: 0, hash: "", releaseId: "" };
 }
 
-export async function fetchGasIntradayStep(nowIso: string): Promise<GasStepStatus & { raw?: string }> {
+export async function fetchGasIntradayStep(
+  nowIso: string,
+): Promise<GasStepStatus & { raw?: string; instantaneous?: string }> {
   "use step";
   try {
     return await fetchGasBundle("intraday", new Date(nowIso), stepAttempt());
@@ -29,20 +31,26 @@ export async function validateGasIntradayStep(
   hash: string,
   nowIso: string,
   raw?: string,
+  instantaneous?: string,
 ): Promise<GasStepStatus> {
   "use step";
   try {
-    return await validateGasBundle(hash, "intraday", new Date(nowIso), raw);
+    return await validateGasBundle(hash, "intraday", new Date(nowIso), raw, instantaneous);
   } catch (error) {
     await observeJobFailure(JOB, error, GAS_MAX_RETRIES);
     throw error;
   }
 }
 
-export async function publishGasIntradayStep(hash: string, nowIso: string, raw?: string): Promise<GasStepStatus> {
+export async function publishGasIntradayStep(
+  hash: string,
+  nowIso: string,
+  raw?: string,
+  instantaneous?: string,
+): Promise<GasStepStatus> {
   "use step";
   try {
-    const status = await publishGasBundle(hash, "intraday", new Date(nowIso), undefined, raw);
+    const status = await publishGasBundle(hash, "intraday", new Date(nowIso), undefined, raw, instantaneous);
     if (status.ok) {
       await publishMapGasFlows(new Date(nowIso)).catch(() => undefined);
       await recordJobSuccess(JOB, new Date(nowIso));

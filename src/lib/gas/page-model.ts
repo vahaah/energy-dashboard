@@ -29,8 +29,14 @@ import type {
   GasStat,
   GasStorage,
 } from "@/lib/gas/view";
+import {
+  DEMAND_PART_NAMES,
+  NTS_ACTUAL_LINEPACK,
+  NTS_DEMAND_FLOW,
+  STORAGE_DEMAND_FLOW,
+} from "@/lib/ingest/national-gas/instantaneous";
 import type { GasQuantityKind } from "@/lib/ingest/national-gas/quantity";
-import type { GasComponent, GasRelease } from "@/lib/ingest/national-gas/release";
+import type { GasComponent, GasInstantaneousSample, GasRelease } from "@/lib/ingest/national-gas/release";
 import {
   formatLondonClock,
   formatLondonDateTimeStamp,
@@ -59,6 +65,14 @@ const STORAGE_WITHDRAWAL = "PUBOBJ630";
 const POWER_OFFTAKE = "PUBOBJ1017";
 
 const DEMAND_PARTS = [GAS_LDZ_PUBLICATION_ID, POWER_OFFTAKE, "PUBOBJ1018", STORAGE_INJECTION, "PUBOBJ1020"] as const;
+
+const FLOW_DEMAND_LABELS: Record<(typeof DEMAND_PART_NAMES)[number], { label: string; note: string | null }> = {
+  "Industrial Demand Flow": { label: "Industrial", note: null },
+  "Interconnector Export Demand Flow": { label: "Interconnector export", note: null },
+  "LDZ Offtake Flow": { label: GAS_LDZ_HEADING, note: GAS_LDZ_NOTE },
+  "Power Station Demand Flow": { label: "Power stations", note: null },
+  [STORAGE_DEMAND_FLOW]: { label: "Storage injection", note: null },
+};
 
 const ENTRY_PARTS = [SUPPLY_NORTH, SUPPLY_SOUTH] as const;
 
@@ -101,14 +115,25 @@ export function buildGasDocument(
   if (!first) {
     return { available: false };
   }
+  const newest = ordered[0];
+  const newestFlow = slices.find((slice) => slice.day === newest.gas_day.label && slice.basis === "flow");
+  const newestComplete = slices
+    .filter((slice) => slice.basis === "completed" && slice.state === "complete")
+    .sort((left, right) => right.day.localeCompare(left.day))[0];
+  const chosen =
+    newestFlow && !isThinSlice(newestFlow)
+      ? newestFlow
+      : newestFlow && isThinSlice(newestFlow) && newestComplete
+        ? newestComplete
+        : first;
   return {
     available: true,
     days: ordered.map((release) => ({
       label: release.gas_day.label,
       text: formatLondonDayMonthYear(release.gas_day.label),
     })),
-    defaultDay: first.day,
-    defaultBasis: first.basis,
+    defaultDay: chosen.day,
+    defaultBasis: chosen.basis,
     slices,
   };
 }
@@ -133,6 +158,7 @@ function buildSlice(
     state === "partial" && coverage
       ? gasPartialText(coverage.start, coverage.latest)
       : null;
+  const demand = demandShareBlock(release, history, basis);
 
   return {
     day: release.gas_day.label,
@@ -145,16 +171,17 @@ function buildSlice(
     partialText,
     stats: [
       supplyStat(release, now),
-      demandStat(release, now),
-      linepackStat(release, now),
-      storageStat(release, now),
+      demandStat(release, history, basis, now),
+      linepackStat(release, history, basis, now),
+      storageStat(release, history, basis, now),
     ],
     series: seriesFor(release, basis, now),
     now: nowInsideDay(release, now),
     entry: entryShares(release, basis),
-    demand: demandShares(release, basis),
-    linepack: linepackFigures(release),
-    storage: storageFigures(release),
+    demand: demand.rows,
+    demandAsOfLabel: demand.asOfLabel,
+    linepack: linepackFigures(release, history),
+    storage: storageFigures(release, history, basis),
     bridge: bridgeFor(release, generation),
     comparison: comparisonFor(release, basis, history, now),
     footer: `${dayLabel}. ${publicationFooter(rows)}. ${GAS_ATTRIBUTION}`,
@@ -193,27 +220,138 @@ function supplyStat(release: GasRelease, now: Date): GasStat {
     basisState(release, "completed", now) === "complete" && completed?.value != null
       ? completed
       : (flow ?? completed);
-  return stat("supply", "Supply (NTS entry)", chosen, unitFor(chosen), release, now);
+  return stat("supply", "Supply (NTS entry)", chosen, unitFor(chosen), release, now, null);
 }
 
-function demandStat(release: GasRelease, now: Date): GasStat {
-  const completed = latestValue(release, DEMAND_VOLUME, "completed");
-  return stat("demand", "Demand (NTS exit)", completed, GAS_UNIT_STOCK, release, now);
+function demandStat(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  basis: GasPageBasis,
+  now: Date,
+): GasStat {
+  if (basis !== "completed") {
+    const sample = latestInstantaneous(release, "demand");
+    if (sample) {
+      return flowStat("demand", "Demand (NTS exit)", sample.value, GAS_UNIT_DAY, basisState(release, basis, now));
+    }
+  }
+  const own = latestValue(release, DEMAND_VOLUME, "completed");
+  if (own?.value != null) {
+    return stat("demand", "Demand (NTS exit)", own, GAS_UNIT_STOCK, release, now, null);
+  }
+  const borrowed = borrowedRelease(release, history, (item) => latestValue(item, DEMAND_VOLUME, "completed")?.value != null);
+  const component = borrowed ? latestValue(borrowed, DEMAND_VOLUME, "completed") : null;
+  return stat(
+    "demand",
+    "Demand (NTS exit)",
+    component,
+    GAS_UNIT_STOCK,
+    borrowed ?? release,
+    now,
+    borrowed ? formatLondonDayMonthYear(borrowed.gas_day.label) : null,
+  );
 }
 
-function linepackStat(release: GasRelease, now: Date): GasStat {
-  const opening = firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]);
-  return stat("linepack", "Linepack", opening, GAS_UNIT_STOCK, release, now);
+function linepackStat(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  basis: GasPageBasis,
+  now: Date,
+): GasStat {
+  const current = basis === "completed" ? null : resolveNumber(release, history, currentLinepack);
+  const opening = resolveNumber(release, history, openingLinepack);
+  const chosen = current ?? opening;
+  if (!chosen) {
+    return stat("linepack", "Linepack", null, GAS_UNIT_STOCK, release, now, null);
+  }
+  if (current && chosen === current && current.asOfLabel == null) {
+    return flowStat("linepack", "Linepack", chosen.value, GAS_UNIT_STOCK, basisState(release, basis, now));
+  }
+  if (chosen.asOfLabel) {
+    return datedStat("linepack", "Linepack", chosen.value, GAS_UNIT_STOCK, GAS_BASIS_LABEL.completed, chosen.asOfLabel);
+  }
+  return stat(
+    "linepack",
+    "Linepack",
+    firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]),
+    GAS_UNIT_STOCK,
+    release,
+    now,
+    null,
+  );
 }
 
-function storageStat(release: GasRelease, now: Date): GasStat {
-  const injection = latestValue(release, STORAGE_INJECTION, "completed");
-  const withdrawal = latestValue(release, STORAGE_WITHDRAWAL, "completed");
-  const net =
-    injection?.value != null && withdrawal?.value != null
-      ? { ...withdrawal, value: withdrawal.value - injection.value, basis: "completed" as const }
-      : null;
-  return stat("storage", "Storage net flow", net, GAS_UNIT_STOCK, release, now);
+function storageStat(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  basis: GasPageBasis,
+  now: Date,
+): GasStat {
+  const pair = storagePair(release, history, basis);
+  if (!pair) {
+    return stat("storage", "Storage net flow", null, GAS_UNIT_STOCK, release, now, null);
+  }
+  const net = pair.withdrawal - pair.injection;
+  if (pair.flow && pair.asOfLabel == null) {
+    return flowStat("storage", "Storage net flow", net, pair.unit, basisState(release, basis, now));
+  }
+  if (pair.asOfLabel || pair.flow) {
+    return datedStat(
+      "storage",
+      "Storage net flow",
+      net,
+      pair.unit,
+      pair.flow ? GAS_BASIS_LABEL.flow : GAS_BASIS_LABEL.completed,
+      pair.asOfLabel,
+    );
+  }
+  const withdrawal = latestAny(release, STORAGE_WITHDRAWAL);
+  return stat(
+    "storage",
+    "Storage net flow",
+    withdrawal ? { ...withdrawal, value: net } : null,
+    pair.unit,
+    release,
+    now,
+    null,
+  );
+}
+
+function datedStat(
+  id: GasStat["id"],
+  title: string,
+  value: number,
+  unit: string,
+  basisLabel: string,
+  asOfLabel: string | null,
+): GasStat {
+  return {
+    id,
+    title,
+    valueLabel: formatQuantity(value),
+    unit,
+    basisLabel,
+    asOfLabel,
+    state: null,
+  };
+}
+
+function flowStat(
+  id: GasStat["id"],
+  title: string,
+  value: number,
+  unit: string,
+  day: GasDayState,
+): GasStat {
+  return {
+    id,
+    title,
+    valueLabel: formatQuantity(value),
+    unit,
+    basisLabel: GAS_BASIS_LABEL.flow,
+    asOfLabel: null,
+    state: day === "partial" ? "partial" : null,
+  };
 }
 
 function stat(
@@ -223,6 +361,7 @@ function stat(
   unit: string,
   release: GasRelease,
   now: Date,
+  asOfLabel: string | null,
 ): GasStat {
   if (!component || component.value == null) {
     return {
@@ -231,17 +370,19 @@ function stat(
       valueLabel: ABSENT_FIGURE,
       unit,
       basisLabel: GAS_BASIS_LABEL[component?.basis ?? "completed"],
+      asOfLabel: null,
       state: "not_yet_available",
     };
   }
   const basis = isPageBasis(component.basis) ? component.basis : "completed";
-  const state = componentState(component, basisState(release, basis, now), now);
+  const state = asOfLabel ? null : componentState(component, basisState(release, basis, now), now);
   return {
     id,
     title,
     valueLabel: formatQuantity(component.value),
     unit,
-    basisLabel: GAS_BASIS_LABEL[basis],
+    basisLabel: asOfLabel ? GAS_BASIS_LABEL.completed : GAS_BASIS_LABEL[basis],
+    asOfLabel,
     state,
   };
 }
@@ -285,6 +426,15 @@ function seriesFor(release: GasRelease, basis: GasPageBasis, now: Date): GasSeri
     }
     if (supplyId && row.publication_id === supplyId && row.quantity_kind !== "stock") {
       touch(row.applicable_at).supply = row.value;
+    }
+  }
+
+  if (basis === "flow") {
+    for (const sample of release.instantaneous) {
+      if (sample.role !== "demand" || sample.name !== NTS_DEMAND_FLOW || Date.parse(sample.applicable_at) > nowMs) {
+        continue;
+      }
+      touch(sample.applicable_at).demand = sample.value;
     }
   }
 
@@ -341,10 +491,50 @@ function entryShares(release: GasRelease, basis: GasPageBasis): GasShareRow[] {
   return shareRows(parts, GAS_UNIT_DAY);
 }
 
-function demandShares(release: GasRelease, basis: GasPageBasis): GasShareRow[] {
+function demandShareBlock(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  basis: GasPageBasis,
+): { rows: GasShareRow[]; asOfLabel: string | null } {
   if (basis !== "completed") {
+    const flow = flowDemandShares(release);
+    if (flow.length > 0) {
+      return { rows: flow, asOfLabel: null };
+    }
+  }
+  const own = completedDemandShares(release);
+  if (own.length > 0) {
+    return { rows: own, asOfLabel: null };
+  }
+  for (const other of newestFirst(history)) {
+    if (other.gas_day.label === release.gas_day.label) {
+      continue;
+    }
+    const flow = basis === "completed" ? [] : flowDemandShares(other);
+    const rows = flow.length > 0 ? flow : completedDemandShares(other);
+    if (rows.length > 0) {
+      return { rows, asOfLabel: formatLondonDayMonthYear(other.gas_day.label) };
+    }
+  }
+  return { rows: [], asOfLabel: null };
+}
+
+function flowDemandShares(release: GasRelease): GasShareRow[] {
+  const parts = DEMAND_PART_NAMES.flatMap((name) => {
+    const sample = latestInstantaneous(release, "demand_part", name);
+    if (!sample) {
+      return [];
+    }
+    const copy = FLOW_DEMAND_LABELS[name];
+    return [{ id: name, label: copy.label, value: sample.value, note: copy.note }];
+  });
+  if (parts.length !== DEMAND_PART_NAMES.length) {
     return [];
   }
+  return shareRows(parts, GAS_UNIT_DAY);
+}
+
+function completedDemandShares(release: GasRelease): GasShareRow[] {
   const parts = DEMAND_PARTS.flatMap((id) => {
     const row = latestValue(release, id, "completed");
     if (!row || row.value == null) {
@@ -395,29 +585,34 @@ function terminalName(name: string): string | null {
   return match?.[1] ?? null;
 }
 
-function linepackFigures(release: GasRelease): GasLinepack {
-  const opening = firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]);
-  const interim = finiteValue(release, LINEPACK_INTERIM);
-  const current =
-    interim && opening && interim.applicable_at > opening.applicable_at ? interim : null;
-  const predicted = firstFinite(release, [LINEPACK_PCLP1, LINEPACK_PCLP2]);
-  const close = finiteValue(release, LINEPACK_CLOSE);
+function linepackFigures(release: GasRelease, history: readonly GasRelease[]): GasLinepack {
+  const opening = resolveNumber(release, history, openingLinepack);
+  const current = resolveNumber(release, history, currentLinepack);
+  const predicted = resolveNumber(release, history, predictedLinepack);
+  const close = resolveNumber(release, history, closeLinepack);
   return {
     description: GAS_LINEPACK_DESCRIPTION,
     opening: formatQuantity(opening?.value ?? null),
     current: formatQuantity(current?.value ?? null),
     predictedClose: formatQuantity(predicted?.value ?? null),
-    close: close?.value != null ? formatQuantity(close.value) : null,
+    close: close ? formatQuantity(close.value) : null,
+    openingAsOf: opening?.asOfLabel ?? null,
+    currentAsOf: current?.asOfLabel ?? null,
+    predictedCloseAsOf: predicted?.asOfLabel ?? null,
+    closeAsOf: close?.asOfLabel ?? null,
     unit: GAS_UNIT_STOCK,
   };
 }
 
-function storageFigures(release: GasRelease): GasStorage {
+function storageFigures(release: GasRelease, history: readonly GasRelease[], basis: GasPageBasis): GasStorage {
+  const pair = storagePair(release, history, basis);
   return {
-    injection: formatQuantity(latestAny(release, STORAGE_INJECTION)?.value ?? null),
-    withdrawal: formatQuantity(latestAny(release, STORAGE_WITHDRAWAL)?.value ?? null),
-    unit: GAS_UNIT_STOCK,
+    injection: formatQuantity(pair?.injection ?? null),
+    withdrawal: formatQuantity(pair?.withdrawal ?? null),
+    unit: pair?.unit ?? GAS_UNIT_STOCK,
     notice: GAS_STORAGE_NOTICE,
+    injectionAsOf: pair?.asOfLabel ?? null,
+    withdrawalAsOf: pair?.asOfLabel ?? null,
   };
 }
 
@@ -503,11 +698,22 @@ function comparisonFor(
 }
 
 function headlineNumber(release: GasRelease, basis: GasPageBasis, kind: "supply" | "demand"): number | null {
-  const id = kind === "supply" ? supplySeriesId(basis) : basis === "completed" ? DEMAND_VOLUME : null;
-  if (!id) {
-    return null;
+  if (kind === "supply") {
+    const id = supplySeriesId(basis);
+    return id ? (latestValue(release, id, basis)?.value ?? null) : null;
   }
-  return latestValue(release, id, basis)?.value ?? null;
+  switch (basis) {
+    case "completed":
+      return latestValue(release, DEMAND_VOLUME, "completed")?.value ?? null;
+    case "flow":
+      return latestInstantaneous(release, "demand", NTS_DEMAND_FLOW)?.value ?? null;
+    case "to-date":
+      return null;
+    default: {
+      const exhaustive: never = basis;
+      return exhaustive;
+    }
+  }
 }
 
 function componentsFor(release: GasRelease, basis: GasPageBasis): GasComponent[] {
@@ -731,6 +937,195 @@ function publicationFooter(rows: readonly GasComponent[]): string {
     return "National Gas";
   }
   return `National Gas ${ids.join(", ")}`;
+}
+
+function isThinSlice(slice: GasSlice): boolean {
+  const demand = slice.stats.find((item) => item.id === "demand");
+  let owned = demand && isOwnedStat(demand) ? 1 : 0;
+  if (
+    isOwnedText(slice.linepack.opening, slice.linepack.openingAsOf) ||
+    isOwnedText(slice.linepack.current, slice.linepack.currentAsOf) ||
+    isOwnedText(slice.linepack.predictedClose, slice.linepack.predictedCloseAsOf)
+  ) {
+    owned += 1;
+  }
+  if (
+    isOwnedText(slice.storage.injection, slice.storage.injectionAsOf) ||
+    isOwnedText(slice.storage.withdrawal, slice.storage.withdrawalAsOf)
+  ) {
+    owned += 1;
+  }
+  return owned < 2;
+}
+
+function isOwnedStat(stat: GasStat): boolean {
+  return stat.valueLabel !== ABSENT_FIGURE && stat.asOfLabel == null && stat.state !== "not_yet_available";
+}
+
+function isOwnedText(value: string, asOf: string | null): boolean {
+  return value !== ABSENT_FIGURE && asOf == null;
+}
+
+type DatedValue = { value: number; asOfLabel: string | null };
+
+function resolveNumber(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  read: (item: GasRelease) => number | null,
+): DatedValue | null {
+  const own = read(release);
+  if (own != null) {
+    return { value: own, asOfLabel: null };
+  }
+  const other = borrowedRelease(release, history, (item) => read(item) != null);
+  if (!other) {
+    return null;
+  }
+  const value = read(other);
+  return value == null ? null : { value, asOfLabel: formatLondonDayMonthYear(other.gas_day.label) };
+}
+
+function borrowedRelease(
+  release: GasRelease,
+  history: readonly GasRelease[],
+  has: (item: GasRelease) => boolean,
+): GasRelease | null {
+  for (const other of newestFirst(history)) {
+    if (other.gas_day.label === release.gas_day.label) {
+      continue;
+    }
+    if (has(other)) {
+      return other;
+    }
+  }
+  return null;
+}
+
+function newestFirst(history: readonly GasRelease[]): GasRelease[] {
+  return [...history].sort((left, right) => right.gas_day.label.localeCompare(left.gas_day.label));
+}
+
+function openingLinepack(release: GasRelease): number | null {
+  return firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM])?.value ?? null;
+}
+
+function currentLinepack(release: GasRelease): number | null {
+  const sample = latestInstantaneous(release, "linepack", NTS_ACTUAL_LINEPACK);
+  if (sample) {
+    return sample.value;
+  }
+  const opening = firstFinite(release, [LINEPACK_OPEN, LINEPACK_INTERIM]);
+  const interim = finiteValue(release, LINEPACK_INTERIM);
+  if (interim && opening && interim.applicable_at > opening.applicable_at) {
+    return interim.value;
+  }
+  return null;
+}
+
+function predictedLinepack(release: GasRelease): number | null {
+  return firstFinite(release, [LINEPACK_PCLP1, LINEPACK_PCLP2])?.value ?? null;
+}
+
+function closeLinepack(release: GasRelease): number | null {
+  return finiteValue(release, LINEPACK_CLOSE)?.value ?? null;
+}
+
+type StoragePair = {
+  injection: number;
+  withdrawal: number;
+  unit: string;
+  asOfLabel: string | null;
+  flow: boolean;
+};
+
+function storagePair(release: GasRelease, history: readonly GasRelease[], basis: GasPageBasis): StoragePair | null {
+  if (basis !== "completed") {
+    const flow = flowStorage(release);
+    if (flow) {
+      return { ...flow, unit: GAS_UNIT_DAY, asOfLabel: null, flow: true };
+    }
+  }
+  const own = completedStorage(release);
+  if (own) {
+    return { ...own, unit: GAS_UNIT_STOCK, asOfLabel: null, flow: false };
+  }
+  for (const other of newestFirst(history)) {
+    if (other.gas_day.label === release.gas_day.label) {
+      continue;
+    }
+    const completed = completedStorage(other);
+    if (completed) {
+      return {
+        ...completed,
+        unit: GAS_UNIT_STOCK,
+        asOfLabel: formatLondonDayMonthYear(other.gas_day.label),
+        flow: false,
+      };
+    }
+    if (basis !== "completed") {
+      const flow = flowStorage(other);
+      if (flow) {
+        return { ...flow, unit: GAS_UNIT_DAY, asOfLabel: formatLondonDayMonthYear(other.gas_day.label), flow: true };
+      }
+    }
+  }
+  return null;
+}
+
+function flowStorage(release: GasRelease): { injection: number; withdrawal: number } | null {
+  const injection = latestInstantaneous(release, "demand_part", STORAGE_DEMAND_FLOW);
+  const withdrawal = withdrawalSum(release);
+  if (!injection || withdrawal == null) {
+    return null;
+  }
+  return { injection: injection.value, withdrawal };
+}
+
+function completedStorage(release: GasRelease): { injection: number; withdrawal: number } | null {
+  const injection = latestAny(release, STORAGE_INJECTION);
+  const withdrawal = latestAny(release, STORAGE_WITHDRAWAL);
+  if (injection?.value == null || withdrawal?.value == null) {
+    return null;
+  }
+  return { injection: injection.value, withdrawal: withdrawal.value };
+}
+
+function withdrawalSum(release: GasRelease): number | null {
+  const latest = new Map<string, GasInstantaneousSample>();
+  for (const sample of release.instantaneous) {
+    if (sample.role !== "storage_withdrawal") {
+      continue;
+    }
+    const previous = latest.get(sample.name);
+    if (!previous || sample.applicable_at > previous.applicable_at) {
+      latest.set(sample.name, sample);
+    }
+  }
+  if (latest.size === 0) {
+    return null;
+  }
+  let sum = 0;
+  for (const sample of latest.values()) {
+    sum += sample.value;
+  }
+  return sum;
+}
+
+function latestInstantaneous(
+  release: GasRelease,
+  role: GasInstantaneousSample["role"],
+  name?: string,
+): GasInstantaneousSample | null {
+  let best: GasInstantaneousSample | null = null;
+  for (const sample of release.instantaneous) {
+    if (sample.role !== role || (name != null && sample.name !== name)) {
+      continue;
+    }
+    if (!best || sample.applicable_at > best.applicable_at) {
+      best = sample;
+    }
+  }
+  return best;
 }
 
 function formatQuantity(value: number | null): string {

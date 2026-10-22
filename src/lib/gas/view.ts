@@ -36,6 +36,8 @@ export type GasStat = {
   valueLabel: string;
   unit: string;
   basisLabel: string;
+  /** Set when the figure is taken from another gas day. */
+  asOfLabel: string | null;
   state: DataState | null;
 };
 
@@ -45,6 +47,10 @@ export type GasLinepack = {
   current: string;
   predictedClose: string;
   close: string | null;
+  openingAsOf: string | null;
+  currentAsOf: string | null;
+  predictedCloseAsOf: string | null;
+  closeAsOf: string | null;
   unit: string;
 };
 
@@ -53,6 +59,8 @@ export type GasStorage = {
   withdrawal: string;
   unit: string;
   notice: string;
+  injectionAsOf: string | null;
+  withdrawalAsOf: string | null;
 };
 
 export type GasBridge = {
@@ -85,6 +93,8 @@ export type GasSlice = {
   now: string | null;
   entry: GasShareRow[];
   demand: GasShareRow[];
+  /** Set when the demand breakdown is taken from another gas day. */
+  demandAsOfLabel: string | null;
   linepack: GasLinepack;
   storage: GasStorage;
   bridge: GasBridge | null;
