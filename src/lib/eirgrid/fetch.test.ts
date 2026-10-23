@@ -494,6 +494,61 @@ describe("EirGrid fetch", () => {
     expect(runs.some((run) => run.started_at === "2026-10-20T16:15:00.000Z" && run.status === "partial")).toBe(true);
   });
 
+  it("retries an empty NI demand and generation chart and publishes the later rows", async () => {
+    const store = new MemoryNiStore();
+    setNiStoreForTests(store);
+    await publishGood(store, 636, new Date("2026-10-20T15:15:00.000Z"));
+    const calls = { demand: 0, generation: 0 };
+    const demand = feed("20-Oct-2026 16:15:00", [
+      { EffectiveTime: "20-Oct-2026 16:15:00", FieldName: "SYSTEM_DEMAND", Region: "NI", Value: 1009 },
+    ]);
+    const generation = feed("20-Oct-2026 16:15:00", [
+      { EffectiveTime: "20-Oct-2026 16:15:00", FieldName: "GEN_EXP", Region: "NI", Value: 1110 },
+    ]);
+    const fetchImpl = async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const areas = url.searchParams.get("areas");
+      const region = url.searchParams.get("region");
+      if (areas === "demandactual" && region === "NI") {
+        calls.demand += 1;
+        return textResponse(calls.demand === 1 ? JSON.stringify({ Rows: [] }) : demand);
+      }
+      if (areas === "generationactual" && region === "NI") {
+        calls.generation += 1;
+        return textResponse(calls.generation < 3 ? JSON.stringify({ Rows: [] }) : generation);
+      }
+      const part = partOf(url.toString());
+      if (part === "market") {
+        return textResponse(MARKET);
+      }
+      const field = areas ? CHART_FIELD[areas] : undefined;
+      if (field && region) {
+        return textResponse(
+          feed("20-Oct-2026 16:15:00", [
+            { EffectiveTime: "20-Oct-2026 16:15:00", FieldName: field, Region: region, Value: CHART_FILL },
+          ]),
+        );
+      }
+      return textResponse("{}");
+    };
+
+    const fetched = await fetchNiBundle(new Date("2026-10-20T16:15:00.000Z"), {
+      fetchImpl,
+      gapMs: 0,
+      random: () => 0,
+      sleep: async () => undefined,
+    });
+    const published = await publishNiBundle(fetched.hash, new Date("2026-10-20T16:15:00.000Z"));
+    const release = await publishedRelease(store, published.releaseId);
+
+    expect(calls.demand).toBe(2);
+    expect(calls.generation).toBe(3);
+    expect(fetched.bundle?.carry_metric_ids ?? []).not.toContain("elec.ni.demand.system");
+    expect(fetched.bundle?.carry_metric_ids ?? []).not.toContain("elec.ni.generation.system");
+    expect(valueOf(release, "elec.ni.demand.system")).toBe(1009);
+    expect(valueOf(release, "elec.ni.generation.system")).toBe(1110);
+  });
+
   it("leaves the previous pointer when every chart area is empty and the other parts fail", async () => {
     const store = new MemoryNiStore();
     setNiStoreForTests(store);

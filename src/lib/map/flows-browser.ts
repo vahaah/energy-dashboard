@@ -11,7 +11,7 @@ import {
   clampOverviewBounds,
   clampToMapBounds,
 } from "@/lib/map/constants";
-import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, GAS_DIRECTION } from "@/lib/map/flow-scale";
+import { CHEVRON_CYCLE_MS, ELECTRICITY_DIRECTION, flowDirectionMoves, GAS_DIRECTION } from "@/lib/map/flow-scale";
 import { FLOWS_KEYBOARD, FLOWS_TITLE } from "@/lib/map/flows-copy";
 import { MAP_SIZE_STEPS, type MarkerShape } from "@/lib/map/marker";
 import { basemapStartupFailed } from "@/lib/map/startup-error";
@@ -116,8 +116,9 @@ function lineFeatures(
     const start = line.remote ?? offshore(line.gb);
     const towardTerminal = line.direction === ELECTRICITY_DIRECTION.import || line.direction === GAS_DIRECTION.into;
     const coordinates: [number, number][] = towardTerminal ? [start, line.gb] : [line.gb, start];
-    const fresh = line.direction !== null && !line.stale && line.width !== null;
-    const color = line.stale ? amber : line.kind === "gas_terminal" ? gas : line.direction ? imports : quiet;
+    const moving = flowDirectionMoves(line.direction);
+    const fresh = moving && !line.stale && line.width !== null;
+    const color = line.stale ? amber : line.kind === "gas_terminal" ? gas : moving ? imports : quiet;
     features.push({
       type: "Feature",
       geometry: { type: "LineString", coordinates },

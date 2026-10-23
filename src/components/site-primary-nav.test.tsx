@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SitePrimaryNav } from "@/components/site-primary-nav";
+import { sectionRepeatsCompactNav } from "@/lib/site-nav";
 
 describe("primary nav", () => {
   it("marks the active route with aria-current and omits hidden routes", () => {
@@ -71,5 +72,14 @@ describe("primary nav", () => {
     const topBar = readFileSync(resolve(import.meta.dirname, "./site-top-bar.tsx"), "utf8");
     expect(topBar).toContain("overflow-x-auto");
     expect(topBar).toContain("from-background-100");
+    expect(topBar).toContain("sectionRepeatsCompactNav");
+    expect(sectionRepeatsCompactNav("Gas")).toBe(true);
+    expect(sectionRepeatsCompactNav("Map")).toBe(true);
+    expect(sectionRepeatsCompactNav("Directory")).toBe(true);
+    expect(sectionRepeatsCompactNav("Today")).toBe(true);
+    expect(sectionRepeatsCompactNav("Constraints")).toBe(false);
+    expect(sectionRepeatsCompactNav("Northern Ireland")).toBe(false);
+    expect(sectionRepeatsCompactNav("Data health")).toBe(false);
+    expect(sectionRepeatsCompactNav("Tools")).toBe(false);
   });
 });

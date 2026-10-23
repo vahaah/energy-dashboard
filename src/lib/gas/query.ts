@@ -39,6 +39,27 @@ type LoadedRelease = {
   pointer: GasPointer;
 };
 
+/**
+ * Publications with no row in the completed-day window. Health reads the latest
+ * completed day instead of leaving the series not yet available.
+ * Demand energy has no valid kWh extract, so that row is the demand volume.
+ * Withdrawal has no current kWh extract, so that row is the withdrawal volume.
+ */
+export const GAS_COMPLETED_DAY_FALLBACK: Partial<
+  Record<GasMetricId, { metricId: GasMetricId; label?: string }>
+> = {
+  "gas.gb_nts.demand.actual_energy": {
+    metricId: "gas.gb_nts.demand.actual_volume",
+    label: "NTS demand, completed day",
+  },
+  "gas.gb_nts.storage.injection": {
+    metricId: "gas.gb_nts.offtake.storage_injection.energy",
+  },
+  "gas.gb_nts.storage.withdrawal": {
+    metricId: "gas.gb_nts.supply.storage_withdrawal",
+  },
+};
+
 export function gasMetricLabel(id: GasMetricId): string {
   switch (id) {
     case "gas.gb_nts.entry.physical.national":

@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/cron-directory",
-      "schedule": "15 6 * * 1"
+      "schedule": "45 6 * * 1"
     },
     {
       "path": "/api/cron-tec",
