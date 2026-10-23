@@ -21,7 +21,15 @@ import {
   roleStanding,
 } from "@/lib/directory/copy";
 import { ingestDirectory, isdEntityUrl, ISD_LOOKUP_FILTERS } from "@/lib/directory/ingest";
-import { lookupByCode, lookupByName, parseLookupSearch, parseResolveBody, resolveLogFields } from "@/lib/directory/lookup";
+import {
+  codeLookupReady,
+  lookupByCode,
+  lookupByName,
+  nameLookupReady,
+  parseLookupSearch,
+  parseResolveBody,
+  resolveLogFields,
+} from "@/lib/directory/lookup";
 import type { DirectorySnapshot } from "@/lib/directory/schema";
 import { fixtureDirectoryExtracts, fixtureDirectorySnapshot } from "@/lib/directory/reader";
 import { GET as exportGet, POST as exportPost } from "@/app/api/v1/identifiers/export/route";
@@ -220,6 +228,10 @@ describe("directory lookup", () => {
 
     const hyphen = parseLookupSearch(new URLSearchParams({ scheme: "BM_UNIT_ID", code: "T_ABCD-1", effective_on: ON }));
     expect(hyphen.ok).toBe(true);
+    expect(codeLookupReady("MPID", "", ON)).toBe(false);
+    expect(codeLookupReady("MPID", "NPOW", ON)).toBe(true);
+    expect(nameLookupReady("", ON)).toBe(false);
+    expect(nameLookupReady("NP", ON)).toBe(true);
     const dotted = parseLookupSearch(new URLSearchParams({ scheme: "BM_UNIT_ID", code: "T_ABCD.1", effective_on: ON }));
     expect(dotted.ok).toBe(false);
     const resolved = parseResolveBody({

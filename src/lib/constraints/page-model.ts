@@ -8,8 +8,8 @@ import {
   type MeasuredVolumeChartSeries,
   type VolumeChartPoint,
 } from "@/lib/constraints/chart-series";
-import { dayAheadIssuedLabel } from "@/lib/constraints/copy";
-import { formatLondonDateTimeStamp } from "@/lib/london-time";
+import { dayAheadIssuedLabel, measuredBreakdownLagNote } from "@/lib/constraints/copy";
+import { formatLondonDateTimeStamp, getLondonDate } from "@/lib/london-time";
 import type { ConstraintRelease } from "@/lib/constraints/release";
 
 export type CategoryTableRow = {
@@ -45,6 +45,7 @@ export type ConstraintsPageModel = {
     settlementDate: string;
     boundaries: BoundaryDay[];
   } | null;
+  publishingLag: string | null;
 };
 
 const EMPTY: ConstraintsPageModel = {
@@ -55,12 +56,14 @@ const EMPTY: ConstraintsPageModel = {
   volume: null,
   latest: null,
   dayAhead: null,
+  publishingLag: null,
 };
 
 export function buildConstraintsPage(input: {
   breakdown: ConstraintRelease | null;
   breakdownPrevious: ConstraintRelease | null;
   dayAhead: ConstraintRelease | null;
+  now?: Date;
 }): ConstraintsPageModel {
   const breakdown = input.breakdown?.bundle === "breakdown" ? input.breakdown : null;
   const dayAhead = input.dayAhead?.bundle === "day-ahead" ? input.dayAhead : null;
@@ -82,7 +85,30 @@ export function buildConstraintsPage(input: {
     volume,
     latest: breakdown ? latestBreakdown(breakdown) : null,
     dayAhead: dayAhead ? dayAheadTable(dayAhead) : null,
+    publishingLag: breakdown ? publishingLag(latestSettlement(breakdown), input.now) : null,
   };
+}
+
+function latestSettlement(release: ConstraintRelease): string | null {
+  const dates = [...new Set(release.breakdown.map((row) => row.settlement_date))].sort();
+  return dates[dates.length - 1] ?? null;
+}
+
+function publishingLag(settlementDate: string | null, now: Date | undefined): string | null {
+  if (!settlementDate || !now) {
+    return null;
+  }
+  const today = getLondonDate(now);
+  const from = Date.parse(`${settlementDate}T00:00:00Z`);
+  const to = Date.parse(`${today}T00:00:00Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return null;
+  }
+  const days = Math.round((to - from) / 86_400_000);
+  if (days <= 7) {
+    return null;
+  }
+  return measuredBreakdownLagNote(settlementDate);
 }
 
 function costSeries(release: ConstraintRelease): MeasuredCostChartSeries {

@@ -392,6 +392,37 @@ describe("loadDataHealth", () => {
       published_at: "2026-10-14T10:30:00.000Z",
       stale: false,
     });
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.storage.charging")).toMatchObject({
+      value: 17,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
+  });
+
+  it("publishes storage charging at the latest pumped-storage sample, including zero when it is discharging", async () => {
+    peekWarmedEnvelope.mockImplementation(async (pipe: string) => {
+      if (pipe !== "generation_5min_range") {
+        return null;
+      }
+      return {
+        data: [
+          { timestamp: "2026-10-14 05:50:00", fuel_type: "ps", generation_mw: -79, source: "fuelinst" },
+          { timestamp: "2026-10-14 10:30:00", fuel_type: "ps", generation_mw: 110, source: "fuelinst" },
+        ],
+        cachedAt: Date.parse(RETRIEVED),
+        freshFor: 300,
+      };
+    });
+
+    const readings = await loadDataHealth(NOW);
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.storage.charging")).toMatchObject({
+      value: 0,
+      published_at: "2026-10-14T10:30:00.000Z",
+      stale: false,
+    });
+    expect(readings.find((reading) => reading.metric_id === "elec.gb.generation.battery")?.state).toBe(
+      "not_yet_available",
+    );
   });
 
   it("reads World Bank month-start rows from the warmed 1y price envelope", async () => {

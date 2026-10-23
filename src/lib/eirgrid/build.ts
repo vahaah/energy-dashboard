@@ -39,7 +39,10 @@ export function releaseFromBundle(bundle: EirgridFetchBundle, previous: NiReleas
     parseMarketFeed(bundle.market),
   ];
   const merged = mergeParseReports(reports);
-  const carryIds = new Set(failedPartIds(bundle).flatMap((part) => metricIdsForEirgridPart(part)));
+  const carryIds = new Set([
+    ...failedPartIds(bundle).flatMap((part) => metricIdsForEirgridPart(part)),
+    ...(bundle.carry_metric_ids ?? []),
+  ]);
   const fresh = merged.series.filter((series) => !carryIds.has(series.metric_id));
   const carried = previous?.series.filter((series) => carryIds.has(series.metric_id)) ?? [];
   const chartStamp = newestStamp(Object.values(bundle.charts));
@@ -82,9 +85,17 @@ function areaMatches(area: string, kind: "chart" | "interconnection" | "fuel"): 
 /** Publisher time for each catalogue area. Market pricing has none, so its release id is the content hash. */
 export function areaPublishedAt(bundle: EirgridFetchBundle): ReadonlyMap<string, string | null> {
   const stamps = new Map<string, string | null>();
-  const chart = newestStamp(Object.values(bundle.charts));
-  for (const area of CHART_AREAS) {
-    stamps.set(area, chart);
+  const explicit = bundle.chart_area_updated;
+  if (explicit) {
+    for (const area of CHART_AREAS) {
+      const stamp = explicit[area];
+      stamps.set(area, typeof stamp === "string" && stamp.length > 0 ? stamp : null);
+    }
+  } else {
+    const chart = newestStamp(Object.values(bundle.charts));
+    for (const area of CHART_AREAS) {
+      stamps.set(area, chart);
+    }
   }
   stamps.set("interconnection", newestStamp(Object.values(bundle.interconnection)));
   stamps.set("fuelmix", newestStamp(Object.values(bundle.fuel)));

@@ -4,13 +4,7 @@ import { DirectoryCodeSearch } from "@/components/directory/code-search";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
-import {
-  IDENTIFIERS_H1,
-  IDENTIFIERS_STANDFIRST,
-  IDENTIFIERS_TITLE,
-  MPID_LABEL,
-  ROLE_LABEL,
-} from "@/lib/directory/copy";
+import { IDENTIFIERS_H1, IDENTIFIERS_STANDFIRST, IDENTIFIERS_TITLE } from "@/lib/directory/copy";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
@@ -54,8 +48,6 @@ export default function DirectoryIdentifiersPage() {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
-          <p className="text-copy-14 text-gray-900">{MPID_LABEL}</p>
-          <p className="text-copy-14 text-gray-900">{ROLE_LABEL}</p>
           <p className="text-copy-14 text-gray-900">
             <Link href="/directory" className="text-blue-700 underline-offset-2 hover:underline">
               Energy organisations and codes

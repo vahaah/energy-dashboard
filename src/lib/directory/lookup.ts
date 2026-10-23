@@ -116,6 +116,16 @@ export function parseLookupSearch(params: URLSearchParams): ParsedLookup {
   return { ok: true, kind: "code", scheme: schemeRaw, code, effectiveOn };
 }
 
+export function codeLookupReady(scheme: string, code: string, effectiveOn: string): boolean {
+  const parsed = parseLookupSearch(new URLSearchParams({ scheme, code, effective_on: effectiveOn }));
+  return parsed.ok && parsed.kind === "code";
+}
+
+export function nameLookupReady(name: string, effectiveOn: string): boolean {
+  const parsed = parseLookupSearch(new URLSearchParams({ name, effective_on: effectiveOn }));
+  return parsed.ok && parsed.kind === "name";
+}
+
 export type ParsedResolve =
   | { ok: true; effectiveOn: string; queries: ResolveQuery[] }
   | { ok: false; status: 400 | 403; error: string };

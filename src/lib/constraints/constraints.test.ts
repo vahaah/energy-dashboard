@@ -5,6 +5,7 @@ import { assertMeasuredKind, assertSingleAxis, measuredCostChart, measuredVolume
 import { CONSTRAINTS_TINYBIRD_OPS } from "@/lib/constraints/budget";
 import { buildConstraintsPage } from "@/lib/constraints/page-model";
 import { fixtureConstraintsHistory } from "@/lib/constraints/reader";
+import { measuredBreakdownLagNote } from "@/lib/constraints/copy";
 import { nesoFinancialYear, parseBreakdownCsv, parseDayAheadCsv } from "@/lib/constraints/parse";
 import { ckanInstant, selectNesoResource } from "@/lib/constraints/neso";
 
@@ -41,6 +42,30 @@ describe("constraint parsers", () => {
       return;
     }
     expect(parsed.rows.find((row) => row.boundary === "FLOWSTH" && row.settlement_date === "2026-10-15")?.flow_mw).toBe(-50);
+  });
+
+  it("skips a blank limit or flow and accepts a wall time without seconds", () => {
+    const csv = [
+      "Constraint Group,Date_ Time GMT_BST,Limit_MW,Flow_MW",
+      "FLOWSTH,2023-01-03T00:00:00,,",
+      "FLOWSTH,2026-10-23T00:00,1200,-40",
+      "FLOWSTH,2026-10-23T00:30:00,abc,1",
+    ].join("\n");
+    expect(parseDayAheadCsv(csv)).toMatchObject({ ok: false, reason: "row" });
+    const kept = parseDayAheadCsv(
+      [
+        "Constraint Group,Date_ Time GMT_BST,Limit_MW,Flow_MW",
+        "FLOWSTH,2023-01-03T00:00:00,,",
+        "ESTEX,2026-10-23T00:00,1200,-40",
+      ].join("\n"),
+    );
+    expect(kept.ok).toBe(true);
+    if (!kept.ok) {
+      return;
+    }
+    expect(kept.rows).toHaveLength(1);
+    expect(kept.rows[0]).toMatchObject({ boundary: "ESTEX", settlement_date: "2026-10-23", flow_mw: -40, limit_mw: 1200 });
+    expect(kept.retainedDates).toEqual(["2026-10-23"]);
   });
 
   it("keeps both instants when the wall clock repeats", () => {
@@ -127,6 +152,22 @@ describe("constraint page model", () => {
     expect(latest.rows.reduce((sum, row) => sum + row.gbp, 0)).toBe(latest.totalGbp);
     expect(latest.rows.reduce((sum, row) => sum + (row.share ?? 0), 0)).toBe(100);
     expect(model.dayAhead?.issuedLabel.startsWith("Day-ahead forecast, issued ")).toBe(true);
+    expect(model.publishingLag).toBeNull();
+    const settlement = latest.settlementDate;
+    const within = buildConstraintsPage({
+      breakdown: fixtureConstraintsHistory("breakdown").latest,
+      breakdownPrevious: null,
+      dayAhead: null,
+      now: new Date(Date.parse(`${settlement}T12:00:00.000Z`) + 7 * 86_400_000),
+    });
+    const late = buildConstraintsPage({
+      breakdown: fixtureConstraintsHistory("breakdown").latest,
+      breakdownPrevious: null,
+      dayAhead: null,
+      now: new Date(Date.parse(`${settlement}T12:00:00.000Z`) + 8 * 86_400_000),
+    });
+    expect(within.publishingLag).toBeNull();
+    expect(late.publishingLag).toBe(measuredBreakdownLagNote(settlement));
     expect(model.dayAhead?.boundaries.map((row) => row.boundary)).toEqual(["ESTEX", "FLOWSTH"]);
     const joined = JSON.stringify(model);
     expect(joined).not.toMatch(BANNED);

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { LookupResults } from "@/components/directory/lookup-result";
 import { DataStateNotice } from "@/components/ui/data-state";
-import type { LookupResult } from "@/lib/directory/lookup";
+import { nameLookupReady, parseLookupSearch, type LookupResult } from "@/lib/directory/lookup";
 
 const FIELD =
   "h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000";
@@ -18,9 +18,18 @@ export function DirectoryNameSearch({ defaultDate }: { defaultDate: string }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setNotice(null);
     setMessage("");
+    if (!nameLookupReady(name, effectiveOn)) {
+      if (name.trim().length > 0) {
+        const parsed = parseLookupSearch(new URLSearchParams({ name, effective_on: effectiveOn }));
+        if (!parsed.ok) {
+          setMessage(parsed.error);
+        }
+      }
+      return;
+    }
+    setPending(true);
     const params = new URLSearchParams({ name, effective_on: effectiveOn });
     try {
       const response = await fetch(`/api/v1/identifiers?${params.toString()}`);

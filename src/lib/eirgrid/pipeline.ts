@@ -178,7 +178,8 @@ async function loadStoredBundle(
 }
 
 async function previousFor(bundle: EirgridFetchBundle): Promise<NiRelease | null> {
-  if (failedPartIds(bundle).length === 0) {
+  const carriedMetrics = bundle.carry_metric_ids?.length ?? 0;
+  if (failedPartIds(bundle).length === 0 && carriedMetrics === 0) {
     return null;
   }
   const pointerFile = await niStore().get(NI_LATEST_PATH, false);
@@ -208,7 +209,7 @@ async function recordCatalogue(
   for (const area of areas) {
     const metricIds = EIRGRID_SERIES.filter((series) => series.area === area).map((series) => series.metric_id);
     const stamped = stamps.get(area) ?? null;
-    const publishedAt = stamped ?? (areaKeepsPreviousStamp(area, failed) ? (carriedStamps.get(area) ?? null) : null);
+    const publishedAt = stamped ?? (areaKeepsPreviousStamp(area, failed, bundle) ? (carriedStamps.get(area) ?? null) : null);
     const content = {
       area,
       release_id: release.release_id,
@@ -242,9 +243,13 @@ async function recordCatalogue(
   }
 }
 
-function areaKeepsPreviousStamp(area: string, failed: readonly EirgridPartId[]): boolean {
+function areaKeepsPreviousStamp(area: string, failed: readonly EirgridPartId[], bundle: EirgridFetchBundle): boolean {
   const missed = new Set<string>(failed);
   if ((CHART_AREAS as readonly string[]).includes(area)) {
+    if (bundle.chart_area_updated) {
+      const stamp = bundle.chart_area_updated[area];
+      return typeof stamp !== "string" || stamp.length === 0;
+    }
     return everyPart(missed, ["chart:NI", "chart:ROI", "chart:ALL"]);
   }
   switch (area) {

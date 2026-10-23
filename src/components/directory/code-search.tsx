@@ -3,8 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { LookupResults } from "@/components/directory/lookup-result";
 import { DataStateNotice } from "@/components/ui/data-state";
-import { IDENTIFIER_SCHEMES, SCHEME_LABEL, type IdentifierScheme } from "@/lib/directory/copy";
-import type { LookupResult } from "@/lib/directory/lookup";
+import { IDENTIFIER_SCHEMES, SCHEME_INTRO, SCHEME_LABEL, SCHEME_ROLE, type IdentifierScheme } from "@/lib/directory/copy";
+import { codeLookupReady, parseLookupSearch, type LookupResult } from "@/lib/directory/lookup";
 
 const FIELD =
   "h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000";
@@ -20,9 +20,18 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setNotice(null);
     setMessage("");
+    if (!codeLookupReady(scheme, code, effectiveOn)) {
+      if (code.trim().length > 0) {
+        const parsed = parseLookupSearch(new URLSearchParams({ scheme, code, effective_on: effectiveOn }));
+        if (!parsed.ok) {
+          setMessage(parsed.error);
+        }
+      }
+      return;
+    }
+    setPending(true);
     const params = new URLSearchParams({ scheme, code, effective_on: effectiveOn });
     try {
       const response = await fetch(`/api/v1/identifiers?${params.toString()}`);
@@ -48,6 +57,8 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
 
   return (
     <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-4">
+      <p className="text-copy-14 text-gray-900">{SCHEME_INTRO[scheme]}</p>
+      <p className="text-copy-14 text-gray-900">{SCHEME_ROLE[scheme]}</p>
       <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
         Scheme
         <select
@@ -56,6 +67,9 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
             const next = event.target.value;
             if (next === "MPID" || next === "BM_UNIT_ID" || next === "GSP_GROUP") {
               setScheme(next);
+              setResult(null);
+              setMessage("");
+              setNotice(null);
             }
           }}
           className={FIELD}

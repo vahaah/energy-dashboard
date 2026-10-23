@@ -26,7 +26,7 @@ export function SiteTopBar({
             <GridMark />
             <span className="text-heading-16">Grid</span>
           </Link>
-          {section ? <p className="min-w-0 truncate text-label-13 text-gray-900">{section}</p> : null}
+          {section ? <p className="min-w-0 truncate text-label-13 text-gray-900 md:hidden">{section}</p> : null}
           <div className="hidden min-w-0 flex-1 md:block">
             <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-desktop`} />
           </div>

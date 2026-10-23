@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Absent } from "@/components/ui/absent";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
+import { DataStateNotice } from "@/components/ui/data-state";
+import { Quantity } from "@/components/ui/quantity";
 import { ABSENT_FIGURE } from "@/lib/data-state";
 import { NI_SCOPE_ALL, NI_SCOPE_NI } from "@/lib/eirgrid/copy";
 import type { NiFigure, NiPageModel, NiScopeId, NiScopeModel } from "@/lib/eirgrid/page-model";
@@ -77,10 +79,12 @@ function ScopePanel({ model, hidden }: { model: NiScopeModel; hidden: boolean })
 function FigureCard({ figure }: { figure: NiFigure }) {
   return (
     <Card title={figure.label} footer={<p className="break-words">{figure.sourceLine}</p>}>
+      {figure.forecast ? <DataStateNotice state="forecast" /> : null}
       <p className="break-words text-heading-24 text-gray-1000">
-        {figure.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : figure.value}
-        {figure.value === ABSENT_FIGURE ? null : (
-          <span className="text-[0.6em] font-medium text-gray-900">{"\u2009"}{figure.unit}</span>
+        {figure.value === ABSENT_FIGURE ? (
+          <Absent reason="Not yet published" />
+        ) : (
+          <Quantity value={figure.value} unit={figure.unit} />
         )}
       </p>
       <ul className="mt-4 flex flex-col">

@@ -1,11 +1,13 @@
 import { FatalError } from "workflow";
+import { resolveLondonWallSequence } from "@/lib/ingest/national-gas/gas-day";
 import { getLondonDate, yesterdayLondonDate } from "@/lib/london-time";
 import {
   EIRGRID_FETCH_TIMEOUT_MS,
   EIRGRID_MIN_GAP_MS,
   EIRGRID_REQUEST_RETRIES,
 } from "@/lib/eirgrid/budget";
-import { CHART_AREAS, EIRGRID_CHART_ORIGIN } from "@/lib/eirgrid/spec";
+import { eirgridStampToWall } from "@/lib/eirgrid/parse";
+import { CHART_AREAS, EIRGRID_CHART_ORIGIN, EIRGRID_SERIES, geographyFromFeedRegion } from "@/lib/eirgrid/spec";
 
 const REGIONS = ["NI", "ROI", "ALL"] as const;
 
@@ -51,6 +53,13 @@ export type EirgridFetchBundle = {
   failed_parts?: EirgridPartId[];
   /** Same parts as `failed_parts`, with the timeout, status, or zero-row reason. */
   part_failures?: EirgridPartFailure[];
+  /**
+   * Chart metrics whose own area request failed or returned none of that area's fields.
+   * The combined chart call drops series, so each area is fetched alone and a miss is carried.
+   */
+  carry_metric_ids?: string[];
+  /** ISO publisher time for a chart area that returned its own field. Absent areas keep the previous stamp. */
+  chart_area_updated?: Record<string, string>;
 };
 
 export type EirgridFetchOptions = {
@@ -107,6 +116,8 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
   const interconnection: Record<string, string> = {};
   const fuel: Record<string, string> = {};
   const failures: EirgridPartFailure[] = [];
+  const carry = new Set<string>();
+  const areaUpdated = new Map<string, string>();
   let first = true;
   const pace = async () => {
     if (first) {
@@ -134,8 +145,66 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
       return null;
     }
   };
+  /** One area per request. A combined `areas` list drops fields, including NI demand, on a 200. */
+  const takeChart = async (region: (typeof REGIONS)[number]): Promise<string | null> => {
+    const rows: ChartFeedRow[] = [];
+    const seen = new Set<string>();
+    let succeeded = 0;
+    let httpFailed = false;
+    let reason = "zero rows";
+    let regionStamp: { iso: string; raw: string } | null = null;
+    for (const area of CHART_AREAS) {
+      await pace();
+      let body: string;
+      try {
+        body = await getTextWithRetry(chartUrl(region, from, to, area), fetchImpl, sleep, random);
+      } catch (error) {
+        if (!isPartFailure(error)) {
+          throw error;
+        }
+        httpFailed = true;
+        reason = failureReason(error);
+        for (const metricId of metricIdsForArea(region, area)) {
+          carry.add(metricId);
+        }
+        continue;
+      }
+      const kept = rowsForChartArea(body, region, area);
+      if (kept.rows.length === 0) {
+        for (const metricId of metricIdsForArea(region, area)) {
+          carry.add(metricId);
+        }
+        continue;
+      }
+      succeeded += 1;
+      if (kept.updated && (!areaUpdated.get(area) || kept.updated.iso > (areaUpdated.get(area) ?? ""))) {
+        areaUpdated.set(area, kept.updated.iso);
+      }
+      if (kept.updated && (!regionStamp || kept.updated.iso > regionStamp.iso)) {
+        regionStamp = kept.updated;
+      }
+      for (const row of kept.rows) {
+        const key = `${String(row.Region)}|${String(row.FieldName)}|${String(row.EffectiveTime)}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        rows.push(row);
+      }
+    }
+    if (succeeded === 0) {
+      if (httpFailed) {
+        failures.push({ part: `chart:${region}`, reason });
+      }
+      return null;
+    }
+    return JSON.stringify({
+      ...(regionStamp ? { LastUpdated: regionStamp.raw } : {}),
+      Rows: rows,
+    });
+  };
   for (const region of REGIONS) {
-    const chart = await take(`chart:${region}`, chartUrl(region, from, to, CHART_AREAS.join(",")));
+    const chart = await takeChart(region);
     if (chart != null) {
       charts[region] = chart;
     }
@@ -162,7 +231,77 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
     market: market ?? "",
     failed_parts: failures.map((failure) => failure.part),
     part_failures: failures,
+    carry_metric_ids: [...carry],
+    chart_area_updated: Object.fromEntries(areaUpdated),
   };
+}
+
+type ChartFeedRow = {
+  EffectiveTime?: unknown;
+  FieldName?: unknown;
+  Region?: unknown;
+  Value?: unknown;
+};
+
+function metricIdsForArea(region: string, area: string): string[] {
+  const geography = geographyFromFeedRegion(region);
+  if (!geography) {
+    return [];
+  }
+  return EIRGRID_SERIES.filter((series) => series.geography_id === geography && series.area === area).map(
+    (series) => series.metric_id,
+  );
+}
+
+function publishedIso(stamp: string): string | null {
+  const wall = eirgridStampToWall(stamp);
+  if (!wall) {
+    return null;
+  }
+  return resolveLondonWallSequence([wall])[0]?.toISOString() ?? null;
+}
+
+function rowsForChartArea(
+  body: string,
+  region: string,
+  area: string,
+): { rows: ChartFeedRow[]; updated: { iso: string; raw: string } | null } {
+  const fields = new Set(metricIdsForArea(region, area).map((metricId) => {
+    return EIRGRID_SERIES.find((series) => series.metric_id === metricId)?.field ?? "";
+  }));
+  let parsed: { LastUpdated?: unknown; Rows?: unknown };
+  try {
+    parsed = JSON.parse(body) as { LastUpdated?: unknown; Rows?: unknown };
+  } catch {
+    return { rows: [], updated: null };
+  }
+  const source = Array.isArray(parsed.Rows) ? (parsed.Rows as ChartFeedRow[]) : [];
+  const rows = source.filter((row) => {
+    return row.Region === region && typeof row.FieldName === "string" && fields.has(row.FieldName);
+  });
+  const valued = rows.some((row) => typeof row.Value === "number" && Number.isFinite(row.Value));
+  if (!valued) {
+    return { rows: [], updated: null };
+  }
+  const raw = typeof parsed.LastUpdated === "string" ? parsed.LastUpdated : null;
+  const fromStamp = raw ? publishedIso(raw) : null;
+  if (raw && fromStamp) {
+    return { rows, updated: { iso: fromStamp, raw } };
+  }
+  let updated: { iso: string; raw: string } | null = null;
+  for (const row of rows) {
+    if (typeof row.EffectiveTime !== "string" || typeof row.Value !== "number" || !Number.isFinite(row.Value)) {
+      continue;
+    }
+    const iso = publishedIso(row.EffectiveTime);
+    if (!iso) {
+      continue;
+    }
+    if (!updated || iso > updated.iso) {
+      updated = { iso, raw: row.EffectiveTime };
+    }
+  }
+  return { rows, updated };
 }
 
 function chartUrl(region: string, from: string, to: string, areas: string): string {

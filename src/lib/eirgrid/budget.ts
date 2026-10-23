@@ -5,7 +5,8 @@ export const EIRGRID_MAX_RETRIES = 2;
 
 /**
  * Retries of one dashboard request after its first attempt.
- * Timeout, 429, and 5xx only. An exhausted request does not refetch the other ten.
+ * Timeout, 429, and 5xx only. An exhausted request does not refetch the others.
+ * Chart areas are separate calls: 7 areas × 3 regions, plus 3 interconnection, 3 fuel, SNSP and the market (29).
  */
 export const EIRGRID_REQUEST_RETRIES = 2;
 

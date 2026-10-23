@@ -11,8 +11,10 @@ import { SiteLegalNav } from "@/components/site-legal-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FLOW_SHEET_PEEK_PX } from "@/lib/map/constants";
 import {
+  ELECTRICITY_BANNER_STALE_MS,
   ELECTRICITY_STALE_MS,
   GAS_STALE_MS,
+  flowListLine,
   netElectricityLabel,
   netGasLabel,
   readingIsStale,
@@ -184,9 +186,7 @@ function FlowList({
               className="flex w-full min-w-0 flex-col gap-0.5 py-2 text-left"
             >
               <span className="text-copy-14 text-gray-1000">{feature.name}</span>{" "}
-              <span className="text-label-12 text-gray-900">
-                {feature.direction ?? "—"} · {feature.reading}
-              </span>
+              <span className="text-label-12 text-gray-900">{flowListLine(feature.direction, feature.reading)}</span>
             </button>
           </li>
         );
@@ -258,7 +258,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const electricityStale =
     now !== null &&
     model.electricityLatestAt !== null &&
-    readingIsStale(model.electricityLatestAt, new Date(now), ELECTRICITY_STALE_MS);
+    readingIsStale(model.electricityLatestAt, new Date(now), ELECTRICITY_BANNER_STALE_MS);
   const gasStale =
     now !== null && model.gasLatestAt !== null && readingIsStale(model.gasLatestAt, new Date(now), GAS_STALE_MS);
 
@@ -525,11 +525,12 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const viewStandfirst = preset === "stations" ? STATIONS_STANDFIRST : model.standfirst;
   const panelLabel = preset === "stations" ? STATIONS_PANEL_LABEL : FLOWS_PANEL_LABEL;
 
-  function Controls({ radioName }: { radioName: string }) {
+  function Controls({ radioName, heading }: { radioName: string; heading: "h1" | "p" }) {
+    const Title = heading;
     return (
       <div className="flex min-w-0 flex-col gap-4">
         <div>
-          <h1 className="text-heading-24 text-gray-1000">{viewTitle}</h1>
+          <Title className="text-heading-24 text-gray-1000">{viewTitle}</Title>
           <p className="mt-2 text-copy-14 text-gray-900">{viewStandfirst}</p>
           {preset === "flows" ? (
             <p className="mt-2 text-label-13 text-gray-900">
@@ -696,7 +697,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         {announcement}
       </p>
       <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
-        <Controls radioName="map-view-panel" />
+        <Controls radioName="map-view-panel" heading="h1" />
         {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
       </aside>
       <div className="relative min-h-0 min-w-0">
@@ -750,7 +751,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             {snap === "full" ? "Collapse" : "Expand"}
           </button>
         </div>
-        <Controls radioName="map-view-sheet" />
+        <Controls radioName="map-view-sheet" heading="p" />
         {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
         <div className="mt-4">{details}</div>
       </div>

@@ -1,6 +1,8 @@
 import { ABSENT_FIGURE } from "@/lib/data-state";
 
 export const ELECTRICITY_STALE_MS = 60 * 60 * 1000;
+/** Banner waits out the same 90 minutes as the FUELINST delay note. Chevrons still pause at ELECTRICITY_STALE_MS. */
+export const ELECTRICITY_BANNER_STALE_MS = 90 * 60 * 1000;
 export const GAS_STALE_MS = 2 * 60 * 60 * 1000;
 export const CHEVRON_CYCLE_MS = 2_400;
 
@@ -75,6 +77,10 @@ export function gasDirection(role: "entry" | "exit", mcmPerDay: number | null): 
 export function gasDirectionWords(role: "entry" | "exit", mcmPerDay: number | null): string | null {
   const direction = gasDirection(role, mcmPerDay);
   return direction ? GAS_DIRECTION[direction] : null;
+}
+
+export function flowListLine(direction: string | null, reading: string): string {
+  return direction ? `${direction} · ${reading}` : reading;
 }
 
 export function readingIsStale(at: string | null, now: Date, thresholdMs: number): boolean {
