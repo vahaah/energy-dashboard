@@ -20,7 +20,14 @@ import {
   ROLE_LABEL,
   roleStanding,
 } from "@/lib/directory/copy";
-import { ingestDirectory, isdEntityUrl, ISD_LOOKUP_FILTERS } from "@/lib/directory/ingest";
+import {
+  DIRECTORY_FETCH_RETRIES,
+  DIRECTORY_FETCH_TIMEOUT_MS,
+  directoryRequestBackoffMs,
+  ingestDirectory,
+  isdEntityUrl,
+  ISD_LOOKUP_FILTERS,
+} from "@/lib/directory/ingest";
 import {
   codeLookupReady,
   codeLookupRejection,
@@ -195,6 +202,59 @@ describe("directory lookup", () => {
     expect(releases).toHaveLength(2);
     const latest = JSON.parse(store.files.get(DIRECTORY_LATEST_PATH)?.body ?? "") as { release_id: string };
     expect(latest.release_id).toBe(first.releaseId);
+  });
+
+  it("retries a 500 and keeps a timeout message", async () => {
+    const extracts = fixtureDirectoryExtracts();
+    const store = new MemoryDirectoryStore();
+    const waits: number[] = [];
+    let organisations = 0;
+    const fetchText = async (url: string) => {
+      const filter = new URL(url).searchParams.get("Filter");
+      if (filter === "ISDEntity1") {
+        organisations += 1;
+        if (organisations === 1) {
+          return { status: 500, body: "" };
+        }
+      }
+      const body =
+        filter === "ISDEntity1"
+          ? extracts.organisations
+          : filter === "ISDEntity18"
+            ? extracts.gspGroups
+            : filter === "ISDEntity21"
+              ? extracts.marketRoles
+              : filter === "ISDEntity45"
+                ? extracts.participantRoles
+                : extracts.bmUnits;
+      return { status: 200, body };
+    };
+    const published = await ingestDirectory({
+      now: new Date(RECORDED_AT),
+      fetchText,
+      store,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    expect(published.ok).toBe(true);
+    expect(organisations).toBe(2);
+    expect(waits).toEqual([directoryRequestBackoffMs(1)]);
+    expect(DIRECTORY_FETCH_RETRIES).toBe(2);
+    expect(DIRECTORY_FETCH_TIMEOUT_MS).toBe(15_000);
+
+    const timedOut = await ingestDirectory({
+      now: new Date(RECORDED_AT),
+      fetchText: async () => {
+        const error = new Error("The operation was aborted due to timeout");
+        error.name = "TimeoutError";
+        throw error;
+      },
+      store: new MemoryDirectoryStore(),
+      sleep: async () => undefined,
+    });
+    expect(timedOut.ok).toBe(false);
+    expect(timedOut.error).toBe("The operation was aborted due to timeout");
   });
 
   it("keeps every identifier on a name match and accepts a hyphenated BM Unit", () => {

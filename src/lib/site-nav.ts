@@ -140,6 +140,15 @@ export function visibleHeaderNav(catalog: SiteNavEntry[] = SITE_NAV_CATALOG): Si
   return visible;
 }
 
+export function compactNavLabel(entry: SiteNavEntry): string {
+  return entry.compactLabel ?? entry.label;
+}
+
+/** The mobile section line repeats the compact nav when the strings match. */
+export function sectionRepeatsCompactNav(section: string, catalog: SiteNavEntry[] = SITE_NAV_CATALOG): boolean {
+  return visibleHeaderNav(catalog).some((entry) => compactNavLabel(entry) === section);
+}
+
 export function visibleNavHrefs(catalog: SiteNavEntry[] = SITE_NAV_CATALOG): string[] {
   return catalogHrefs(visibleHeaderNav(catalog));
 }

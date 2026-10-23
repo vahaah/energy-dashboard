@@ -15,7 +15,13 @@ import {
 } from "@/lib/dashboard-model";
 import { assessPublication, type DataState, type PublicationMark, type StalenessSchedule } from "@/lib/data-state";
 import { parseUtcDateTime, utcIsoFromTimestamp } from "@/lib/london-time";
-import { gasMetricLabel, gasReadingStale, latestObservedComponent, loadBundleReleases } from "@/lib/gas/query";
+import {
+  GAS_COMPLETED_DAY_FALLBACK,
+  gasMetricLabel,
+  gasReadingStale,
+  latestObservedComponent,
+  loadBundleReleases,
+} from "@/lib/gas/query";
 import type { GasRelease } from "@/lib/ingest/national-gas/release";
 import { constraintMetricLabel, loadConstraintObservations } from "@/lib/constraints/health";
 import { loadNiObservations } from "@/lib/eirgrid/health";
@@ -485,10 +491,20 @@ async function loadGasReadings(now: Date): Promise<DataHealthReading[]> {
 }
 
 /** Health rows for the Blob bundle releases. An empty list is not yet available. */
+function finiteComponent(component: { value: number | null } | null): boolean {
+  return component != null && component.value != null && Number.isFinite(component.value);
+}
+
 export function gasReadingsFromReleases(releases: readonly GasRelease[], now: Date): DataHealthReading[] {
   return (Object.keys(GAS_METRICS) as GasMetricId[]).map((metricId) => {
-    const metric = GAS_METRICS[metricId];
-    const component = latestObservedComponent(releases, metricId);
+    const defined = GAS_METRICS[metricId];
+    const own = latestObservedComponent(releases, metricId);
+    const fallback = GAS_COMPLETED_DAY_FALLBACK[metricId];
+    const standIn =
+      !finiteComponent(own) && fallback ? latestObservedComponent(releases, fallback.metricId) : null;
+    const usingStandIn = finiteComponent(standIn);
+    const component = usingStandIn ? standIn : own;
+    const metric = usingStandIn && fallback ? GAS_METRICS[fallback.metricId] : defined;
     const value = component && component.value != null && Number.isFinite(component.value) ? component.value : null;
     const publishedAt = component?.published_at ?? null;
     const retrieved = component?.retrieved_at ?? null;
@@ -503,9 +519,10 @@ export function gasReadingsFromReleases(releases: readonly GasRelease[], now: Da
       publicationLag: staleGrace(metric),
     });
     const stale = value != null && gasReadingStale(metric.expected_cadence, publishedAt, now);
+    const label = usingStandIn && fallback?.label ? fallback.label : gasMetricLabel(metricId);
     return {
       metric_id: metricId,
-      label: gasMetricLabel(metricId),
+      label,
       unit: metric.unit,
       source: metricSourceLabel(metric),
       dataset_id: metric.dataset_id,

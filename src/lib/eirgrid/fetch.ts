@@ -131,7 +131,7 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
   const take = async (part: EirgridPartId, url: string): Promise<string | null> => {
     await pace();
     try {
-      const body = await getTextWithRetry(url, fetchImpl, sleep, random);
+      const body = await readFeedBody(url, fetchImpl, sleep, random);
       if (valuedFeedRows(body) === 0) {
         failures.push({ part, reason: "zero rows" });
         return null;
@@ -157,7 +157,7 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
       await pace();
       let body: string;
       try {
-        body = await getTextWithRetry(chartUrl(region, from, to, area), fetchImpl, sleep, random);
+        body = await readFeedBody(chartUrl(region, from, to, area), fetchImpl, sleep, random);
       } catch (error) {
         if (!isPartFailure(error)) {
           throw error;
@@ -369,6 +369,25 @@ function failureReason(error: unknown): string {
     return error.message.length > 0 ? error.message : error.name;
   }
   return "request failed";
+}
+
+/**
+ * HTTP timeouts, 429s and 5xx are retried inside `getTextWithRetry`.
+ * A 200 with no finite `Value` is fetched again, and each of those refetches
+ * keeps that same HTTP retry budget instead of counting a timeout as an empty body.
+ */
+async function readFeedBody(
+  url: string,
+  fetchImpl: typeof fetch,
+  sleep: (ms: number) => Promise<void>,
+  random: () => number,
+): Promise<string> {
+  let body = await getTextWithRetry(url, fetchImpl, sleep, random);
+  for (let attempt = 1; attempt <= EIRGRID_REQUEST_RETRIES && valuedFeedRows(body) === 0; attempt += 1) {
+    await sleep(eirgridRequestBackoffMs(attempt, random));
+    body = await getTextWithRetry(url, fetchImpl, sleep, random);
+  }
+  return body;
 }
 
 async function getTextWithRetry(

@@ -38,6 +38,14 @@ export function isdEntityUrl(filter: IsdLookupFilter): string {
 
 export type DirectoryFetch = (url: string) => Promise<{ status: number; body: string }>;
 
+/** Five entity files, three attempts each, stay inside the 300s route. */
+export const DIRECTORY_FETCH_TIMEOUT_MS = 15_000;
+export const DIRECTORY_FETCH_RETRIES = 2;
+
+export function directoryRequestBackoffMs(attempt: number): number {
+  return attempt <= 1 ? 200 : 800;
+}
+
 export type DirectoryIngestResult = {
   ok: boolean;
   unchanged: boolean;
@@ -55,19 +63,16 @@ export async function ingestDirectory(input: {
   now: Date;
   fetchText: DirectoryFetch;
   store: DirectoryObjectStore;
+  sleep?: (ms: number) => Promise<void>;
 }): Promise<DirectoryIngestResult> {
   const empty = emptyResult();
   try {
-    const extracts = await fetchExtracts(input.fetchText);
+    const extracts = await fetchExtracts(input.fetchText, input.sleep ?? defaultDirectorySleep);
     const built = buildDirectory(extracts, input.now.toISOString());
     const snapshot = directorySnapshotSchema.parse(built.snapshot);
     return await publishSnapshot(snapshot, built.quarantined, input.store, input.now);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "directory ingest failed";
-    if (message.includes("upstream")) {
-      return { ...empty, error: message };
-    }
-    return { ...empty, error: "directory extract did not validate" };
+    return { ...empty, error: directoryErrorMessage(error) };
   }
 }
 
@@ -81,30 +86,86 @@ export async function runDirectoryIngest(now = new Date()): Promise<DirectoryIng
     fetchText: async (url) => {
       const response = await fetch(url, {
         headers: { accept: "text/csv" },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(DIRECTORY_FETCH_TIMEOUT_MS),
       });
       return { status: response.status, body: response.ok ? await response.text() : "" };
     },
   });
 }
 
-async function fetchExtracts(fetchText: DirectoryFetch): Promise<DirectoryExtracts> {
+function defaultDirectorySleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function directoryErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "directory ingest failed";
+  if (
+    message.startsWith("upstream ") ||
+    message.includes("columns changed") ||
+    message.includes("timeout") ||
+    message.includes("aborted") ||
+    message === "blob store is not set" ||
+    message.startsWith("directory blob")
+  ) {
+    return message;
+  }
+  return "directory extract did not validate";
+}
+
+function isDirectoryRetryable(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const name = "name" in error ? String(error.name) : "";
+  if (name === "TimeoutError" || name === "AbortError") {
+    return true;
+  }
+  const message = "message" in error ? String(error.message) : "";
+  return message.includes("timeout") || message.includes("aborted") || message.includes("fetch failed");
+}
+
+async function fetchExtracts(
+  fetchText: DirectoryFetch,
+  sleep: (ms: number) => Promise<void>,
+): Promise<DirectoryExtracts> {
   const extracts: Partial<DirectoryExtracts> = {};
   for (const filter of ISD_LOOKUP_FILTERS) {
     const url = isdEntityUrl(filter);
     if (url.includes("Filter=Full") || url.includes("Filter=LLF") || url.includes("Filter=ISDData")) {
       throw new Error("refusing a full ISD download");
     }
-    const response = await fetchText(url);
-    if (response.status === 429 || response.status >= 500) {
-      throw new Error(`upstream ${response.status}`);
-    }
-    if (response.status !== 200 || response.body.length === 0) {
-      throw new Error(`upstream ${response.status}`);
-    }
-    extracts[FILTER_FIELD[filter]] = response.body;
+    extracts[FILTER_FIELD[filter]] = await fetchLookup(fetchText, url, sleep);
   }
   return extracts as DirectoryExtracts;
+}
+
+async function fetchLookup(
+  fetchText: DirectoryFetch,
+  url: string,
+  sleep: (ms: number) => Promise<void>,
+): Promise<string> {
+  for (let attempt = 1; attempt <= DIRECTORY_FETCH_RETRIES + 1; attempt += 1) {
+    try {
+      const response = await fetchText(url);
+      if (response.status === 200 && response.body.length > 0) {
+        return response.body;
+      }
+      const retryable =
+        response.status === 429 || response.status >= 500 || (response.status === 200 && response.body.length === 0);
+      if (!retryable || attempt > DIRECTORY_FETCH_RETRIES) {
+        throw new Error(`upstream ${response.status}`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("upstream ")) {
+        throw error;
+      }
+      if (!isDirectoryRetryable(error) || attempt > DIRECTORY_FETCH_RETRIES) {
+        throw error;
+      }
+    }
+    await sleep(directoryRequestBackoffMs(attempt));
+  }
+  throw new Error("upstream 0");
 }
 
 async function publishSnapshot(
