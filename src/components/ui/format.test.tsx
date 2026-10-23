@@ -49,6 +49,8 @@ describe("cross-site formatting", () => {
       </TableScroll>,
     );
     expect(html).toContain(TABLE_SCROLL_CUE);
+    expect(html).toContain("sm:hidden");
+    expect(html).not.toContain("sr-only");
     expect(html).toContain("overflow-x-auto");
     expect(html).toContain("max-w-full");
   });

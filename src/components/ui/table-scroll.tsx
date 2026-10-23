@@ -14,7 +14,7 @@ export function TableScroll({
 }) {
   return (
     <div className={`min-w-0 max-w-full ${className}`.trim()}>
-      <p className="mb-2 text-label-13 text-gray-900 sm:sr-only">{label}</p>
+      <p className="mb-2 text-label-13 text-gray-900 sm:hidden">{label}</p>
       <div className="relative min-w-0 max-w-full overflow-x-auto [&_tbody_td:first-child]:sticky [&_tbody_td:first-child]:left-0 [&_tbody_td:first-child]:z-10 [&_tbody_td:first-child]:bg-background-100 [&_tbody_th:first-child]:sticky [&_tbody_th:first-child]:left-0 [&_tbody_th:first-child]:z-10 [&_tbody_th:first-child]:bg-background-100 [&_thead_th:first-child]:sticky [&_thead_th:first-child]:left-0 [&_thead_th:first-child]:z-10 [&_thead_th:first-child]:bg-background-100">
         <div
           aria-hidden="true"
