@@ -289,8 +289,6 @@ const GAS_TABLE_PREVIEW = 25;
 
 function SeriesCard({ slice }: { slice: GasSlice }) {
   const [showTable, setShowTable] = useState(true);
-  const [showAllRows, setShowAllRows] = useState(false);
-  const tableRows = showAllRows ? slice.series : slice.series.slice(0, GAS_TABLE_PREVIEW);
   const showForecast = slice.series.some((point) => point.supplyForecast != null || point.demandForecast != null);
   const showDemand = slice.series.some((point) => point.demand != null);
   return (
@@ -309,38 +307,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
         </button>
         {showTable ? (
           <div className="mt-4 overflow-x-auto">
-            <table data-gas-table className="w-full text-left text-copy-14">
-              <thead>
-                <tr className="text-label-12 text-gray-900">
-                  <th className="py-2 pr-3 font-normal">Time</th>
-                  <th className="py-2 pr-3 font-normal">Supply</th>
-                  {showDemand ? <th className="py-2 pr-3 font-normal">Demand</th> : null}
-                  {showForecast ? <th className="py-2 font-normal">Forecast</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((point) => (
-                  <tr key={point.at}>
-                    <td className="py-2 pr-3">{point.label}</td>
-                    <td className="py-2 pr-3 tabular-nums">{quantityCell(point.supply)}</td>
-                    {showDemand ? <td className="py-2 pr-3 tabular-nums">{quantityCell(point.demand)}</td> : null}
-                    {showForecast ? (
-                      <td className="py-2 tabular-nums">{quantityCell(point.supplyForecast ?? point.demandForecast)}</td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {slice.series.length > GAS_TABLE_PREVIEW ? (
-              <button
-                type="button"
-                className="mt-3 inline-flex h-8 items-center text-label-13 text-gray-1000"
-                aria-pressed={showAllRows}
-                onClick={() => setShowAllRows((current) => !current)}
-              >
-                {showAllRows ? "Show fewer rows" : `Show all ${slice.series.length} rows`}
-              </button>
-            ) : null}
+            <GasSeriesTable series={slice.series} showDemand={showDemand} showForecast={showForecast} />
           </div>
         ) : null}
       </div>
@@ -349,6 +316,67 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
       </ChartBoundary>
     </Card>
   );
+}
+
+export function GasSeriesTable({
+  series,
+  showDemand,
+  showForecast,
+}: {
+  series: GasSlice["series"];
+  showDemand: boolean;
+  showForecast: boolean;
+}) {
+  const preview = series.slice(0, GAS_TABLE_PREVIEW);
+  const remainder = series.slice(GAS_TABLE_PREVIEW);
+  return (
+    <>
+      <table data-gas-table className="w-full text-left text-copy-14">
+        <thead>
+          <tr className="text-label-12 text-gray-900">
+            <th className="py-2 pr-3 font-normal">Time</th>
+            <th className="py-2 pr-3 font-normal">Supply</th>
+            {showDemand ? <th className="py-2 pr-3 font-normal">Demand</th> : null}
+            {showForecast ? <th className="py-2 font-normal">Forecast</th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          <SeriesRows points={preview} showDemand={showDemand} showForecast={showForecast} />
+        </tbody>
+      </table>
+      {remainder.length > 0 ? (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-copy-14 text-gray-1000">Show all {series.length} rows</summary>
+          <table className="mt-3 w-full text-left text-copy-14">
+            <tbody>
+              <SeriesRows points={remainder} showDemand={showDemand} showForecast={showForecast} />
+            </tbody>
+          </table>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
+function SeriesRows({
+  points,
+  showDemand,
+  showForecast,
+}: {
+  points: GasSlice["series"];
+  showDemand: boolean;
+  showForecast: boolean;
+}) {
+  return points.map((point) => (
+    <tr key={point.at}>
+      <td className="py-2 pr-3">{point.label}</td>
+      <td className="py-2 pr-3 tabular-nums">{quantityCell(point.supply)}</td>
+      {showDemand ? <td className="py-2 pr-3 tabular-nums">{quantityCell(point.demand)}</td> : null}
+      {showForecast ? (
+        <td className="py-2 tabular-nums">{quantityCell(point.supplyForecast ?? point.demandForecast)}</td>
+      ) : null}
+    </tr>
+  ));
 }
 
 function ShareList({ rows }: { rows: readonly GasShareRow[] }) {
