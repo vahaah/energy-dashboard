@@ -2,7 +2,9 @@ import { EIRGRID_GROUP_ATTRIBUTION } from "@/lib/attribution";
 
 export const NI_PATH = "/electricity/northern-ireland";
 
-export const NI_TITLE = "Northern Ireland electricity (outside GB) | Grid";
+export const NI_TITLE = "Northern Ireland electricity: demand, wind, mix | Grid";
+export const NI_DESCRIPTION =
+  "Northern Ireland and all-island electricity: demand, generation, wind, solar, Moyle flows and fuel mix from SONI and EirGrid, kept apart from GB figures.";
 
 export const NI_H1 = "What's powering Northern Ireland?";
 

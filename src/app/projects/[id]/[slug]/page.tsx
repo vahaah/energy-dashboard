@@ -4,14 +4,17 @@ import { ProjectProfileView } from "@/components/projects/project-profile";
 import { SeoPage } from "@/components/seo-page";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { projectDetailIndexable } from "@/lib/seo/indexable";
 import {
   PROJECTS_ATTRIBUTION,
   PROJECTS_EYEBROW,
   PROJECTS_PATH,
   PROJECT_PROFILE_STANDFIRST,
   projectProfileH1,
-  projectProfileTitle,
 } from "@/lib/projects/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { projectSeoDescription, projectSeoTitle } from "@/lib/seo/project-meta";
+import { SITE_ORIGIN } from "@/lib/site";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { buildProjectProfile } from "@/lib/projects/page-model";
 import { resolveProjectRoute } from "@/lib/projects/route";
@@ -40,12 +43,15 @@ export async function generateMetadata({
     return {};
   }
   const profile = buildProjectProfile(project, catalogue.changes.events);
+  const title = projectSeoTitle(project);
+  const description = projectSeoDescription(project);
   return buildPageMetadata({
-    title: projectProfileTitle(project.name),
-    description: PROJECT_PROFILE_STANDFIRST,
+    title,
+    description,
     path: profile.href,
     imagePath: `${profile.href}/opengraph-image`,
-    imageAlt: projectProfileTitle(project.name),
+    imageAlt: title,
+    index: projectDetailIndexable(project),
   });
 }
 
@@ -70,6 +76,15 @@ export default async function ProjectSlugPage({ params }: { params: Promise<{ id
       section={PROJECTS_EYEBROW}
       title={projectProfileH1(project.name)}
       breadcrumb={[{ href: PROJECTS_PATH, label: PROJECTS_EYEBROW }, { label: project.name }]}
+      schema={pageJsonLd({
+        name: projectSeoTitle(project),
+        description: projectSeoDescription(project),
+        url: `${SITE_ORIGIN}${profile.href}`,
+        breadcrumbs: [
+          { name: PROJECTS_EYEBROW, item: `${SITE_ORIGIN}${PROJECTS_PATH}` },
+          { name: project.name, item: `${SITE_ORIGIN}${profile.href}` },
+        ],
+      })}
       cite={<p>{PROJECT_PROFILE_STANDFIRST}</p>}
       citation={`Grid, "${project.name}", grid.vahaah.com${profile.href}, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${PROJECTS_ATTRIBUTION}`}
       header={

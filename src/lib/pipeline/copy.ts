@@ -2,10 +2,10 @@ import { OGL_V3_ATTRIBUTION } from "@/lib/attribution";
 
 export const PIPELINE_PATH = "/pipeline";
 
-export const PIPELINE_TITLE = "GB renewable and storage project pipeline | Grid";
+export const PIPELINE_TITLE = "GB renewable and storage pipeline by stage | Grid";
 
 export const PIPELINE_DESCRIPTION =
-  "Renewable and storage projects in Great Britain, from planning to construction, by stage and technology. From DESNZ's REPD, updated quarterly.";
+  "How many renewable and storage projects are under construction, consented or in planning in Great Britain, by technology and nation. From DESNZ REPD.";
 
 export const PIPELINE_H1 = "What's in GB's pipeline of new energy projects?";
 

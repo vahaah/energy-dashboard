@@ -4,7 +4,6 @@ import {
   IMPORT_FLOW_NOTE,
   LOCATION_UNAVAILABLE,
   NOT_AVAILABLE,
-  assetDocumentTitle,
   assetLede,
   assetQuestion,
   formatFactMw,
@@ -15,6 +14,7 @@ import {
 import { assetPath, mapSelectionHref } from "@/lib/assets/href";
 import type { AssetCapacityView, AssetDetail, AssetMatchView, AssetProjectView } from "@/lib/assets/types";
 import { formatLondonDayMonthYear } from "@/lib/london-time";
+import { assetSeoTitle } from "@/lib/seo/detail";
 import type { LayerPrecision } from "@/lib/map/precision";
 
 export type AssetFact = {
@@ -301,7 +301,12 @@ export function assetPageModel(detail: AssetDetail): AssetPageModel {
     statusLabel: "Operational",
     question: assetQuestion(detail.row.name),
     lede,
-    title: assetDocumentTitle(detail.row.name, technology),
+    title: assetSeoTitle({
+      name: detail.row.name,
+      technology,
+      mw: detail.row.mw,
+      region: detail.row.region,
+    }),
     description: [...lede].slice(0, 155).join(""),
     canonicalPath,
     mapHref: mapSelectionHref(detail.row.id, link?.line ? "ic" : undefined),

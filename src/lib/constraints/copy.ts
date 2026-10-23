@@ -1,6 +1,8 @@
 import { NESO_OPEN_DATA_ATTRIBUTION } from "@/lib/attribution";
 
-export const CONSTRAINTS_TITLE = "Grid constraints and their cost | Grid";
+export const CONSTRAINTS_TITLE = "GB grid constraint costs and volumes | Grid";
+export const CONSTRAINTS_DESCRIPTION =
+  "What NESO spent managing transmission constraints in Great Britain, by day and category (thermal, voltage, inertia), in £ and MWh, from NESO open data.";
 export const CONSTRAINTS_H1 = "What stops electricity reaching demand, and what was done about it?";
 export const CONSTRAINTS_STANDFIRST = "Published transmission constraint activity, its volume and cost.";
 

@@ -4,16 +4,23 @@ import { DirectoryCodeSearch } from "@/components/directory/code-search";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
-import { IDENTIFIERS_H1, IDENTIFIERS_STANDFIRST, IDENTIFIERS_TITLE } from "@/lib/directory/copy";
+import {
+  IDENTIFIERS_DESCRIPTION,
+  IDENTIFIERS_H1,
+  IDENTIFIERS_STANDFIRST,
+  IDENTIFIERS_TITLE,
+} from "@/lib/directory/copy";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
+import { pageJsonLd } from "@/lib/jsonld";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { SITE_ORIGIN } from "@/lib/site";
 
 export const dynamic = "force-static";
 export const revalidate = 86_400;
 
 export const metadata: Metadata = buildPageMetadata({
   title: IDENTIFIERS_TITLE,
-  description: IDENTIFIERS_STANDFIRST,
+  description: IDENTIFIERS_DESCRIPTION,
   path: "/directory/identifiers",
   imagePath: "/directory/identifiers/opengraph-image",
   imageAlt: IDENTIFIERS_TITLE,
@@ -26,6 +33,15 @@ export default function DirectoryIdentifiersPage() {
       section="Directory"
       title={IDENTIFIERS_H1}
       breadcrumb={[{ href: "/directory", label: "Directory" }, { label: "Codes" }]}
+      schema={pageJsonLd({
+        name: IDENTIFIERS_TITLE,
+        description: IDENTIFIERS_DESCRIPTION,
+        url: `${SITE_ORIGIN}/directory/identifiers`,
+        breadcrumbs: [
+          { name: "Directory", item: `${SITE_ORIGIN}/directory` },
+          { name: "Codes", item: `${SITE_ORIGIN}/directory/identifiers` },
+        ],
+      })}
       cite={<p>{IDENTIFIERS_STANDFIRST}</p>}
       citation={`Grid, "Look up an MPID or industry code", grid.vahaah.com/directory/identifiers, accessed ${formatLondonDayMonthYear(today)}. ${ELEXON_ISD_ATTRIBUTION}`}
       header={

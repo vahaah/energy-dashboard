@@ -1,7 +1,9 @@
 import { DURATION_TOOLTIP } from "@/lib/assets/labels";
 
 export const STORAGE_PATH = "/system/storage";
-export const STORAGE_TITLE = "Electricity storage in Britain | Grid";
+export const STORAGE_TITLE = "GB electricity storage: batteries and pumped hydro | Grid";
+export const STORAGE_DESCRIPTION =
+  "How much battery and pumped-hydro storage Great Britain has, what is operating and what pumped storage is doing, from DESNZ REPD, DUKES and Elexon.";
 export const STORAGE_H1 = "How much electricity storage is there, and what is it doing?";
 export const STORAGE_STANDFIRST = "Pumped storage and batteries, with the coverage of each figure shown.";
 export const STORAGE_EYEBROW = "Storage";

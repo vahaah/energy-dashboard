@@ -4,7 +4,10 @@ import { DirectoryNameSearch } from "@/components/directory/name-search";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
-import { DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE, MPID_LABEL, ROLE_LABEL } from "@/lib/directory/copy";
+import { FaqList } from "@/components/ui/faq-list";
+import { DIRECTORY_DESCRIPTION, DIRECTORY_FAQS, DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE, MPID_LABEL, ROLE_LABEL } from "@/lib/directory/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
 
@@ -13,7 +16,7 @@ export const revalidate = 86_400;
 
 export const metadata: Metadata = buildPageMetadata({
   title: DIRECTORY_TITLE,
-  description: DIRECTORY_STANDFIRST,
+  description: DIRECTORY_DESCRIPTION,
   path: "/directory",
   imagePath: "/directory/opengraph-image",
   imageAlt: DIRECTORY_TITLE,
@@ -26,6 +29,13 @@ export default function DirectoryPage() {
       section="Directory"
       title={DIRECTORY_H1}
       breadcrumb={[{ label: "Directory" }]}
+      schema={pageJsonLd({
+        name: DIRECTORY_TITLE,
+        description: DIRECTORY_DESCRIPTION,
+        url: `${SITE_ORIGIN}/directory`,
+        breadcrumbs: [{ name: "Directory", item: `${SITE_ORIGIN}/directory` }],
+        faqs: [...DIRECTORY_FAQS],
+      })}
       cite={<p>{DIRECTORY_STANDFIRST}</p>}
       citation={`Grid, "Energy organisations and codes", grid.vahaah.com/directory, accessed ${formatLondonDayMonthYear(today)}. ${ELEXON_ISD_ATTRIBUTION}`}
       header={
@@ -58,6 +68,7 @@ export default function DirectoryPage() {
           <DirectoryNameSearch defaultDate={today} />
         </div>
       </Card>
+      <FaqList items={DIRECTORY_FAQS} />
     </SeoPage>
   );
 }

@@ -1,6 +1,8 @@
 import { NATIONAL_GAS_ATTRIBUTION } from "@/lib/attribution";
 
-export const GAS_SYSTEM_TITLE = "Britain's gas system: supply, demand and storage | Grid";
+export const GAS_SYSTEM_TITLE = "GB gas supply, demand and linepack by gas day | Grid";
+export const GAS_SYSTEM_DESCRIPTION =
+  "Gas into and out of Britain's National Transmission System by gas day: supply by terminal, demand, linepack and storage flows. Free, updated hourly.";
 
 export const GAS_SYSTEM_H1 = "Where is Britain's gas coming from, and where is it going?";
 

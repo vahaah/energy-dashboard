@@ -1,10 +1,15 @@
 import { NESO_OPEN_DATA_ATTRIBUTION, NESO_TEC_REGISTER_URL, OGL_V3_ATTRIBUTION } from "@/lib/attribution";
+import { formatGrouped } from "@/lib/format/quantity";
 
 export const PROJECTS_PATH = "/projects";
-export const PROJECTS_TITLE = "Energy projects in Britain | Grid";
+export const PROJECTS_TITLE = "GB energy projects: planning and construction status | Grid";
 export const PROJECTS_H1 = "What is being built, and how far has it got?";
 export const PROJECTS_STANDFIRST =
   "Projects from public registers, with planning, construction and connection status shown separately.";
+
+export function projectsDirectoryDescription(count: number): string {
+  return `Track ${formatGrouped(count, 0)} GB energy projects through planning, construction and grid connection, from DESNZ REPD and the NESO TEC register, with each source dated.`;
+}
 export const PROJECTS_EYEBROW = "Projects";
 
 export const PROJECT_PROFILE_STANDFIRST = "Each status below comes from a named source and date.";

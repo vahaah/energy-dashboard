@@ -26,7 +26,7 @@ describe("gas page copy", () => {
     expect(GAS_ATTRIBUTION).toBe("Data sourced from the National Gas Transmission Data Portal.");
     expect(GAS_ATTRIBUTION).toBe(NATIONAL_GAS_ATTRIBUTION);
     expect(GAS_COVERAGE_HREF).toBe("/data-health#nts");
-    expect(GAS_SYSTEM_TITLE).toBe("Britain's gas system: supply, demand and storage | Grid");
+    expect(GAS_SYSTEM_TITLE).toBe("GB gas supply, demand and linepack by gas day | Grid");
     expect(GAS_SYSTEM_H1).toBe("Where is Britain's gas coming from, and where is it going?");
     expect(GAS_SYSTEM_STANDFIRST).toContain("Updated hourly.");
     expect(GAS_SAP_DEFINITION).toBe("System Average Price, a wholesale benchmark. It is not a household tariff.");

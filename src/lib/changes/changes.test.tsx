@@ -228,7 +228,7 @@ describe("change events", () => {
     expect(html).toContain("2 comparisons");
     expect(html.match(/<article/g)).toHaveLength(2);
     expect(html).toContain("Supported by National Energy SO Open Data");
-    expect(CHANGES_TITLE).toBe("What changed in Britain's energy system | Grid");
+    expect(CHANGES_TITLE).toBe("Changes in GB energy project registers | Grid");
     expect(CHANGES_H1).toBe("What has changed, and how do we know?");
     expect(CHANGES_STANDFIRST).toBe("Changes found in published data, each with its source and comparison.");
     const page = readFileSync(resolve(process.cwd(), "src/app/changes/page.tsx"), "utf8");

@@ -32,12 +32,13 @@ function HomepageCiteParagraph({ cite }: { cite: HomepageCite }) {
   switch (cite.kind) {
     case "numbers":
       return (
-        <p className="mt-3 max-w-3xl text-copy-16 text-gray-900" data-cite>
+        <p id="summary" className="mt-3 max-w-3xl text-copy-16 text-gray-900" data-cite>
           At{" "}
           <time dateTime={cite.datetime}>
             {cite.timeLabel}
           </time>{" "}
-          on {cite.dateLabel}, {cite.topFuel} was Britain&apos;s largest source of electricity at{" "}
+          on {cite.dateLabel}, {cite.topFuel.charAt(0).toLowerCase()}
+          {cite.topFuel.slice(1)} was Britain&apos;s largest source of electricity at{" "}
           {cite.topGw} GW ({cite.topSharePct}%). Gas supplied {cite.gasSharePct}%, and carbon
           intensity was {cite.carbon} gCO₂/kWh. The market index price was £{cite.price}/MWh.{" "}
           {HOME_CITE_SOURCES} Grid is free and updated hourly from public data.
@@ -45,7 +46,7 @@ function HomepageCiteParagraph({ cite }: { cite: HomepageCite }) {
       );
     case "fallback":
       return (
-        <p className="mt-3 max-w-3xl text-copy-16 text-gray-900" data-cite>
+        <p id="summary" className="mt-3 max-w-3xl text-copy-16 text-gray-900" data-cite>
           {HOME_CITE_FALLBACK}
         </p>
       );

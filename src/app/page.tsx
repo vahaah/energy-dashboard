@@ -6,11 +6,18 @@ import { JsonLd } from "@/components/json-ld";
 import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
-import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
+import { homepageCiteFromPayload, homepageCitePlainText } from "@/lib/homepage-briefing";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
 import { homepageOgImage } from "@/lib/page-metadata";
-import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_OG_TYPE, SITE_TWITTER_CARD } from "@/lib/site";
+import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  SITE_NAME,
+  SITE_OG_IMAGE,
+  SITE_OG_TYPE,
+  SITE_TWITTER_CARD,
+} from "@/lib/site";
 
 /**
  * Homepage shell. Static/ISR so the CDN can HIT `/`. The H1 and cite sentence
@@ -25,22 +32,25 @@ export const dynamic = "force-static";
 export async function generateMetadata(): Promise<Metadata> {
   const payload = await loadHomepagePayload();
   const image = homepageOgImage(payload);
+  const alt = homepageCitePlainText(homepageCiteFromPayload(payload));
   return {
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     alternates: { canonical: "/" },
     openGraph: {
       type: SITE_OG_TYPE,
+      locale: "en_GB",
+      siteName: SITE_NAME,
       title: HOME_TITLE,
       description: HOME_DESCRIPTION,
       url: "/",
-      images: [{ ...SITE_OG_IMAGE, url: image.url, alt: image.alt }],
+      images: [{ ...SITE_OG_IMAGE, url: image.url, alt }],
     },
     twitter: {
       ...SITE_TWITTER_CARD,
       title: HOME_TITLE,
       description: HOME_DESCRIPTION,
-      images: [image.url],
+      images: [{ url: image.url, alt }],
     },
   };
 }

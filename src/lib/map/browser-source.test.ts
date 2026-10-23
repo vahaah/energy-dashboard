@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { WARMED_FLOW_REVALIDATE_SECONDS } from "@/lib/assets/cached-flows";
 import { getTinybirdCachePolicy } from "@/lib/tinybird-cache";
-import { ASSETS_DESCRIPTION, ASSETS_TITLE } from "@/lib/site";
+import { ASSETS_DESCRIPTION } from "@/lib/site";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -36,10 +36,9 @@ describe("map source and asset page review fixes", () => {
   });
 
   it("describes interconnectors and National Gas terminals in the directory", () => {
-    expect(ASSETS_TITLE).toContain("interconnectors");
-    expect(ASSETS_TITLE).toContain("gas terminals");
-    expect(ASSETS_DESCRIPTION).toContain("Elexon interconnectors");
-    expect(ASSETS_DESCRIPTION).toContain("National Gas");
+    expect(ASSETS_DESCRIPTION).toContain("interconnectors");
+    expect(ASSETS_DESCRIPTION).toContain("gas terminals");
+    expect(ASSETS_DESCRIPTION).toContain("DESNZ REPD");
     const page = source("src/app/assets/page.tsx");
     expect(page).toContain("interconnectors from Elexon BMRS");
     expect(page).toContain("National Gas terminal names");

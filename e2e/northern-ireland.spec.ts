@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("northern ireland scope switch keeps SONI and SEMO apart", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/electricity/northern-ireland");
-  await expect(page).toHaveTitle("Northern Ireland electricity (outside GB) | Grid");
+  await expect(page).toHaveTitle("Northern Ireland electricity: demand, wind, mix | Grid");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("What's powering Northern Ireland?");
   await expect(page.getByText("Outside GB. This page covers Northern Ireland and the all-island Single Electricity Market (Northern Ireland and Ireland). Grid's GB figures never include Northern Ireland.")).toBeVisible();
   await expect(page.getByText(/Latest data from SONI is from /)).toBeVisible();

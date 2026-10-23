@@ -17,10 +17,6 @@ export function missingSeriesCopy(source: string): string {
   return `Grid does not have this data yet. It will appear here once ${source} is added.`;
 }
 
-export function assetDocumentTitle(name: string, technology: string): string {
-  return `${name}: ${technology} | Grid`;
-}
-
 export function assetQuestion(name: string): string {
   return `What is ${name}, and what is its status?`;
 }

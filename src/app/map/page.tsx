@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { FlowsMap } from "@/components/flows-map";
+import { JsonLd } from "@/components/json-ld";
 import { SitePageHeader } from "@/components/site-page-header";
+import { pageJsonLd } from "@/lib/jsonld";
 import { loadFlowsPageModel } from "@/lib/map/load-flows";
 import { mapPageMetadata } from "@/lib/page-metadata";
+import { MAP_DESCRIPTION, MAP_TITLE, SITE_ORIGIN } from "@/lib/site";
 
 export const dynamic = "force-static";
 export const revalidate = 1_800;
@@ -14,6 +17,14 @@ export default async function MapPage() {
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-background-100 text-gray-1000">
+      <JsonLd
+        data={pageJsonLd({
+          name: MAP_TITLE,
+          description: MAP_DESCRIPTION,
+          url: `${SITE_ORIGIN}/map`,
+          breadcrumbs: [{ name: "Map", item: `${SITE_ORIGIN}/map` }],
+        })}
+      />
       <a
         href="#flow-list"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"

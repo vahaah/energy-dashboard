@@ -4,11 +4,14 @@ import { SeoPage } from "@/components/seo-page";
 import { EIRGRID_GROUP_ATTRIBUTION, EIRGRID_GROUP_LICENCE_URL } from "@/lib/attribution";
 import {
   NI_ATTRIBUTION,
+  NI_DESCRIPTION,
   NI_H1,
   NI_PATH,
   NI_SCOPE_BANNER,
   NI_TITLE,
 } from "@/lib/eirgrid/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { buildNiPage, pageStatus } from "@/lib/eirgrid/page-model";
 import { readNiRelease } from "@/lib/eirgrid/reader";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -19,7 +22,7 @@ export const revalidate = 1800;
 
 export const metadata: Metadata = buildPageMetadata({
   title: NI_TITLE,
-  description: NI_SCOPE_BANNER,
+  description: NI_DESCRIPTION,
   path: NI_PATH,
   imagePath: "/electricity/northern-ireland/opengraph-image",
   imageAlt: NI_TITLE,
@@ -36,6 +39,12 @@ export default async function NorthernIrelandPage() {
       section="Northern Ireland"
       title={NI_H1}
       breadcrumb={[{ label: "System" }, { label: "Northern Ireland" }]}
+      schema={pageJsonLd({
+        name: NI_TITLE,
+        description: NI_DESCRIPTION,
+        url: `${SITE_ORIGIN}${NI_PATH}`,
+        breadcrumbs: [{ name: "Northern Ireland", item: `${SITE_ORIGIN}${NI_PATH}` }],
+      })}
       cite={<p>{NI_SCOPE_BANNER}</p>}
       citation={`Grid, "Northern Ireland electricity (outside GB)", grid.vahaah.com${NI_PATH}, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${EIRGRID_GROUP_ATTRIBUTION}`}
       header={

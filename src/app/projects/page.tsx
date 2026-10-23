@@ -10,16 +10,21 @@ import {
   PROJECTS_PATH,
   PROJECTS_STANDFIRST,
   PROJECTS_TITLE,
+  projectsDirectoryDescription,
 } from "@/lib/projects/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { buildProjectsDocument } from "@/lib/projects/page-model";
 
 export const dynamic = "force-static";
 export const revalidate = 86_400;
 
+const projectCount = loadProjectCatalogue().projects.length;
+
 export const metadata: Metadata = buildPageMetadata({
   title: PROJECTS_TITLE,
-  description: PROJECTS_STANDFIRST,
+  description: projectsDirectoryDescription(projectCount),
   path: PROJECTS_PATH,
   imagePath: "/projects/opengraph-image",
   imageAlt: PROJECTS_TITLE,
@@ -33,6 +38,12 @@ export default function ProjectsPage() {
       section={PROJECTS_EYEBROW}
       title={PROJECTS_H1}
       breadcrumb={[{ label: PROJECTS_EYEBROW }]}
+      schema={pageJsonLd({
+        name: PROJECTS_TITLE,
+        description: projectsDirectoryDescription(projectCount),
+        url: `${SITE_ORIGIN}${PROJECTS_PATH}`,
+        breadcrumbs: [{ name: PROJECTS_EYEBROW, item: `${SITE_ORIGIN}${PROJECTS_PATH}` }],
+      })}
       cite={<p>{PROJECTS_STANDFIRST}</p>}
       citation={`Grid, "Energy projects in Britain", grid.vahaah.com${PROJECTS_PATH}, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${PROJECTS_ATTRIBUTION}`}
       header={

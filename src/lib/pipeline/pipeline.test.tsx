@@ -304,9 +304,9 @@ describe("pipeline page", () => {
     expect(page).not.toContain("maplibre");
     expect(card).not.toContain("maplibre");
     expect(card).not.toContain("loadPipelineCatalogue");
-    expect(PIPELINE_TITLE).toBe("GB renewable and storage project pipeline | Grid");
+    expect(PIPELINE_TITLE).toBe("GB renewable and storage pipeline by stage | Grid");
     expect(PIPELINE_DESCRIPTION).toBe(
-      "Renewable and storage projects in Great Britain, from planning to construction, by stage and technology. From DESNZ's REPD, updated quarterly.",
+      "How many renewable and storage projects are under construction, consented or in planning in Great Britain, by technology and nation. From DESNZ REPD.",
     );
     expect(PIPELINE_H1).toBe("What's in GB's pipeline of new energy projects?");
     const html = renderToStaticMarkup(PipelinePage());

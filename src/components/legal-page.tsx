@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { JsonLd } from "@/components/json-ld";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePageHeader } from "@/components/site-page-header";
@@ -8,15 +9,18 @@ export function LegalPage({
   section,
   title,
   lede,
+  schema,
   children,
 }: {
   section: string;
   title: string;
   lede: string;
+  schema?: { "@context": "https://schema.org"; "@graph": Array<Record<string, unknown>> };
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
+      {schema ? <JsonLd data={schema} /> : null}
       <SitePageHeader section={section} />
       <main className={PAGE_STACK_CLASS}>
         <section>

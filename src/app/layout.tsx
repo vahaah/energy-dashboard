@@ -23,6 +23,8 @@ export const metadata: Metadata = {
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     type: "website",
+    locale: "en_GB",
+    siteName: "Grid",
     url: "/",
     images: [SITE_OG_IMAGE],
   },

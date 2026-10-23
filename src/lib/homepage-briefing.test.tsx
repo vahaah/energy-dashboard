@@ -107,9 +107,9 @@ describe("homepage briefing", () => {
 
     const text = homepageCitePlainText(cite);
     expect(text).toContain("At 12:00 BST on Sat 10 Oct 2026");
-    expect(text).toContain("Wind was Britain's largest source of electricity at 16.0 GW (70%)");
+    expect(text).toContain("wind was Britain's largest source of electricity at 16.0 GW (70%)");
     expect(text).toContain("Gas supplied 17%");
-    expect(text).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");
+    expect(text).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live");
     expect(text).toContain("gCO₂/kWh");
     expect(text).toContain("£45.20/MWh");
     expect(text).not.toContain("No data yet");
@@ -127,7 +127,8 @@ describe("homepage briefing", () => {
     expect(html).not.toContain("<dl");
     expect(html).toContain("<time");
     expect(html).toContain('dateTime="2026-10-10T12:00:00+01:00"');
-    expect(html).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live");
+    expect(html).toContain("Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live");
+    expect(html).toContain('id="summary"');
     expect(html).not.toContain("/MWh.Sources:");
     expect(html).toContain("/MWh. Sources:");
     expect(html).not.toContain("No data yet");

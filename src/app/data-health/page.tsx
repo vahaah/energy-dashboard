@@ -15,8 +15,9 @@ import { NI_PATH } from "@/lib/eirgrid/copy";
 import { physicalGasCoverage } from "@/lib/metrics";
 import { readDnoLayerFlag } from "@/lib/map/layer-flag";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
+import { pageJsonLd } from "@/lib/jsonld";
 import { dataHealthPageMetadata } from "@/lib/page-metadata";
-import { DATA_HEALTH_H1 } from "@/lib/site";
+import { DATA_HEALTH_DESCRIPTION, DATA_HEALTH_H1, DATA_HEALTH_TITLE, SITE_ORIGIN } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = dataHealthPageMetadata();
@@ -42,6 +43,12 @@ export default async function DataHealthPage() {
       section="Data health"
       title={DATA_HEALTH_H1}
       breadcrumb={[{ label: "Data health" }]}
+      schema={pageJsonLd({
+        name: DATA_HEALTH_TITLE,
+        description: DATA_HEALTH_DESCRIPTION,
+        url: `${SITE_ORIGIN}/data-health`,
+        breadcrumbs: [{ name: "Data health", item: `${SITE_ORIGIN}/data-health` }],
+      })}
       cite={
         <p data-cite>
           Published is the source time on the warmed row. Retrieved is when Grid stored that

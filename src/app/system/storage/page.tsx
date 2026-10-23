@@ -6,9 +6,12 @@ import {
   STORAGE_EYEBROW,
   STORAGE_H1,
   STORAGE_PATH,
+  STORAGE_DESCRIPTION,
   STORAGE_STANDFIRST,
   STORAGE_TITLE,
 } from "@/lib/storage/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { loadStorageInventory, loadWarmedStorageGeneration } from "@/lib/storage/load";
 import { storageOperations } from "@/lib/storage/operations";
 import { buildStorageDocument } from "@/lib/storage/page-model";
@@ -19,7 +22,7 @@ export const revalidate = 1800;
 
 export const metadata: Metadata = buildPageMetadata({
   title: STORAGE_TITLE,
-  description: STORAGE_STANDFIRST,
+  description: STORAGE_DESCRIPTION,
   path: STORAGE_PATH,
   imagePath: "/system/storage/opengraph-image",
   imageAlt: STORAGE_TITLE,
@@ -36,6 +39,12 @@ export default async function StoragePage() {
       section={STORAGE_EYEBROW}
       title={STORAGE_H1}
       breadcrumb={[{ label: STORAGE_EYEBROW }]}
+      schema={pageJsonLd({
+        name: STORAGE_TITLE,
+        description: STORAGE_DESCRIPTION,
+        url: `${SITE_ORIGIN}${STORAGE_PATH}`,
+        breadcrumbs: [{ name: STORAGE_EYEBROW, item: `${SITE_ORIGIN}${STORAGE_PATH}` }],
+      })}
       cite={<p>{STORAGE_STANDFIRST}</p>}
       citation={`Grid, "Electricity storage in Britain", grid.vahaah.com${STORAGE_PATH}, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${document.inventoryAttribution} ${document.monitoredAttribution}`}
       header={

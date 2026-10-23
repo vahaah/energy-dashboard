@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
-import { privacyPageMetadata } from "@/lib/page-metadata";
+import { pageJsonLd } from "@/lib/jsonld";
+import { PRIVACY_DESCRIPTION, PRIVACY_TITLE, privacyPageMetadata } from "@/lib/page-metadata";
 import {
   LEGAL_CONTACT_EMAIL,
   LEGAL_CONTACT_MAILTO,
   LEGAL_CONTROLLER,
+  SITE_ORIGIN,
 } from "@/lib/site";
 
 export const revalidate = 86_400;
@@ -17,6 +19,12 @@ export default function PrivacyPage() {
       section="Privacy"
       title="Privacy"
       lede="Grid has no accounts and does not set non-essential cookies. This notice is for visitors in the UK and explains what Comonad Ltd collects when you use grid.vahaah.com."
+      schema={pageJsonLd({
+        name: PRIVACY_TITLE,
+        description: PRIVACY_DESCRIPTION,
+        url: `${SITE_ORIGIN}/privacy`,
+        breadcrumbs: [{ name: "Privacy", item: `${SITE_ORIGIN}/privacy` }],
+      })}
     >
       <LegalSection title="Who is responsible">
         <p>

@@ -34,8 +34,8 @@ describe("SEO titles and descriptions", () => {
   it("keeps homepage, records and P1 copy within the plan limits", () => {
     expect(SITE_ORIGIN).toBe("https://grid.vahaah.com");
     expect(SITE_URL).toBe(SITE_ORIGIN);
-    expect(HOME_TITLE).toBe("Grid: what's powering Britain's electricity today");
-    expect(RECORDS_TITLE).toBe("GB electricity records: wind, solar and carbon");
+    expect(HOME_TITLE).toBe("What's powering Britain's electricity today? | Grid");
+    expect(RECORDS_TITLE).toBe("GB electricity records: wind, carbon, renewables | Grid");
     const titles = [
       HOME_TITLE,
       RECORDS_TITLE,
@@ -61,6 +61,7 @@ describe("SEO titles and descriptions", () => {
       ASSETS_DESCRIPTION,
     ];
     for (const title of titles) {
+      expect(title.endsWith(" | Grid")).toBe(true);
       expect(pageTitleLength(title)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     }
     for (const description of descriptions) {
@@ -74,7 +75,7 @@ describe("SEO titles and descriptions", () => {
     expect(GAS_TITLE).toContain("Henry Hub");
     expect(GAS_DESCRIPTION).toContain("National Gas");
     expect(GAS_DESCRIPTION).toContain("Henry Hub");
-    expect(GAS_DESCRIPTION).toContain("World Bank Europe gas");
+    expect(GAS_DESCRIPTION).toContain("European gas");
     expect(GAS_DESCRIPTION).toContain("Japan LNG");
   });
 });

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { cataloguePageSources } from "@/lib/catalogue/page-sources";
-import { dataSourcesPageMetadata } from "@/lib/page-metadata";
+import { pageJsonLd } from "@/lib/jsonld";
+import { DATA_SOURCES_DESCRIPTION, DATA_SOURCES_TITLE, dataSourcesPageMetadata } from "@/lib/page-metadata";
+import { SITE_ORIGIN } from "@/lib/site";
 
 export const revalidate = 86_400;
 export const dynamic = "force-static";
@@ -15,6 +17,12 @@ export default function DataSourcesPage() {
       section="Data sources"
       title="Data sources"
       lede="Every feed Grid republishes, with the licence it is under and the attribution text that licence requires. /attributions redirects here."
+      schema={pageJsonLd({
+        name: DATA_SOURCES_TITLE,
+        description: DATA_SOURCES_DESCRIPTION,
+        url: `${SITE_ORIGIN}/data-sources`,
+        breadcrumbs: [{ name: "Data sources", item: `${SITE_ORIGIN}/data-sources` }],
+      })}
     >
       <LegalSection title="How Grid uses data">
         <p>
