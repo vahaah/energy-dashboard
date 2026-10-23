@@ -1,6 +1,7 @@
 "use client";
 
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChartLegend } from "@/components/charts/chart-legend";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import {
@@ -28,6 +29,17 @@ function tickLabel(value: string): string {
 function pounds(value: number): string {
   return `£${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(value)}`;
 }
+
+function axisPounds(value: number, millions: boolean): string {
+  if (!millions) {
+    return pounds(value);
+  }
+  const scaled = value / 1_000_000;
+  const digits = Math.abs(scaled) >= 10 ? 0 : 1;
+  return `£${new Intl.NumberFormat("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(scaled)}m`;
+}
+
+const SERIES_DASH = ["0", "6 4", "2 3", "10 4 2 4"] as const;
 
 function CostTooltip({
   active,
@@ -61,8 +73,14 @@ function CostTooltip({
 
 export function ConstraintCostChart({ series }: { series: MeasuredCostChartSeries }) {
   const checked = measuredCostChart(series);
+  const peak = Math.max(
+    0,
+    ...checked.points.flatMap((point) => BREAKDOWN_CATEGORIES.map((category) => point[category])),
+  );
+  const millions = peak >= 1_000_000;
   return (
     <div data-chart="constraint-cost" data-unit="GBP">
+      <p className="mb-2 text-copy-14 text-gray-900">{millions ? "Cost, £ million" : "Cost, £"}</p>
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={[...checked.points]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -72,21 +90,30 @@ export function ConstraintCostChart({ series }: { series: MeasuredCostChartSerie
               tick={chartAxisTick}
               {...chartAxisLine}
               width={64}
-              tickFormatter={(value: number) => pounds(value)}
+              tickFormatter={(value: number) => axisPounds(value, millions)}
             />
             <Tooltip content={<CostTooltip />} {...chartAnimation} />
-            {BREAKDOWN_CATEGORIES.map((category) => (
+            {BREAKDOWN_CATEGORIES.map((category, index) => (
               <Line
                 key={category}
                 dataKey={category satisfies keyof CostChartPoint}
                 name={BREAKDOWN_CATEGORY_LABEL[category]}
                 stroke={BREAKDOWN_CATEGORY_COLOR[category]}
+                strokeDasharray={SERIES_DASH[index]}
                 {...chartHeroLine}
               />
             ))}
           </LineChart>
         </ResponsiveContainer>
       </ResponsiveChartFrame>
+      <ChartLegend
+        items={BREAKDOWN_CATEGORIES.map((category, index) => ({
+          id: category,
+          label: BREAKDOWN_CATEGORY_LABEL[category],
+          color: BREAKDOWN_CATEGORY_COLOR[category],
+          dash: SERIES_DASH[index],
+        }))}
+      />
     </div>
   );
 }

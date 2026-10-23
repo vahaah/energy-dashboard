@@ -172,6 +172,21 @@ export function formatLondonDayMonthYear(isoDate: string): string {
   return `${day} ${LONDON_MONTHS[month - 1]} ${year}`;
 }
 
+const VISIBLE_INSTANT = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g;
+
+/** UI clock. `Fri 23 Oct 2026, 13:30 BST`. */
+export function formatLondon(date: Date): string {
+  return formatLondonDateTimeStamp(date);
+}
+
+/** Replace ISO instants in visible copy. Identifiers in APIs stay as stored. */
+export function formatVisibleInstants(text: string): string {
+  return text.replace(VISIBLE_INSTANT, (iso) => {
+    const date = parseUtcDateTime(iso);
+    return Number.isNaN(date.getTime()) ? iso : formatLondonDateTimeStamp(date);
+  });
+}
+
 export function formatLondonDateTimeStamp(date: Date): string {
   const parts = getLondonDateTimeParts(date);
   const weekday = partValue(londonWeekdayFormatter.formatToParts(date), "weekday");

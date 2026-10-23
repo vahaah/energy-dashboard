@@ -1,4 +1,5 @@
 import { displayedPercents } from "@/lib/display-rounding";
+import { formatGrouped } from "@/lib/format/quantity";
 import { SEMO_SOURCE_LINE, SONI_SOURCE_LINE } from "@/lib/attribution";
 import { formatAbsent } from "@/lib/data-state";
 import { NI_EMPTY, NI_PARTIAL, niLatestSentence } from "@/lib/eirgrid/copy";
@@ -235,8 +236,12 @@ function formatFigure(value: number, unit: string): string {
   if (unit === "%") {
     return `${value.toFixed(1)}%`;
   }
+  if (unit === "MW" || unit === "MWh") {
+    const digits = Number.isInteger(value) ? 0 : 1;
+    return formatGrouped(value, digits);
+  }
   if (Number.isInteger(value)) {
-    return String(value);
+    return formatGrouped(value, 0);
   }
   return value.toFixed(2);
 }

@@ -83,7 +83,7 @@ export function GasSeriesChart({
               x={nowMs}
               stroke="var(--gray-700)"
               strokeDasharray="4 4"
-              label={{ value: "Now", position: "insideTopLeft", fill: "var(--gray-700)", fontSize: 12 }}
+              label={{ value: "Now", position: "insideTopLeft", fill: "var(--gray-900)", fontSize: 12 }}
             />
           ) : null}
           <Line

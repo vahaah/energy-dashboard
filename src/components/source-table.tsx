@@ -10,11 +10,11 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
         <div key={group.id} className="border-b border-gray-alpha-200 last:border-b-0">
           <div className="flex min-w-0 items-center gap-2">
             <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: group.color }} aria-hidden="true" />
-            <p className="min-w-0 flex-1 truncate text-copy-14 font-medium text-gray-1000">{group.label}</p>
+            <p className="min-w-0 flex-1 break-words text-copy-14 font-medium text-gray-1000">{group.label}</p>
             <p data-figure className="w-14 shrink-0 whitespace-nowrap text-right font-sans text-copy-14 tabular-nums text-gray-1000">
               <span data-value>{group.gwLabel}</span>
               {group.mw != null ? (
-                <span data-unit className="align-baseline text-gray-700">
+                <span data-unit className="align-baseline text-[0.6em] text-gray-900">
                   {" "}
                   GW
                 </span>
@@ -31,7 +31,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
             >
               <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-copy-14 text-gray-1000">{row.label}</p>
+                <p className="break-words text-copy-14 text-gray-1000">{row.label}</p>
                 {row.missingNote ? (
                   <p className="mt-1 flex max-w-full flex-wrap items-center gap-1.5 text-label-12 text-gray-900">
                     {row.missingNote === "no data" ? <DataStateNotice state="unavailable" /> : null}
@@ -42,7 +42,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
               <p data-figure className="w-14 shrink-0 whitespace-nowrap text-right font-sans text-copy-14 tabular-nums text-gray-1000">
                 <span data-value>{row.gwLabel}</span>
                 {row.mw != null ? (
-                  <span data-unit className="align-baseline text-gray-700">
+                  <span data-unit className="align-baseline text-[0.6em] text-gray-900">
                     {" "}
                     GW
                   </span>

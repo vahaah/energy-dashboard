@@ -1,5 +1,6 @@
 import { SectorSwitch } from "@/components/whole-energy/sector-switch";
 import { Card } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import {
   WHOLE_ENERGY_ATTRIBUTION,
   WHOLE_ENERGY_CONVERSION_NOTE,
@@ -46,7 +47,7 @@ export function WholeEnergyBoard({ model }: { model: WholeEnergyPageModel }) {
 
       <Card title="Energy balance">
         <p className="text-copy-14 text-gray-900">{unit}</p>
-        <div className="relative mt-4 min-w-0 max-w-full overflow-x-auto">
+        <TableScroll className="mt-4">
           <table className="w-full min-w-[48rem] text-left text-copy-14">
             <caption className="sr-only">
               {WHOLE_ENERGY_FLOW_LABEL}. {unit} {WHOLE_ENERGY_SCOPE}
@@ -86,7 +87,7 @@ export function WholeEnergyBoard({ model }: { model: WholeEnergyPageModel }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
         <p className="mt-3 break-words text-label-12 text-gray-900">{WHOLE_ENERGY_DIFFERENCE_NOTE}</p>
         <p className="mt-1 break-words text-label-12 text-gray-900">{WHOLE_ENERGY_STOCK_NOTE}</p>
         <p className="mt-1 break-words text-label-12 text-gray-900">{WHOLE_ENERGY_CONVERSION_NOTE}</p>

@@ -4,6 +4,7 @@ import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
 import { Card, CARD_GRID_CLASS } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { formatHeadlineGw } from "@/lib/facts";
 import { todayJsonLd } from "@/lib/jsonld";
@@ -129,7 +130,7 @@ export default async function TodayPage() {
             Tinybird query. The week window is the last seven days.
           </p>
           <Card className="mt-4">
-            <div className="relative min-w-0 overflow-x-auto">
+            <TableScroll>
               <table className="w-full min-w-[560px] text-left text-copy-14">
                 <caption className="sr-only">Today compared with yesterday and the past 7 days</caption>
                 <thead className="text-label-13 text-gray-900">
@@ -160,7 +161,7 @@ export default async function TodayPage() {
                   <ComparisonRow label="Past 7 days" values={model.comparison.week} />
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </Card>
         </section>
 

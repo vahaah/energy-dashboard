@@ -1,3 +1,5 @@
+import { THIN_SPACE } from "@/lib/format/quantity";
+
 export type StatProps = {
   stat: string;
   value: string;
@@ -37,7 +39,8 @@ export function Stat({
         }
       >
         <span data-value>{value}</span>
-        <span data-unit={unit} className="align-baseline text-gray-700">
+        <span data-unit={unit} className="align-baseline text-[0.6em] font-medium text-gray-900">
+          {THIN_SPACE}
           {unit}
         </span>
       </p>

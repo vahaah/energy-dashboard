@@ -47,8 +47,10 @@ export type TodayMapStamp = {
   dukes_source_release_id: string;
   dno_sha256: string;
   batteries_sha256: string;
-  /** sha256 of data/catalogue/energy_projects.ndjson. Pipeline figures read that file. */
+  /** sha256 of data/catalogue/energy_projects.ndjson. Operating batteries read that file. */
   projects_sha256: string;
+  /** sha256 of repd_pipeline.json and repd_pipeline.ndjson. The home pipeline block reads that catalogue. */
+  pipeline_sha256: string;
 };
 
 export type TodayMapCount = {
@@ -147,7 +149,8 @@ export function todayMapReleaseCurrent(stamp: TodayMapStamp, next: TodayMapStamp
     stamp.dukes_source_release_id === next.dukes_source_release_id &&
     stamp.dno_sha256 === next.dno_sha256 &&
     stamp.batteries_sha256 === next.batteries_sha256 &&
-    stamp.projects_sha256 === next.projects_sha256
+    stamp.projects_sha256 === next.projects_sha256 &&
+    stamp.pipeline_sha256 === next.pipeline_sha256
   );
 }
 

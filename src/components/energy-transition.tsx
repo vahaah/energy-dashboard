@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ChartLegend } from "@/components/charts/chart-legend";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import {
@@ -40,6 +41,7 @@ export function EnergyTransition({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
+      <div className="min-w-0">
       <ResponsiveChartFrame className={CHART_HEIGHT_SMALL}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
@@ -63,10 +65,17 @@ export function EnergyTransition({
               cursor={{ stroke: "var(--gray-alpha-400)", strokeWidth: 1 }}
             />
             <Line {...chartLine} type="monotone" dataKey="coal" stroke={COAL_COLOR} name="Coal" />
-            <Line {...chartLine} type="monotone" dataKey="wind" stroke={WIND_COLOR} name="Wind" />
+            <Line {...chartLine} type="monotone" dataKey="wind" stroke={WIND_COLOR} name="Wind" strokeDasharray="6 4" />
           </LineChart>
         </ResponsiveContainer>
       </ResponsiveChartFrame>
+      <ChartLegend
+        items={[
+          { id: "coal", label: "Coal, share of generation", color: COAL_COLOR },
+          { id: "wind", label: "Wind, share of generation", color: WIND_COLOR, dash: "6 4" },
+        ]}
+      />
+      </div>
       <div className="space-y-3 text-copy-14 text-gray-1000">
         {sentences ? (
           sentences.map((sentence) => <p key={sentence}>{sentence}</p>)

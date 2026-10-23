@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Quantity } from "@/components/ui/quantity";
+import { formatEnergy, formatGrouped } from "@/lib/format/quantity";
 import {
   CONNECTION_CAPACITY,
   CONNECTION_DUPLICATE_WARNING,
@@ -39,7 +41,7 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
       <div className="col-span-12 lg:col-span-4">
         <Card size="stat" title={OPERATING_RATED_POWER} className="h-full">
           <p className="min-w-0 break-words text-heading-32 text-gray-1000">
-            {document.operating.totalLabel} <span className="text-copy-16 text-gray-900">MW</span>
+            <EnergyHeadline mw={document.operating.total} />
           </p>
           <p className="mt-2 break-words text-label-12 text-gray-900">{RATED_POWER}, MW. {PROPOSED_EXCLUDED}</p>
           {document.operating.omitted > 0 ? (
@@ -53,7 +55,7 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
       <div className="col-span-12 lg:col-span-4">
         <Card size="stat" title={CONNECTION_CAPACITY} className="h-full">
           <p className="min-w-0 break-words text-heading-32 text-gray-1000">
-            {document.connection.totalLabel} <span className="text-copy-16 text-gray-900">MW</span>
+            <EnergyHeadline mw={document.connection.total} />
           </p>
           <p className="mt-2 break-words text-label-12 text-gray-900">Connection capacity, MW. {CONNECTION_DUPLICATE_WARNING}</p>
         </Card>
@@ -78,7 +80,7 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
                 <li key={share.technology} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <span className="break-words text-copy-14 text-gray-1000">{share.label}</span>
                   <span className="text-label-13 text-gray-900">
-                    {share.mwLabel} MW · {share.percentLabel}%
+                    {formatGrouped(share.mw, 1)} MW · {share.percentLabel}%
                   </span>
                 </li>
               ))}
@@ -143,6 +145,11 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
       </div>
     </div>
   );
+}
+
+function EnergyHeadline({ mw }: { mw: number }) {
+  const energy = formatEnergy(mw);
+  return <Quantity value={energy.value} unit={energy.unit} />;
 }
 
 function ProjectLine({ row }: { row: ProjectIndexRow }) {

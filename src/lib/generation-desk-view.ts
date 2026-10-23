@@ -577,7 +577,7 @@ export function demandBalanceYTicks(points: DemandBalanceChartPoint[]): number[]
 export function demandChartMargin(compact: boolean, datedTicks: boolean, hasForecast = false) {
   return {
     top: 24,
-    right: compact ? 12 : hasForecast ? 64 : 12,
+    right: compact ? 28 : hasForecast ? 64 : 28,
     bottom: compact && datedTicks ? 22 : 4,
     left: 8,
   };

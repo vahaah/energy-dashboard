@@ -1,6 +1,7 @@
 import { ConstraintCostChart } from "@/components/constraints/constraint-cost-chart";
 import { ConstraintVolumeChart } from "@/components/constraints/constraint-volume-chart";
 import { Card } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import {
   CONSTRAINTS_ALLOCATION,
   CONSTRAINTS_ATTRIBUTION,
@@ -47,7 +48,7 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
       ) : null}
       {model.latest ? (
         <Card title={`Settlement date ${model.latest.settlementDate}`}>
-          <div className="min-w-0 max-w-full overflow-x-auto">
+          <TableScroll>
             <table className="w-full min-w-[36rem] text-left text-copy-14">
               <thead>
                 <tr className="text-label-12 text-gray-900">
@@ -76,7 +77,7 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
                 </tr>
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </Card>
       ) : null}
       {model.dayAhead ? (

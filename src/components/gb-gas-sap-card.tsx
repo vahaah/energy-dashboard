@@ -49,7 +49,7 @@ export function GbGasSapCard({
         <span data-value>
           {latest ? formatSapPencePerTherm(latest.price).replace(" p/therm", "") : "—"}
         </span>
-        <span data-unit className="align-baseline text-heading-32 text-gray-700">
+        <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
           {" "}
           p/therm
         </span>

@@ -848,13 +848,13 @@ describe("demand balance chart view", () => {
   it("stacks colliding end labels inside the plot and thins dated compact ticks", () => {
     expect(demandChartMargin(true, true)).toEqual({
       top: 24,
-      right: 12,
+      right: 28,
       bottom: 22,
       left: 8,
     });
     expect(demandChartMargin(false, false)).toEqual({
       top: 24,
-      right: 12,
+      right: 28,
       bottom: 4,
       left: 8,
     });
