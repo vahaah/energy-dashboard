@@ -21,7 +21,7 @@ import { formatPlainSettlementWindow, fuelinstDelayNote } from "@/lib/generation
 import { generationMixShares } from "@/lib/generation-share";
 import { buildGroupedSourceTable } from "@/lib/source-groups";
 import { captionGeneration } from "@/lib/attribution";
-import { HOURLY_CRON_STALE_MS } from "@/lib/health";
+import { SETTLEMENT_PUBLICATION_GRACE_MS } from "@/lib/data-state";
 import { parseUtcDateTime } from "@/lib/london-time";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { LatestFacts } from "@/lib/facts";
@@ -180,7 +180,7 @@ function balanceFooterStatus(power: DisplayedPower, now: Date): BalanceFooterSta
     const period = power.generationStartUtc ?? power.demandStartUtc;
     if (period != null) {
       const end = getSettlementPeriod(parseUtcDateTime(period)).endUtc.getTime();
-      if (now.getTime() - end <= HOURLY_CRON_STALE_MS) {
+      if (now.getTime() - end <= SETTLEMENT_PUBLICATION_GRACE_MS) {
         return "waiting";
       }
     }

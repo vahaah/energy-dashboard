@@ -192,10 +192,9 @@ export async function fetchEirgridBundle(now: Date, options: EirgridFetchOptions
         rows.push(row);
       }
     }
+    // A region whose every area missed counts as that chart part. A partial region only carries the missed metrics.
     if (succeeded === 0) {
-      if (httpFailed) {
-        failures.push({ part: `chart:${region}`, reason });
-      }
+      failures.push({ part: `chart:${region}`, reason: httpFailed ? reason : "zero rows" });
       return null;
     }
     return JSON.stringify({

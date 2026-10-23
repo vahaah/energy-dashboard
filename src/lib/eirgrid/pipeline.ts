@@ -141,7 +141,8 @@ export async function publishNiBundle(
   const path = niReleasePath(release.release_id);
   await putIfAbsent(path, JSON.stringify(release), "application/json");
   const failed = failedPartIds(bundle);
-  await recordCatalogue(release, bundle, now, failed.length > 0 ? "partial" : "succeeded", previous);
+  const missedArea = (bundle.carry_metric_ids?.length ?? 0) > 0;
+  await recordCatalogue(release, bundle, now, failed.length > 0 || missedArea ? "partial" : "succeeded", previous);
   revalidateNiPaths();
   if (pointerFile) {
     await niStore().put(NI_PREVIOUS_PATH, pointerFile.body, niMutablePut("application/json"));

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { LookupResults } from "@/components/directory/lookup-result";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { IDENTIFIER_SCHEMES, SCHEME_INTRO, SCHEME_LABEL, SCHEME_ROLE, type IdentifierScheme } from "@/lib/directory/copy";
-import { codeLookupReady, parseLookupSearch, type LookupResult } from "@/lib/directory/lookup";
+import { codeLookupReady, codeLookupRejection, type LookupResult } from "@/lib/directory/lookup";
 
 const FIELD =
   "h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000";
@@ -23,12 +23,8 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
     setNotice(null);
     setMessage("");
     if (!codeLookupReady(scheme, code, effectiveOn)) {
-      if (code.trim().length > 0) {
-        const parsed = parseLookupSearch(new URLSearchParams({ scheme, code, effective_on: effectiveOn }));
-        if (!parsed.ok) {
-          setMessage(parsed.error);
-        }
-      }
+      setResult(null);
+      setMessage(codeLookupRejection(scheme, code, effectiveOn));
       return;
     }
     setPending(true);

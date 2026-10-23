@@ -126,6 +126,19 @@ export function nameLookupReady(name: string, effectiveOn: string): boolean {
   return parsed.ok && parsed.kind === "name";
 }
 
+export function nameLookupRejection(name: string, effectiveOn: string): string {
+  if (name.trim().length === 0) {
+    return "Enter a name.";
+  }
+  const parsed = parseLookupSearch(new URLSearchParams({ name, effective_on: effectiveOn }));
+  return parsed.ok ? "Enter a name." : parsed.error;
+}
+
+export function codeLookupRejection(scheme: string, code: string, effectiveOn: string): string {
+  const parsed = parseLookupSearch(new URLSearchParams({ scheme, code, effective_on: effectiveOn }));
+  return parsed.ok ? "code is required" : parsed.error;
+}
+
 export type ParsedResolve =
   | { ok: true; effectiveOn: string; queries: ResolveQuery[] }
   | { ok: false; status: 400 | 403; error: string };

@@ -23,9 +23,11 @@ import {
 import { ingestDirectory, isdEntityUrl, ISD_LOOKUP_FILTERS } from "@/lib/directory/ingest";
 import {
   codeLookupReady,
+  codeLookupRejection,
   lookupByCode,
   lookupByName,
   nameLookupReady,
+  nameLookupRejection,
   parseLookupSearch,
   parseResolveBody,
   resolveLogFields,
@@ -232,6 +234,10 @@ describe("directory lookup", () => {
     expect(codeLookupReady("MPID", "NPOW", ON)).toBe(true);
     expect(nameLookupReady("", ON)).toBe(false);
     expect(nameLookupReady("NP", ON)).toBe(true);
+    expect(nameLookupRejection("", ON)).toBe("Enter a name.");
+    expect(nameLookupRejection("N", ON)).toBe("name must be 2 to 80 characters");
+    expect(codeLookupRejection("MPID", "", ON)).toBe("code is required");
+    expect(codeLookupRejection("MPID", "N POW", ON)).toBe("code is required");
     const dotted = parseLookupSearch(new URLSearchParams({ scheme: "BM_UNIT_ID", code: "T_ABCD.1", effective_on: ON }));
     expect(dotted.ok).toBe(false);
     const resolved = parseResolveBody({

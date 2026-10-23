@@ -525,4 +525,48 @@ describe("generation desk layout", () => {
     expect(html).not.toContain('data-state="stale"');
     expect(html).not.toContain("Data delayed");
   });
+
+  it("marks the settlement stale once the hourly window from the period start has passed", () => {
+    const delayed = facts([
+      generation("2026-09-28 03:00:00", "ccgt", 8000),
+      generation("2026-09-28 03:00:00", "wind", 4000),
+      generation("2026-09-28 03:00:00", "intfr", 1147),
+      generation("2026-09-28 02:30:00", "ccgt", 10000),
+      generation("2026-09-28 02:30:00", "wind", 9000),
+      generation("2026-09-28 02:30:00", "intfr", -800),
+    ]);
+    delayed.generationMw = {
+      ...delayed.generationMw,
+      value: 20215,
+      periodStartUtc: "2026-09-28T03:00:00.000Z",
+      periodEndUtc: "2026-09-28T03:30:00.000Z",
+    };
+    delayed.demand = {
+      ...delayed.demand,
+      value: 21500,
+      periodStartUtc: "2026-09-28T02:30:00.000Z",
+      periodEndUtc: "2026-09-28T03:00:00.000Z",
+    };
+    delayed.netImportsMw = {
+      ...delayed.netImportsMw,
+      value: 1147,
+      periodStartUtc: "2026-09-28T03:00:00.000Z",
+      periodEndUtc: "2026-09-28T03:30:00.000Z",
+    };
+
+    const html = renderToStaticMarkup(
+      <GenerationDesk
+        facts={delayed}
+        snapshots={[]}
+        headlineSnapshots={[]}
+        generation={[]}
+        headlineGeneration={[]}
+        range="24h"
+        now={new Date("2026-09-28T05:45:00.000Z")}
+      />,
+    );
+
+    expect(html).toContain("Latest settlement period is not in yet");
+    expect(html).toContain('data-state="stale"');
+  });
 });

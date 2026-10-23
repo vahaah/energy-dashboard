@@ -25,6 +25,18 @@ vi.mock("@/lib/eirgrid/revalidate", () => ({
 
 const MARKET = String.raw`{"rows":[{\"date\":\"20-Oct-2026 15:00:00\",\"NET_IMBALANCE_VOLUME\":38.738,\"IMBALANCE_SETTLEMENT_PRICE\":266.7,\"IMBALANCE_SETTLEMENT_PRICE_GBP\":237.82}]}`;
 
+const CHART_FILL = 7;
+
+const CHART_FIELD: Record<string, string> = {
+  demandactual: "SYSTEM_DEMAND",
+  generationactual: "GEN_EXP",
+  windactual: "WIND_ACTUAL",
+  windforecast: "WIND_FCAST",
+  solaractual: "SOLAR_ACTUAL",
+  solarforecast: "SOLAR_FCAST",
+  co2intensity: "CO2_INTENSITY",
+};
+
 function chart(demand: number): string {
   return chartAt("20-Oct-2026 15:00:00", demand);
 }
@@ -469,9 +481,40 @@ describe("EirGrid fetch", () => {
     const release = await publishedRelease(store, published.releaseId);
 
     expect(published.releaseId).not.toBe(first.releaseId);
+    expect(fetched.bundle?.failed_parts ?? []).not.toContain("chart:NI");
+    expect(fetched.bundle?.carry_metric_ids ?? []).toContain("elec.ni.demand.system");
+    expect(fetched.bundle?.carry_metric_ids ?? []).not.toContain("elec.ni.generation.system");
     expect(valueOf(release, "elec.ni.demand.system")).toBe(636);
     expect(valueOf(release, "elec.ni.generation.system")).toBe(800);
-    expect(valueOf(release, "elec.ni.generation.wind")).toBeNull();
+    expect(valueOf(release, "elec.ni.generation.wind")).toBe(CHART_FILL);
+    const runs = ((await store.get(NI_CATALOGUE_RUNS_PATH))?.body ?? "")
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line) as { status: string; started_at: string });
+    expect(runs.some((run) => run.started_at === "2026-10-20T16:15:00.000Z" && run.status === "partial")).toBe(true);
+  });
+
+  it("leaves the previous pointer when every chart area is empty and the other parts fail", async () => {
+    const store = new MemoryNiStore();
+    setNiStoreForTests(store);
+    const first = await publishGood(store, 636, new Date("2026-10-20T15:15:00.000Z"));
+    const fetchImpl = async (input: RequestInfo | URL) => {
+      const part = partOf(String(input));
+      if (part.startsWith("chart:")) {
+        return textResponse(JSON.stringify({ Rows: [] }));
+      }
+      return textResponse("down", 503);
+    };
+
+    await expect(
+      fetchNiBundle(new Date("2026-10-20T16:15:00.000Z"), {
+        fetchImpl,
+        gapMs: 0,
+        sleep: async () => undefined,
+      }),
+    ).rejects.toBeInstanceOf(FatalError);
+    const latest = JSON.parse((await store.get(NI_LATEST_PATH))?.body ?? "{}") as { release_id: string };
+    expect(latest.release_id).toBe(first.releaseId);
   });
 
   it("prefers London for the cron entry and does not move the hourly schedule", () => {
@@ -492,8 +535,20 @@ describe("EirGrid fetch", () => {
 
 async function publishGood(store: MemoryNiStore, demand: number, now: Date): Promise<{ releaseId: string }> {
   const fetchImpl = async (input: RequestInfo | URL) => {
-    const part = partOf(String(input));
-    return textResponse(part === "chart:NI" ? chart(demand) : part === "market" ? MARKET : "{}");
+    const url = new URL(String(input));
+    const part = partOf(url.toString());
+    if (part.startsWith("chart:")) {
+      const area = url.searchParams.get("areas") ?? "";
+      const region = url.searchParams.get("region") ?? "NI";
+      const field = CHART_FIELD[area] ?? "SYSTEM_DEMAND";
+      const value = area === "demandactual" && region === "NI" ? demand : CHART_FILL;
+      return textResponse(
+        feed("20-Oct-2026 15:00:00", [
+          { EffectiveTime: "20-Oct-2026 15:00:00", FieldName: field, Region: region, Value: value },
+        ]),
+      );
+    }
+    return textResponse(part === "market" ? MARKET : "{}");
   };
   const fetched = await fetchNiBundle(now, { fetchImpl, gapMs: 0, sleep: async () => undefined });
   const published = await publishNiBundle(fetched.hash, now);
