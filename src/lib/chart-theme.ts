@@ -15,7 +15,7 @@ export const chartGrid = {
 
 export const chartAxisTick = {
   fontSize: 12,
-  fill: "var(--gray-700)",
+  fill: "var(--gray-900)",
 } as const;
 
 export const chartYAxisUnitLabel = {

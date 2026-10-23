@@ -2,7 +2,9 @@ import Link from "next/link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { Card } from "@/components/ui/card";
+import { Quantity } from "@/components/ui/quantity";
 import { NOT_AVAILABLE } from "@/lib/assets/labels";
+import { formatEnergy } from "@/lib/format/quantity";
 import {
   CHARGING,
   COVERAGE_HREF,
@@ -120,10 +122,18 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
 }
 
 function StatValue({ value, unit }: { value: string; unit: string | null }) {
+  if (unit === "MW" && value !== NOT_AVAILABLE) {
+    const energy = formatEnergy(Number(value));
+    return (
+      <p className="mt-2 text-heading-24 text-gray-1000">
+        <Quantity value={energy.value} unit={energy.unit} />
+      </p>
+    );
+  }
   return (
     <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
       <span className="font-sans text-heading-24 tabular-nums text-gray-1000">{value}</span>
-      {unit && value !== NOT_AVAILABLE ? <span className="text-label-13 text-gray-900">{unit}</span> : null}
+      {unit && value !== NOT_AVAILABLE ? <span className="text-[0.6em] text-gray-900">{unit}</span> : null}
     </p>
   );
 }

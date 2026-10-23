@@ -64,7 +64,7 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
     <>
       {term.operator ? (
         <span
-          className="self-end pb-[0.35rem] text-center text-[2rem] font-normal text-gray-700"
+          className="self-end pb-[0.35rem] text-center text-[2rem] font-normal text-gray-900"
           aria-hidden="true"
         >
           {term.operator}
@@ -87,7 +87,7 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
           aria-describedby={demand ? PERIOD_ID : undefined}
         >
           <span data-value>{term.displayGw}</span>
-          <span data-unit className="ml-1 align-baseline text-xl font-medium tracking-normal text-gray-700">
+          <span data-unit className="ml-1 align-baseline text-[0.6em] font-medium tracking-normal text-gray-900">
             {figureMeta?.displayUnit ?? "GW"}
           </span>
         </dd>
@@ -113,7 +113,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         demand ? "mt-1.5 border-t border-gray-700 pt-3" : ""
       }`}
     >
-      <span className="text-xl font-normal text-gray-700" aria-hidden="true">
+      <span className="text-xl font-normal text-gray-900" aria-hidden="true">
         {term.operator ?? ""}
       </span>
       <span className={`flex items-center gap-1 text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}>
@@ -125,7 +125,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         className={`font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
       >
         <span data-value>{term.displayGw}</span>
-        <span data-unit className="ml-1 align-baseline text-sm font-medium tracking-normal text-gray-700">
+        <span data-unit className="ml-1 align-baseline text-[0.6em] font-medium tracking-normal text-gray-900">
           {figureMeta?.displayUnit ?? "GW"}
         </span>
       </span>

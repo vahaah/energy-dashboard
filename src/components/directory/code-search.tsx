@@ -73,7 +73,8 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
         Date
-        <input type="date" value={effectiveOn} onChange={(event) => setEffectiveOn(event.target.value)} className={FIELD} required />
+        <input type="date" lang="en-GB" value={effectiveOn} onChange={(event) => setEffectiveOn(event.target.value)} className={FIELD} required />
+        <span className="text-label-13 font-normal text-gray-900">Example: 23 Oct 2026</span>
       </label>
       <button
         type="submit"

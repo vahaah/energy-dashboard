@@ -40,6 +40,8 @@ import {
   type TodayPlant,
   type TodayProject,
 } from "@/lib/map/today-figures";
+import { todayPipelineFromFigures } from "@/lib/map/today-pipeline";
+import { loadPipelineCatalogue } from "@/lib/pipeline/load";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 
 type LocatedPlant = TodayPlant & {
@@ -124,7 +126,7 @@ export function renderTodayMapCard(): { manifest: TodayMapCardFile; light: Stati
     operating: figures.operating,
     technologies: figures.technologies,
     nations: figures.nations,
-    pipeline: figures.pipeline,
+    pipeline: todayPipelineFromFigures(loadPipelineCatalogue().figures),
   };
   return {
     manifest,

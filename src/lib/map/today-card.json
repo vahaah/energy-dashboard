@@ -88,25 +88,25 @@
     }
   ],
   "pipeline": {
-    "gw": "283.9",
-    "sites": 10126,
-    "missing": 2701,
+    "gw": "267.4",
+    "sites": 7668,
+    "missing": 991,
     "filtered": true,
     "stages": [
       {
         "id": "under_construction",
-        "gw": "28.6",
-        "sites": 486
+        "gw": "27.9",
+        "sites": 452
       },
       {
         "id": "consented",
-        "gw": "144.7",
-        "sites": 5956
+        "gw": "145.3",
+        "sites": 5779
       },
       {
         "id": "in_planning",
-        "gw": "110.6",
-        "sites": 3684
+        "gw": "94.2",
+        "sites": 1437
       }
     ]
   }

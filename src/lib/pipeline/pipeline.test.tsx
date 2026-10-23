@@ -359,7 +359,8 @@ describe("pipeline page", () => {
     );
     expect(page).not.toContain("searchParams");
     const table = source("src/components/pipeline/pipeline-table.tsx");
-    expect(table).toContain("relative mt-3 min-w-0 max-w-full overflow-x-auto");
+    expect(table).toContain("<TableScroll");
+    expect(source("src/components/ui/table-scroll.tsx")).toContain("Swipe for more columns");
     expect(table).toContain('className="relative py-2 pr-3 font-normal"');
     for (const section of PIPELINE_EXPLAINER) {
       expect(html).toContain(section.title);

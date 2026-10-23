@@ -1,3 +1,4 @@
+import { Absent } from "@/components/ui/absent";
 import { Card, CardEmpty } from "@/components/ui/card";
 import { OGL_V3_ATTRIBUTION, OGL_V3_LICENCE_URL } from "@/lib/attribution";
 import { MAP_SIZE_STEPS, type MarkerShape } from "@/lib/map/marker";
@@ -157,9 +158,11 @@ function FigureBlock({
     <div className="min-w-0">
       <p className="text-label-13 text-gray-900">{kicker}</p>
       <p className="text-[30px] font-semibold leading-[36px] tracking-tight text-gray-1000 md:text-[36px] md:leading-[40px]">
-        {gw === null ? "—" : `${gw} GW`}
+        {gw === null ? <Absent reason="Rated capacity is not published" /> : `${gw} GW`}
       </p>
-      <p className="text-mono-12 text-gray-900">{count === null ? "—" : `${formatTodayCount(count)} ${countNoun}`}</p>
+      <p className="text-mono-12 text-gray-900">
+        {count === null ? <Absent reason="Not published" /> : `${formatTodayCount(count)} ${countNoun}`}
+      </p>
     </div>
   );
 }

@@ -50,7 +50,7 @@ export function InterconnectorChart({ data }: Props) {
               </div>
               <p className="shrink-0 whitespace-nowrap text-right font-sans text-copy-14 tabular-nums text-gray-1000">
                 {Math.abs(gw).toFixed(2)}
-                <span className="text-gray-700"> GW</span>
+                <span className="text-[0.6em] text-gray-900">{"\u2009"}GW</span>
                 <span className="ml-1 text-label-12 text-gray-900">{isImport ? "in" : "out"}</span>
               </p>
             </div>

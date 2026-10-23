@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { DataStateNotice } from "@/components/ui/data-state";
 import type { ChangeSource } from "@/lib/changes/query";
+import { formatLondonDayMonthYear, formatVisibleInstants } from "@/lib/london-time";
 
 export type ChangeCard = {
   key: string;
@@ -40,17 +41,24 @@ export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attrib
               )}
             </h2>
             <p className="mt-2 break-words text-copy-14 text-gray-1000">{row.sentence}</p>
-            <p className="mt-2 break-all text-label-12 text-gray-900">{row.evidence}</p>
+            <p className="mt-2 break-words text-label-12 text-gray-900">{formatVisibleInstants(row.evidence)}</p>
             {row.status ? <p className="mt-2 break-words text-label-12 text-gray-900">{row.status}</p> : null}
             <p className="mt-2 break-words text-label-12 text-gray-900">
-              Observed {row.observedAt}
-              {row.effectiveAt ? ` · Effective ${row.effectiveAt}` : ""}
+              Observed {displayWhen(row.observedAt)}
+              {row.effectiveAt ? ` · Effective ${displayWhen(row.effectiveAt)}` : ""}
             </p>
           </article>
         ))}
       </div>
     </Card>
   );
+}
+
+function displayWhen(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatLondonDayMonthYear(value);
+  }
+  return formatVisibleInstants(value);
 }
 
 export function attributionLine(sources: readonly ChangeSource[]): string {

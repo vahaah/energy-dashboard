@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Absent } from "@/components/ui/absent";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
+import { ABSENT_FIGURE } from "@/lib/data-state";
 import { NI_SCOPE_ALL, NI_SCOPE_NI } from "@/lib/eirgrid/copy";
 import type { NiFigure, NiPageModel, NiScopeId, NiScopeModel } from "@/lib/eirgrid/page-model";
 
@@ -76,8 +78,10 @@ function FigureCard({ figure }: { figure: NiFigure }) {
   return (
     <Card title={figure.label} footer={<p className="break-words">{figure.sourceLine}</p>}>
       <p className="break-words text-heading-24 text-gray-1000">
-        {figure.value}
-        <span className="ml-2 text-label-13 text-gray-900">{figure.unit}</span>
+        {figure.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : figure.value}
+        {figure.value === ABSENT_FIGURE ? null : (
+          <span className="text-[0.6em] font-medium text-gray-900">{"\u2009"}{figure.unit}</span>
+        )}
       </p>
       <ul className="mt-4 flex flex-col">
         {figure.rows.map((row) => (
@@ -86,7 +90,9 @@ function FigureCard({ figure }: { figure: NiFigure }) {
             className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-gray-alpha-400 py-2 first:border-t-0"
           >
             <span className="min-w-0 break-words text-mono-12 text-gray-900">{row.time}</span>
-            <span className="text-mono-13 text-gray-1000">{row.value}</span>
+            <span className="text-mono-13 text-gray-1000">
+              {row.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : row.value}
+            </span>
           </li>
         ))}
       </ul>

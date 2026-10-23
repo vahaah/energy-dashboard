@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import { PIPELINE_CLEAR_FILTERS, PIPELINE_CSV_PATH, PIPELINE_EMPTY_FILTER, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
 import { pipelineCsv } from "@/lib/pipeline/csv";
 import { stageLabel, type PipelineStageId, type PipelineTableRow } from "@/lib/pipeline/model";
@@ -156,7 +157,7 @@ export function PipelineTable({ rows, forcedEmpty = false }: { rows: PipelineTab
           </button>
         </div>
       ) : (
-        <div className="relative mt-3 min-w-0 max-w-full overflow-x-auto">
+        <TableScroll className="mt-3">
           <table className="w-full min-w-[40rem] border-collapse text-left">
             <caption className="sr-only">Renewable and storage projects in the GB pipeline</caption>
             <thead>
@@ -190,7 +191,7 @@ export function PipelineTable({ rows, forcedEmpty = false }: { rows: PipelineTab
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
       <p className="mt-3 break-words text-label-12 text-gray-900">
         Capacity is rated power. {PIPELINE_NOT_PUBLISHED} means the extract has no megawatt figure.

@@ -213,15 +213,15 @@ body {
 }
 
 .text-label-12 {
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
   font-weight: 400;
 }
 
 .text-mono-12 {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
 }
 
 .surface-card {

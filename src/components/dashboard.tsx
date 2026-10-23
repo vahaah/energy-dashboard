@@ -850,7 +850,7 @@ function CommodityStatCard({
       <p data-figure className="mt-2 whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
         <span data-value>{latest ? formatCommodityPrice(latest) : "—"}</span>
         {latest ? (
-          <span data-unit className="align-baseline text-heading-32 text-gray-700">
+          <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
             {commodityUnitSuffix(latest.unit)}
           </span>
         ) : null}

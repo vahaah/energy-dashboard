@@ -4,6 +4,7 @@ import { MarkerSwatch } from "@/components/marker-swatch";
 import { PipelineChartBoundary } from "@/components/pipeline/chart-boundary";
 import { PipelineExplainer } from "@/components/pipeline/pipeline-explainer";
 import { PipelineTable } from "@/components/pipeline/pipeline-table";
+import { Absent } from "@/components/ui/absent";
 import { Card, CardLoading } from "@/components/ui/card";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,7 @@ import {
   PIPELINE_STORAGE_HEADING,
   PIPELINE_STORAGE_TOTAL,
 } from "@/lib/pipeline/copy";
+import { displayedPercents } from "@/lib/display-rounding";
 import { formatMedianDuration, stageLabel, type PipelineFigures, type StorageTotal } from "@/lib/pipeline/model";
 import type { PipelinePreview } from "@/lib/pipeline/preview";
 
@@ -257,13 +259,29 @@ export function StorageTooltip({ total }: { total: StorageTotal }) {
 }
 
 function shownGw(gw: string): string {
-  return gw === "0.0" ? "—" : `${gw} GW`;
+  return `${gw} GW`;
 }
 
 function StageBar({ figures }: { figures: PipelineFigures }) {
-  const label = figures.stages.map((stage) => `${stage.gw} GW ${stageLabel(stage.id)}`).join(", ");
+  const percents = displayedPercents(
+    figures.stages.map((stage) => (figures.exactGw > 0 ? (stage.exactGw / figures.exactGw) * 100 : 0)),
+  );
+  const label = figures.stages
+    .map((stage, index) => `${stage.gw} GW ${stageLabel(stage.id)} (${percents[index] ?? 0}%)`)
+    .join(", ");
   return (
     <div className="mt-5 min-w-0">
+      <div className="mb-1 flex min-w-0" aria-hidden="true">
+        {figures.stages.map((stage, index) => (
+          <span
+            key={stage.id}
+            className="min-w-0 truncate text-label-13 text-gray-900"
+            style={{ flexGrow: Math.max(stage.exactGw, 0.001), flexBasis: 0 }}
+          >
+            {percents[index] ?? 0}%
+          </span>
+        ))}
+      </div>
       <div
         className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200"
         role="img"
@@ -282,7 +300,7 @@ function StageBar({ figures }: { figures: PipelineFigures }) {
         ))}
       </div>
       <ul className="mt-3 flex min-w-0 flex-col gap-2">
-        {figures.stages.map((stage) => (
+        {figures.stages.map((stage, index) => (
           <li key={stage.id} className="flex min-w-0 items-baseline justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
               <span
@@ -290,10 +308,12 @@ function StageBar({ figures }: { figures: PipelineFigures }) {
                 className="inline-block size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: STAGE_COLORS[stage.id] }}
               />
-              <span className="min-w-0 break-words">{stage.label}</span>
+              <span className="min-w-0 break-words">
+                {stage.label} {percents[index] ?? 0}%
+              </span>
             </span>
             <span className="shrink-0 text-mono-12 text-gray-1000 tabular-nums">
-              {shownGw(stage.gw)}
+              {stage.gw === "0.0" ? <Absent reason="Under 0.1 GW" /> : shownGw(stage.gw)}
               <span className="text-gray-900"> {stage.projects.toLocaleString("en-GB")}</span>
             </span>
           </li>

@@ -1,4 +1,6 @@
+import { Absent } from "@/components/ui/absent";
 import { DataStateNotice } from "@/components/ui/data-state";
+import { ABSENT_FIGURE } from "@/lib/data-state";
 import type { DataHealthReading as Reading } from "@/lib/data-health";
 
 export function DataHealthReading({
@@ -29,11 +31,17 @@ export function DataHealthReading({
             : "whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000"
         }
       >
-        <span data-value>{reading.value_label}</span>
-        <span data-unit className="align-baseline text-gray-700">
-          {" "}
-          {reading.unit}
-        </span>
+        {reading.value_label === ABSENT_FIGURE ? (
+          <Absent reason={reading.state === "not_yet_available" ? "Not yet available" : "Not published"} />
+        ) : (
+          <>
+            <span data-value>{reading.value_label}</span>
+            <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
+              {"\u2009"}
+              {reading.unit}
+            </span>
+          </>
+        )}
       </p>
       <p className="text-label-12 text-gray-900">
         Published{" "}

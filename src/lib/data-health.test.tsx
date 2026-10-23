@@ -42,7 +42,7 @@ describe("data health clocks", () => {
     expect(html).toMatch(/data-clock="published"[^>]*>09:00<\/time>/);
     expect(html).toMatch(/data-clock="retrieved"[^>]*>12:00<\/time>/);
     expect(html).toContain('data-state="stale"');
-    expect(html).toContain("Stale");
+    expect(html).toContain("Not updated");
     expect(html).toContain("Elexon BMRS");
     expect(reading.publication_lag).toBe("PT0S");
     expect(reading.publication_lag_label).toBeNull();

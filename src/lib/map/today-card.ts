@@ -47,7 +47,7 @@ export type TodayMapStamp = {
   dukes_source_release_id: string;
   dno_sha256: string;
   batteries_sha256: string;
-  /** sha256 of data/catalogue/energy_projects.ndjson. Pipeline figures read that file. */
+  /** sha256 of data/catalogue/energy_projects.ndjson. Operating batteries read that file. Pipeline figures come from the REPD pipeline catalogue. */
   projects_sha256: string;
 };
 

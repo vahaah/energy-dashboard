@@ -94,7 +94,7 @@ function InlineLabel({ share }: { share: GenerationMixShare }) {
     return null;
   }
   return (
-    <p className={`truncate text-label-12 ${narrow ? "" : "hidden sm:block"}`}>
+    <p className={`break-words text-label-12 ${narrow ? "" : "hidden sm:block"}`}>
       <span className="font-semibold text-gray-1000">{share.label}</span>{" "}
       <span className="text-gray-900 tabular-nums">{formatSharePercent(share.displayPct)}%</span>
     </p>
@@ -118,7 +118,7 @@ function LegendItem({ share }: { share: GenerationMixShare }) {
         style={{ backgroundColor: share.color }}
         aria-hidden="true"
       />
-      <span className="truncate">{share.label}</span>
+      <span className="min-w-0 break-words">{share.label}</span>
       <span className="tabular-nums text-gray-900">
         {formatHeadlineGw(share.mw)} GW · {formatSharePercent(share.displayPct)}%
       </span>

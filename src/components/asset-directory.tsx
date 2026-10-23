@@ -17,6 +17,7 @@ import {
   type AssetSort,
 } from "@/lib/assets/types";
 import { Card } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 
 const SORT_LABEL: Record<AssetSort, string> = {
   name: "Name",
@@ -143,7 +144,7 @@ export function AssetDirectory({
       {result.rows.length === 0 ? (
         <p className="mt-4 text-copy-14 text-gray-900">No assets match these filters.</p>
       ) : (
-        <div className="relative mt-3 min-w-0 overflow-x-auto">
+        <TableScroll className="mt-3">
           <table className="w-full min-w-[40rem] border-collapse text-left text-copy-14">
             <caption className="sr-only">
               {url.preset === "flows" ? "Electricity interconnectors and gas entry points" : "Power assets"}
@@ -191,7 +192,7 @@ export function AssetDirectory({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
     </Card>
   );

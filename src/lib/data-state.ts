@@ -21,7 +21,7 @@ export type DataState = (typeof DATA_STATES)[number];
 export const DATA_STATE_LABEL: Record<DataState, string> = {
   loading: "Loading",
   partial: "Partial",
-  stale: "Stale",
+  stale: "Not updated",
   unavailable: "Unavailable",
   revised: "Revised",
   provisional: "Provisional",

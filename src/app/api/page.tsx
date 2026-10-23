@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import {
   API_DOCS_CONVENTIONS,
   API_DOCS_ENDPOINTS,
@@ -66,9 +67,11 @@ export default async function ApiDocsPage() {
                 </p>
                 <p className="mt-2 break-words text-copy-14 text-gray-900">{endpoint.summary}</p>
                 <p className="mt-2 break-words text-copy-14 text-gray-900">{endpoint.note}</p>
-                <pre className="mt-3 overflow-x-auto rounded-lg border border-gray-alpha-400 bg-background-200 p-3 text-mono-12 text-gray-1000">
-                  {curlExample(endpoint.method, endpoint.path)}
-                </pre>
+                <TableScroll className="mt-3">
+                  <pre className="w-max min-w-full rounded-lg border border-gray-alpha-400 bg-background-200 p-3 text-mono-12 text-gray-1000">
+                    {curlExample(endpoint.method, endpoint.path)}
+                  </pre>
+                </TableScroll>
               </Card>
             ))}
           </div>
