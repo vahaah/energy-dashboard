@@ -27,6 +27,22 @@ const MUTABLE_CACHE_SECONDS = 60;
 /** ISD lookup snapshots are not a public download. The API is the read path. */
 export const DIRECTORY_BLOB_ACCESS = "private" as const;
 
+/** The tiles store is public and rejects private blobs. This store is private. */
+export const DIRECTORY_BLOB_STORE_ENV = "DIRECTORY_BLOB_STORE_ID";
+export const DIRECTORY_BLOB_TOKEN_ENV = "DIRECTORY_BLOB_READ_WRITE_TOKEN";
+
+export function directoryBlobCommand(): { token?: string; storeId?: string } | null {
+  const token = process.env[DIRECTORY_BLOB_TOKEN_ENV]?.trim();
+  if (token) {
+    return { token };
+  }
+  const storeId = process.env[DIRECTORY_BLOB_STORE_ENV]?.trim();
+  if (storeId) {
+    return { storeId };
+  }
+  return null;
+}
+
 export function directoryBlobWriteOptions(options: DirectoryPutOptions): {
   access: typeof DIRECTORY_BLOB_ACCESS;
   addRandomSuffix: false;
@@ -85,12 +101,20 @@ export class MemoryDirectoryStore implements DirectoryObjectStore {
 
 class VercelDirectoryStore implements DirectoryObjectStore {
   async put(pathname: string, body: string, options: DirectoryPutOptions): Promise<void> {
-    await put(pathname, body, directoryBlobWriteOptions(options));
+    const auth = directoryBlobCommand();
+    if (!auth) {
+      throw new Error("directory blob store is not set");
+    }
+    await put(pathname, body, { ...directoryBlobWriteOptions(options), ...auth });
   }
 
   async get(pathname: string): Promise<DirectoryStoredObject | null> {
+    const auth = directoryBlobCommand();
+    if (!auth) {
+      return null;
+    }
     return readBlobResponse(() =>
-      get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true, abortSignal: blobReadSignal() }),
+      get(pathname, { access: DIRECTORY_BLOB_ACCESS, useCache: true, abortSignal: blobReadSignal(), ...auth }),
     );
   }
 }
@@ -115,7 +139,7 @@ export function directoryStore(): DirectoryObjectStore {
   if (override) {
     return override;
   }
-  if (process.env.VITEST || !process.env.BLOB_READ_WRITE_TOKEN) {
+  if (process.env.VITEST || !directoryBlobCommand()) {
     return disabledStore;
   }
   production ??= new VercelDirectoryStore();
