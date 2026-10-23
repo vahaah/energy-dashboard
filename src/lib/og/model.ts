@@ -125,7 +125,7 @@ export function gridEyebrow(section?: string): string {
 const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard, "cached">> = {
   today: {
     eyebrow: gridEyebrow("Today"),
-    title: "Britain's electricity today",
+    title: "GB electricity today",
     kicker: "Mix, carbon intensity and market price, updated hourly.",
     metrics: [{ label: "Cadence", value: "Hourly" }],
     mix: [],
@@ -486,7 +486,7 @@ function overviewCard(facts: LatestFacts | null, focus: "overview" | "generation
 
 function priceCard(facts: LatestFacts | null): OgCard {
   if (!facts || facts.price.value == null) {
-    return branded("What does power cost?", "Short-term wholesale market price from Elexon.", false);
+    return branded("What does electricity cost?", "Short-term wholesale market price from Elexon.", false);
   }
 
   const power = getDisplayedPower(facts);
@@ -548,12 +548,12 @@ function commoditiesCard(prices: CommodityPrice[] | null): OgCard {
   const sap = latest.get(GB_GAS_SAP_COMMODITY);
 
   if (!brent && !hub && !sap) {
-    return branded("Gas & oil", "EIA, World Bank Pink Sheet, and National Gas SAP.", false);
+    return branded("Gas and oil prices", "EIA, World Bank Pink Sheet, and National Gas SAP.", false);
   }
 
   return {
     eyebrow: gridEyebrow("Commodities"),
-    title: "Gas & oil",
+    title: "Gas and oil prices",
     kicker: "Context for GB power prices",
     metrics: [
       {
@@ -651,7 +651,7 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
   const shares = headlineShares(facts, power);
   return {
     eyebrow: gridEyebrow("Today"),
-    title: "Britain's electricity today",
+    title: "GB electricity today",
     kicker: "Mix, carbon intensity and market price, updated hourly.",
     metrics: [
       {

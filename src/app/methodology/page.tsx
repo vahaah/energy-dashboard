@@ -18,7 +18,7 @@ const FAQS = [
   {
     question: "How often does Grid update?",
     answer:
-      "Ingest runs hourly for the GB grid and every six hours for commodities. Missing metrics stay null, never zero. The site is not a second-by-second feed.",
+      "Grid refreshes every hour. Oil and gas prices refresh every 6 hours. Physical gas data is updated hourly. Missing metrics stay null, never zero. The site is not a second-by-second feed.",
   },
   {
     question: "What is the market index versus the system price?",
@@ -33,7 +33,7 @@ const FAQS = [
   {
     question: "How should I cite Grid?",
     answer:
-      'Grid (grid.vahaah.com), data from Elexon BMRS and NESO, {date time}. Derived data is CC BY 4.0 with the upstream attributions on this page.',
+      "Grid (grid.vahaah.com), data from Elexon BMRS and NESO, {date, time BST}. Derived data is CC BY 4.0 with the upstream attributions on this page.",
   },
 ];
 

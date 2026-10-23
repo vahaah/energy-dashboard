@@ -25,7 +25,7 @@ ${sapLine}
 Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRICE_CAP.periodLabel}). Next cap announced ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.
 
 ## Answers
-- [Britain's electricity today](https://grid.vahaah.com/today): today's generation mix, gas share, carbon intensity, demand, imports and market price, with a visible FAQ
+- [GB electricity today](https://grid.vahaah.com/today): today's generation mix, gas share, carbon intensity, demand, imports and market price, with a visible FAQ
 - [What's powering Britain](https://grid.vahaah.com/): the latest half-hour, with day, week, year and all-time views
 - [UK gas price today](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
 - [Will energy bills go up in January 2027?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one

@@ -40,7 +40,7 @@ describe("map source and asset page review fixes", () => {
     expect(ASSETS_DESCRIPTION).toContain("gas terminals");
     expect(ASSETS_DESCRIPTION).toContain("DESNZ REPD");
     const page = source("src/app/assets/page.tsx");
-    expect(page).toContain("interconnectors from Elexon BMRS");
-    expect(page).toContain("National Gas terminal names");
+    expect(page).toContain("interconnectors from Elexon");
+    expect(page).toContain("gas terminals from National Gas");
   });
 });

@@ -361,7 +361,10 @@ describe("checked-in project register", () => {
     expect(operating.total).toBeCloseTo(operatingOnly, 5);
     expect(operating.total).toBeLessThan(operating.total + proposed.total);
     const shares = operatingTechnologyShares(catalogue.projects);
-    expect(shares.reduce((sum, share) => sum + share.mw, 0)).toBeCloseTo(Number(operating.totalLabel), 5);
+    expect(shares.reduce((sum, share) => sum + share.mw, 0)).toBeCloseTo(
+      Number(operating.totalLabel.replaceAll(",", "")),
+      5,
+    );
     expect(storageEnergy(catalogue.projects)).toBeNull();
     const hadyard = catalogue.projects.find((project) => project.project_id === "epj_00d87244c2fdb198");
     expect(hadyard?.power_mw).toBe(120);

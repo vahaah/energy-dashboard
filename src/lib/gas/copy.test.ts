@@ -30,7 +30,7 @@ describe("gas page copy", () => {
     expect(GAS_SYSTEM_H1).toBe("Where is Britain's gas coming from, and where is it going?");
     expect(GAS_SYSTEM_STANDFIRST).toContain("Updated hourly.");
     expect(GAS_SAP_DEFINITION).toBe("System Average Price, a wholesale benchmark. It is not a household tariff.");
-    expect(GAS_LDZ_NOTE).toContain("live");
+    expect(GAS_LDZ_NOTE).not.toMatch(/\blive\b/i);
   });
 
   it("rejects banned wording outside the LDZ note", () => {

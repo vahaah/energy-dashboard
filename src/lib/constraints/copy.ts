@@ -8,8 +8,16 @@ export const CONSTRAINTS_STANDFIRST = "Published transmission constraint activit
 
 export const CONSTRAINTS_COST_TITLE = "Constraint cost";
 export const CONSTRAINTS_COST_SOURCE =
-  "Source: NESO (constraints). Published cost of actions taken to manage transmission constraints, £.";
+  "Cost of actions NESO took to manage transmission constraints, in £. Source: NESO (constraints).";
 export const CONSTRAINTS_REVISIONS = "Revisions shown.";
+
+export function nesoFinancialYearLabel(year: string): string {
+  const match = /^(\d{4})-(\d{4})$/.exec(year);
+  if (!match) {
+    return `NESO financial year ${year}.`;
+  }
+  return `NESO financial year ${match[1]}/${match[2].slice(2)} (from 1 Apr ${match[1]}).`;
+}
 
 export function measuredBreakdownLagNote(settlementDate: string): string {
   return `NESO's measured breakdown is published on a delay. The latest settlement date in the file is ${settlementDate}.`;

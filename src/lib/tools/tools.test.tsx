@@ -28,7 +28,7 @@ describe("tools catalogue", () => {
     expect(TOOLS_TITLE).toBe("GB energy tools and official services | Grid");
     expect(TOOLS_H1).toBe("Where do I go to do this?");
     expect(TOOLS_STANDFIRST).toBe(
-      "Official and useful services, grouped by task. Grid links to them; it does not run them unless marked.",
+      "Official and useful services, grouped by task. Grid links to these services. Ones marked Runs on Grid are Grid pages.",
     );
     const page = readFileSync(resolve(process.cwd(), "src/app/tools/page.tsx"), "utf8");
     expect(page).toContain('export const dynamic = "force-static"');

@@ -14,6 +14,7 @@ import {
 import {
   formatNesoOfficialLine,
   HIDE_SOLAR_RECORD,
+  HIDE_ZERO_CARBON_RECORD,
   NESO_OFFICIAL_RECORDS,
 } from "@/data/neso-official-records";
 import { formatHeadlineGw } from "@/lib/facts";
@@ -121,7 +122,7 @@ export default async function RecordsPage() {
           )}
           <RecordBlock
             title="Lowest carbon since Grid's records began"
-            value={records.lowestCarbon ? `${records.lowestCarbon.value.toFixed(0)} gCO₂/kWh` : "—"}
+            value={records.lowestCarbon ? `${records.lowestCarbon.value.toFixed(0)} gCO₂/kWh` : "Not available"}
             record={records.lowestCarbon}
             metric={RECORD_METRICS.carbon}
             nesoLine={formatNesoOfficialLine(
@@ -134,7 +135,7 @@ export default async function RecordsPage() {
             value={
               records.highestRenewableShare
                 ? `${records.highestRenewableShare.value.toFixed(1)}%`
-                : "—"
+                : "Not available"
             }
             record={records.highestRenewableShare}
             metric={RECORD_METRICS.renewable_share}
@@ -143,29 +144,31 @@ export default async function RecordsPage() {
               historicLine(records.highestRenewableShare, (value) => `${value.toFixed(1)}%`)
             )}
           />
-          <RecordBlock
-            title="Highest zero-carbon share since Grid's records began"
-            value={
-              records.highestZeroCarbonShare
-                ? `${records.highestZeroCarbonShare.value.toFixed(1)}%`
-                : "—"
-            }
-            record={records.highestZeroCarbonShare}
-            metric={RECORD_METRICS.zero_carbon_share}
-            nesoLine={formatNesoOfficialLine(NESO_OFFICIAL_RECORDS.zero_carbon)}
-          />
+          {HIDE_ZERO_CARBON_RECORD ? null : (
+            <RecordBlock
+              title="Highest zero-carbon share since Grid's records began"
+              value={
+                records.highestZeroCarbonShare
+                  ? `${records.highestZeroCarbonShare.value.toFixed(1)}%`
+                  : "Not available"
+              }
+              record={records.highestZeroCarbonShare}
+              metric={RECORD_METRICS.zero_carbon_share}
+              nesoLine={formatNesoOfficialLine(NESO_OFFICIAL_RECORDS.zero_carbon)}
+            />
+          )}
           <RecordBlock
             title="Days since coal power ended"
-            value={records.daysSinceCoal == null ? "—" : `${records.daysSinceCoal} days`}
+            value={records.daysSinceCoal == null ? "Not available" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
             metric={RECORD_METRICS.coal_end}
             whenLabel={records.lastCoal ? formatLondonDayMonthYear(COAL_POWER_ENDED) : undefined}
-            nesoLine="NESO official record: Britain stopped using coal for electricity in 2024 (source: NESO)"
+            nesoLine="NESO: GB stopped using coal for electricity in 2024."
           />
         </section>
 
         <section>
-          <h2 className="text-heading-24 text-gray-1000">First time above N GW of wind</h2>
+          <h2 className="text-heading-24 text-gray-1000">First half-hour with wind above each gigawatt</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
             Transmission-connected wind plus embedded wind. The first half-hour that series
             reached each whole gigawatt from 10 GW up, since Grid&apos;s records began.
@@ -338,15 +341,20 @@ function faqItems(records: GridRecords): Array<{ question: string; answer: strin
         "Grid's solar peak currently disagrees with NESO's official record of 15.4 GW between 12:30 and 13:00 on 23 Apr 2026. The solar card is hidden until those figures match within 2%.",
     },
     {
+      question: "Why is there no zero-carbon record?",
+      answer:
+        "NESO published 98.8% on 22 Apr 2026. Grid's share is wind, solar, hydro and nuclear over the historic generation total. Those are not the same definition, so the card is hidden rather than shown as one record.",
+    },
+    {
       question: "What was the lowest carbon half-hour since Grid's records began?",
       answer: `${carbon}. Rows with impossible shares, such as zero-carbon above 100%, are dropped before the minimum is taken.`,
     },
     {
-      question: "When did Britain stop burning coal for electricity?",
+      question: "When did GB stop burning coal for electricity?",
       answer:
         records.daysSinceCoal != null
-          ? `Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. That is ${records.daysSinceCoal} days ago. NESO historic mix still shows residual coal after closure; this record stays on the documented end date.`
-          : "Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024.",
+          ? `GB's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. That is ${records.daysSinceCoal} days ago. NESO historic mix still shows residual coal after closure; this record stays on the documented end date.`
+          : "GB's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024.",
     },
   ];
 }

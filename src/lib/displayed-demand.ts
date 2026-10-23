@@ -182,7 +182,7 @@ function headlineTerms(
     {
       id: "generation",
       label: "Generation",
-      role: "Plant and embedded wind and solar",
+      role: "Metered plant plus embedded wind and solar",
       mw: power.generationMw,
       operator: null,
       help: "GB generation in this half-hour, including estimated embedded wind and solar. Generation includes storage discharge. Half-hour average of Elexon FUELINST.",
@@ -191,7 +191,7 @@ function headlineTerms(
     {
       id: "imports",
       label: "Imports",
-      role: "Power flowing into Britain",
+      role: "Into GB over interconnectors",
       mw: power.importsMw,
       operator: "+",
       help: "Power flowing into Great Britain on the interconnectors. Positive Elexon flow is an import. Half-hour average of FUELINST.",
@@ -200,7 +200,7 @@ function headlineTerms(
     {
       id: "exports",
       label: "Exports",
-      role: "Power flowing out of Britain",
+      role: "Out of GB over interconnectors",
       mw: power.exportsMw,
       operator: "−",
       help: "Power flowing out of Great Britain. Shown as a positive number and subtracted. Half-hour average of FUELINST.",
@@ -264,7 +264,7 @@ function openTerms(power: DisplayedPower): DraftTerm[] {
     {
       id: "generation",
       label: "Generation",
-      role: "Plant and embedded wind and solar",
+      role: "Metered plant plus embedded wind and solar",
       mw: power.generationMw,
       operator: null,
       help: "GB generation including estimated embedded wind and solar. Interconnector flows for this half-hour are incomplete, so this is not closed against demand.",

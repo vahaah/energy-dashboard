@@ -46,11 +46,11 @@ export default async function TodayPage() {
             <p data-cite>
               So far today ({model.dateLabel}, to{" "}
               <time dateTime={model.untilDatetime}>{model.untilClock}</time>), wind supplied{" "}
-              {Math.round(model.shares.windPct ?? 0)}% of Britain&apos;s generation, gas{" "}
+              {Math.round(model.shares.windPct ?? 0)}% of GB generation, gas{" "}
               {Math.round(model.shares.gasPct ?? 0)}%, nuclear {Math.round(model.shares.nuclearPct ?? 0)}%
               and solar {Math.round(model.shares.solarPct ?? 0)}%. Carbon intensity averaged{" "}
-              {model.carbonAverage?.toFixed(0) ?? "—"} gCO₂/kWh and the market index price averaged £
-              {model.priceAverage?.toFixed(0) ?? "—"}/MWh. {TODAY_CITE_SOURCES}
+              {model.carbonAverage == null ? "not available" : model.carbonAverage.toFixed(0)} gCO₂/kWh and the market index averaged £
+              {model.priceAverage == null ? "not available" : model.priceAverage.toFixed(0)}/MWh. {TODAY_CITE_SOURCES}
             </p>
           ) : (
             <p data-cite>{cite}</p>
@@ -60,13 +60,13 @@ export default async function TodayPage() {
         updated={
           model.untilDatetime && model.untilClock ? (
             <p className="text-label-13 text-gray-900">
-              Updated{" "}
+              Data to{" "}
               <time dateTime={model.untilDatetime}>{model.untilClock}</time>
               {" · "}
               {TODAY_CITE_SOURCES}
             </p>
           ) : (
-            <p className="text-label-13 text-gray-900">Updated hourly · Sources: Elexon BMRS, NESO</p>
+            <p className="text-label-13 text-gray-900">{TODAY_CITE_SOURCES}</p>
           )
         }
       >
@@ -88,7 +88,7 @@ export default async function TodayPage() {
               {model.latest.price ? ` · £${model.latest.price}/MWh` : ""}.
             </p>
           </Card>
-          <Card as="article" title="How much came from gas" size="stat">
+          <Card as="article" title="Gas share of generation so far today" size="stat">
             <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
               <span data-value>
                 {model.shares.gasPct == null ? "—" : Math.round(model.shares.gasPct)}
@@ -105,20 +105,20 @@ export default async function TodayPage() {
                 : `${formatHeadlineGw(model.shares.gasGw)} GW average · ${model.shares.gasGwh?.toFixed(1) ?? "—"} GWh so far today.`}
             </p>
           </Card>
-          <Card as="article" title="Cheapest market index" size="stat">
+          <Card as="article" title="Lowest market index" size="stat">
             <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
               <span data-value>{model.cheapest ? `£${model.cheapest.value.toFixed(2)}` : "—"}</span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
-              {model.cheapest ? `${model.cheapest.clock} · APXMIDP` : "No market index yet today."}
+              {model.cheapest ? `${model.cheapest.clock}` : "No market index yet today."}
             </p>
           </Card>
-          <Card as="article" title="Dearest market index" size="stat">
+          <Card as="article" title="Highest market index" size="stat">
             <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
               <span data-value>{model.dearest ? `£${model.dearest.value.toFixed(2)}` : "—"}</span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
-              {model.dearest ? `${model.dearest.clock} · APXMIDP` : "No market index yet today."}
+              {model.dearest ? `${model.dearest.clock}` : "No market index yet today."}
             </p>
           </Card>
         </section>
@@ -126,8 +126,7 @@ export default async function TodayPage() {
         <section>
           <h2 className="text-heading-24 text-gray-1000">Today, yesterday and the past 7 days</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
-            Yesterday and the weekly column reuse Grid&apos;s cached week payload, not a separate
-            Tinybird query. The week window is the last seven days.
+            The past 7 days are the last seven days.
           </p>
           <Card className="mt-4">
             <TableScroll>

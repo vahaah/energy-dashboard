@@ -5,7 +5,7 @@ export const TOOLS_DESCRIPTION =
   "Where to go for GB energy tasks: understand a bill, find your network operator, report a power cut or gas leak, check a grid connection or look up a code.";
 export const TOOLS_H1 = "Where do I go to do this?";
 export const TOOLS_STANDFIRST =
-  "Official and useful services, grouped by task. Grid links to them; it does not run them unless marked.";
+  "Official and useful services, grouped by task. Grid links to these services. Ones marked Runs on Grid are Grid pages.";
 export const TOOLS_RUNS_ON_GRID = "Runs on Grid";
 export const TOOLS_REPORT_TITLE = "Report a broken link";
 export const TOOLS_REPORT_BODY = "Email Grid, or open a GitHub issue. There is no form on this page.";

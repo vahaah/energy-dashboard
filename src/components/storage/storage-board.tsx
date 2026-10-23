@@ -4,7 +4,7 @@ import { DataStateNotice } from "@/components/ui/data-state";
 import { Card } from "@/components/ui/card";
 import { Quantity } from "@/components/ui/quantity";
 import { NOT_AVAILABLE } from "@/lib/assets/labels";
-import { formatEnergy } from "@/lib/format/quantity";
+import { formatEnergy, formatGrouped } from "@/lib/format/quantity";
 import {
   CHARGING,
   COVERAGE_HREF,
@@ -63,7 +63,7 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
           <p className="break-words text-copy-14 text-gray-900">{INVENTORY_INTRO}</p>
           {document.notOperatingCount > 0 ? (
             <p className="mt-3 break-words text-copy-14 text-gray-900">
-              {document.notOperatingCount} records are not operating and are left out of the operating total.
+              {formatGrouped(document.notOperatingCount, 0)} records are not operating and are left out of the operating total.
             </p>
           ) : null}
           <ShareList shares={document.rated?.shares ?? []} unit="MW" />
@@ -122,8 +122,9 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
 }
 
 function StatValue({ value, unit }: { value: string; unit: string | null }) {
-  if (unit === "MW" && value !== NOT_AVAILABLE) {
-    const energy = formatEnergy(Number(value));
+  const parsed = Number(value.replaceAll(",", ""));
+  if (unit === "MW" && value !== NOT_AVAILABLE && Number.isFinite(parsed)) {
+    const energy = formatEnergy(parsed);
     return (
       <p className="mt-2 text-heading-24 text-gray-1000">
         <Quantity value={energy.value} unit={energy.unit} />
@@ -163,7 +164,7 @@ function CoverageLine({ line }: { line: StorageCoverageLine }) {
         <li>
           <p className="break-words text-copy-14 text-gray-900">{line.label}</p>
           <p className="mt-1 break-words font-sans text-heading-24 tabular-nums text-gray-1000">
-            {line.coveredLabel} of {line.totalLabel} <span className="text-label-13 text-gray-900">MW</span>
+            {line.coveredLabel} of {line.totalLabel} <span className="text-label-13 text-gray-900">MW monitored</span>
           </p>
         </li>
       );

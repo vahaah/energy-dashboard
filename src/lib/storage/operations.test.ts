@@ -40,7 +40,7 @@ describe("FUELINST storage population", () => {
       battery: { dischargeMw: 0, chargeMw: 80 },
     });
     const document = buildStorageDocument(emptyInventory(), operations, 2026);
-    expect(STORAGE_SIGN).toBe("A positive FUELINST sample is discharge. A negative sample is charging.");
+    expect(STORAGE_SIGN).toBe("Positive values are discharge; negative are charging.");
     expect(document.monitored.available).toBe(true);
     if (!document.monitored.available) {
       return;

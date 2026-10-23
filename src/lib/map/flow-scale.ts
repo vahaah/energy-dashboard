@@ -10,13 +10,13 @@ export const FLOW_WIDTH_PX = [2, 4, 6] as const;
 export type FlowWidthPx = (typeof FLOW_WIDTH_PX)[number];
 
 export const ELECTRICITY_DIRECTION = {
-  import: "Importing to GB",
-  export: "Exporting from GB",
+  import: "Into GB",
+  export: "Out of GB",
 } as const;
 
 export const GAS_DIRECTION = {
-  into: "Into the GB system",
-  out: "Out of the GB system",
+  into: "Into GB",
+  out: "Out of GB",
 } as const;
 
 export type ElectricityDirection = keyof typeof ELECTRICITY_DIRECTION;
@@ -108,11 +108,12 @@ export function formatFlowReading(value: number | null, unit: string): string {
 
 export function netElectricityLabel(mw: number | null, included: number, missing: number): string {
   if (mw === null) {
-    return "Net electricity —";
+    return "Net electricity not available";
   }
   const words = mw > 0 ? "Net import" : mw < 0 ? "Net export" : "Balanced";
   const missingText = missing > 0 ? `, ${missing} missing` : "";
-  return `${words} ${formatFlowReading(Math.abs(mw), "MW")} across ${included} links${missingText}`;
+  const links = included === 1 ? "interconnector" : "interconnectors";
+  return `${words} ${formatFlowReading(Math.abs(mw), "MW")} across ${included} ${links}${missingText}`;
 }
 
 export function netGasLabel(mcm: number | null, missing = 0): string {
@@ -121,13 +122,13 @@ export function netGasLabel(mcm: number | null, missing = 0): string {
     return `Partial gas coverage, ${missing} ${noun} missing`;
   }
   if (mcm === null) {
-    return "Net gas —";
+    return "Net gas not available";
   }
   if (mcm > 0) {
-    return `Net into the GB system ${formatFlowReading(mcm, "mcm/d")}`;
+    return `Net gas into GB ${formatFlowReading(mcm, "mcm/d")} (million m³/day)`;
   }
   if (mcm < 0) {
-    return `Net out of the GB system ${formatFlowReading(Math.abs(mcm), "mcm/d")}`;
+    return `Net gas out of GB ${formatFlowReading(Math.abs(mcm), "mcm/d")} (million m³/day)`;
   }
   return `Net gas ${formatFlowReading(0, "mcm/d")}`;
 }

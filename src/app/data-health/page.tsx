@@ -51,10 +51,10 @@ export default async function DataHealthPage() {
       })}
       cite={
         <p data-cite>
-          Published is the source time on the warmed row. Retrieved is when Grid stored that
-          envelope. A series is stale once that source time is older than its expected cadence
-          plus its publication lag. NTS intraday series are stale when that source time is more
-          than 3 hours old. A completed gas day stays current. A missing value stays —.
+          Published is the source time. Retrieved is when Grid fetched it. A series is Not updated
+          once that source time is older than its expected cadence plus its publication lag. NTS
+          intraday series are Not updated when that source time is more than 3 hours old. A completed
+          gas day stays current. A missing value is Not yet available.
         </p>
       }
       citation={`Grid, "Data health", grid.vahaah.com/data-health, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}

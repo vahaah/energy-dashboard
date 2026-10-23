@@ -84,7 +84,7 @@ describe("change events", () => {
     expect(first?.sentence).toBe(
       "Clashindarroch 2 construction status changed from Not started to Under construction.",
     );
-    expect(first?.evidence).toBe(`Compared ${RELEASE_A} with ${RELEASE_A}.`);
+    expect(first?.evidence).toBe("Compared NESO (TEC register) of 13 Oct 2026 with 13 Oct 2026.");
     expect(changeSentence(checked.events!.events[0]!, "Clashindarroch 2")).toBe(first?.sentence);
   });
 
@@ -115,9 +115,9 @@ describe("change events", () => {
     ]);
     expect(page.body.changes.map((row) => row.status)).toEqual([CHANGES_SUPERSEDED, CHANGES_SUPERSEDES, null]);
     expect(page.body.changes.map((row) => row.evidence)).toEqual([
-      `Compared ${RELEASE_A} with ${RELEASE_B}.`,
-      `Compared ${RELEASE_A} with ${RELEASE_B}.`,
-      `Compared ${RELEASE_A} with ${RELEASE_B}.`,
+      "Compared NESO (TEC register) of 13 Oct 2026 with 14 Oct 2026.",
+      "Compared NESO (TEC register) of 13 Oct 2026 with 14 Oct 2026.",
+      "Compared NESO (TEC register) of 13 Oct 2026 with 14 Oct 2026.",
     ]);
     const again = changesQueryResponse(new URLSearchParams(), bundle(events));
     expect(again.body).toEqual(page.body);
@@ -206,7 +206,7 @@ describe("change events", () => {
             name: "Example station",
             href: "/projects/epj_aaaaaaaaaaaaaaaa/example-station",
             sentence: "Example station construction status changed from Not started to Built.",
-            evidence: `Compared ${RELEASE_A} with ${RELEASE_B}.`,
+            evidence: "Compared NESO (TEC register) of 13 Oct 2026 with 14 Oct 2026.",
             status: null,
             observedAt: "2026-10-15T13:35:58.791Z",
             effectiveAt: null,
@@ -216,7 +216,7 @@ describe("change events", () => {
             name: "epj_cccccccccccccccc",
             href: null,
             sentence: "epj_cccccccccccccccc is in the earlier release and is not in the later release.",
-            evidence: `Compared ${RELEASE_A} with ${RELEASE_B}.`,
+            evidence: "Compared NESO (TEC register) of 13 Oct 2026 with 14 Oct 2026.",
             status: CHANGES_SUPERSEDED,
             observedAt: "2026-10-15T13:35:58.791Z",
             effectiveAt: "2026-10-14",
@@ -225,7 +225,7 @@ describe("change events", () => {
         attribution="Supported by National Energy SO Open Data"
       />,
     );
-    expect(html).toContain("2 comparisons");
+    expect(html).toContain("2 changes");
     expect(html.match(/<article/g)).toHaveLength(2);
     expect(html).toContain("Supported by National Energy SO Open Data");
     expect(CHANGES_TITLE).toBe("Changes in GB energy project registers | Grid");

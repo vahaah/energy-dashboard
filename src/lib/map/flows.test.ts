@@ -38,18 +38,18 @@ import { stationsFromPoints } from "@/lib/map/stations-layer";
 
 describe("flow direction, width, and staleness", () => {
   it("names electricity and gas direction in words and leaves a missing reading blank", () => {
-    expect(electricityDirectionWords(10)).toBe("Importing to GB");
-    expect(electricityDirectionWords(-10)).toBe("Exporting from GB");
+    expect(electricityDirectionWords(10)).toBe("Into GB");
+    expect(electricityDirectionWords(-10)).toBe("Out of GB");
     expect(electricityDirectionWords(0)).toBeNull();
     expect(electricityDirectionWords(null)).toBeNull();
-    expect(gasDirectionWords("entry", 12)).toBe("Into the GB system");
-    expect(gasDirectionWords("exit", 12)).toBe("Out of the GB system");
+    expect(gasDirectionWords("entry", 12)).toBe("Into GB");
+    expect(gasDirectionWords("exit", 12)).toBe("Out of GB");
     expect(gasDirectionWords("entry", null)).toBeNull();
     expect(formatFlowReading(null, "MW")).toBe(ABSENT_FIGURE);
     expect(formatFlowReading(0, "MW")).toBe("0 MW");
     expect(flowListLine(null, "0.0 mcm/d")).toBe("0.0 mcm/d");
     expect(flowListLine(null, ABSENT_FIGURE)).toBe(ABSENT_FIGURE);
-    expect(flowListLine("Into the GB system", "12.0 mcm/d")).toBe("Into the GB system · 12.0 mcm/d");
+    expect(flowListLine("Into GB", "12.0 mcm/d")).toBe("Into GB · 12.0 mcm/d");
   });
 
   it("uses the 2, 4 and 6 pixel steps", () => {
@@ -321,7 +321,7 @@ describe("flows map review fixes", () => {
     const full = buildFlowsPageModel({ ...catalogueFlowsInput(), ...fixture });
     expect(full.gasMissing).toBe(0);
     expect(full.netGasMcm).toBeCloseTo(154.4, 5);
-    expect(netGasLabel(full.netGasMcm, full.gasMissing)).toBe("Net into the GB system 154.4 mcm/d");
+    expect(netGasLabel(full.netGasMcm, full.gasMissing)).toBe("Net gas into GB 154.4 mcm/d (million m³/day)");
     const partial = buildFlowsPageModel({
       ...catalogueFlowsInput(),
       ...fixture,

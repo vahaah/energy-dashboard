@@ -18,7 +18,7 @@ describe("today page", () => {
     expect(source).toContain("SiteFaq");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("No data yet");
-    expect(source).not.toMatch(/\blive\b/);
+    expect(source.replace(/PV Live/g, "")).not.toMatch(/\blive\b/);
     expect(source).not.toContain("real-time");
   });
 });

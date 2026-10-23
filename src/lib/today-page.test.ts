@@ -180,8 +180,9 @@ describe("today page model", () => {
     expect(text).toContain("So far today");
     expect(text).toContain("wind supplied");
     expect(text).toContain("gCO₂/kWh");
-    expect(text).toContain("Elexon BMRS, NESO");
-    expect(text).not.toMatch(/\blive\b/i);
+    expect(text).toContain("Sources: Elexon (BMRS), NESO (embedded)");
+    expect(text).toContain("solar (PV Live estimate)");
+    expect(text.replace(/PV Live/g, "")).not.toMatch(/\blive\b/i);
     expect(model.dateModified).toBe("2026-10-10T11:30:00.000Z");
     expect(model.untilDatetime).toBe("2026-10-10T12:30:00+01:00");
     expect(parseUtcDateTime(model.untilDatetime ?? "").toISOString()).toBe(model.dateModified);
@@ -299,10 +300,10 @@ describe("today page model", () => {
     });
     const questions = todayFaqs(model).map((faq) => faq.question);
     expect(questions).toEqual([
-      "How much of Britain's electricity is wind right now?",
+      "How much of GB electricity is from wind?",
       "How much came from gas today?",
-      "Is Britain importing electricity today?",
-      "How clean is the grid today?",
+      "Is GB importing electricity today?",
+      "How clean is GB electricity today?",
       "What's the wholesale electricity price today?",
     ]);
   });

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   HOME_CITE_FALLBACK,
+  HOME_CITE_REFRESH,
   HOME_CITE_SOURCES,
   HOME_H1,
   type HomepageCite,
@@ -33,15 +34,15 @@ function HomepageCiteParagraph({ cite }: { cite: HomepageCite }) {
     case "numbers":
       return (
         <p id="summary" className="mt-3 max-w-3xl text-copy-16 text-gray-900" data-cite>
-          At{" "}
+          In the half-hour from{" "}
           <time dateTime={cite.datetime}>
             {cite.timeLabel}
           </time>{" "}
           on {cite.dateLabel}, {cite.topFuel.charAt(0).toLowerCase()}
-          {cite.topFuel.slice(1)} was Britain&apos;s largest source of electricity at{" "}
-          {cite.topGw} GW ({cite.topSharePct}%). Gas supplied {cite.gasSharePct}%, and carbon
+          {cite.topFuel.slice(1)} was Great Britain&apos;s largest source of electricity at{" "}
+          {cite.topGw} GW ({cite.topSharePct}% of generation). Gas supplied {cite.gasSharePct}%, and carbon
           intensity was {cite.carbon} gCO₂/kWh. The market index price was £{cite.price}/MWh.{" "}
-          {HOME_CITE_SOURCES} Grid is free and updated hourly from public data.
+          {HOME_CITE_SOURCES} {HOME_CITE_REFRESH}
         </p>
       );
     case "fallback":

@@ -176,7 +176,7 @@ describe("whole energy balance", () => {
     const html = renderToStaticMarkup(<WholeEnergyBoard model={buildWholeEnergyPage(loadWholeEnergyEdition())} />);
     expect(html).toContain("Whole energy flows");
     expect(html).toContain("TWh, year 2025.");
-    expect(html).toContain("UK, annual statistic.");
+    expect(html).toContain("UK, including Northern Ireland. Annual, 2025.");
     expect(html).toContain(OGL_V3_ATTRIBUTION);
     expect(html).toContain("Statistical difference is primary supply minus primary demand.");
     expect(html).toContain("It is already inside primary supply and is not added again.");

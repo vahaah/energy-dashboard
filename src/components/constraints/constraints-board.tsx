@@ -10,6 +10,7 @@ import {
   CONSTRAINTS_COST_SOURCE,
   CONSTRAINTS_COST_TITLE,
   CONSTRAINTS_REVISIONS,
+  nesoFinancialYearLabel,
   CONSTRAINTS_VOLUME_SOURCE,
   CONSTRAINTS_VOLUME_TITLE,
 } from "@/lib/constraints/copy";
@@ -24,7 +25,7 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
   return (
     <div className="flex flex-col gap-4">
       {model.financialYear ? (
-        <p className="text-copy-14 text-gray-900">NESO financial year {model.financialYear}.</p>
+        <p className="text-copy-14 text-gray-900">{nesoFinancialYearLabel(model.financialYear)}</p>
       ) : null}
       {model.publishingLag ? (
         <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">{model.publishingLag}</p>

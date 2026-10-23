@@ -58,7 +58,7 @@ export const FOCUS_PAGE_COPY = {
       "Latest GB generation mix, demand, and embedded wind and solar from Elexon, NESO, and Sheffield Solar PV Live.",
   },
   price: {
-    title: "What does power cost? — Grid",
+    title: "What does electricity cost? | Grid",
     description:
       "Great Britain short-term wholesale market price (Market Index) and system imbalance price from Elexon BMRS.",
   },
@@ -67,7 +67,7 @@ export const FOCUS_PAGE_COPY = {
     description: "Metered interconnector flows into and out of Great Britain from Elexon FUELINST.",
   },
   commodities: {
-    title: "Gas & oil — Grid",
+    title: "Gas and oil prices | Grid",
     description:
       "Brent, Henry Hub, World Bank Pink Sheet gas, and National Gas SAP for context on GB power prices.",
   },

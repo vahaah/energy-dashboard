@@ -20,22 +20,22 @@ describe("API docs page", () => {
     expect(source).not.toContain("queryPipe");
     expect(source).not.toMatch(/\bTTF\b/);
     expect(API_DOCS_INTRO).toBe(
-      "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account, and is rate limited. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Existing endpoints keep working; new endpoints are under /api/v1.",
+      "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.",
     );
     expect(API_DOCS_CONVENTIONS).toEqual([
-      "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to UK time yourself.",
+      "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to UK local time (Europe/London) yourself.",
       "Every value carries its unit, interval, source, publication time and the time Grid fetched it.",
       "Missing data is null, never 0. A reported zero is 0.",
       "Forecasts carry forecast_issued_at. Revised values carry their revision.",
       "Results are paged with a cursor. Follow next_cursor until it is empty.",
-      "Unsupported filters return an error; they are not silently ignored.",
+      "An unsupported filter returns an error. It is never ignored.",
       "Scope is GB unless the endpoint says otherwise. Northern Ireland data is never mixed into GB results.",
     ]);
     expect(API_DOCS_ERRORS).toEqual([
-      "Unknown ID.",
-      "No results for these filters.",
-      "This scope is not supported.",
-      "The source is unavailable. The last published data is still returned where Grid holds it.",
+      "404 Unknown ID.",
+      "404 No results for these filters.",
+      "400 This scope is not supported.",
+      "503 The source is unavailable. The last published data is still returned where Grid holds it.",
     ]);
     expect(API_DOCS_LICENCE).toBe(
       "Data in API responses is subject to each source's licence, listed in sources on every response and on the Data sources page.",

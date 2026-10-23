@@ -10,7 +10,6 @@ import {
   API_DOCS_ERRORS,
   API_DOCS_INTRO,
   API_DOCS_LICENCE,
-  API_DOCS_RATE_LIMIT,
 } from "@/lib/api/copy";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { apiDocsJsonLd } from "@/lib/jsonld";
@@ -40,7 +39,6 @@ export default async function ApiDocsPage() {
             <p className="text-label-12 text-gray-900">API</p>
             <h1 className="mt-2 break-words text-heading-32 text-gray-1000">{API_DOCS_H1}</h1>
             <p className="mt-3 max-w-3xl break-words text-copy-16 text-gray-900">{API_DOCS_INTRO}</p>
-            <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{API_DOCS_RATE_LIMIT}</p>
           </section>
         }
       >

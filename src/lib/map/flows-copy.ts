@@ -21,10 +21,10 @@ export const MAP_FAILED = "The map did not load.";
 export const FLOWS_FALLBACK_HREF = "/assets?preset=flows";
 
 export const PROJECTS_LAYER_NOTE =
-  "Projects stay off the map until each one has a coordinate and a country.";
+  "A project appears on the map once it has a published location.";
 
 export function staleCopy(clock: string): string {
-  return `Not updated since ${clock}. Showing the last published reading.`;
+  return `Not updated · Latest electricity data is from ${clock}. Grid checks every hour.`;
 }
 
 export function londonClock(at: Date): string {

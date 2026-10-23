@@ -18,7 +18,7 @@ export default function AssetsPage() {
   return (
     <SeoPage
       section="Assets"
-      title="Power stations and assets in Great Britain"
+      title="Power stations, interconnectors and gas terminals in GB"
       breadcrumb={[{ label: "Assets" }]}
       schema={pageJsonLd({
         name: ASSETS_TITLE,
@@ -28,9 +28,7 @@ export default function AssetsPage() {
       })}
       cite={
         <p>
-          Operational stations from the DESNZ Renewable Energy Planning Database and DUKES 5.11, schematic
-          interconnectors from Elexon BMRS, and National Gas terminal names. Capacity is the megawatts the
-          register counts, so a matched site is not added twice.
+          Operating stations from DESNZ (REPD) and DESNZ (DUKES 5.11), interconnectors from Elexon and gas terminals from National Gas. A site in both registers is counted once.
         </p>
       }
       citation={`Grid, "Power assets", grid.vahaah.com/assets, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}

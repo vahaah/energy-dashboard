@@ -101,7 +101,7 @@ export const PRICE_CAP_FAQS = [
   {
     question: "Why does the gas price affect electricity bills?",
     answer:
-      "The wholesale allowance in the cap follows observed wholesale prices, including gas. Gas-fired stations also often set Britain's wholesale electricity price, so GB gas SAP is useful context. Grid does not forecast the next cap.",
+      "The wholesale allowance in the cap follows observed wholesale prices, including gas. Gas-fired stations also often set the GB wholesale electricity price, so GB gas SAP is useful context. Grid does not forecast the next cap.",
   },
   {
     question: "Does the cap apply to fixed tariffs?",

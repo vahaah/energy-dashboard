@@ -1,4 +1,5 @@
 import { CHANGES_SUPERSEDED, CHANGES_SUPERSEDES } from "@/lib/changes/copy";
+import { formatLondonDayMonthYear } from "@/lib/london-time";
 import { DIFF_FIELDS, type DiffField } from "@/lib/projects/diff";
 import type { ChangeEvent } from "@/lib/projects/schema";
 import {
@@ -121,7 +122,20 @@ export function changeSentence(event: ChangeEvent, name: string): string {
   }
 }
 
+function tecReleaseDate(releaseId: string): string | null {
+  const match = /^neso-open-data:tec-register:(\d{4}-\d{2}-\d{2})/.exec(releaseId);
+  if (!match?.[1]) {
+    return null;
+  }
+  return formatLondonDayMonthYear(match[1]);
+}
+
 export function changeEvidence(event: ChangeEvent): string {
+  const oldDate = tecReleaseDate(event.old_release_id);
+  const newDate = tecReleaseDate(event.new_release_id);
+  if (oldDate && newDate) {
+    return `Compared NESO (TEC register) of ${oldDate} with ${newDate}.`;
+  }
   return `Compared ${event.old_release_id} with ${event.new_release_id}.`;
 }
 

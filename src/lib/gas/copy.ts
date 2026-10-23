@@ -9,7 +9,7 @@ export const GAS_SYSTEM_H1 = "Where is Britain's gas coming from, and where is i
 export const GAS_SYSTEM_STANDFIRST =
   "Supply into and demand from the National Transmission System, by gas day. Updated hourly.";
 
-export const GAS_EYEBROW = "GAS · GB / NTS";
+export const GAS_EYEBROW = "Gas · National Transmission System";
 
 export const GAS_SCOPE = "National Transmission System";
 
@@ -26,7 +26,7 @@ export const GAS_PAGE_BASES = ["flow", "to-date", "completed"] as const;
 export type GasPageBasis = (typeof GAS_PAGE_BASES)[number];
 
 export const GAS_BASIS_LABEL: Record<GasPageBasis, string> = {
-  flow: "Current flow rate",
+  flow: "Latest hourly flow rate",
   "to-date": "So far this gas day",
   completed: "Completed gas day",
 };
@@ -34,10 +34,10 @@ export const GAS_BASIS_LABEL: Record<GasPageBasis, string> = {
 export const GAS_LDZ_PUBLICATION_ID = "PUBOBJ1015";
 
 export const GAS_LDZ_HEADING =
-  "Distribution networks (LDZ offtake) — Gas taken by local distribution networks. Includes homes, businesses and some industry.";
+  "Distribution networks (LDZ offtake). Gas taken by local networks for homes, businesses and some industry.";
 
 export const GAS_LDZ_NOTE =
-  "Distribution-network demand includes multiple kinds of consumer. It is not a direct live measure of household heating.";
+  "Distribution-network demand includes multiple kinds of consumer. It is not a direct measure of household heating.";
 
 export const GAS_STORAGE_NOTICE =
   "Storage inventory unavailable for this selection. Injection and withdrawal flows are available. Grid does not currently have a compatible inventory series.";

@@ -100,7 +100,7 @@ export default function PrivacyPage() {
       <LegalSection title="Lawful basis and retention">
         <p>
           We process this information under UK GDPR legitimate interests: keeping a public
-          electricity dashboard available, preventing abuse of the public API, diagnosing outages,
+          dashboard available, preventing abuse of the public API, diagnosing outages,
           and understanding which pages are used. Logs follow Vercel&apos;s retention. Rate-limit
           counters last about 60 seconds. Plausible keeps aggregate analytics under its own
           retention, described in its data policy.

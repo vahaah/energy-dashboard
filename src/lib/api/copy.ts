@@ -5,25 +5,25 @@
  */
 
 export const API_DOCS_INTRO =
-  "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account, and is rate limited. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Existing endpoints keep working; new endpoints are under /api/v1.";
+  "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.";
 
 export const API_DOCS_CONVENTIONS = [
-  "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to UK time yourself.",
+  "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to UK local time (Europe/London) yourself.",
   "Every value carries its unit, interval, source, publication time and the time Grid fetched it.",
   "Missing data is null, never 0. A reported zero is 0.",
   "Forecasts carry forecast_issued_at. Revised values carry their revision.",
   "Results are paged with a cursor. Follow next_cursor until it is empty.",
-  "Unsupported filters return an error; they are not silently ignored.",
+  "An unsupported filter returns an error. It is never ignored.",
   "Scope is GB unless the endpoint says otherwise. Northern Ireland data is never mixed into GB results.",
 ] as const;
 
 export const API_DOCS_RATE_LIMIT = "The limit is 60 requests a minute.";
 
 export const API_DOCS_ERRORS = [
-  "Unknown ID.",
-  "No results for these filters.",
-  "This scope is not supported.",
-  "The source is unavailable. The last published data is still returned where Grid holds it.",
+  "404 Unknown ID.",
+  "404 No results for these filters.",
+  "400 This scope is not supported.",
+  "503 The source is unavailable. The last published data is still returned where Grid holds it.",
 ] as const;
 
 export const API_DOCS_LICENCE =
@@ -70,7 +70,7 @@ export const API_DOCS_ENDPOINTS: readonly ApiDocsEndpoint[] = [
   {
     method: "GET",
     path: "/api/v1/identifiers",
-    note: "Query: scheme, code, effective_on. name is a separate search of 2 to 80 characters.",
+    note: "Query: scheme, code, effective_on. Or search by name (2 to 80 characters).",
     summary: "Which organisation held a code on a given date.",
   },
   {
@@ -82,7 +82,7 @@ export const API_DOCS_ENDPOINTS: readonly ApiDocsEndpoint[] = [
   {
     method: "GET",
     path: "/api/v1/changes",
-    note: "Query: entity_id, cursor. Follow next_cursor until it is empty. scope other than GB is rejected.",
+    note: "Query: entity_id, cursor. Follow next_cursor until it is empty. Only scope=GB is supported.",
     summary: "Changes found in published data, with evidence.",
   },
   {
