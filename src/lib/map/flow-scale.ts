@@ -74,9 +74,24 @@ export function gasDirection(role: "entry" | "exit", mcmPerDay: number | null): 
   return mcmPerDay > 0 ? "into" : "out";
 }
 
+export const ZERO_FLOW_LABEL = "Zero flow";
+
 export function gasDirectionWords(role: "entry" | "exit", mcmPerDay: number | null): string | null {
+  if (mcmPerDay === 0) {
+    return ZERO_FLOW_LABEL;
+  }
   const direction = gasDirection(role, mcmPerDay);
   return direction ? GAS_DIRECTION[direction] : null;
+}
+
+/** Chevrons move only for a published import, export, entry, or exit. A zero flow stays still. */
+export function flowDirectionMoves(direction: string | null): boolean {
+  return (
+    direction === ELECTRICITY_DIRECTION.import ||
+    direction === ELECTRICITY_DIRECTION.export ||
+    direction === GAS_DIRECTION.into ||
+    direction === GAS_DIRECTION.out
+  );
 }
 
 export function flowListLine(direction: string | null, reading: string): string {

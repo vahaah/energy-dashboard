@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/cron-directory/route";
 
@@ -29,5 +31,16 @@ describe("GET /api/cron-directory", () => {
     expect(body.error).toBe("blob store is not set");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("runs on a Monday minute that no other cron uses", () => {
+    const vercel = JSON.parse(readFileSync(resolve(process.cwd(), "vercel.json"), "utf8")) as {
+      crons: { path: string; schedule: string }[];
+    };
+    const directory = vercel.crons.find((entry) => entry.path === "/api/cron-directory");
+    expect(directory?.schedule).toBe("45 6 * * 1");
+    const minute = directory?.schedule.split(" ")[0];
+    const shared = vercel.crons.filter((entry) => entry.path !== "/api/cron-directory" && entry.schedule.split(" ")[0] === minute);
+    expect(shared).toEqual([]);
   });
 });

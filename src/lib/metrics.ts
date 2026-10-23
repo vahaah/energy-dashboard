@@ -524,7 +524,7 @@ export const GAS_METRICS = {
     sign_convention: "positive_demand",
     dataset_id: "PUBOB4422",
     coverage:
-      "Catalogue unit is kWh for a gas-day NTS throughput. The autumn 2026 CSV was empty and the January 2025 extract repeated one value, so this series is deferred.",
+      "Catalogue unit is kWh. The autumn 2026 CSV was empty and the January 2025 extract repeated one value, so PUBOB4422 stays deferred. When it has no observation, the health row is the latest completed-day demand, PUBOB637, in million standard cubic metres.",
   },
   "gas.gb_nts.linepack.opening_interim": {
     ...GAS_STOCK_HOUR,
@@ -556,7 +556,8 @@ export const GAS_METRICS = {
     unit: "kWh",
     sign_convention: "positive_storage_charging",
     dataset_id: "PUBOB4423",
-    coverage: "Storage injection for the gas day, kWh. One value per gas day. Positive is injection.",
+    coverage:
+      "Storage injection for the gas day, kWh. PUBOB4423 has no row in the completed-day window. When it has no observation, the health row is the latest completed day, PUBOBJ1024, in kWh.",
   },
   "gas.gb_nts.storage.withdrawal": {
     ...GAS_DAY_TOTAL,
@@ -565,7 +566,7 @@ export const GAS_METRICS = {
     sign_convention: "positive_generation",
     dataset_id: "PUBOB4424",
     coverage:
-      "Storage withdrawal for the gas day, kWh. One value per gas day. The portal publishes withdrawal negative; the stored value is positive generation.",
+      "Storage withdrawal for the gas day. PUBOB4424 has no row in the completed-day window. When it has no observation, the health row is the latest completed day, PUBOBJ630, in million standard cubic metres. A stored PUBOB4424 value stays positive generation.",
   },
   "gas.gb_nts.demand.actual_volume": {
     ...GAS_DAY_TOTAL,

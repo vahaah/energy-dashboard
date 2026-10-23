@@ -6,6 +6,7 @@ import { compactElectricity } from "@/lib/map/electricity-release";
 import {
   ELECTRICITY_BANNER_STALE_MS,
   ELECTRICITY_STALE_MS,
+  flowDirectionMoves,
   flowListLine,
   GAS_STALE_MS,
   electricityDirectionWords,
@@ -13,6 +14,7 @@ import {
   formatFlowReading,
   gasDirectionWords,
   gasWidthPx,
+  ZERO_FLOW_LABEL,
   netGasLabel,
   readingIsStale,
 } from "@/lib/map/flow-scale";
@@ -44,7 +46,13 @@ describe("flow direction, width, and staleness", () => {
     expect(electricityDirectionWords(null)).toBeNull();
     expect(gasDirectionWords("entry", 12)).toBe("Into GB");
     expect(gasDirectionWords("exit", 12)).toBe("Out of GB");
+    expect(gasDirectionWords("entry", 0)).toBe(ZERO_FLOW_LABEL);
+    expect(gasDirectionWords("exit", 0)).toBe(ZERO_FLOW_LABEL);
     expect(gasDirectionWords("entry", null)).toBeNull();
+    expect(flowDirectionMoves(ZERO_FLOW_LABEL)).toBe(false);
+    expect(flowDirectionMoves("Into GB")).toBe(true);
+    expect(flowDirectionMoves(null)).toBe(false);
+    expect(flowListLine(ZERO_FLOW_LABEL, "0.0 mcm/d")).toBe("Zero flow · 0.0 mcm/d");
     expect(formatFlowReading(null, "MW")).toBe(ABSENT_FIGURE);
     expect(formatFlowReading(0, "MW")).toBe("0 MW");
     expect(flowListLine(null, "0.0 mcm/d")).toBe("0.0 mcm/d");

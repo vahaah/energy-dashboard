@@ -63,6 +63,46 @@ describe("phase 1A release gate", () => {
     expect(absent?.state).toBe("not_yet_available");
   });
 
+  it("fills the three missing gas series from the latest completed day", () => {
+    const now = new Date("2026-10-15T09:10:00.000Z");
+    const release = fixtureRelease();
+    const readings = gasReadingsFromReleases([release], now);
+    const demand = readings.find((row) => row.metric_id === "gas.gb_nts.demand.actual_energy");
+    const injection = readings.find((row) => row.metric_id === "gas.gb_nts.storage.injection");
+    const withdrawal = readings.find((row) => row.metric_id === "gas.gb_nts.storage.withdrawal");
+    expect(demand?.value).toBe(165.302);
+    expect(demand?.unit).toBe("mscm");
+    expect(demand?.dataset_id).toBe("PUBOB637");
+    expect(demand?.label).toBe("NTS demand, completed day");
+    expect(demand?.state).toBeNull();
+    expect(injection?.value).toBe(484171605);
+    expect(injection?.unit).toBe("kWh");
+    expect(injection?.dataset_id).toBe("PUBOBJ1024");
+    expect(injection?.label).toBe("Storage injection");
+    expect(injection?.state).toBeNull();
+    expect(withdrawal?.value).toBe(0);
+    expect(withdrawal?.unit).toBe("mscm");
+    expect(withdrawal?.dataset_id).toBe("PUBOBJ630");
+    expect(withdrawal?.state).toBeNull();
+
+    const primary = release.components.find((row) => row.metric_id === "gas.gb_nts.offtake.storage_injection.energy");
+    expect(primary).toBeDefined();
+    if (!primary) {
+      return;
+    }
+    const own: GasRelease = {
+      ...release,
+      components: [
+        ...release.components,
+        { ...primary, publication_id: "PUBOB4423", metric_id: "gas.gb_nts.storage.injection", value: 42 },
+      ],
+    };
+    const kept = gasReadingsFromReleases([own], now).find((row) => row.metric_id === "gas.gb_nts.storage.injection");
+    expect(kept?.value).toBe(42);
+    expect(kept?.dataset_id).toBe("PUBOB4423");
+    expect(kept?.unit).toBe("kWh");
+  });
+
   it("records an operator and never an owner", () => {
     const station = [...catalogue.details.values()].find((detail) => detail.link === null);
     const link = [...catalogue.details.values()].find((detail) => detail.link?.fuelinstCode);

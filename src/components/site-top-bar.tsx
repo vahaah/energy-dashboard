@@ -6,6 +6,7 @@ import { AssetSearchButton, AssetSearchDialogHost } from "@/components/asset-sea
 import { GridMark } from "@/components/grid-mark";
 import { ConnectedSitePrimaryNav } from "@/components/site-primary-nav";
 import { CARD_PAD_X } from "@/components/ui/card";
+import { sectionRepeatsCompactNav } from "@/lib/site-nav";
 
 export function SiteTopBar({
   idPrefix,
@@ -26,7 +27,9 @@ export function SiteTopBar({
             <GridMark />
             <span className="text-heading-16">Grid</span>
           </Link>
-          {section ? <p className="min-w-0 truncate text-label-13 text-gray-900 md:hidden">{section}</p> : null}
+          {section && !sectionRepeatsCompactNav(section) ? (
+            <p className="min-w-0 truncate text-label-13 text-gray-900 md:hidden">{section}</p>
+          ) : null}
           <div className="hidden min-w-0 flex-1 md:block">
             <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-desktop`} />
           </div>
