@@ -549,6 +549,65 @@ describe("EirGrid fetch", () => {
     expect(valueOf(release, "elec.ni.generation.system")).toBe(1110);
   });
 
+  it("retries timeouts on an empty-body refetch before keeping the previous demand", async () => {
+    const store = new MemoryNiStore();
+    setNiStoreForTests(store);
+    await publishGood(store, 636, new Date("2026-10-20T15:15:00.000Z"));
+    const calls = { demand: 0 };
+    const slept: number[] = [];
+    const demand = feed("20-Oct-2026 16:15:00", [
+      { EffectiveTime: "20-Oct-2026 16:15:00", FieldName: "SYSTEM_DEMAND", Region: "NI", Value: 1009 },
+    ]);
+    const fetchImpl = async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const areas = url.searchParams.get("areas");
+      const region = url.searchParams.get("region");
+      if (areas === "demandactual" && region === "NI") {
+        calls.demand += 1;
+        if (calls.demand === 1) {
+          return textResponse(JSON.stringify({ Rows: [] }));
+        }
+        if (calls.demand < 4) {
+          throw timeoutError();
+        }
+        return textResponse(demand);
+      }
+      const part = partOf(url.toString());
+      if (part === "market") {
+        return textResponse(MARKET);
+      }
+      const field = areas ? CHART_FIELD[areas] : undefined;
+      if (field && region) {
+        return textResponse(
+          feed("20-Oct-2026 16:15:00", [
+            { EffectiveTime: "20-Oct-2026 16:15:00", FieldName: field, Region: region, Value: CHART_FILL },
+          ]),
+        );
+      }
+      return textResponse("{}");
+    };
+
+    const fetched = await fetchNiBundle(new Date("2026-10-20T16:15:00.000Z"), {
+      fetchImpl,
+      gapMs: 0,
+      random: () => 0,
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+    const published = await publishNiBundle(fetched.hash, new Date("2026-10-20T16:15:00.000Z"));
+    const release = await publishedRelease(store, published.releaseId);
+
+    expect(calls.demand).toBe(4);
+    expect(slept).toEqual([
+      eirgridRequestBackoffMs(1, () => 0),
+      eirgridRequestBackoffMs(1, () => 0),
+      eirgridRequestBackoffMs(2, () => 0),
+    ]);
+    expect(fetched.bundle?.carry_metric_ids ?? []).not.toContain("elec.ni.demand.system");
+    expect(valueOf(release, "elec.ni.demand.system")).toBe(1009);
+  });
+
   it("leaves the previous pointer when every chart area is empty and the other parts fail", async () => {
     const store = new MemoryNiStore();
     setNiStoreForTests(store);

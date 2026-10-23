@@ -373,8 +373,8 @@ function failureReason(error: unknown): string {
 
 /**
  * HTTP timeouts, 429s and 5xx are retried inside `getTextWithRetry`.
- * A 200 with no finite `Value` is the chart flake that kept yesterday's NI
- * demand and generation, so that body is fetched again before the caller carries.
+ * A 200 with no finite `Value` is fetched again, and each of those refetches
+ * keeps that same HTTP retry budget instead of counting a timeout as an empty body.
  */
 async function readFeedBody(
   url: string,
@@ -385,13 +385,7 @@ async function readFeedBody(
   let body = await getTextWithRetry(url, fetchImpl, sleep, random);
   for (let attempt = 1; attempt <= EIRGRID_REQUEST_RETRIES && valuedFeedRows(body) === 0; attempt += 1) {
     await sleep(eirgridRequestBackoffMs(attempt, random));
-    try {
-      body = await getText(url, fetchImpl);
-    } catch (error) {
-      if (!isEirgridRequestRetryable(error) || attempt >= EIRGRID_REQUEST_RETRIES) {
-        throw error;
-      }
-    }
+    body = await getTextWithRetry(url, fetchImpl, sleep, random);
   }
   return body;
 }
