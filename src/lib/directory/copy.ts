@@ -31,6 +31,18 @@ export const SCHEME_LABEL: Record<IdentifierScheme, string> = {
   GSP_GROUP: "GSP group",
 };
 
+export const SCHEME_INTRO: Record<IdentifierScheme, string> = {
+  MPID: MPID_LABEL,
+  BM_UNIT_ID: "BM Unit ID: a balancing-mechanism unit. The code can include a hyphen.",
+  GSP_GROUP: "GSP group: the grid supply point group this code belongs to.",
+};
+
+export const SCHEME_ROLE: Record<IdentifierScheme, string> = {
+  MPID: ROLE_LABEL,
+  BM_UNIT_ID: "The participant role with the same MPID, role code, and Effective From Date.",
+  GSP_GROUP: "The role the source lists for this GSP group between the dates shown.",
+};
+
 export function isIdentifierScheme(value: string): value is IdentifierScheme {
   switch (value) {
     case "MPID":

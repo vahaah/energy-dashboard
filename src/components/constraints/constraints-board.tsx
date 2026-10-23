@@ -26,6 +26,9 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
       {model.financialYear ? (
         <p className="text-copy-14 text-gray-900">NESO financial year {model.financialYear}.</p>
       ) : null}
+      {model.publishingLag ? (
+        <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">{model.publishingLag}</p>
+      ) : null}
       {model.cost ? (
         <Card title={CONSTRAINTS_COST_TITLE}>
           <p className="break-words text-copy-14 text-gray-900">{CONSTRAINTS_COST_SOURCE}</p>

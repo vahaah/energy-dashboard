@@ -144,6 +144,51 @@ describe("Northern Ireland page model", () => {
       "Some of Northern Ireland's data is missing for this period. Totals may be lower than the full figure.",
     );
   });
+
+  it("keeps actuals to the past, labels forecasts, and groups thousands", () => {
+    const now = new Date("2026-10-23T12:00:00.000Z");
+    const past = "2026-10-23T10:45:00.000Z";
+    const evening = "2026-10-23T21:00:00.000Z";
+    const late = "2026-10-23T22:45:00.000Z";
+    const next = {
+      ...release,
+      series: release.series.map((series) => {
+        if (series.metric_id === "elec.ni.demand.system") {
+          return {
+            ...series,
+            points: [
+              { time: past, value: 1102 },
+              { time: evening, value: null },
+              { time: late, value: null },
+            ],
+          };
+        }
+        if (series.metric_id === "elec.ni.generation.wind_forecast") {
+          return {
+            ...series,
+            points: [
+              { time: past, value: 1102 },
+              { time: evening, value: 900 },
+            ],
+          };
+        }
+        return series;
+      }),
+    };
+    const model = buildNiPage(next, "Supported by EirGrid Group Data", now);
+    const ni = model.scopes.find((scope) => scope.id === "ni");
+    const demand = ni?.figures.find((figure) => figure.metricId === "elec.ni.demand.system");
+    const forecast = ni?.figures.find((figure) => figure.metricId === "elec.ni.generation.wind_forecast");
+    expect(demand?.forecast).toBe(false);
+    expect(demand?.value).toBe("1,102");
+    expect(demand?.rows).toHaveLength(1);
+    expect(demand?.rows[0]?.time).toContain("11:45");
+    expect(demand?.rows.some((row) => row.time.includes("22:00") || row.time.includes("23:45"))).toBe(false);
+    expect(forecast?.forecast).toBe(true);
+    expect(forecast?.value).toBe("900");
+    expect(forecast?.rows.map((row) => row.value)).toEqual(["1,102", "900"]);
+    expect(forecast?.rows.some((row) => row.time.includes("22:00"))).toBe(true);
+  });
 });
 
 describe("data sources", () => {

@@ -21,6 +21,7 @@ import { formatPlainSettlementWindow, fuelinstDelayNote } from "@/lib/generation
 import { generationMixShares } from "@/lib/generation-share";
 import { buildGroupedSourceTable } from "@/lib/source-groups";
 import { captionGeneration } from "@/lib/attribution";
+import { SETTLEMENT_PUBLICATION_GRACE_MS } from "@/lib/data-state";
 import { parseUtcDateTime } from "@/lib/london-time";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { LatestFacts } from "@/lib/facts";
@@ -113,7 +114,7 @@ export function GenerationDesk({
       )}
       <BalanceFooter
         periodStart={periodStart}
-        status={balanceFooterStatus(power)}
+        status={balanceFooterStatus(power, now)}
         batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
       />
       {delayNote ? (
@@ -172,10 +173,17 @@ export function GenerationDesk({
   );
 }
 
-type BalanceFooterStatus = "stale" | "incomplete" | null;
+type BalanceFooterStatus = "stale" | "waiting" | "incomplete" | null;
 
-function balanceFooterStatus(power: DisplayedPower): BalanceFooterStatus {
+function balanceFooterStatus(power: DisplayedPower, now: Date): BalanceFooterStatus {
   if (power.alignmentNote != null) {
+    const period = power.generationStartUtc ?? power.demandStartUtc;
+    if (period != null) {
+      const end = getSettlementPeriod(parseUtcDateTime(period)).endUtc.getTime();
+      if (now.getTime() - end <= SETTLEMENT_PUBLICATION_GRACE_MS) {
+        return "waiting";
+      }
+    }
     return "stale";
   }
   const period = power.generationStartUtc ?? power.demandStartUtc;
@@ -188,6 +196,7 @@ function balanceFooterStatus(power: DisplayedPower): BalanceFooterStatus {
 function balanceStatusCopy(status: BalanceFooterStatus): string | null {
   switch (status) {
     case "stale":
+    case "waiting":
       return "Latest settlement period is not in yet";
     case "incomplete":
       return "Half-hour balance is incomplete.";

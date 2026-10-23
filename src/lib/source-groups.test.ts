@@ -49,8 +49,9 @@ describe("grouped source table", () => {
 
     expect(hydro?.mw).toBe(571);
     expect(pumped?.mw).toBe(231);
-    expect(battery?.gwLabel).toBe("—");
-    expect(battery?.missingNote).toBe("discharge only; charging is a balance term");
+    expect(battery?.gwLabel).toBe("");
+    expect(battery?.shareLabel).toBe("");
+    expect(battery?.missingNote).toBe("Not reported separately by the source.");
     expect(wind?.mw).toBe(4663);
     expect(france?.mw).toBe(396);
     expect(france?.gwLabel).toBe("0.4");

@@ -31,6 +31,7 @@ export default async function ConstraintsPage() {
     breakdown: history.breakdown.latest,
     breakdownPrevious: history.breakdown.previous,
     dayAhead: history.dayAhead.latest,
+    now,
   });
 
   return (

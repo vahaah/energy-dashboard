@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { capacityFromRegister, capacityRowsFromCkan } from "@/lib/map/capacity";
 import { compactElectricity } from "@/lib/map/electricity-release";
 import {
+  ELECTRICITY_BANNER_STALE_MS,
   ELECTRICITY_STALE_MS,
+  flowListLine,
   GAS_STALE_MS,
   electricityDirectionWords,
   electricityWidthPx,
@@ -45,6 +47,9 @@ describe("flow direction, width, and staleness", () => {
     expect(gasDirectionWords("entry", null)).toBeNull();
     expect(formatFlowReading(null, "MW")).toBe(ABSENT_FIGURE);
     expect(formatFlowReading(0, "MW")).toBe("0 MW");
+    expect(flowListLine(null, "0.0 mcm/d")).toBe("0.0 mcm/d");
+    expect(flowListLine(null, ABSENT_FIGURE)).toBe(ABSENT_FIGURE);
+    expect(flowListLine("Into the GB system", "12.0 mcm/d")).toBe("Into the GB system · 12.0 mcm/d");
   });
 
   it("uses the 2, 4 and 6 pixel steps", () => {
@@ -69,6 +74,9 @@ describe("flow direction, width, and staleness", () => {
     expect(readingIsStale(null, now, ELECTRICITY_STALE_MS)).toBe(false);
     expect(ELECTRICITY_STALE_MS).toBe(60 * 60 * 1000);
     expect(GAS_STALE_MS).toBe(2 * 60 * 60 * 1000);
+    expect(ELECTRICITY_BANNER_STALE_MS).toBe(90 * 60 * 1000);
+    expect(readingIsStale("2026-10-20T10:50:00.000Z", now, ELECTRICITY_BANNER_STALE_MS)).toBe(false);
+    expect(readingIsStale("2026-10-20T10:29:00.000Z", now, ELECTRICITY_BANNER_STALE_MS)).toBe(true);
   });
 });
 

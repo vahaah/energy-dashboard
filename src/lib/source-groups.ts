@@ -137,7 +137,7 @@ export function buildGroupedSourceTable(
 
   const generationMw = domesticGenerationMw(buckets);
   const groups = SOURCE_GROUP_ORDER.map((id) => {
-    const rows = rowsForGroup(id, buckets, countryMw, generationMw, sparklineRows);
+    const rows = rowsForGroup(id, buckets, countryMw, generationMw, sparklineRows, batteryPublished(latest));
     const present = rows.filter((row) => row.mw != null);
     const mw = present.length === 0 ? null : present.reduce((sum, row) => sum + (row.mw ?? 0), 0);
     const interconnector = id === "interconnectors";
@@ -200,12 +200,22 @@ function applyDisplayedShareLabels(groups: SourceGroupView[]): SourceGroupView[]
   });
 }
 
+function batteryPublished(latest: Map<string, Generation5min>): boolean {
+  for (const fuel of latest.keys()) {
+    if (isBatteryFuel(fuel)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function rowsForGroup(
   group: SourceGroupId,
   buckets: Map<string, Accumulator>,
   countryMw: Map<string, number>,
   generationMw: number,
-  sparklineRows: Generation5min[]
+  sparklineRows: Generation5min[],
+  batteryInSource: boolean,
 ): SourceRowView[] {
   switch (group) {
     case "fossil":
@@ -235,7 +245,7 @@ function rowsForGroup(
     case "storage":
       return [
         sourceRow("pumped_storage", buckets.get("pumped_storage"), generationMw, sparklineRows),
-        batteryRow(buckets.get("battery"), generationMw, sparklineRows),
+        batteryRow(buckets.get("battery"), generationMw, sparklineRows, batteryInSource),
       ];
     default: {
       const exhaustive: never = group;
@@ -266,9 +276,24 @@ function sourceRow(
 function batteryRow(
   bucket: Accumulator | undefined,
   generationMw: number,
-  sparklineRows: Generation5min[]
+  sparklineRows: Generation5min[],
+  batteryInSource: boolean,
 ): SourceRowView {
   const discharging = bucket != null && bucket.mw > 0;
+  if (!batteryInSource) {
+    return rowView({
+      id: "battery",
+      label: "Battery",
+      mw: null,
+      color: fuelColor("battery"),
+      help: HELP.battery ?? "",
+      sparkline: [],
+      generationMw,
+      missingNote: "Not reported separately by the source.",
+      interconnector: false,
+      blankFigures: true,
+    });
+  }
   return rowView({
     id: "battery",
     label: "Battery",
@@ -292,17 +317,19 @@ function rowView(input: {
   generationMw: number;
   missingNote: string | null;
   interconnector: boolean;
+  blankFigures?: boolean;
 }): SourceRowView {
   const interconnector = input.interconnector;
+  const blank = input.blankFigures === true;
   return {
     id: input.id,
     label: input.label,
     mw: input.mw,
-    gwLabel:
-      input.mw == null ? "—" : formatHeadlineGw(interconnector ? Math.abs(input.mw) : input.mw),
+    gwLabel: blank ? "" : input.mw == null ? "—" : formatHeadlineGw(interconnector ? Math.abs(input.mw) : input.mw),
     sharePct: input.mw == null || interconnector ? null : sharePct(input.mw, input.generationMw),
-    shareLabel:
-      input.mw == null
+    shareLabel: blank
+      ? ""
+      : input.mw == null
         ? "—"
         : interconnector
           ? directionWord(input.mw)

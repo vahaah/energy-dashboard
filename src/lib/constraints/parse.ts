@@ -43,7 +43,7 @@ export type ParsedDayAhead =
   | { ok: false; reason: ParseFailureReason };
 
 const SETTLEMENT_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const WALL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
+const WALL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
 export function nesoFinancialYear(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -133,7 +133,7 @@ function wallToUtc(wall: string, previous: string | null): string | null {
   const day = Number(match[3]);
   const hour = Number(match[4]);
   const minute = Number(match[5]);
-  const second = Number(match[6]);
+  const second = match[6] == null || match[6] === "" ? 0 : Number(match[6]);
   if (second !== 0 || (minute !== 0 && minute !== 30)) {
     return null;
   }
@@ -182,8 +182,13 @@ export function parseDayAheadCsv(text: string): ParsedDayAhead {
     if (!SETTLEMENT_DATE.test(settlement)) {
       return { ok: false, reason: "row" };
     }
-    const limit = parsePublishedNumber(cells[2] ?? "");
-    const flow = parsePublishedNumber(cells[3] ?? "");
+    const limitCell = (cells[2] ?? "").trim();
+    const flowCell = (cells[3] ?? "").trim();
+    if (limitCell === "" || flowCell === "") {
+      continue;
+    }
+    const limit = parsePublishedNumber(limitCell);
+    const flow = parsePublishedNumber(flowCell);
     if (limit == null || flow == null) {
       return { ok: false, reason: "row" };
     }

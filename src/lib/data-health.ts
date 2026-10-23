@@ -787,8 +787,9 @@ function observeGeneration(
 function generationValue(metricId: MetricId, mw: number): number {
   switch (metricId) {
     case "elec.gb.exports.fuelinst":
-    case "elec.gb.storage.charging":
       return Math.abs(mw);
+    case "elec.gb.storage.charging":
+      return mw < 0 ? Math.abs(mw) : 0;
     case "elec.gb.generation.pumped_storage":
     case "elec.gb.generation.battery":
       return Math.max(0, mw);
@@ -829,9 +830,7 @@ function generationMatches(metricId: MetricId, row: Generation5min): boolean {
     case "elec.gb.exports.fuelinst":
       return isInterconnectorFuel(row.fuel_type) && row.generation_mw < 0;
     case "elec.gb.storage.charging":
-      return (
-        (isPumpedStorageFuel(row.fuel_type) || isBatteryFuel(row.fuel_type)) && row.generation_mw < 0
-      );
+      return isPumpedStorageFuel(row.fuel_type) || isBatteryFuel(row.fuel_type);
     default:
       return false;
   }

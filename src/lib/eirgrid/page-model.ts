@@ -15,6 +15,7 @@ export type NiFigure = {
   unit: string;
   sourceLine: string;
   value: string;
+  forecast: boolean;
   rows: { time: string; value: string }[];
 };
 
@@ -70,7 +71,7 @@ const SEMO_FIGURES = ["elec.all_island.price.imbalance", "elec.all_island.imbala
 
 const TABLE_ROWS = 8;
 
-export function buildNiPage(release: NiRelease | null, attribution: string): NiPageModel {
+export function buildNiPage(release: NiRelease | null, attribution: string, now = new Date()): NiPageModel {
   if (!release || !hasNorthernIrelandPoint(release)) {
     return {
       available: false,
@@ -82,7 +83,7 @@ export function buildNiPage(release: NiRelease | null, attribution: string): NiP
   }
   const byId = new Map(release.series.map((series) => [series.metric_id, series]));
   const partial =
-    NI_FIGURES.some((metricId) => seriesMissing(byId.get(metricId))) || fuelsNeedPartial(byId);
+    NI_FIGURES.some((metricId) => seriesMissing(byId.get(metricId), metricId, now)) || fuelsNeedPartial(byId);
   const observed = latestSoniInstant(release);
   return {
     available: true,
@@ -90,8 +91,8 @@ export function buildNiPage(release: NiRelease | null, attribution: string): NiP
     partial,
     attribution,
     scopes: [
-      scopeModel("ni", "Northern Ireland", NI_FIGURES, "NI", byId),
-      scopeModel("all", "All-island", ALL_FIGURES, "ALL_ISLAND", byId),
+      scopeModel("ni", "Northern Ireland", NI_FIGURES, "NI", byId, now),
+      scopeModel("all", "All-island", ALL_FIGURES, "ALL_ISLAND", byId, now),
     ],
   };
 }
@@ -112,20 +113,22 @@ function scopeModel(
   figureIds: readonly string[],
   geography: "NI" | "ALL_ISLAND",
   byId: Map<string, NiSeries>,
+  now: Date,
 ): NiScopeModel {
   return {
     id,
     label,
-    figures: figureIds.map((metricId) => figure(metricId, byId.get(metricId))),
+    figures: figureIds.map((metricId) => figure(metricId, byId.get(metricId), now)),
     fuels: fuelRows(geography, byId),
     fuelSourceLine: SONI_SOURCE_LINE,
-    semo: id === "all" ? SEMO_FIGURES.map((metricId) => figure(metricId, byId.get(metricId))) : [],
+    semo: id === "all" ? SEMO_FIGURES.map((metricId) => figure(metricId, byId.get(metricId), now)) : [],
   };
 }
 
-function figure(metricId: string, series: NiSeries | undefined): NiFigure {
+function figure(metricId: string, series: NiSeries | undefined, now: Date): NiFigure {
   const spec = specFor(metricId);
-  const points = series?.points ?? [];
+  const forecast = spec.area.endsWith("forecast");
+  const points = shownPoints(series?.points ?? [], forecast, now);
   const latest = [...points].reverse().find((point) => point.value != null) ?? null;
   const rows = points.slice(-TABLE_ROWS).map((point) => ({
     time: formatLondonDateTimeStamp(parseUtcDateTime(point.time)),
@@ -136,9 +139,22 @@ function figure(metricId: string, series: NiSeries | undefined): NiFigure {
     label: spec.label,
     unit: spec.unit,
     sourceLine: spec.source_line,
+    forecast,
     value: latest?.value == null ? formatAbsent(null) : formatFigure(latest.value, spec.unit),
     rows,
   };
+}
+
+function shownPoints(
+  points: readonly { time: string; value: number | null }[],
+  forecast: boolean,
+  now: Date,
+): { time: string; value: number | null }[] {
+  if (forecast) {
+    return [...points];
+  }
+  const cutoff = now.getTime();
+  return points.filter((point) => parseUtcDateTime(point.time).getTime() <= cutoff);
 }
 
 function fuelRows(geography: "NI" | "ALL_ISLAND", byId: Map<string, NiSeries>): NiFuelRow[] {
@@ -155,11 +171,13 @@ function fuelRows(geography: "NI" | "ALL_ISLAND", byId: Map<string, NiSeries>): 
   }));
 }
 
-function seriesMissing(series: NiSeries | undefined): boolean {
-  if (!series || series.points.length === 0) {
+function seriesMissing(series: NiSeries | undefined, metricId: string, now: Date): boolean {
+  const forecast = specFor(metricId).area.endsWith("forecast");
+  const points = shownPoints(series?.points ?? [], forecast, now);
+  if (points.length === 0) {
     return true;
   }
-  return series.points.some((point) => point.value == null);
+  return points.some((point) => point.value == null);
 }
 
 function hasNorthernIrelandPoint(release: NiRelease): boolean {

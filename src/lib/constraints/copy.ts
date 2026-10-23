@@ -9,6 +9,10 @@ export const CONSTRAINTS_COST_SOURCE =
   "Source: NESO (constraints). Published cost of actions taken to manage transmission constraints, £.";
 export const CONSTRAINTS_REVISIONS = "Revisions shown.";
 
+export function measuredBreakdownLagNote(settlementDate: string): string {
+  return `NESO's measured breakdown is published on a delay. The latest settlement date in the file is ${settlementDate}.`;
+}
+
 export const CONSTRAINTS_VOLUME_TITLE = "Constraint volume";
 export const CONSTRAINTS_VOLUME_SOURCE = "Energy volume of those actions, MWh.";
 
