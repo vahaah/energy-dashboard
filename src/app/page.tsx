@@ -10,7 +10,14 @@ import { homepageCiteFromPayload, homepageCitePlainText } from "@/lib/homepage-b
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { homepageJsonLd } from "@/lib/jsonld";
 import { homepageOgImage } from "@/lib/page-metadata";
-import { HOME_DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_OG_IMAGE, SITE_OG_TYPE } from "@/lib/site";
+import {
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  SITE_NAME,
+  SITE_OG_IMAGE,
+  SITE_OG_TYPE,
+  SITE_TWITTER_CARD,
+} from "@/lib/site";
 
 /**
  * Homepage shell. Static/ISR so the CDN can HIT `/`. The H1 and cite sentence
@@ -40,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [{ ...SITE_OG_IMAGE, url: image.url, alt }],
     },
     twitter: {
-      card: "summary_large_image",
+      ...SITE_TWITTER_CARD,
       title: HOME_TITLE,
       description: HOME_DESCRIPTION,
       images: [{ url: image.url, alt }],
