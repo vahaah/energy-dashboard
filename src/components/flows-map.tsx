@@ -227,6 +227,14 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const [snap, setSnap] = useState<Snap>(FLOW_SHEET_PEEK_PX);
   const [about, setAbout] = useState(false);
   const [now, setNow] = useState<number | null>(null);
+  const [desktop, setDesktop] = useState(true);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 64rem)");
+    const apply = () => setDesktop(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
 
   const selected = model.features.find((feature) => feature.id === selectedId) ?? null;
   stationsRef.current = stations;
@@ -525,12 +533,11 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const viewStandfirst = preset === "stations" ? STATIONS_STANDFIRST : model.standfirst;
   const panelLabel = preset === "stations" ? STATIONS_PANEL_LABEL : FLOWS_PANEL_LABEL;
 
-  function Controls({ radioName, heading }: { radioName: string; heading: "h1" | "p" }) {
-    const Title = heading;
+  function Controls({ radioName, title }: { radioName: string; title: boolean }) {
     return (
       <div className="flex min-w-0 flex-col gap-4">
         <div>
-          <Title className="text-heading-24 text-gray-1000">{viewTitle}</Title>
+          {title ? <h1 className="text-heading-24 text-gray-1000">{viewTitle}</h1> : null}
           <p className="mt-2 text-copy-14 text-gray-900">{viewStandfirst}</p>
           {preset === "flows" ? (
             <p className="mt-2 text-label-13 text-gray-900">
@@ -697,7 +704,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         {announcement}
       </p>
       <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
-        <Controls radioName="map-view-panel" heading="h1" />
+        <Controls radioName="map-view-panel" title={desktop} />
         {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
       </aside>
       <div className="relative min-h-0 min-w-0">
@@ -751,7 +758,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             {snap === "full" ? "Collapse" : "Expand"}
           </button>
         </div>
-        <Controls radioName="map-view-sheet" heading="p" />
+        <Controls radioName="map-view-sheet" title={!desktop} />
         {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
         <div className="mt-4">{details}</div>
       </div>
