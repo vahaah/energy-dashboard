@@ -634,7 +634,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
                     className="inline-block h-0 w-8 border-t border-gray-1000"
                     style={{ borderTopWidth: step.width }}
                   />
-                  {step.electricity}. {step.gas}
+                  {step.width === 2 ? "Under 500 MW or under 20 mcm/d" : `${step.electricity}. ${step.gas}`}
                 </li>
               ))}
             </ul>

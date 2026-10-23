@@ -21,7 +21,8 @@ import { snapshotPeriodAverages } from "@/lib/period-averages";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
-export const TODAY_CITE_SOURCES = "Source: Elexon BMRS, NESO; updated hourly.";
+export const TODAY_CITE_SOURCES =
+  "Sources: Elexon (BMRS), NESO (embedded), Carbon Intensity API, solar (PV Live estimate). Grid refreshes every hour.";
 
 export const HALF_HOUR_HOURS = 0.5;
 
@@ -305,13 +306,13 @@ export function buildTodayPageModel(input: {
 
 export function todayCitePlainText(model: TodayPageModel): string {
   if (model.kind === "fallback" || !model.untilClock) {
-    return `Britain's electricity mix, carbon intensity and market price, compiled hourly from Elexon BMRS and NESO. ${TODAY_CITE_SOURCES}`;
+    return `GB electricity mix, carbon intensity and market price. ${TODAY_CITE_SOURCES}`;
   }
-  return `So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of Britain's generation, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index price averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
+  return `So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of GB generation, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
 }
 
 export function todayCitation(model: TodayPageModel, accessed: Date): string {
-  return `Grid, "Britain's electricity today", grid.vahaah.com/today, accessed ${formatLondonDayMonthYear(getLondonDate(accessed))} ${model.untilClock ?? ""}. Data: Elexon BMRS, NESO.`.replace(
+  return `Grid, "GB electricity today", grid.vahaah.com/today, accessed ${formatLondonDayMonthYear(getLondonDate(accessed))} ${model.untilClock ?? ""}. Data: Elexon BMRS, NESO.`.replace(
     "  ",
     " "
   );
@@ -320,11 +321,11 @@ export function todayCitation(model: TodayPageModel, accessed: Date): string {
 export function todayFaqs(model: TodayPageModel): Array<{ question: string; answer: string }> {
   return [
     {
-      question: "How much of Britain's electricity is wind right now?",
+      question: "How much of GB electricity is from wind?",
       answer:
         model.latest.windSharePct == null || !model.latest.windGw
           ? `Grid does not yet have a complete latest half-hour. ${TODAY_CITE_SOURCES}`
-          : `In the latest half-hour Grid holds, wind was ${model.latest.windSharePct}% of generation (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
+          : `In the latest published half-hour, wind was ${model.latest.windSharePct}% of generation (${model.latest.windGw} GW). ${TODAY_CITE_SOURCES}`,
     },
     {
       question: "How much came from gas today?",
@@ -334,11 +335,11 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
           : `So far today gas supplied ${pct(model.shares.gasPct)}% of generation, averaging ${formatHeadlineGw(model.shares.gasGw)} GW (${model.shares.gasGwh == null ? "—" : model.shares.gasGwh.toFixed(1)} GWh). ${TODAY_CITE_SOURCES}`,
     },
     {
-      question: "Is Britain importing electricity today?",
+      question: "Is GB importing electricity today?",
       answer: todayTransferAnswer(model),
     },
     {
-      question: "How clean is the grid today?",
+      question: "How clean is GB electricity today?",
       answer:
         model.carbonAverage == null
           ? `Carbon intensity for today is not in yet. ${TODAY_CITE_SOURCES}`
@@ -349,7 +350,7 @@ export function todayFaqs(model: TodayPageModel): Array<{ question: string; answ
       answer:
         model.priceAverage == null
           ? `The market index for today is not in yet. ${TODAY_CITE_SOURCES}`
-          : `The market index (APXMIDP) has averaged £${avg(model.priceAverage, 0)}/MWh so far today${model.cheapest && model.dearest ? `, from £${model.cheapest.value.toFixed(2)} to £${model.dearest.value.toFixed(2)}/MWh` : ""}. ${TODAY_CITE_SOURCES}`,
+          : `The market index has averaged £${avg(model.priceAverage, 0)}/MWh so far today${model.cheapest && model.dearest ? `, from £${model.cheapest.value.toFixed(2)} to £${model.dearest.value.toFixed(2)}/MWh` : ""}. Source: Elexon (BMRS). Grid refreshes every hour.`,
     },
   ];
 }

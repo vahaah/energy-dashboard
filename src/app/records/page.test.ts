@@ -15,7 +15,7 @@ describe("records page", () => {
     expect(source).toContain("NESO_OPEN_DATA_ATTRIBUTION");
     expect(source).toContain("export const revalidate = 86_400");
     expect(source).toContain('export const dynamic = "force-static"');
-    expect(source).toContain("First time above N GW");
+    expect(source).toContain("First half-hour with wind above each gigawatt");
     expect(source).toContain("Days since coal power ended");
     expect(source).toContain("since Grid's records began");
     expect(source).toContain("HIDE_SOLAR_RECORD");

@@ -403,7 +403,7 @@ export function Dashboard({
                     pending={generation.isValidating}
                     lookAhead={lookAhead}
                     neso={neso}
-                    question="What's powering Britain?"
+                    question="Latest half-hour"
                     answer={answer}
                     actions={
                       <BlockPeriodControl
@@ -429,7 +429,7 @@ export function Dashboard({
 
         <SectionBlock
           id="section-price"
-          title="What does power cost?"
+          title="What does electricity cost?"
           tooltip="Market is the short-term wholesale market price from Elexon’s Market Index (APXMIDP). It is not the day-ahead auction price. System is the imbalance (cash-out) price for being long or short in a half-hour."
           footer={captionElexon()}
           active={focus === "price"}
@@ -552,7 +552,7 @@ export function Dashboard({
 
         <SectionBlock
           id="section-commodities"
-          title="Gas & oil"
+          title="Gas and oil prices"
           tooltip="Oil and gas context on a slower market horizon. The chart keeps the full published set."
           footer={
             <>
@@ -708,16 +708,17 @@ export function Dashboard({
         <footer className="border-t border-gray-alpha-400 pt-8 pb-4">
           <h2 className="text-heading-16 text-gray-1000">Sources and methodology</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
-            Grid is compiled hourly from Elexon BMRS, NESO, the Carbon Intensity API and Sheffield
-            Solar PV Live, with oil and gas context from EIA, World Bank and National Gas.{" "}
+            Grid is a public dashboard of Great Britain&apos;s electricity and gas. It refreshes every
+            hour from Elexon, NESO, the Carbon Intensity API and solar (PV Live estimate). Oil and
+            gas prices from EIA, the World Bank and National Gas refresh every 6 hours.{" "}
             <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
               How the numbers are made
             </Link>
-            . Public JSON is documented on the{" "}
+            . The{" "}
             <Link href="/api" className="text-blue-700 underline-offset-2 hover:underline">
               API page
-            </Link>
-            .
+            </Link>{" "}
+            documents the public JSON.
           </p>
           <p className="mt-3 max-w-3xl text-copy-14 text-gray-900">
             {elexonBmrsAttribution()}{" "}

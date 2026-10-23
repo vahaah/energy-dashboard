@@ -15,7 +15,7 @@ export const RECORDS_DESCRIPTION =
 export const TODAY_TITLE = "GB electricity today: mix, carbon and price | Grid";
 export const TODAY_DESCRIPTION =
   "How Britain's electricity was made today: wind, gas, nuclear, solar and imports in GW and %, plus carbon intensity and market price. Free, updated hourly.";
-export const TODAY_H1 = "Britain's electricity today";
+export const TODAY_H1 = "GB electricity today";
 
 export const PRICE_CAP_TITLE = "Will energy bills go up in January 2027? | Grid";
 export const PRICE_CAP_DESCRIPTION =
@@ -25,7 +25,7 @@ export const PRICE_CAP_H1 = "Will energy bills go up in January 2027?";
 export const GAS_TITLE = "UK gas price today: SAP, Henry Hub and LNG | Grid";
 export const GAS_DESCRIPTION =
   "Today's GB System Average Price of gas in p/therm and p/kWh from National Gas, with Henry Hub, European gas and Japan LNG for context. Free, with sources.";
-export const GAS_H1 = "UK gas price today";
+export const GAS_H1 = "GB gas price today";
 
 export const DATA_HEALTH_TITLE = "Data health: freshness of every series | Grid";
 export const DATA_HEALTH_DESCRIPTION =

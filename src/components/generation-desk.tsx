@@ -60,7 +60,7 @@ export function GenerationDesk({
   now = new Date(),
   lookAhead = null,
   neso = false,
-  question = "What's powering Britain?",
+  question = "Latest half-hour",
   answer = "",
   actions = null,
 }: Props) {

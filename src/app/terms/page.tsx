@@ -3,8 +3,6 @@ import { LegalPage, LegalSection } from "@/components/legal-page";
 import { pageJsonLd } from "@/lib/jsonld";
 import { TERMS_DESCRIPTION, TERMS_TITLE, termsPageMetadata } from "@/lib/page-metadata";
 import {
-  CODE_LICENCE,
-  CODE_LICENCE_URL,
   LEGAL_CONTACT_EMAIL,
   LEGAL_CONTACT_MAILTO,
   LEGAL_CONTROLLER,
@@ -21,7 +19,7 @@ export default function TermsPage() {
     <LegalPage
       section="Terms"
       title="Terms"
-      lede="Grid is a public, informational GB electricity dashboard. It is not a trading terminal, not a forecast product you should rely on, and not financial advice."
+      lede="Grid is a public dashboard of GB energy data for information only. It is not a trading tool, a forecast to rely on, or financial advice."
       schema={pageJsonLd({
         name: TERMS_TITLE,
         description: TERMS_DESCRIPTION,
@@ -31,9 +29,13 @@ export default function TermsPage() {
     >
       <LegalSection title="Informational use">
         <p>
-          Figures come from third-party feeds, are ingested on a half-hourly or slower cadence, and
-          can be late, incomplete, or wrong. Do not use Grid as the sole basis for operational,
-          trading, or investment decisions.
+          Figures come from third-party feeds, are refreshed every hour or less often, and can be
+          late, incomplete, or wrong. Do not use Grid as the sole basis for operational, trading, or
+          investment decisions. Third-party data stays under the licences listed on{" "}
+          <a href="/data-sources" className="text-blue-700 underline-offset-2 hover:underline">
+            Data sources
+          </a>
+          .
         </p>
       </LegalSection>
 
@@ -51,23 +53,6 @@ export default function TermsPage() {
           Nothing on Grid is advice on securities, commodities, electricity contracts, or any other
           financial instrument. Market Index, imbalance prices, and oil or gas series are republished
           context, not a recommendation.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="Code licence">
-        <p>
-          The Grid source code is released under the{" "}
-          <a
-            href={CODE_LICENCE_URL}
-            className="text-blue-700 underline-offset-2 hover:underline"
-          >
-            {CODE_LICENCE} Licence
-          </a>
-          . Third-party data stays under the licences listed on{" "}
-          <a href="/data-sources" className="text-blue-700 underline-offset-2 hover:underline">
-            Data sources
-          </a>
-          . Those licences are not replaced by the MIT grant on the code.
         </p>
       </LegalSection>
 

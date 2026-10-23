@@ -16,7 +16,7 @@ export function wholeEnergyUnitLabel(year: number): string {
   return `TWh, year ${year}.`;
 }
 
-export const WHOLE_ENERGY_SCOPE = "UK, annual statistic.";
+export const WHOLE_ENERGY_SCOPE = `UK, including Northern Ireland. Annual, ${WHOLE_ENERGY_EDITION_YEAR}.`;
 
 export const WHOLE_ENERGY_TRANSFORMATION_NOTE =
   "Gas used for power generation is a transformation input. It is already inside primary supply and is not added again. Final electricity is every source in final consumption, not the output of that gas.";
@@ -24,7 +24,7 @@ export const WHOLE_ENERGY_TRANSFORMATION_NOTE =
 export const WHOLE_ENERGY_DIFFERENCE_NOTE =
   "Statistical difference is primary supply minus primary demand. It is kept as its own row.";
 
-export const WHOLE_ENERGY_STOCK_NOTE = "Stock fall (+), stock rise (-).";
+export const WHOLE_ENERGY_STOCK_NOTE = "Stock change: a fall is positive, a rise is negative.";
 
 export const WHOLE_ENERGY_CONVERSION_NOTE =
   "Thousand tonnes of oil equivalent, gross calorific values, converted at 1 toe = 11,630 kWh, so 1 ktoe = 0.01163 TWh. Shown to 0.1 TWh.";

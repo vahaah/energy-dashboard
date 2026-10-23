@@ -45,11 +45,10 @@ export default async function ChangesPage() {
         breadcrumbs: [{ name: "Changes", item: `${SITE_ORIGIN}/changes` }],
       })}
       cite={<p>{CHANGES_STANDFIRST}</p>}
-      citation={`Grid, "What changed in Britain's energy system", grid.vahaah.com/changes, accessed ${formatLondonDayMonthYear(today)}.`}
+      citation={`Grid, "What changed in GB's energy system", grid.vahaah.com/changes, accessed ${formatLondonDayMonthYear(today)}.`}
       header={
         <section>
-          <p className="text-label-12 text-gray-900">Changes</p>
-          <h1 className="mt-2 text-heading-32 text-gray-1000">{CHANGES_H1}</h1>
+          <h1 className="text-heading-32 text-gray-1000">{CHANGES_H1}</h1>
           <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{CHANGES_STANDFIRST}</p>
         </section>
       }

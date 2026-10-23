@@ -77,6 +77,9 @@ export const NESO_OFFICIAL_RECORDS: Record<NesoOfficialRecordId, NesoOfficialRec
 
 export const HIDE_SOLAR_RECORD = true;
 
+/** Grid's share and NESO's published record do not use the same definition. */
+export const HIDE_ZERO_CARBON_RECORD = true;
+
 export function formatNesoOfficialLine(
   record: NesoOfficialRecord,
   historic?: { valueLabel: string; whenLabel: string }

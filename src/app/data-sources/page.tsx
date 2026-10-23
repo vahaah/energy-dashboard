@@ -26,14 +26,12 @@ export default function DataSourcesPage() {
     >
       <LegalSection title="How Grid uses data">
         <p>
-          Ingest reads these APIs on a schedule, stores snapshots in Tinybird, and serves the
-          dashboard from cache. Missing metrics stay null. National Gas operational series are
-          published to Blob. NESO constraint breakdowns, day-ahead boundary snapshots, and the
-          transmission entry capacity register are published to Blob. The plant register, the
-          projects register, the UK annual energy balance, and map layers stay in the catalogue.
+          Grid reads these sources on a schedule, stores each reading with its source time, and serves
+          the dashboard from stored copies. Missing values stay empty, never zero. The plant register,
+          the projects register, the UK annual energy balance, and map layers stay in the catalogue.
           The organisation directory is a lookup. Grid does not offer a download of the ISD extract.
-          The postcode lookup is published to Blob. Northern Ireland postcodes are not included. Grid
-          does not offer a download of the ONS file.
+          The postcode lookup is a private copy. Northern Ireland postcodes are not included. Grid does
+          not offer a download of the ONS file.
         </p>
       </LegalSection>
 

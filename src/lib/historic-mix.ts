@@ -69,7 +69,7 @@ export const SOLAR_RECORD_BASIS =
   "NESO historic mix solar, including embedded solar. Not the Sheffield Solar PV Live series.";
 export const CARBON_RECORD_BASIS = "Half-hour carbon intensity from NESO historic generation mix.";
 export const COAL_RECORD_BASIS =
-  "Britain's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. NESO historic mix still shows residual coal after that date; this record does not follow those readings.";
+  "GB's last coal power station, Ratcliffe-on-Soar, closed on 30 Sep 2024. NESO historic mix still shows residual coal after that date; this record does not follow those readings.";
 
 const SHARE_FIELDS = [
   "GAS_perc",

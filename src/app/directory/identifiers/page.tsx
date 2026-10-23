@@ -46,20 +46,20 @@ export default function DirectoryIdentifiersPage() {
       citation={`Grid, "Look up an MPID or industry code", grid.vahaah.com/directory/identifiers, accessed ${formatLondonDayMonthYear(today)}. ${ELEXON_ISD_ATTRIBUTION}`}
       header={
         <section>
-          <p className="text-label-12 text-gray-900">Directory</p>
-          <h1 className="mt-2 text-heading-32 text-gray-1000">{IDENTIFIERS_H1}</h1>
+          <h1 className="text-heading-32 text-gray-1000">{IDENTIFIERS_H1}</h1>
           <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{IDENTIFIERS_STANDFIRST}</p>
         </section>
       }
     >
       <Card
-        title="Codes"
+        title="Look up a code"
         footer={
           <p>
+            Source: Elexon (Industry Standing Data). Grid shows only the fields needed for a lookup and does not offer a download.{" "}
             <a href={ELEXON_ISD_URL} className="text-blue-700 underline-offset-2 hover:underline">
               Elexon Industry Standing Data
             </a>
-            . {ELEXON_ISD_ATTRIBUTION}
+            .
           </p>
         }
       >

@@ -19,13 +19,15 @@ import type { EnergySnapshot } from "@/lib/types";
 export { HOME_H1 };
 
 export function historicalHomepageH1(date: string): string {
-  return `What powered Britain's electricity on ${formatLondonDayMonthYear(date)}`;
+  return `What powered GB electricity on ${formatLondonDayMonthYear(date)}`;
 }
 
 export const HOME_CITE_SOURCES =
-  "Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.";
+  "Sources: Elexon (BMRS), NESO (demand, embedded), Carbon Intensity API and solar (PV Live estimate).";
 
-export const HOME_CITE_FALLBACK = `Britain's electricity mix, carbon intensity, demand and prices, updated hourly from Elexon, NESO and Sheffield Solar. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
+export const HOME_CITE_REFRESH = "Grid is a free public dashboard and refreshes every hour.";
+
+export const HOME_CITE_FALLBACK = `Great Britain's electricity mix, carbon intensity, demand and prices. ${HOME_CITE_SOURCES} ${HOME_CITE_REFRESH}`;
 
 export type HomepageCite =
   | {
@@ -105,7 +107,7 @@ export function homepageCitePlainText(cite: HomepageCite): string {
     case "fallback":
       return HOME_CITE_FALLBACK;
     case "numbers":
-      return `At ${cite.timeLabel} on ${cite.dateLabel}, ${sentenceFuel(cite.topFuel)} was Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}%). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
+      return `In the half-hour from ${cite.timeLabel} on ${cite.dateLabel}, ${sentenceFuel(cite.topFuel)} was Great Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}% of generation). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. ${HOME_CITE_SOURCES} ${HOME_CITE_REFRESH}`;
     default: {
       const exhaustive: never = cite;
       return exhaustive;

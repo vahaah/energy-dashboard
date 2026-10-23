@@ -143,16 +143,18 @@ describe("storage inventory", () => {
         kind: "mw",
         id: "pumped_storage",
         label: "Pumped storage",
-        coveredLabel: "1800.0",
-        totalLabel: "1800.0",
+        coveredLabel: "1,800.0",
+        totalLabel: "1,800.0",
       },
       { kind: "unreported", id: "battery", text: STORAGE_BATTERIES_UNREPORTED },
     ]);
-    expect(document.rated?.shares.find((share) => share.technology === "pumped_storage")?.mwLabel).toBe("1820.0");
+    expect(document.rated?.shares.find((share) => share.technology === "pumped_storage")?.mwLabel).toBe("1,820.0");
     expect(document.rated?.omitted).toBe(1);
-    const shown = document.rows.map((item) => (item.ratedLabel === "Not available" ? 0 : Number(item.ratedLabel)));
+    const shown = document.rows.map((item) => (item.ratedLabel === "Not available" ? 0 : Number(item.ratedLabel.replaceAll(",", ""))));
     const known = shown.filter((_, index) => document.rows[index]?.ratedLabel !== "Not available");
-    expect(Number(formatDisplay(known.reduce((sum, value) => sum + value, 0), 0.1))).toBe(Number(document.rated?.totalLabel));
+    expect(Number(formatDisplay(known.reduce((sum, value) => sum + value, 0), 0.1).replaceAll(",", ""))).toBe(
+      Number(document.rated?.totalLabel?.replaceAll(",", "")),
+    );
     expect(document.rated?.shares.reduce((sum, share) => sum + share.percent, 0)).toBe(100);
     expect(document.showEnergy).toBe(false);
     expect(document.showDuration).toBe(false);
@@ -197,20 +199,21 @@ describe("checked-in storage inventory", () => {
       kind: "mw",
       id: "pumped_storage",
       label: "Pumped storage",
-      coveredLabel: "2900.0",
-      totalLabel: "2900.0",
+      coveredLabel: "2,900.0",
+      totalLabel: "2,900.0",
     });
     expect(document.coverage.lines.find((line) => line.kind === "unreported")?.text).toBe(STORAGE_BATTERIES_UNREPORTED);
     expect(document.energyNote).toBe(ENERGY_POWER_ONLY);
     expect(document.showDuration).toBe(false);
     expect(document.rated?.shares.reduce((sum, share) => sum + share.percent, 0)).toBe(100);
     const rowMw = document.rows.reduce(
-      (sum, row) => sum + (row.ratedLabel === "Not available" ? 0 : Number(row.ratedLabel)),
+      (sum, row) => sum + (row.ratedLabel === "Not available" ? 0 : Number(row.ratedLabel.replaceAll(",", ""))),
       0,
     );
-    const shareMw = document.rated?.shares.reduce((sum, share) => sum + Number(share.mwLabel), 0) ?? 0;
-    expect(Number(rowMw.toFixed(1))).toBe(Number(document.rated?.totalLabel));
-    expect(Number(shareMw.toFixed(1))).toBe(Number(document.rated?.totalLabel));
+    const shareMw = document.rated?.shares.reduce((sum, share) => sum + Number(share.mwLabel.replaceAll(",", "")), 0) ?? 0;
+    const totalMw = Number(document.rated?.totalLabel?.replaceAll(",", ""));
+    expect(Number(rowMw.toFixed(1))).toBe(totalMw);
+    expect(Number(shareMw.toFixed(1))).toBe(totalMw);
     expect(document.notOperatingCount).toBeGreaterThan(0);
     const rendered = JSON.stringify(document);
     expect(rendered).not.toMatch(/state of charge|zero-carbon|new generation|real-time|\bright now\b/i);

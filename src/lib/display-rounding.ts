@@ -21,7 +21,12 @@ export function formatDisplay(value: number, quantum: number): string {
   if (Number(text) === 0) {
     return (0).toFixed(decimals);
   }
-  return text;
+  const negative = text.startsWith("-");
+  const unsigned = negative ? text.slice(1) : text;
+  const [whole, fraction] = unsigned.split(".");
+  const grouped = (whole ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const body = fraction == null ? grouped : `${grouped}.${fraction}`;
+  return negative ? `-${body}` : body;
 }
 
 /** Non-negative parts. The returned values sum to `roundDisplay` of their sum. */

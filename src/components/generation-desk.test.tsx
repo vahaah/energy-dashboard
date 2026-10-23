@@ -145,10 +145,10 @@ describe("generation desk layout", () => {
     expect(html).not.toContain("Demand profile");
     expect(html).not.toContain("Generation desk");
     expect(html).not.toContain("SP ");
-    expect(dashboardSource).toContain("What does power cost?");
+    expect(dashboardSource).toContain("What does electricity cost?");
     expect(dashboardSource).toContain("Where is power flowing?");
     expect(dashboardSource).toContain("How has the mix changed?");
-    expect(dashboardSource).toContain("Gas & oil");
+    expect(dashboardSource).toContain("Gas and oil prices");
     expect(dashboardSource).toContain("How clean is it?");
     expect(dashboardSource).not.toContain("recut as a live briefing");
     expect(dashboardSource).not.toContain("Shareable URL state");

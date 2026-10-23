@@ -26,7 +26,9 @@ describe("legal pages", () => {
     expect(source).toContain("termsPageMetadata");
     expect(source).toContain("Not financial advice");
     expect(source).toContain("No warranty");
-    expect(source).toContain("CODE_LICENCE");
+    expect(source).not.toContain("CODE_LICENCE");
+    expect(source).not.toContain("MIT");
+    expect(source).toContain("Data sources");
     expect(source).toContain("Liability");
   });
 

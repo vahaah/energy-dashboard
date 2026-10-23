@@ -18,16 +18,16 @@ export type ChangeCard = {
 export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attribution: string }) {
   if (rows.length === 0) {
     return (
-      <Card title="Comparisons">
+      <Card title="Changes">
         <DataStateNotice state="not_yet_available" />
       </Card>
     );
   }
   return (
-    <Card title="Comparisons" footer={<p className="break-words">{attribution}</p>}>
+    <Card title="Changes" footer={<p className="break-words">{attribution}</p>}>
       <div className="flex min-w-0 flex-col">
         <p className="text-copy-14 text-gray-900">
-          {rows.length} {rows.length === 1 ? "comparison" : "comparisons"}
+          {rows.length} {rows.length === 1 ? "change" : "changes"}
         </p>
         {rows.map((row) => (
           <article key={row.key} className="mt-4 min-w-0 border-t border-gray-alpha-400 pt-4">
@@ -44,7 +44,7 @@ export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attrib
             <p className="mt-2 break-words text-label-12 text-gray-900">{formatVisibleInstants(row.evidence)}</p>
             {row.status ? <p className="mt-2 break-words text-label-12 text-gray-900">{row.status}</p> : null}
             <p className="mt-2 break-words text-label-12 text-gray-900">
-              Observed {displayWhen(row.observedAt)}
+              Found {displayWhen(row.observedAt)}
               {row.effectiveAt ? ` · Effective ${displayWhen(row.effectiveAt)}` : ""}
             </p>
           </article>
