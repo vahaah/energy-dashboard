@@ -1,43 +1,58 @@
-import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
+import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
+import { CURRENT_PRICE_CAP, OFGEM_JAN_2027_ANNOUNCEMENT_LABEL } from "@/lib/price-cap";
 
 export const LLMS_TXT_REVALIDATE_SECONDS = 3600;
 
 export function buildLlmsTxt(payload: DashboardPayload | null): string {
   const cite = homepageCiteFromPayload(payload);
+  const cap = CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB");
   const latest =
     cite.kind === "numbers"
-      ? `Latest: At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel.toLowerCase()} supplied ${cite.topSharePct}% of GB generation, gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh. Source: Elexon BMRS, NESO.`
+      ? `Latest (GB, half-hour starting ${cite.timeLabel} on ${cite.dateLabel}): ${cite.topFuel} supplied ${cite.topSharePct}% of generation (${cite.topGw} GW), gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh, market index £${cite.price}/MWh. Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.`
       : "Latest: Grid updates hourly from public data when the latest snapshot is in cache.";
+  const sap = payload?.prices.find((row) => row.commodity === "gb_gas_sap");
+  const sapLine = sap
+    ? `Latest GB gas System Average Price: ${sap.price} ${sap.unit} for ${sap.date}. Source: National Gas.`
+    : "Latest GB gas System Average Price is on https://grid.vahaah.com/prices/gas. Source: National Gas.";
 
   return `# Grid
 
-> Grid is a free view of Great Britain's electricity system, updated hourly from public data (Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live; gas and oil from National Gas, World Bank and EIA). Made by Alex Vakhitov (https://vahaah.com). Every number carries its source, time and unit. Derived data: CC BY 4.0 with upstream attributions.
+> Grid is a free view of Great Britain's electricity and gas system, updated hourly from public data: Elexon BMRS, NESO, the NESO Carbon Intensity API and Sheffield Solar PV_Live for electricity; National Gas, the U.S. EIA and the World Bank for gas and oil. Made by Alex Vakhitov (https://vahaah.com). Every figure carries its source, time and unit. Grid's derived data is CC BY 4.0; upstream licences and attributions are on https://grid.vahaah.com/data-sources.
 
 ${latest}
+${sapLine}
+Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRICE_CAP.periodLabel}). Next cap announced ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.
 
-## Pages
-- [Today](https://grid.vahaah.com/today): today's GB generation mix, carbon intensity, demand, prices
-- [Map](https://grid.vahaah.com/map): power stations and DNO licence areas on an OS basemap
-- [Assets](https://grid.vahaah.com/assets): REPD and DUKES station register, with capacity and source
-- [Constraints](https://grid.vahaah.com/system/constraints): published transmission constraint cost, volume, and the day-ahead boundary snapshot
-- [Storage](https://grid.vahaah.com/system/storage): pumped storage and batteries, with inventory separate from the FUELINST monitored fleet
-- [Whole energy](https://grid.vahaah.com/system/whole-energy): annual UK energy balance for electricity, gas, oil, heat and transport
+## Answers
+- [Britain's electricity today](https://grid.vahaah.com/today): today's generation mix, gas share, carbon intensity, demand, imports and market price, with a visible FAQ
+- [What's powering Britain](https://grid.vahaah.com/): the latest half-hour, with day, week, year and all-time views
+- [UK gas price today](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
+- [Will energy bills go up in January 2027?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
+- [GB electricity records](https://grid.vahaah.com/records): records since Grid's records began, next to NESO's official records
+- [GB gas system](https://grid.vahaah.com/gas): National Transmission System supply, demand, linepack and storage by gas day
+
+## Data pages
+- [Map](https://grid.vahaah.com/map): interconnector and gas entry-point flows, power stations, DNO licence areas
+- [Storage](https://grid.vahaah.com/system/storage): battery and pumped-storage capacity, and what pumped storage is doing
+- [Constraints](https://grid.vahaah.com/system/constraints): published transmission constraint cost and volume (NESO, published with a lag)
+- [Pipeline](https://grid.vahaah.com/pipeline): renewable and storage projects by stage, technology and nation (DESNZ REPD, quarterly)
 - [Projects](https://grid.vahaah.com/projects): planning, construction and connection status from REPD and the NESO TEC register
-- [Pipeline](https://grid.vahaah.com/pipeline): renewable and storage projects in Great Britain, from planning to construction, from DESNZ's REPD
-- [Records](https://grid.vahaah.com/records): records since Grid's records began, beside NESO official records
-- [UK gas price](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
-- [Price cap explained](https://grid.vahaah.com/explained/price-cap): January 2027 price cap, announced by 25 Nov 2026
-- [Methodology](https://grid.vahaah.com/methodology): sources, licences, definitions, data checks
+- [Assets](https://grid.vahaah.com/assets): operational stations from REPD and DUKES
+- [Whole energy](https://grid.vahaah.com/system/whole-energy): UK annual energy balance 2025 (DUKES 2026), not today's figures
+- [Northern Ireland](https://grid.vahaah.com/electricity/northern-ireland): NI and all-island electricity, kept outside GB totals
+- [Changes](https://grid.vahaah.com/changes): changes found in published registers, with evidence
+- [Directory](https://grid.vahaah.com/directory): who holds an MPID or industry code, by date
+- [Tools](https://grid.vahaah.com/tools): official services by task (bills, network operators, power cuts, gas emergencies)
 
-## Data
-- [Tools](https://grid.vahaah.com/tools): official services grouped by task
-- [Changes](https://grid.vahaah.com/changes): changes found in published data, with the source and the comparison
-- [API docs](https://grid.vahaah.com/api): JSON, no key, 60 requests/minute
-- [Data health](https://grid.vahaah.com/data-health): published time versus when Grid retrieved each series
-- [Snapshots JSON](https://grid.vahaah.com/api/snapshots?range=24h)
+## Method and data
+- [Methodology](https://grid.vahaah.com/methodology): sources, cadence, definitions, data checks, how records work
+- [Data sources](https://grid.vahaah.com/data-sources): every source with its licence and required attribution
+- [Data health](https://grid.vahaah.com/data-health): when each source published and when Grid fetched it
+- [API](https://grid.vahaah.com/api): free JSON, no key, 60 requests a minute
+- [Snapshots JSON, last 24 hours](https://grid.vahaah.com/api/snapshots?range=24h)
 
 ## How to cite
-"Grid (grid.vahaah.com), data from Elexon BMRS and NESO, {date time}."
+Grid (grid.vahaah.com), {page title}, data from {sources named on the page}, retrieved {D Mon YYYY, HH:MM} {BST|GMT}. Licence: CC BY 4.0 for Grid's derived data; upstream attributions apply.
 `;
 }

@@ -39,6 +39,8 @@ export type PageMetadataInput = {
   path: string;
   imagePath: string;
   imageAlt: string;
+  /** False emits noindex,follow. Omitted pages stay indexable. */
+  index?: boolean;
 };
 
 export const FOCUS_PAGE_COPY = {
@@ -124,10 +126,12 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
       title: input.title,
       description: input.description,
       type: SITE_OG_TYPE,
+      locale: "en_GB",
       url,
       siteName: SITE_NAME,
       images: [image],
     },
+    ...(input.index === false ? { robots: { index: false, follow: true } } : {}),
     twitter: {
       card: "summary_large_image",
       title: input.title,

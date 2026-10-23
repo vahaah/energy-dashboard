@@ -4,6 +4,7 @@ import { ProjectProfileView } from "@/components/projects/project-profile";
 import { SeoPage } from "@/components/seo-page";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { projectDetailIndexable } from "@/lib/seo/indexable";
 import {
   PROJECTS_ATTRIBUTION,
   PROJECTS_EYEBROW,
@@ -46,6 +47,7 @@ export async function generateMetadata({
     path: profile.href,
     imagePath: `${profile.href}/opengraph-image`,
     imageAlt: projectProfileTitle(project.name),
+    index: projectDetailIndexable(project),
   });
 }
 

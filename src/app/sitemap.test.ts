@@ -1,14 +1,19 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import sitemap, { lastModifiedForPath, latestCommodityTimestamp } from "@/app/sitemap";
+import sitemap, { catalogueLastModified, generateSitemaps, lastModifiedForPath, latestCommodityTimestamp } from "@/app/sitemap";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { loadProjectCatalogue } from "@/lib/projects/load";
+import { assetDetailIndexable, projectDetailIndexable } from "@/lib/seo/indexable";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 
 describe("sitemap", () => {
   it("includes the new SEO routes and lastmod when cache has a stamp", async () => {
-    const urls = (await sitemap()).map((entry) => entry.url);
+    const urls = [
+      ...(await sitemap({ id: "pages" })),
+      ...(await sitemap({ id: "assets" })),
+      ...(await sitemap({ id: "projects" })),
+    ].map((entry) => entry.url);
     const pages = [
       "https://grid.vahaah.com",
       "https://grid.vahaah.com/today",
@@ -25,7 +30,6 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/directory/identifiers",
       "https://grid.vahaah.com/tools",
       "https://grid.vahaah.com/changes",
-      "https://grid.vahaah.com/llms.txt",
       "https://grid.vahaah.com/records",
       "https://grid.vahaah.com/explained/price-cap",
       "https://grid.vahaah.com/prices/gas",
@@ -37,8 +41,8 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/data-sources",
     ];
     expect(urls.slice(0, pages.length)).toEqual(pages);
-    const assetCount = loadAssetCatalogue().rows.length;
-    const projectCount = loadProjectCatalogue().projects.length;
+    const assetCount = loadAssetCatalogue().rows.filter(assetDetailIndexable).length;
+    const projectCount = loadProjectCatalogue().projects.filter(projectDetailIndexable).length;
     const assetUrls = urls.slice(pages.length, pages.length + assetCount);
     const projectUrls = urls.slice(pages.length + assetCount);
     expect(assetUrls).toHaveLength(assetCount);
@@ -47,6 +51,12 @@ describe("sitemap", () => {
     expect(projectUrls.every((url) => /^https:\/\/grid\.vahaah\.com\/projects\/epj_[a-f0-9]{16}\/[a-z0-9-]+$/.test(url))).toBe(true);
     expect(SITEMAP_PATHS.length).toBeGreaterThanOrEqual(8);
     expect(urls.length).toBe(SITEMAP_PATHS.length + assetCount + projectCount);
+    expect(urls).not.toContain("https://grid.vahaah.com/llms.txt");
+    expect(generateSitemaps().map((item) => item.id)).toEqual(["pages", "assets", "projects"]);
+    const assets = await sitemap({ id: "assets" });
+    expect(assets[0]?.lastModified).toEqual(catalogueLastModified().assets);
+    const pageEntries = await sitemap({ id: "pages" });
+    expect(pageEntries.every((entry) => entry.lastModified instanceof Date)).toBe(true);
   });
 
   it("assigns lastmod only to data-driven routes", () => {
@@ -55,7 +65,7 @@ describe("sitemap", () => {
     const stamps = { grid, gas };
     expect(lastModifiedForPath("", stamps)).toBe(grid);
     expect(lastModifiedForPath("/today", stamps)).toBe(grid);
-    expect(lastModifiedForPath("/llms.txt", stamps)).toBe(grid);
+    expect(lastModifiedForPath("/llms.txt", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/prices/gas", stamps)).toBe(gas);
     expect(lastModifiedForPath("/privacy", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/terms", stamps)).toBeUndefined();
@@ -82,13 +92,21 @@ describe("sitemap", () => {
   });
 
   it("includes interconnectors and leaves unbuilt routes out", async () => {
-    const urls = (await sitemap()).map((entry) => entry.url);
+    const urls = [
+      ...(await sitemap({ id: "pages" })),
+      ...(await sitemap({ id: "assets" })),
+      ...(await sitemap({ id: "projects" })),
+    ].map((entry) => entry.url);
     const interconnectors = JSON.parse(
       readFileSync(resolve(process.cwd(), "data/catalogue/interconnectors.json"), "utf8"),
     ) as Array<{ interconnector_id: string }>;
+    const assets = loadAssetCatalogue().rows;
     expect(interconnectors.length).toBeGreaterThan(0);
     for (const row of interconnectors) {
-      expect(urls.some((url) => url.includes(`/assets/${row.interconnector_id}/`))).toBe(true);
+      const asset = assets.find((item) => item.id === row.interconnector_id);
+      expect(asset).toBeDefined();
+      const listed = urls.some((url) => url.includes(`/assets/${row.interconnector_id}/`));
+      expect(listed).toBe(asset ? assetDetailIndexable(asset) : false);
     }
     expect(urls).toContain("https://grid.vahaah.com/system/constraints");
     expect(urls).toContain("https://grid.vahaah.com/system/storage");

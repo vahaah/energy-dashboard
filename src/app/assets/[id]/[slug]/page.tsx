@@ -10,6 +10,7 @@ import { resolveAssetRoute } from "@/lib/assets/route";
 import { withRegisterCredits } from "@/lib/assets/credits";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
+import { assetDetailIndexable } from "@/lib/seo/indexable";
 
 export const dynamic = "force-static";
 export const dynamicParams = true;
@@ -46,6 +47,7 @@ export async function generateMetadata({
     path: model.canonicalPath,
     imagePath: `${model.canonicalPath}/opengraph-image`,
     imageAlt: model.title,
+    index: assetDetailIndexable(detail.row),
   });
 }
 
