@@ -9,17 +9,22 @@ describe("GET /api/cron-directory", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = SECRET;
     delete process.env.BLOB_READ_WRITE_TOKEN;
+    delete process.env.DIRECTORY_BLOB_STORE_ID;
+    delete process.env.DIRECTORY_BLOB_READ_WRITE_TOKEN;
   });
 
   afterEach(() => {
     delete process.env.CRON_SECRET;
     delete process.env.BLOB_READ_WRITE_TOKEN;
+    delete process.env.DIRECTORY_BLOB_STORE_ID;
+    delete process.env.DIRECTORY_BLOB_READ_WRITE_TOKEN;
   });
 
-  it("fails closed and does not fetch ISD without a blob token", async () => {
+  it("fails closed and does not fetch ISD without the private directory store", async () => {
     const denied = await GET(new Request("http://localhost/api/cron-directory"));
     expect(denied.status).toBe(401);
 
+    process.env.BLOB_READ_WRITE_TOKEN = "public-tiles-token";
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const missing = await GET(
       new Request("http://localhost/api/cron-directory", {

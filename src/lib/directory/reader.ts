@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DIRECTORY_LATEST_PATH, directoryReleasePath, directoryStore } from "@/lib/directory/blob";
+import { DIRECTORY_LATEST_PATH, directoryBlobCommand, directoryReleasePath, directoryStore } from "@/lib/directory/blob";
 import { buildDirectory, type DirectoryExtracts } from "@/lib/directory/build";
 import { directoryPointerSchema, directorySnapshotSchema, type DirectorySnapshot } from "@/lib/directory/schema";
 
@@ -64,11 +64,12 @@ export function blobDirectoryReader(): DirectoryReader {
 }
 
 /**
- * Lookup source. A deploy with `BLOB_READ_WRITE_TOKEN` reads Blob.
- * Tests, CI, and local e2e leave the token unset and keep the fixture.
+ * Lookup source. A deploy with the private directory store reads Blob.
+ * The public tiles token is not this store. Tests, CI, and local e2e leave
+ * both directory variables unset and keep the fixture.
  */
 export function getDirectoryReader(): DirectoryReader {
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  if (directoryBlobCommand()) {
     return blobDirectoryReader();
   }
   return fixtureDirectoryReader();

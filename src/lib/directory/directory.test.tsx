@@ -255,6 +255,41 @@ describe("directory lookup", () => {
     });
     expect(timedOut.ok).toBe(false);
     expect(timedOut.error).toBe("The operation was aborted due to timeout");
+
+    const privateStore = new MemoryDirectoryStore();
+    privateStore.put = async () => {
+      throw new Error("Vercel Blob: Cannot use private access on a public store. The store must be configured with private access.");
+    };
+    const rejected = await ingestDirectory({
+      now: new Date(RECORDED_AT),
+      fetchText: async (url) => {
+        const filter = new URL(url).searchParams.get("Filter");
+        const body =
+          filter === "ISDEntity1"
+            ? extracts.organisations
+            : filter === "ISDEntity18"
+              ? extracts.gspGroups
+              : filter === "ISDEntity21"
+                ? extracts.marketRoles
+                : filter === "ISDEntity45"
+                  ? extracts.participantRoles
+                  : extracts.bmUnits;
+        return { status: 200, body };
+      },
+      store: privateStore,
+    });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.error).toContain("private access on a public store");
+
+    const leaked = await ingestDirectory({
+      now: new Date(RECORDED_AT),
+      fetchText: async () => {
+        throw new Error("fetch failed");
+      },
+      store: new MemoryDirectoryStore(),
+      sleep: async () => undefined,
+    });
+    expect(leaked.error).toBe("fetch failed");
   });
 
   it("keeps every identifier on a name match and accepts a hyphenated BM Unit", () => {
