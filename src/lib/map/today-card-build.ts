@@ -253,12 +253,16 @@ function readTodayMapStamp(): TodayMapStamp {
   }
   const batteries = readFileSync(BATTERIES_PATH);
   const projects = readFileSync(resolve("data/catalogue/energy_projects.ndjson"));
+  const pipelineHash = createHash("sha256");
+  pipelineHash.update(readFileSync(resolve("data/catalogue/repd_pipeline.json")));
+  pipelineHash.update(readFileSync(resolve("data/catalogue/repd_pipeline.ndjson")));
   return {
     repd_source_release_id: summary.repd_source_release_id,
     dukes_source_release_id: summary.dukes_source_release_id,
     dno_sha256: dno.sha256,
     batteries_sha256: `sha256:${createHash("sha256").update(batteries).digest("hex")}`,
     projects_sha256: `sha256:${createHash("sha256").update(projects).digest("hex")}`,
+    pipeline_sha256: `sha256:${pipelineHash.digest("hex")}`,
   };
 }
 

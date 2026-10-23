@@ -117,12 +117,12 @@ export function GenerationDesk({
         batteryFootnote={!power.publishesBatteryCharging && power.generationMw != null}
       />
       {delayNote ? (
-        <p
+        <div
           data-slot="card-pad"
           className={`flex flex-wrap items-center gap-2 ${CARD_PAD_X} pt-3 text-label-12 text-gray-900`}
         >
           <Freshness state="stale" detail={delayNote} />
-        </p>
+        </div>
       ) : null}
       <div data-slot="card-pad" className={`flex flex-col gap-5 ${CARD_PAD_X} pt-5 ${CARD_PAD_BOTTOM}`}>
 

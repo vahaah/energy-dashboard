@@ -78,7 +78,7 @@ export function PipelineBoard({
         <p className="mt-3 break-words text-copy-14 text-gray-900">{PIPELINE_EXCLUDED}</p>
         <p className="mt-4 flex min-w-0 flex-wrap items-center gap-1 text-copy-14 text-gray-1000">
           <span className="text-gray-900">Storage</span>
-          <span className="tabular-nums">{figures.storageTotal.gw} GW</span>
+          <span className="tabular-nums">{shownGw(figures.storageTotal.gw)}</span>
           <InfoTooltip text={<StorageTooltip total={figures.storageTotal} />} label="What is the storage total?" />
         </p>
         <ul className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap" aria-label="Storage split">
@@ -258,7 +258,10 @@ export function StorageTooltip({ total }: { total: StorageTotal }) {
   );
 }
 
-function shownGw(gw: string): string {
+function shownGw(gw: string): ReactNode {
+  if (gw === "0.0") {
+    return <Absent reason="Under 0.1 GW" />;
+  }
   return `${gw} GW`;
 }
 
@@ -267,7 +270,10 @@ function StageBar({ figures }: { figures: PipelineFigures }) {
     figures.stages.map((stage) => (figures.exactGw > 0 ? (stage.exactGw / figures.exactGw) * 100 : 0)),
   );
   const label = figures.stages
-    .map((stage, index) => `${stage.gw} GW ${stageLabel(stage.id)} (${percents[index] ?? 0}%)`)
+    .map((stage, index) => {
+      const amount = stage.gw === "0.0" ? "under 0.1 GW" : `${stage.gw} GW`;
+      return `${amount} ${stageLabel(stage.id)} (${percents[index] ?? 0}%)`;
+    })
     .join(", ");
   return (
     <div className="mt-5 min-w-0">
@@ -313,7 +319,7 @@ function StageBar({ figures }: { figures: PipelineFigures }) {
               </span>
             </span>
             <span className="shrink-0 text-mono-12 text-gray-1000 tabular-nums">
-              {stage.gw === "0.0" ? <Absent reason="Under 0.1 GW" /> : shownGw(stage.gw)}
+              {shownGw(stage.gw)}
               <span className="text-gray-900"> {stage.projects.toLocaleString("en-GB")}</span>
             </span>
           </li>
@@ -332,7 +338,7 @@ function BarRow({
   marker,
 }: {
   label: string;
-  figure: string;
+  figure: ReactNode;
   projects: number;
   width: number;
   color: string;

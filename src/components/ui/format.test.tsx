@@ -58,13 +58,15 @@ describe("cross-site formatting", () => {
       <ChartLegend
         items={[
           { id: "coal", label: "Coal", color: "#57534e" },
-          { id: "wind", label: "Wind", color: "#0ea5e9", dashed: true },
+          { id: "wind", label: "Wind", color: "#0ea5e9", dash: "6 4" },
+          { id: "inertia", label: "Inertia", color: "#b45309", dash: "2 3" },
         ]}
       />,
     );
     expect(html).toContain("Coal");
     expect(html).toContain("Wind");
-    expect(html).toContain("border-dashed");
+    expect(html).toContain('stroke-dasharray="6 4"');
+    expect(html).toContain('stroke-dasharray="2 3"');
     expect(chartAxisTick.fill).toBe("var(--gray-900)");
     expect(chartAxisTick.fontSize).toBeGreaterThanOrEqual(11);
   });

@@ -470,6 +470,24 @@ describe("pipeline page", () => {
     expect(html).toContain("md:flex");
   });
 
+  it("shows a dash when a nation or storage bucket has projects and no published capacity", () => {
+    const figures = buildPipelineFigures([
+      record({ ref: "built", status: "under_construction", mw: 1000, country: "England" }),
+      record({ ref: "blank", status: "awaiting_construction", mw: null, country: "Wales", technology: "battery" }),
+    ]);
+    expect(figures.nations.find((row) => row.id === "Wales")?.gw).toBe("0.0");
+    expect(figures.storage.find((row) => row.id === "battery")?.gw).toBe("0.0");
+    const html = renderToStaticMarkup(<PipelineBoard figures={figures} stamp="July 2026 (Q2)." stale={false} />);
+    const split = html.slice(html.indexOf('aria-label="Storage split"'), html.indexOf("By technology"));
+    const nations = html.slice(html.indexOf('aria-label="Capacity by nation"'), html.indexOf("What happened"));
+    expect(split).toContain("Battery storage");
+    expect(split).toContain('aria-label="Under 0.1 GW"');
+    expect(split).not.toContain("0.0 GW");
+    expect(nations).toContain("Wales");
+    expect(nations).toContain('aria-label="Under 0.1 GW"');
+    expect(nations).not.toContain("0.0 GW");
+  });
+
   it("puts the GW total and the stage split on the share image", () => {
     const shown = loadPipelineCatalogue().figures;
     const consented = shown.stages.find((stage) => stage.id === "consented");

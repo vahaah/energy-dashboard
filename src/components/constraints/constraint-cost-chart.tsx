@@ -111,7 +111,7 @@ export function ConstraintCostChart({ series }: { series: MeasuredCostChartSerie
           id: category,
           label: BREAKDOWN_CATEGORY_LABEL[category],
           color: BREAKDOWN_CATEGORY_COLOR[category],
-          dashed: index > 0,
+          dash: SERIES_DASH[index],
         }))}
       />
     </div>

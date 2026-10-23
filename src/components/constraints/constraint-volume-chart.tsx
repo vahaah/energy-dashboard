@@ -113,7 +113,7 @@ export function ConstraintVolumeChart({ series }: { series: MeasuredVolumeChartS
           id: category,
           label: BREAKDOWN_CATEGORY_LABEL[category],
           color: BREAKDOWN_CATEGORY_COLOR[category],
-          dashed: index > 0,
+          dash: SERIES_DASH[index],
         }))}
       />
     </div>

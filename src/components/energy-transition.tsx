@@ -72,7 +72,7 @@ export function EnergyTransition({
       <ChartLegend
         items={[
           { id: "coal", label: "Coal, share of generation", color: COAL_COLOR },
-          { id: "wind", label: "Wind, share of generation", color: WIND_COLOR, dashed: true },
+          { id: "wind", label: "Wind, share of generation", color: WIND_COLOR, dash: "6 4" },
         ]}
       />
       </div>

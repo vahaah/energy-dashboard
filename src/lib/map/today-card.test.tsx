@@ -110,12 +110,19 @@ describe("today map card", () => {
         dno_sha256: manifest.dno_sha256,
         batteries_sha256: manifest.batteries_sha256,
         projects_sha256: manifest.projects_sha256,
+        pipeline_sha256: manifest.pipeline_sha256,
       }),
     ).toBe(true);
     expect(
       todayMapReleaseCurrent(manifest, {
         ...manifest,
         projects_sha256: "sha256:0",
+      }),
+    ).toBe(false);
+    expect(
+      todayMapReleaseCurrent(manifest, {
+        ...manifest,
+        pipeline_sha256: "sha256:0",
       }),
     ).toBe(false);
     expect(() => assertBatteryRelease("other-release", manifest.repd_source_release_id)).toThrow(/battery pins/);
