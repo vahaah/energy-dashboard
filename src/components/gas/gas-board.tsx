@@ -285,8 +285,12 @@ function StatCard({ stat }: { stat: GasStat }) {
   );
 }
 
+const GAS_TABLE_PREVIEW = 25;
+
 function SeriesCard({ slice }: { slice: GasSlice }) {
   const [showTable, setShowTable] = useState(true);
+  const [showAllRows, setShowAllRows] = useState(false);
+  const tableRows = showAllRows ? slice.series : slice.series.slice(0, GAS_TABLE_PREVIEW);
   const showForecast = slice.series.some((point) => point.supplyForecast != null || point.demandForecast != null);
   const showDemand = slice.series.some((point) => point.demand != null);
   return (
@@ -315,7 +319,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
                 </tr>
               </thead>
               <tbody>
-                {slice.series.map((point) => (
+                {tableRows.map((point) => (
                   <tr key={point.at}>
                     <td className="py-2 pr-3">{point.label}</td>
                     <td className="py-2 pr-3 tabular-nums">{quantityCell(point.supply)}</td>
@@ -327,6 +331,16 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
                 ))}
               </tbody>
             </table>
+            {slice.series.length > GAS_TABLE_PREVIEW ? (
+              <button
+                type="button"
+                className="mt-3 inline-flex h-8 items-center text-label-13 text-gray-1000"
+                aria-pressed={showAllRows}
+                onClick={() => setShowAllRows((current) => !current)}
+              >
+                {showAllRows ? "Show fewer rows" : `Show all ${slice.series.length} rows`}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

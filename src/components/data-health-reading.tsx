@@ -1,5 +1,7 @@
+import { Check } from "lucide-react";
 import { Absent } from "@/components/ui/absent";
 import { DataStateNotice } from "@/components/ui/data-state";
+import { visibleDatasetId } from "@/lib/data-health-list";
 import { ABSENT_FIGURE } from "@/lib/data-state";
 import type { DataHealthReading as Reading } from "@/lib/data-health";
 
@@ -18,17 +20,26 @@ export function DataHealthReading({
             {reading.label}
           </p>
           <p className="break-words text-label-12 text-gray-900">
-            {reading.source} · {reading.dataset_id} · {reading.expected_cadence}
+            {[reading.source, visibleDatasetId(reading.dataset_id), reading.expected_cadence]
+              .filter((part) => part != null && part !== "")
+              .join(" · ")}
           </p>
         </div>
-        {reading.state ? <DataStateNotice state={reading.state} /> : null}
+        {reading.state ? (
+          <DataStateNotice state={reading.state} />
+        ) : (
+          <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-gray-alpha-400 px-1.5 py-0.5 text-label-12 text-gray-900">
+            <Check className="size-3 shrink-0" aria-hidden="true" />
+            Current
+          </span>
+        )}
       </div>
       <p
         data-figure
         className={
           featured
             ? "whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000"
-            : "whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000"
+            : "whitespace-nowrap font-sans text-copy-16 tabular-nums text-gray-1000"
         }
       >
         {reading.value_label === ABSENT_FIGURE ? (

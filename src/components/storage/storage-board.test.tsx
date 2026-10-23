@@ -11,5 +11,7 @@ describe("storage board", () => {
     const html = renderToStaticMarkup(<StorageBoard document={document} />);
     expect(html).toContain("GW");
     expect(html).toContain("MW monitored");
+    expect(html).toContain(`Show all ${document.rows.length} stations`);
+    expect(html).not.toContain("<details open");
   });
 });

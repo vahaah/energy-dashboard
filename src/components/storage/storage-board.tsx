@@ -221,6 +221,8 @@ function tableGrid(showEnergy: boolean, showDuration: boolean): string {
   return TABLE_GRID.rated;
 }
 
+const STATION_PREVIEW = 25;
+
 function InventoryTable({
   rows,
   showEnergy,
@@ -231,6 +233,8 @@ function InventoryTable({
   showDuration: boolean;
 }) {
   const grid = tableGrid(showEnergy, showDuration);
+  const preview = rows.slice(0, STATION_PREVIEW);
+  const remainder = rows.slice(STATION_PREVIEW);
   return (
     <div className="mt-4">
       <div className={`hidden min-w-0 ${grid} gap-3 border-b border-gray-alpha-400 py-2 text-label-12 text-gray-900 md:grid`}>
@@ -245,26 +249,50 @@ function InventoryTable({
           </p>
         ) : null}
       </div>
-      <ul>
-        {rows.map((row) => (
-          <li key={row.id} className={`grid grid-cols-1 gap-1 border-b border-gray-alpha-400 py-3 ${grid} md:gap-3`}>
-            <p className="min-w-0 break-words text-copy-14 text-gray-1000">
-              {row.href ? (
-                <Link href={row.href} className="text-blue-700 underline-offset-2 hover:underline">
-                  {row.name}
-                </Link>
-              ) : (
-                row.name
-              )}
-            </p>
-            <Field label="Technology" value={row.technologyLabel} />
-            <Field label={`${RATED_CAPACITY} (MW)`} value={row.ratedLabel} numeric />
-            {showEnergy ? <OptionalField label={`${ENERGY_CAPACITY} (MWh)`} value={row.energyLabel} /> : null}
-            {showDuration ? <OptionalField label={NOMINAL_DURATION} value={row.durationLabel} /> : null}
-          </li>
-        ))}
-      </ul>
+      <StationRows rows={preview} grid={grid} showEnergy={showEnergy} showDuration={showDuration} />
+      {remainder.length > 0 ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-copy-14 text-gray-1000">
+            Show all {rows.length} stations
+          </summary>
+          <StationRows rows={remainder} grid={grid} showEnergy={showEnergy} showDuration={showDuration} />
+        </details>
+      ) : null}
     </div>
+  );
+}
+
+function StationRows({
+  rows,
+  grid,
+  showEnergy,
+  showDuration,
+}: {
+  rows: readonly StorageRow[];
+  grid: string;
+  showEnergy: boolean;
+  showDuration: boolean;
+}) {
+  return (
+    <ul>
+      {rows.map((row) => (
+        <li key={row.id} className={`grid grid-cols-1 gap-1 border-b border-gray-alpha-400 py-3 ${grid} md:gap-3`}>
+          <p className="min-w-0 break-words text-copy-14 text-gray-1000">
+            {row.href ? (
+              <Link href={row.href} className="text-blue-700 underline-offset-2 hover:underline">
+                {row.name}
+              </Link>
+            ) : (
+              row.name
+            )}
+          </p>
+          <Field label="Technology" value={row.technologyLabel} />
+          <Field label={`${RATED_CAPACITY} (MW)`} value={row.ratedLabel} numeric />
+          {showEnergy ? <OptionalField label={`${ENERGY_CAPACITY} (MWh)`} value={row.energyLabel} /> : null}
+          {showDuration ? <OptionalField label={NOMINAL_DURATION} value={row.durationLabel} /> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
