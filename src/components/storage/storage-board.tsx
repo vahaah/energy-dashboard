@@ -122,8 +122,9 @@ export function StorageBoard({ document }: { document: StorageDocument }) {
 }
 
 function StatValue({ value, unit }: { value: string; unit: string | null }) {
-  if (unit === "MW" && value !== NOT_AVAILABLE) {
-    const energy = formatEnergy(Number(value));
+  const parsed = Number(value.replaceAll(",", ""));
+  if (unit === "MW" && value !== NOT_AVAILABLE && Number.isFinite(parsed)) {
+    const energy = formatEnergy(parsed);
     return (
       <p className="mt-2 text-heading-24 text-gray-1000">
         <Quantity value={energy.value} unit={energy.unit} />
