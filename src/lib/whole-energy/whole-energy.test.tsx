@@ -164,7 +164,7 @@ describe("whole energy balance", () => {
     expect(page).toContain('export const dynamic = "force-static"');
     expect(page).toContain("export const revalidate = 86400");
     expect(page).not.toContain("queryPipe");
-    expect(WHOLE_ENERGY_TITLE).toBe("How Britain's energy fits together | Grid");
+    expect(WHOLE_ENERGY_TITLE).toBe("UK energy balance 2025: gas, power, oil and heat | Grid");
     expect(WHOLE_ENERGY_H1).toBe("How do electricity, gas, oil, heat and transport fit together?");
     expect(wholeEnergyStandfirst(2025)).toBe(
       "Annual figures for 2025 from the official energy balance. These are not today's figures.",

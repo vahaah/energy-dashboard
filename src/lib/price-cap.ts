@@ -85,6 +85,10 @@ export function priceCapAnswerFirst(): string {
 
 export const PRICE_CAP_FAQS = [
   {
+    question: "How much is the price cap now?",
+    answer: `£${CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB")} a year for a typical dual-fuel Direct Debit household (${CURRENT_PRICE_CAP.periodLabel}). Source: Ofgem.`,
+  },
+  {
     question: "When is the January 2027 price cap announced?",
     answer:
       "Ofgem says it will announce the cap for 1 January to 31 March 2027 on 25 November 2026. It may publish earlier. Grid shows only caps Ofgem has already published.",

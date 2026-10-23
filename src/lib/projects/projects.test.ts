@@ -371,7 +371,7 @@ describe("checked-in project register", () => {
   });
 
   it("uses the quoted page copy", () => {
-    expect(PROJECTS_TITLE).toBe("Energy projects in Britain | Grid");
+    expect(PROJECTS_TITLE).toBe("GB energy projects: planning and construction status | Grid");
     expect(PROJECTS_H1).toBe("What is being built, and how far has it got?");
     expect(PROJECTS_STANDFIRST).toBe(
       "Projects from public registers, with planning, construction and connection status shown separately.",

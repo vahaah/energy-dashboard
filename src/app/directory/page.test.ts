@@ -15,7 +15,7 @@ describe("directory pages", () => {
     expect(directory).toContain("DIRECTORY_STANDFIRST");
     expect(directory).toContain("MPID_LABEL");
     expect(directory).toContain("ROLE_LABEL");
-    expect(DIRECTORY_TITLE).toBe("Energy organisations and codes | Grid");
+    expect(DIRECTORY_TITLE).toBe("GB electricity market organisations and codes | Grid");
     expect(DIRECTORY_H1).toBe("Who is behind this name or code?");
     expect(DIRECTORY_STANDFIRST).toBe("Organisations, their identifiers and their published roles, with dates.");
     expect(MPID_LABEL).toBe(
@@ -29,7 +29,7 @@ describe("directory pages", () => {
     expect(identifiers).toContain("IDENTIFIERS_TITLE");
     expect(identifiers).toContain("IDENTIFIERS_H1");
     expect(identifiers).toContain("IDENTIFIERS_STANDFIRST");
-    expect(IDENTIFIERS_TITLE).toBe("Look up an MPID or industry code | Grid");
+    expect(IDENTIFIERS_TITLE).toBe("MPID, BM Unit ID and GSP group lookup | Grid");
     expect(IDENTIFIERS_H1).toBe("Which organisation does this code belong to, and when?");
     expect(IDENTIFIERS_STANDFIRST).toBe("Search a code. Choose a date to see what applied then.");
     expect(identifiers).not.toContain("queryPipe");

@@ -3,7 +3,9 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { AssetPageView } from "@/components/asset-page-view";
 import { SeoPage } from "@/components/seo-page";
 import { attachedFlows } from "@/lib/assets/cached-flows";
-import { assetPageDescription } from "@/lib/assets/labels";
+import { pageJsonLd } from "@/lib/jsonld";
+import { assetSeoDescription } from "@/lib/seo/detail";
+import { SITE_ORIGIN } from "@/lib/site";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { assetPageModel } from "@/lib/assets/page-model";
 import { resolveAssetRoute } from "@/lib/assets/route";
@@ -43,7 +45,14 @@ export async function generateMetadata({
   const model = withRegisterCredits(assetPageModel(detail), detail.row.sources);
   return buildPageMetadata({
     title: model.title,
-    description: assetPageDescription(model.lede),
+    description: assetSeoDescription({
+      name: detail.row.name,
+      technology: model.technologyLabel,
+      mw: detail.row.mw,
+      region: detail.row.region,
+      operator: detail.row.operator,
+      source: detail.row.source,
+    }),
     path: model.canonicalPath,
     imagePath: `${model.canonicalPath}/opengraph-image`,
     imageAlt: model.title,
@@ -68,6 +77,20 @@ export default async function AssetSlugPage({ params }: { params: Promise<{ id: 
   const model = withRegisterCredits(assetPageModel(detail), detail.row.sources);
   const series = model.output.attached ? await attachedFlows(model.output.code) : null;
   const citation = `Grid, "${model.name}", grid.vahaah.com${model.canonicalPath}, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`;
+  const description = assetSeoDescription({
+    name: detail.row.name,
+    technology: model.technologyLabel,
+    mw: detail.row.mw,
+    region: detail.row.region,
+    operator: detail.row.operator,
+    source: detail.row.source,
+  });
+  const located =
+    detail.row.latitude != null &&
+    detail.row.longitude != null &&
+    Number.isFinite(detail.row.latitude) &&
+    Number.isFinite(detail.row.longitude) &&
+    !(detail.row.latitude === 0 && detail.row.longitude === 0);
   return (
     <SeoPage
       section="Assets"
@@ -76,6 +99,28 @@ export default async function AssetSlugPage({ params }: { params: Promise<{ id: 
       breadcrumb={[{ href: "/assets", label: "Assets" }, { label: model.name }]}
       cite={null}
       citation={citation}
+      schema={pageJsonLd({
+        name: model.title,
+        description,
+        url: `${SITE_ORIGIN}${model.canonicalPath}`,
+        breadcrumbs: [
+          { name: "Assets", item: `${SITE_ORIGIN}/assets` },
+          { name: model.name, item: `${SITE_ORIGIN}${model.canonicalPath}` },
+        ],
+        extra: located
+          ? [
+              {
+                "@type": "Place",
+                name: model.name,
+                geo: {
+                  "@type": "GeoCoordinates",
+                  latitude: detail.row.latitude,
+                  longitude: detail.row.longitude,
+                },
+              },
+            ]
+          : undefined,
+      })}
     >
       <AssetPageView model={model} series={series} citation={citation} />
     </SeoPage>

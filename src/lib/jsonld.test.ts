@@ -24,7 +24,8 @@ describe("JSON-LD", () => {
   it("emits WebSite, WebApplication, Dataset downloads and Person on the homepage", () => {
     const graph = homepageJsonLd(null)["@graph"];
     const types = graph.map((node) => node["@type"]);
-    expect(types).toEqual(["WebSite", "WebApplication", "Person", "Dataset"]);
+    expect(types).toEqual(["WebSite", "WebApplication", "WebPage", "Person", "Dataset"]);
+    expect(JSON.parse(JSON.stringify(homepageJsonLd(null)))["@graph"]).toHaveLength(5);
 
     const dataset = graph.find((node) => node["@type"] === "Dataset") as {
       license: Array<{ name: string; url: string }>;
@@ -33,10 +34,14 @@ describe("JSON-LD", () => {
       creator: { "@id": string };
       publisher: { "@id": string };
       distribution: Array<{ name: string; contentUrl: string }>;
-      variableMeasured: string[];
+      variableMeasured: Array<{ name: string }>;
+      isBasedOn: Array<{ creditText?: string }>;
     };
     expect(dataset.url).toBe(`${SITE_ORIGIN}/`);
-    expect(dataset.creditText.startsWith(elexonBmrsAttribution())).toBe(true);
+    expect(dataset.creditText).toBe(
+      "Grid (grid.vahaah.com), with upstream attributions listed in isBasedOn",
+    );
+    expect(dataset.isBasedOn.map((item) => item.creditText).join(" ")).toContain(elexonBmrsAttribution());
     expect(dataset.license.map((item) => item.url)).toEqual([
       ELEXON_BMRS_LICENCE_URL,
       NESO_OPEN_DATA_LICENCE_URL,
@@ -44,18 +49,19 @@ describe("JSON-LD", () => {
     ]);
     expect(dataset.license.map((item) => item.name).join(" ")).toContain("Elexon BMRS");
     expect(dataset.license).not.toBe(CC_BY_4_0_LICENSE_URL);
-    expect(dataset.creator).toEqual({ "@id": APP_ID });
-    expect(dataset.publisher).toEqual({ "@id": PERSON_ID });
+    expect(dataset.creator).toEqual({ "@id": PERSON_ID });
+    expect(dataset.publisher).toEqual({ "@id": APP_ID });
     expect(dataset.distribution.map((item) => item.name)).toEqual([
       "Snapshots",
       "Generation",
       "Prices and commodities",
     ]);
-    expect(dataset.variableMeasured.join(" ")).not.toContain("TTF");
-    expect(dataset.variableMeasured.join(" ")).not.toContain("NBP");
-    expect(dataset.variableMeasured.join(" ")).not.toContain("JKM");
-    expect(dataset.variableMeasured).toContain(COMMODITY_LABELS.eu_natural_gas);
-    expect(dataset.variableMeasured).toContain(COMMODITY_LABELS.lng_asia);
+    const measured = dataset.variableMeasured.map((item) => item.name).join(" ");
+    expect(measured).not.toContain("TTF");
+    expect(measured).not.toContain("NBP");
+    expect(measured).not.toContain("JKM");
+    expect(measured).toContain(COMMODITY_LABELS.eu_natural_gas);
+    expect(measured).toContain(COMMODITY_LABELS.lng_asia);
     expect(dataset.url).not.toContain("/api");
     expect(readFileSync(resolve(import.meta.dirname, "./jsonld.ts"), "utf8")).not.toContain(
       "elexonBmrsAttribution(2026)"

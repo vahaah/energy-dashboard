@@ -2,7 +2,8 @@ import { OGL_V3_ATTRIBUTION } from "@/lib/attribution";
 
 export const WHOLE_ENERGY_EDITION_YEAR = 2025;
 
-export const WHOLE_ENERGY_TITLE = "How Britain's energy fits together | Grid";
+export const WHOLE_ENERGY_TITLE = `UK energy balance ${WHOLE_ENERGY_EDITION_YEAR}: gas, power, oil and heat | Grid`;
+export const WHOLE_ENERGY_DESCRIPTION = `How the UK used energy in ${WHOLE_ENERGY_EDITION_YEAR}: natural gas, electricity, oil, heat and transport in TWh, from DESNZ DUKES 2026 table 1.1. Annual figures, not today's.`;
 export const WHOLE_ENERGY_H1 = "How do electricity, gas, oil, heat and transport fit together?";
 
 export function wholeEnergyStandfirst(year: number): string {

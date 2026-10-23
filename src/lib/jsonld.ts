@@ -1,16 +1,41 @@
 import {
   CC_BY_4_0_LICENSE_URL,
+  CARBON_INTENSITY_API_URL,
+  CARBON_INTENSITY_ATTRIBUTION,
+  EIA_ATTRIBUTION,
+  EIA_URL,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
+  NATIONAL_GAS_ATTRIBUTION,
+  NATIONAL_GAS_PORTAL_URL,
   NESO_HISTORIC_MIX_URL,
+  NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
+  PV_LIVE_ATTRIBUTION,
+  PV_LIVE_URL,
+  WORLD_BANK_PINK_SHEET_ATTRIBUTION,
+  WORLD_BANK_PINK_SHEET_URL,
 } from "@/lib/attribution";
 import { COMMODITY_LABELS } from "@/lib/colors";
 import { utcIsoFromTimestamp } from "@/lib/london-time";
 import {
+  API_DOCS_DESCRIPTION,
+  API_DOCS_TITLE,
   DATASET_TEMPORAL_COVERAGE_START,
+  GAS_DESCRIPTION,
+  GAS_TITLE,
+  HOME_DESCRIPTION,
+  HOME_TITLE,
+  METHODOLOGY_DESCRIPTION,
+  METHODOLOGY_TITLE,
+  PRICE_CAP_DESCRIPTION,
+  PRICE_CAP_TITLE,
+  RECORDS_DESCRIPTION,
+  RECORDS_TITLE,
   SITE_NAME,
   SITE_ORIGIN,
+  TODAY_DESCRIPTION,
+  TODAY_TITLE,
 } from "@/lib/site";
 import type { LatestFacts } from "@/lib/facts";
 import type { GridRecords, HistoricRecordPoint } from "@/lib/historic-mix";
@@ -28,7 +53,19 @@ export function homepageJsonLd(facts: LatestFacts | null): {
 } {
   return {
     "@context": "https://schema.org",
-    "@graph": [websiteNode(), webApplicationNode(), personNode(), datasetNode(facts)],
+    "@graph": [
+      websiteNode(),
+      webApplicationNode(),
+      webPageNode({
+        name: HOME_TITLE,
+        description: HOME_DESCRIPTION,
+        url: `${SITE_ORIGIN}/`,
+        id: `${SITE_ORIGIN}/#webpage`,
+        dateModified: utcIsoFromTimestamp(facts?.referenceTimestamp),
+      }),
+      personNode(),
+      datasetNode(facts),
+    ],
   };
 }
 
@@ -39,12 +76,92 @@ export function recordsJsonLd(input: {
   return {
     "@context": "https://schema.org",
     "@graph": [
+      webPageNode({
+        name: RECORDS_TITLE,
+        description: RECORDS_DESCRIPTION,
+        url: `${SITE_ORIGIN}/records`,
+        id: `${SITE_ORIGIN}/records#webpage`,
+      }),
       recordsDatasetNode(),
       recordsItemListNode(input.records),
       breadcrumbNode({ name: "Records", item: `${SITE_ORIGIN}/records` }),
-      faqPageNode(input.faqs),
+      faqPageNode(input.faqs, `${SITE_ORIGIN}/records#faq`),
     ],
   };
+}
+
+function webPageNode(input: {
+  name: string;
+  description: string;
+  url: string;
+  id: string;
+  dateModified?: string | null;
+}): JsonLdNode {
+  return {
+    "@type": "WebPage",
+    "@id": input.id,
+    url: input.url,
+    name: input.name,
+    description: input.description,
+    isPartOf: { "@id": WEBSITE_ID },
+    inLanguage: "en-GB",
+    publisher: { "@id": APP_ID },
+    author: { "@id": PERSON_ID },
+    ...(input.dateModified ? { dateModified: input.dateModified } : {}),
+  };
+}
+
+function measured(name: string, unitText: string): JsonLdNode {
+  return { "@type": "PropertyValue", name, unitText };
+}
+
+function homepageSources(): JsonLdNode[] {
+  return [
+    {
+      "@type": "Dataset",
+      name: "Elexon BMRS / Insights",
+      url: "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
+      creditText: elexonBmrsAttribution(),
+    },
+    {
+      "@type": "Dataset",
+      name: "NESO Data Portal",
+      url: "https://www.neso.energy/data-portal",
+      creditText: NESO_OPEN_DATA_ATTRIBUTION,
+    },
+    {
+      "@type": "Dataset",
+      name: "NESO Carbon Intensity API",
+      url: CARBON_INTENSITY_API_URL,
+      license: CC_BY_4_0_LICENSE_URL,
+      creditText: CARBON_INTENSITY_ATTRIBUTION,
+    },
+    {
+      "@type": "Dataset",
+      name: "Sheffield Solar PV_Live",
+      url: PV_LIVE_URL,
+      creditText: PV_LIVE_ATTRIBUTION,
+    },
+    {
+      "@type": "Dataset",
+      name: "National Gas Transmission Data Portal",
+      url: NATIONAL_GAS_PORTAL_URL,
+      creditText: NATIONAL_GAS_ATTRIBUTION,
+    },
+    {
+      "@type": "Dataset",
+      name: "U.S. Energy Information Administration",
+      url: EIA_URL,
+      creditText: EIA_ATTRIBUTION,
+    },
+    {
+      "@type": "Dataset",
+      name: "World Bank Commodity Price Data (The Pink Sheet)",
+      url: WORLD_BANK_PINK_SHEET_URL,
+      license: CC_BY_4_0_LICENSE_URL,
+      creditText: WORLD_BANK_PINK_SHEET_ATTRIBUTION,
+    },
+  ];
 }
 
 function websiteNode(): JsonLdNode {
@@ -53,9 +170,10 @@ function websiteNode(): JsonLdNode {
     "@id": WEBSITE_ID,
     url: `${SITE_ORIGIN}/`,
     name: SITE_NAME,
-    description: "Free view of Britain's electricity system, updated hourly from public data.",
+    description: "Free view of Great Britain's electricity and gas system, updated hourly from public data.",
     inLanguage: "en-GB",
-    publisher: { "@id": PERSON_ID },
+    publisher: { "@id": APP_ID },
+    creator: { "@id": PERSON_ID },
   };
 }
 
@@ -66,11 +184,11 @@ function webApplicationNode(): JsonLdNode {
     name: SITE_NAME,
     url: `${SITE_ORIGIN}/`,
     applicationCategory: "ReferenceApplication",
-    operatingSystem: "Any",
+    operatingSystem: "Any (web browser)",
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
-    author: { "@id": PERSON_ID },
     creator: { "@id": PERSON_ID },
+    inLanguage: "en-GB",
   };
 }
 
@@ -89,40 +207,37 @@ export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`):
   return {
     "@type": "Dataset",
     "@id": DATASET_ID,
-    name: "Grid: Great Britain electricity data, hourly",
+    name: "Great Britain electricity generation, demand, carbon intensity and prices (half-hourly)",
     description:
-      "Half-hourly Great Britain carbon intensity, generation mix by fuel (MW and %, share of generation), demand, interconnector flows, market index and imbalance prices, and daily gas and oil benchmarks, compiled by Grid from public sources. Generation mix percentages are a share of generation. Interconnector imports and exports are separate from that mix.",
+      "Half-hourly GB generation by fuel, demand, interconnector flows, carbon intensity and market prices, with gas and oil prices for context. Updated hourly.",
     url,
     license: homepageDatasetLicenses(),
     isAccessibleForFree: true,
-    creator: { "@id": APP_ID },
-    publisher: { "@id": PERSON_ID },
-    spatialCoverage: { "@type": "Place", name: "Great Britain" },
+    creator: { "@id": PERSON_ID },
+    publisher: { "@id": APP_ID },
+    inLanguage: "en-GB",
+    spatialCoverage: {
+      "@type": "Place",
+      name: "Great Britain",
+      geo: { "@type": "GeoShape", box: "49.8 -8.7 60.9 1.8" },
+    },
     temporalCoverage: `${DATASET_TEMPORAL_COVERAGE_START}/..`,
     variableMeasured: [
-      "Carbon intensity (gCO2/kWh)",
-      "Generation by fuel (MW)",
-      "Demand (MW)",
-      "Interconnector flow (MW)",
-      "Market index price (GBP/MWh)",
-      "System price (GBP/MWh)",
-      "GB gas System Average Price",
-      COMMODITY_LABELS.eu_natural_gas,
-      "Brent",
-      "WTI",
-      "Henry Hub",
-      COMMODITY_LABELS.lng_asia,
+      measured("Generation by fuel", "MW"),
+      measured("Demand", "MW"),
+      measured("Interconnector flow", "MW"),
+      measured("Carbon intensity", "gCO2/kWh"),
+      measured("Market index price", "GBP/MWh"),
+      measured("System (imbalance) price", "GBP/MWh"),
+      measured("GB gas System Average Price", "p/kWh"),
+      measured(COMMODITY_LABELS.eu_natural_gas, "USD"),
+      measured("Brent", "USD"),
+      measured("WTI", "USD"),
+      measured("Henry Hub", "USD"),
+      measured(COMMODITY_LABELS.lng_asia, "USD"),
     ],
-    isBasedOn: [
-      "https://bmrs.elexon.co.uk/",
-      "https://www.neso.energy/data-portal",
-      "https://carbonintensity.org.uk/",
-      "https://www.solar.sheffield.ac.uk/pvlive/",
-      "https://www.eia.gov/",
-      "https://www.worldbank.org/en/research/commodity-markets",
-      "https://www.nationalgas.com/",
-    ],
-    creditText: `${elexonBmrsAttribution()} Supported by National Energy SO Open Data. Carbon Intensity API (CC BY 4.0). World Bank Pink Sheet (CC BY 4.0).`,
+    isBasedOn: homepageSources(),
+    creditText: "Grid (grid.vahaah.com), with upstream attributions listed in isBasedOn",
     ...(dateModified ? { dateModified } : {}),
     distribution: [
       {
@@ -199,9 +314,13 @@ export function breadcrumbNode(...crumbs: Array<{ name: string; item: string }>)
   };
 }
 
-export function faqPageNode(faqs: Array<{ question: string; answer: string }>): JsonLdNode {
+export function faqPageNode(
+  faqs: Array<{ question: string; answer: string }>,
+  id?: string,
+): JsonLdNode {
   return {
     "@type": "FAQPage",
+    ...(id ? { "@id": id } : {}),
     mainEntity: faqs.map((faq) => ({
       "@type": "Question",
       name: faq.question,
@@ -211,24 +330,31 @@ export function faqPageNode(faqs: Array<{ question: string; answer: string }>): 
 }
 
 export function pageJsonLd(input: {
+  name: string;
+  description: string;
+  url: string;
   breadcrumbs: Array<{ name: string; item: string }>;
   faqs?: Array<{ question: string; answer: string }>;
   extra?: JsonLdNode[];
   dateModified?: string;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
-  const graph: JsonLdNode[] = [breadcrumbNode(...input.breadcrumbs)];
+  const breadcrumb = breadcrumbNode(...input.breadcrumbs);
+  breadcrumb["@id"] = `${input.url}#breadcrumb`;
+  const graph: JsonLdNode[] = [
+    webPageNode({
+      name: input.name,
+      description: input.description,
+      url: input.url,
+      id: `${input.url}#webpage`,
+      dateModified: input.dateModified,
+    }),
+    breadcrumb,
+  ];
   if (input.faqs && input.faqs.length > 0) {
-    graph.push(faqPageNode(input.faqs));
+    graph.push(faqPageNode(input.faqs, `${input.url}#faq`));
   }
   if (input.extra) {
     graph.push(...input.extra);
-  }
-  if (input.dateModified) {
-    graph.push({
-      "@type": "WebPage",
-      url: input.breadcrumbs[input.breadcrumbs.length - 1]?.item,
-      dateModified: input.dateModified,
-    });
   }
   return { "@context": "https://schema.org", "@graph": graph };
 }
@@ -238,6 +364,9 @@ export function todayJsonLd(input: {
   dateModified?: string;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
   return pageJsonLd({
+    name: TODAY_TITLE,
+    description: TODAY_DESCRIPTION,
+    url: `${SITE_ORIGIN}/today`,
     breadcrumbs: [{ name: "Today", item: `${SITE_ORIGIN}/today` }],
     faqs: input.faqs,
     dateModified: input.dateModified,
@@ -248,6 +377,9 @@ export function priceCapJsonLd(input: {
   faqs: Array<{ question: string; answer: string }>;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
   return pageJsonLd({
+    name: PRICE_CAP_TITLE,
+    description: PRICE_CAP_DESCRIPTION,
+    url: `${SITE_ORIGIN}/explained/price-cap`,
     breadcrumbs: [{ name: "Price cap", item: `${SITE_ORIGIN}/explained/price-cap` }],
     faqs: input.faqs,
   });
@@ -258,6 +390,9 @@ export function gasJsonLd(input: {
   dateModified?: string;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
   return pageJsonLd({
+    name: GAS_TITLE,
+    description: GAS_DESCRIPTION,
+    url: `${SITE_ORIGIN}/prices/gas`,
     breadcrumbs: [{ name: "Gas price", item: `${SITE_ORIGIN}/prices/gas` }],
     faqs: input.faqs,
     dateModified: input.dateModified,
@@ -268,6 +403,9 @@ export function methodologyJsonLd(input: {
   faqs: Array<{ question: string; answer: string }>;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
   return pageJsonLd({
+    name: METHODOLOGY_TITLE,
+    description: METHODOLOGY_DESCRIPTION,
+    url: `${SITE_ORIGIN}/methodology`,
     breadcrumbs: [{ name: "Methodology", item: `${SITE_ORIGIN}/methodology` }],
     faqs: input.faqs,
   });
@@ -278,6 +416,9 @@ export function apiDocsJsonLd(facts: LatestFacts | null): {
   "@graph": JsonLdNode[];
 } {
   return pageJsonLd({
+    name: API_DOCS_TITLE,
+    description: API_DOCS_DESCRIPTION,
+    url: `${SITE_ORIGIN}/api`,
     breadcrumbs: [{ name: "API", item: `${SITE_ORIGIN}/api` }],
     extra: [datasetNode(facts, `${SITE_ORIGIN}/api`)],
   });

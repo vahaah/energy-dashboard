@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { ToolsBoard } from "@/components/tools/tools-board";
 import { SeoPage } from "@/components/seo-page";
-import { TOOLS_H1, TOOLS_STANDFIRST, TOOLS_TITLE } from "@/lib/tools/copy";
+import { TOOLS_DESCRIPTION, TOOLS_H1, TOOLS_STANDFIRST, TOOLS_TITLE } from "@/lib/tools/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { loadToolsFile } from "@/lib/tools/load";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -11,7 +13,7 @@ export const revalidate = 86400;
 
 export const metadata: Metadata = buildPageMetadata({
   title: TOOLS_TITLE,
-  description: TOOLS_STANDFIRST,
+  description: TOOLS_DESCRIPTION,
   path: "/tools",
   imagePath: "/tools/opengraph-image",
   imageAlt: TOOLS_TITLE,
@@ -25,6 +27,12 @@ export default function ToolsPage() {
       section="Tools"
       title={TOOLS_H1}
       breadcrumb={[{ label: "Tools" }]}
+      schema={pageJsonLd({
+        name: TOOLS_TITLE,
+        description: TOOLS_DESCRIPTION,
+        url: `${SITE_ORIGIN}/tools`,
+        breadcrumbs: [{ name: "Tools", item: `${SITE_ORIGIN}/tools` }],
+      })}
       cite={<p>{TOOLS_STANDFIRST}</p>}
       citation={`Grid, "Energy tools and official services", grid.vahaah.com/tools, accessed ${formatLondonDayMonthYear(today)}.`}
       header={

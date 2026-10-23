@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
-import { termsPageMetadata } from "@/lib/page-metadata";
+import { pageJsonLd } from "@/lib/jsonld";
+import { TERMS_DESCRIPTION, TERMS_TITLE, termsPageMetadata } from "@/lib/page-metadata";
 import {
   CODE_LICENCE,
   CODE_LICENCE_URL,
@@ -8,6 +9,7 @@ import {
   LEGAL_CONTACT_MAILTO,
   LEGAL_CONTROLLER,
   LEGAL_JURISDICTION,
+  SITE_ORIGIN,
 } from "@/lib/site";
 
 export const revalidate = 86_400;
@@ -20,6 +22,12 @@ export default function TermsPage() {
       section="Terms"
       title="Terms"
       lede="Grid is a public, informational GB electricity dashboard. It is not a trading terminal, not a forecast product you should rely on, and not financial advice."
+      schema={pageJsonLd({
+        name: TERMS_TITLE,
+        description: TERMS_DESCRIPTION,
+        url: `${SITE_ORIGIN}/terms`,
+        breadcrumbs: [{ name: "Terms", item: `${SITE_ORIGIN}/terms` }],
+      })}
     >
       <LegalSection title="Informational use">
         <p>

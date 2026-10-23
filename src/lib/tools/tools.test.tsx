@@ -25,7 +25,7 @@ describe("tools catalogue", () => {
       expect(tool.geographic_coverage).not.toMatch(/\bUK\b/);
       expect(`${tool.name} ${tool.purpose}`).not.toMatch(/\breal-time\b|\bright now\b|\blive\b/i);
     }
-    expect(TOOLS_TITLE).toBe("Energy tools and official services | Grid");
+    expect(TOOLS_TITLE).toBe("GB energy tools and official services | Grid");
     expect(TOOLS_H1).toBe("Where do I go to do this?");
     expect(TOOLS_STANDFIRST).toBe(
       "Official and useful services, grouped by task. Grid links to them; it does not run them unless marked.",

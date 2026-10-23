@@ -23,7 +23,7 @@ export function historicalHomepageH1(date: string): string {
 }
 
 export const HOME_CITE_SOURCES =
-  "Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV Live.";
+  "Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.";
 
 export const HOME_CITE_FALLBACK = `Britain's electricity mix, carbon intensity, demand and prices, updated hourly from Elexon, NESO and Sheffield Solar. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
 
@@ -92,12 +92,20 @@ export function buildHomepageCite(input: {
   };
 }
 
+function sentenceFuel(label: string): string {
+  const [first, ...rest] = [...label];
+  if (!first) {
+    return label;
+  }
+  return `${first.toLowerCase()}${rest.join("")}`;
+}
+
 export function homepageCitePlainText(cite: HomepageCite): string {
   switch (cite.kind) {
     case "fallback":
       return HOME_CITE_FALLBACK;
     case "numbers":
-      return `At ${cite.timeLabel} on ${cite.dateLabel}, ${cite.topFuel} was Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}%). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
+      return `At ${cite.timeLabel} on ${cite.dateLabel}, ${sentenceFuel(cite.topFuel)} was Britain's largest source of electricity at ${cite.topGw} GW (${cite.topSharePct}%). Gas supplied ${cite.gasSharePct}%, and carbon intensity was ${cite.carbon} gCO₂/kWh. The market index price was £${cite.price}/MWh. ${HOME_CITE_SOURCES} Grid is free and updated hourly from public data.`;
     default: {
       const exhaustive: never = cite;
       return exhaustive;

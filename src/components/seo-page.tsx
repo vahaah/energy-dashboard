@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CiteButton } from "@/components/cite-button";
+import { JsonLd } from "@/components/json-ld";
 import { SiteBreadcrumb, type BreadcrumbItem } from "@/components/site-breadcrumb";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePageHeader } from "@/components/site-page-header";
@@ -16,6 +17,7 @@ export function SeoPage({
   header,
   skipHref,
   skipLabel = "Skip to content",
+  schema,
   children,
 }: {
   section: string;
@@ -27,10 +29,12 @@ export function SeoPage({
   header?: ReactNode;
   skipHref?: string;
   skipLabel?: string;
+  schema?: { "@context": "https://schema.org"; "@graph": Array<Record<string, unknown>> };
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
+      {schema ? <JsonLd data={schema} /> : null}
       {skipHref ? (
         <a
           href={skipHref}

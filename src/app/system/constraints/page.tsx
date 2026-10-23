@@ -4,10 +4,13 @@ import { SeoPage } from "@/components/seo-page";
 import { DataStateNotice } from "@/components/ui/data-state";
 import {
   CONSTRAINTS_ATTRIBUTION,
+  CONSTRAINTS_DESCRIPTION,
   CONSTRAINTS_H1,
   CONSTRAINTS_STANDFIRST,
   CONSTRAINTS_TITLE,
 } from "@/lib/constraints/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { buildConstraintsPage } from "@/lib/constraints/page-model";
 import { readPublishedHistory } from "@/lib/constraints/reader";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -18,7 +21,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildPageMetadata({
   title: CONSTRAINTS_TITLE,
-  description: CONSTRAINTS_STANDFIRST,
+  description: CONSTRAINTS_DESCRIPTION,
   path: "/system/constraints",
   imagePath: "/system/constraints/opengraph-image",
   imageAlt: CONSTRAINTS_TITLE,
@@ -39,6 +42,15 @@ export default async function ConstraintsPage() {
       section="Constraints"
       title={CONSTRAINTS_H1}
       breadcrumb={[{ label: "System" }, { label: "Constraints" }]}
+      schema={pageJsonLd({
+        name: CONSTRAINTS_TITLE,
+        description: CONSTRAINTS_DESCRIPTION,
+        url: `${SITE_ORIGIN}/system/constraints`,
+        breadcrumbs: [
+          { name: "System", item: `${SITE_ORIGIN}/system/constraints` },
+          { name: "Constraints", item: `${SITE_ORIGIN}/system/constraints` },
+        ],
+      })}
       cite={<p>{CONSTRAINTS_STANDFIRST}</p>}
       citation={`Grid, "Grid constraints and their cost", grid.vahaah.com/system/constraints, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${CONSTRAINTS_ATTRIBUTION}`}
       header={

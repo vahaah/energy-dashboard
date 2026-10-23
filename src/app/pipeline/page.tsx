@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { PipelineFrame } from "@/components/pipeline/pipeline-frame";
 import { SeoPage } from "@/components/seo-page";
+import { FaqList } from "@/components/ui/faq-list";
+import { pageJsonLd } from "@/lib/jsonld";
+import { pipelineFaqs } from "@/lib/pipeline/faq";
+import { SITE_ORIGIN } from "@/lib/site";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import {
@@ -28,11 +32,19 @@ export default function PipelinePage() {
   const catalogue = loadPipelineCatalogue();
   const now = new Date();
   const stale = pipelineEditionStale(pipelinePublicationDay(catalogue.edition), now);
+  const faqs = pipelineFaqs(catalogue.figures, catalogue.edition.edition);
   return (
     <SeoPage
       section="Pipeline"
       title={PIPELINE_H1}
       breadcrumb={[{ label: "Pipeline" }]}
+      schema={pageJsonLd({
+        name: PIPELINE_TITLE,
+        description: PIPELINE_DESCRIPTION,
+        url: `${SITE_ORIGIN}${PIPELINE_PATH}`,
+        breadcrumbs: [{ name: "Pipeline", item: `${SITE_ORIGIN}${PIPELINE_PATH}` }],
+        faqs,
+      })}
       cite={<p>{PIPELINE_DESCRIPTION}</p>}
       citation={`Grid, "What's in GB's pipeline of new energy projects?", grid.vahaah.com/pipeline, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${PIPELINE_CREDIT}.`}
       header={
@@ -48,6 +60,7 @@ export default function PipelinePage() {
         stale={stale}
         unavailable={catalogue.unavailable}
       />
+      <FaqList items={faqs} />
     </SeoPage>
   );
 }

@@ -9,7 +9,7 @@ export function buildLlmsTxt(payload: DashboardPayload | null): string {
   const cap = CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB");
   const latest =
     cite.kind === "numbers"
-      ? `Latest (GB, half-hour starting ${cite.timeLabel} on ${cite.dateLabel}): ${cite.topFuel} supplied ${cite.topSharePct}% of generation (${cite.topGw} GW), gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh, market index £${cite.price}/MWh. Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.`
+      ? `Latest (GB, half-hour starting ${cite.timeLabel} on ${cite.dateLabel}): ${cite.topFuel.charAt(0).toLowerCase()}${cite.topFuel.slice(1)} supplied ${cite.topSharePct}% of generation (${cite.topGw} GW), gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh, market index £${cite.price}/MWh. Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.`
       : "Latest: Grid updates hourly from public data when the latest snapshot is in cache.";
   const sap = payload?.prices.find((row) => row.commodity === "gb_gas_sap");
   const sapLine = sap

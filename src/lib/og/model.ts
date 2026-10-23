@@ -56,6 +56,7 @@ export const OG_PAGE_IDS = [
   "changes",
   "directory",
   "identifiers",
+  "data-health",
 ] as const;
 
 export type OgPageId = (typeof OG_PAGE_IDS)[number];
@@ -187,7 +188,6 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
     title: "Terms",
     kicker: "Informational only. Not financial advice.",
     metrics: [
-      { label: "Code", value: "MIT" },
       { label: "Warranty", value: "None" },
     ],
     mix: [],
@@ -302,6 +302,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
     stamp: null,
     source: ELEXON_ISD_ATTRIBUTION,
   },
+  "data-health": {
+    eyebrow: gridEyebrow("Data health"),
+    title: "Data health",
+    kicker: "When each source last published, and when Grid fetched it.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: null,
+  },
   identifiers: {
     eyebrow: gridEyebrow("Directory"),
     title: IDENTIFIERS_H1,
@@ -395,6 +404,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "changes":
     case "directory":
     case "identifiers":
+    case "data-health":
       return { ...LEGAL_CARDS[page], cached: true };
     case "pipeline":
       return pipelineCard();
@@ -822,6 +832,7 @@ function pageCacheControl(page: OgPageId): string {
     case "pipeline":
     case "directory":
     case "identifiers":
+    case "data-health":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

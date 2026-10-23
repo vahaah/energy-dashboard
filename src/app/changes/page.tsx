@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { attributionLine, ChangesBoard, type ChangeCard } from "@/components/changes/changes-board";
 import { SeoPage } from "@/components/seo-page";
 import { allChangeRows, readCheckedInChanges } from "@/lib/changes/query";
-import { CHANGES_H1, CHANGES_STANDFIRST, CHANGES_TITLE } from "@/lib/changes/copy";
+import { CHANGES_DESCRIPTION, CHANGES_H1, CHANGES_STANDFIRST, CHANGES_TITLE } from "@/lib/changes/copy";
+import { pageJsonLd } from "@/lib/jsonld";
+import { SITE_ORIGIN } from "@/lib/site";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import { projectPath } from "@/lib/projects/href";
@@ -12,7 +14,7 @@ export const revalidate = 86400;
 
 export const metadata: Metadata = buildPageMetadata({
   title: CHANGES_TITLE,
-  description: CHANGES_STANDFIRST,
+  description: CHANGES_DESCRIPTION,
   path: "/changes",
   imagePath: "/changes/opengraph-image",
   imageAlt: CHANGES_TITLE,
@@ -36,6 +38,12 @@ export default async function ChangesPage() {
       section="Changes"
       title={CHANGES_H1}
       breadcrumb={[{ label: "Changes" }]}
+      schema={pageJsonLd({
+        name: CHANGES_TITLE,
+        description: CHANGES_DESCRIPTION,
+        url: `${SITE_ORIGIN}/changes`,
+        breadcrumbs: [{ name: "Changes", item: `${SITE_ORIGIN}/changes` }],
+      })}
       cite={<p>{CHANGES_STANDFIRST}</p>}
       citation={`Grid, "What changed in Britain's energy system", grid.vahaah.com/changes, accessed ${formatLondonDayMonthYear(today)}.`}
       header={

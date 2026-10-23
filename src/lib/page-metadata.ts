@@ -5,11 +5,12 @@ import {
 } from "@/lib/dashboard-search-params";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-demand";
+import { CURRENT_PRICE_CAP, PUBLISHED_PRICE_CAPS } from "@/lib/price-cap";
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
-  ASSETS_DESCRIPTION,
   ASSETS_TITLE,
+  assetsDirectoryDescription,
   MAP_DESCRIPTION,
   MAP_TITLE,
   DATA_HEALTH_DESCRIPTION,
@@ -41,6 +42,9 @@ export type PageMetadataInput = {
   imageAlt: string;
   /** False emits noindex,follow. Omitted pages stay indexable. */
   index?: boolean;
+  openGraphType?: "website" | "article";
+  publishedTime?: string;
+  modifiedTime?: string;
 };
 
 export const FOCUS_PAGE_COPY = {
@@ -116,27 +120,42 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     alt: input.imageAlt,
   };
 
+  const article = input.openGraphType === "article";
+  const openGraph = article
+    ? {
+        title: input.title,
+        description: input.description,
+        type: "article" as const,
+        locale: "en_GB",
+        url,
+        siteName: SITE_NAME,
+        images: [image],
+        publishedTime: input.publishedTime,
+        modifiedTime: input.modifiedTime,
+      }
+    : {
+        title: input.title,
+        description: input.description,
+        type: SITE_OG_TYPE,
+        locale: "en_GB",
+        url,
+        siteName: SITE_NAME,
+        images: [image],
+      };
+
   return {
     title: input.title,
     description: input.description,
     alternates: {
       canonical: url,
     },
-    openGraph: {
-      title: input.title,
-      description: input.description,
-      type: SITE_OG_TYPE,
-      locale: "en_GB",
-      url,
-      siteName: SITE_NAME,
-      images: [image],
-    },
+    openGraph,
     ...(input.index === false ? { robots: { index: false, follow: true } } : {}),
     twitter: {
-      card: "summary_large_image",
+      card: "summary_large_image" as const,
       title: input.title,
       description: input.description,
-      images: [image.url],
+      images: [{ url: image.url, alt: input.imageAlt }],
     },
   };
 }
@@ -209,36 +228,45 @@ export function recordsPageMetadata(): Metadata {
   });
 }
 
+export const PRIVACY_TITLE = "Privacy | Grid";
+export const PRIVACY_DESCRIPTION =
+  "What Grid collects: Vercel request logs, a one-minute API rate limiter and cookieless Plausible analytics. No accounts or cookies. Controller: Comonad Ltd.";
+
+export const TERMS_TITLE = "Terms of use | Grid";
+export const TERMS_DESCRIPTION =
+  "Grid is free and informational: figures may be late or wrong, there is no warranty and no financial advice. Published data keeps the licence of its source.";
+
+export const DATA_SOURCES_TITLE = "Data sources and licences | Grid";
+export const DATA_SOURCES_DESCRIPTION =
+  "Every source Grid republishes, with its licence and required attribution: Elexon BMRS, NESO, Carbon Intensity API, PV_Live, National Gas, EIA and more.";
+
 export function privacyPageMetadata(): Metadata {
   return buildPageMetadata({
-    title: "Privacy — Grid",
-    description:
-      "What Grid collects: Vercel logs, a one-minute rate limiter, and cookieless Plausible analytics. No accounts, no cookies. UK GDPR. Controller: Comonad Ltd.",
+    title: PRIVACY_TITLE,
+    description: PRIVACY_DESCRIPTION,
     path: "/privacy",
     imagePath: "/privacy/opengraph-image",
-    imageAlt: "Privacy — Grid",
+    imageAlt: PRIVACY_TITLE,
   });
 }
 
 export function termsPageMetadata(): Metadata {
   return buildPageMetadata({
-    title: "Terms — Grid",
-    description:
-      "Grid is informational only, with no warranty and no financial advice. The code is MIT-licensed. Liability is limited.",
+    title: TERMS_TITLE,
+    description: TERMS_DESCRIPTION,
     path: "/terms",
     imagePath: "/terms/opengraph-image",
-    imageAlt: "Terms — Grid",
+    imageAlt: TERMS_TITLE,
   });
 }
 
 export function dataSourcesPageMetadata(): Metadata {
   return buildPageMetadata({
-    title: "Data sources — Grid",
-    description:
-      "Every Grid data source with its licence and the attribution text that licence requires: Elexon BMRS, NESO, Carbon Intensity API, PV Live, EIA, World Bank, and National Gas.",
+    title: DATA_SOURCES_TITLE,
+    description: DATA_SOURCES_DESCRIPTION,
     path: "/data-sources",
     imagePath: "/data-sources/opengraph-image",
-    imageAlt: "Data sources — Grid",
+    imageAlt: DATA_SOURCES_TITLE,
   });
 }
 
@@ -259,6 +287,9 @@ export function priceCapPageMetadata(): Metadata {
     path: "/explained/price-cap",
     imagePath: "/explained/price-cap/opengraph-image",
     imageAlt: PRICE_CAP_TITLE,
+    openGraphType: "article",
+    publishedTime: PUBLISHED_PRICE_CAPS[0]?.announcedOn,
+    modifiedTime: CURRENT_PRICE_CAP?.announcedOn,
   });
 }
 
@@ -277,7 +308,7 @@ export function dataHealthPageMetadata(): Metadata {
     title: DATA_HEALTH_TITLE,
     description: DATA_HEALTH_DESCRIPTION,
     path: "/data-health",
-    imagePath: "/og",
+    imagePath: "/data-health/opengraph-image",
     imageAlt: DATA_HEALTH_TITLE,
   });
 }
@@ -302,10 +333,10 @@ export function mapPageMetadata(): Metadata {
   });
 }
 
-export function assetsPageMetadata(): Metadata {
+export function assetsPageMetadata(assetCount: number): Metadata {
   return buildPageMetadata({
     title: ASSETS_TITLE,
-    description: ASSETS_DESCRIPTION,
+    description: assetsDirectoryDescription(assetCount),
     path: "/assets",
     imagePath: "/assets/opengraph-image",
     imageAlt: ASSETS_TITLE,
