@@ -91,6 +91,12 @@ describe("Elexon BMRS attribution", () => {
       "geonames",
       "elexon-isd",
       "ons-nspl",
+      "uk-power-networks",
+      "northern-powergrid",
+      "nged",
+      "electricity-north-west",
+      "sp-energy-networks",
+      "ofgem",
     ]);
     const sources = dataSources(2026);
     expect(sources.map((source) => source.id)).toEqual([...DATA_SOURCE_IDS]);

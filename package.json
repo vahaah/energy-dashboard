@@ -25,6 +25,7 @@
     "catalogue:today-batteries": "tsx scripts/catalogue/today-batteries.ts data/catalogue/raw/repd.csv",
     "catalogue:whole-energy": "tsx scripts/catalogue/whole-energy.ts",
     "catalogue:postcodes": "tsx scripts/catalogue/postcodes.ts",
+    "power-cuts:ofgem": "tsx scripts/power-cuts/ofgem-ci-cml.ts",
     "catalogue:dno": "tsx scripts/build-dno-layer.ts",
     "basemap": "tsx scripts/build-basemap.ts",
     "basemap:style": "tsx scripts/build-basemap-style.ts",

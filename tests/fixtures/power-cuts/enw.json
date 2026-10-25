@@ -1,0 +1,22 @@
+[
+  {
+    "incident_num": "ENW-1001",
+    "incident_type": "Unplanned",
+    "outage_time": "2026-10-25T08:00:00Z",
+    "customers_affected": 12,
+    "customers_off_supply": 9,
+    "incident_status": "Open",
+    "estimated_restoration_time": "2026-10-25T18:00:00Z",
+    "geo_point_2d": { "lon": -2.24, "lat": 53.48 }
+  },
+  {
+    "incident_num": "ENW-1002",
+    "incident_type": "Planned",
+    "outage_time": "2026-10-25T06:00:00Z",
+    "customers_affected": 6,
+    "customers_off_supply": 6,
+    "incident_status": "Restored",
+    "estimated_restoration_time": "2026-10-25T12:00:00Z",
+    "geo_point_2d": { "lon": -2.2, "lat": 53.5 }
+  }
+]

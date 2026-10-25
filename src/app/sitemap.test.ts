@@ -18,6 +18,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com",
       "https://grid.vahaah.com/today",
       "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/power-cuts",
       "https://grid.vahaah.com/system/constraints",
       "https://grid.vahaah.com/system/storage",
       "https://grid.vahaah.com/system/whole-energy",

@@ -1,0 +1,82 @@
+[
+  {
+    "incidentid": "A000ca876INCD",
+    "reference": "INCD-829558-A",
+    "totalconfirmedpowercut": 150,
+    "totalpredictedpowercut": 0,
+    "type": "HV_N",
+    "natureofoutage": "Large Area Fault",
+    "loggedtime": "2026-10-25T12:57:00+00:00",
+    "estimatedtimetillresolution": "2026-10-26T23:00:00+00:00",
+    "postcode": [
+      "DH8  6RD"
+    ],
+    "area": "North East",
+    "lat": 54.8719,
+    "lng": -1.82158
+  },
+  {
+    "incidentid": "A000ca876INCD",
+    "reference": "INCD-829558-A",
+    "totalconfirmedpowercut": 150,
+    "totalpredictedpowercut": 0,
+    "type": "HV_N",
+    "natureofoutage": "Large Area Fault",
+    "loggedtime": "2026-10-25T12:57:00+00:00",
+    "estimatedtimetillresolution": "2026-10-26T23:00:00+00:00",
+    "postcode": [
+      "DH8  7PJ"
+    ],
+    "area": "North East",
+    "lat": 54.8588,
+    "lng": -1.81118
+  },
+  {
+    "incidentid": "A000ca8a0INCD",
+    "reference": "INCD-829600-A",
+    "totalconfirmedpowercut": 23,
+    "totalpredictedpowercut": 0,
+    "type": "HV_N",
+    "natureofoutage": "Large Area Fault",
+    "loggedtime": "2026-10-25T13:12:00+00:00",
+    "estimatedtimetillresolution": "2026-10-25T18:10:00+00:00",
+    "postcode": [
+      "DN9  1PG"
+    ],
+    "area": "Yorkshire",
+    "lat": 53.5547,
+    "lng": -0.832964
+  },
+  {
+    "incidentid": "A000ca8a0INCD",
+    "reference": "INCD-829600-A",
+    "totalconfirmedpowercut": 23,
+    "totalpredictedpowercut": 0,
+    "type": "HV_N",
+    "natureofoutage": "Large Area Fault",
+    "loggedtime": "2026-10-25T13:12:00+00:00",
+    "estimatedtimetillresolution": "2026-10-25T18:10:00+00:00",
+    "postcode": [
+      "DN8  5BF"
+    ],
+    "area": "Yorkshire",
+    "lat": 53.5664,
+    "lng": -0.857279
+  },
+  {
+    "incidentid": null,
+    "reference": "PPCR80589",
+    "totalconfirmedpowercut": 6,
+    "totalpredictedpowercut": 0,
+    "type": "HV_N",
+    "natureofoutage": "Planned Work on System",
+    "loggedtime": "2026-10-25T06:00:00+00:00",
+    "estimatedtimetillresolution": "2026-10-25T09:00:00+00:00",
+    "postcode": [
+      "S11  8PN"
+    ],
+    "area": "Yorkshire",
+    "lat": 53.3691,
+    "lng": -1.49356
+  }
+]

@@ -53,6 +53,7 @@ describe("phase 1B release gate", () => {
     }
     expect(system.items.map((item) => item.href)).toEqual([
       "/system/constraints",
+      "/power-cuts",
       "/system/storage",
       "/system/whole-energy",
       "/projects",

@@ -1,0 +1,5 @@
+"Upload Date","Region","Incident ID","Confirmed Off","Predicted Off","Restored","Status","Planned","Category","Resource Status","Start Time","ETR","Voltage","Location Latitude","Location Longitude","Postcodes"
+"2026-10-25T19:10:00","South West","INCD-111594-l","0","19","0","Awaiting","false","HV OVERHEAD","COMP","2026-10-23T14:56:00","2026-10-25T22:00:00","HV","50.91489","-2.914751","TA19 9ED, TA19 9JB, TA19 9EB, INCD-111360-l"
+"2026-10-25T19:10:00","South Wales","INCD-63053-f","1","0","12","In Progress","false","HV OVERHEAD","COMP","2026-10-24T19:56:00","2026-10-26T08:00:00","HV","51.56701","-3.004754","NP10 8SF, NP10 8TU, NP10 8SF, NP10 8TP"
+"2026-10-25T19:10:00","West Midlands","INCD-78627-m","1","0","0","In Progress","false","LV OVERHEAD","DISP","2026-10-25T01:31:00","","LV","52.01344","-1.365364","OX15 4HE"
+"2026-10-25T19:10:00","East Midlands","INCD-141982-h","0","31","0","Awaiting","false","HV GENERIC","COMP","2026-10-25T12:36:00","2026-10-25T14:40:00","HV","52.25733","-1.617612","CV35 8AJ, CV35 8AB, CV35 8AL, CV35 8AH"

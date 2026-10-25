@@ -49,6 +49,7 @@ describe("site nav shell", () => {
       "/map",
       "/assets",
       "/system/constraints",
+      "/power-cuts",
       "/system/storage",
       "/system/whole-energy",
       "/projects",

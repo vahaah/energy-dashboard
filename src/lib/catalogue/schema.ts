@@ -27,6 +27,12 @@ export const CATALOGUE_SOURCE_IDS = [
   "geonames",
   "elexon-isd",
   "ons-nspl",
+  "uk-power-networks",
+  "northern-powergrid",
+  "nged",
+  "electricity-north-west",
+  "sp-energy-networks",
+  "ofgem",
 ] as const;
 
 /**

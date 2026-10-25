@@ -12,6 +12,7 @@ export const CRON_JOB_IDS = [
   "cron-directory",
   "cron-tec",
   "cron-northern-ireland",
+  "cron-power-cuts",
 ] as const;
 
 export type CronJobId = (typeof CRON_JOB_IDS)[number];
@@ -41,6 +42,8 @@ const SECRET_ENV = [
   "INDEXNOW_KEY",
   "OIL_PRICE_API_KEY",
   "FRED_API_KEY",
+  "ENW_ODS_API_KEY",
+  "SPEN_ODS_API_KEY",
 ] as const;
 
 const memory = new Map<CronJobId, StoredJobHealth>();
@@ -65,7 +68,7 @@ function emptyJob(job: CronJobId): JobHealth {
 
 /** Drop bearer tokens and live env values before the string is stored or returned. */
 export function publicJobError(message: string): string {
-  let text = message.replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
+  let text = message.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/Apikey\s+\S+/gi, "Apikey [redacted]");
   for (const key of SECRET_ENV) {
     const value = process.env[key];
     if (value && value.length >= 8 && text.includes(value)) {

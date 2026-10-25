@@ -41,6 +41,7 @@ Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRIC
 - [Assets](https://grid.vahaah.com/assets): operational stations from REPD and DUKES
 - [Whole energy](https://grid.vahaah.com/system/whole-energy): UK annual energy balance 2025 (DUKES 2026), not today's figures
 - [Northern Ireland](https://grid.vahaah.com/electricity/northern-ireland): NI and all-island electricity, kept outside GB totals
+- [Power cuts](https://grid.vahaah.com/power-cuts): power cuts reported by network operators in parts of England and Wales, updated every 15 minutes; Scotland and Northern Ireland are not covered yet
 - [Changes](https://grid.vahaah.com/changes): changes found in published registers, with evidence
 - [Directory](https://grid.vahaah.com/directory): who holds an MPID or industry code, by date
 - [Tools](https://grid.vahaah.com/tools): official services by task (bills, network operators, power cuts, gas emergencies)

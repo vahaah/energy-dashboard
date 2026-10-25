@@ -1,0 +1,52 @@
+[
+  {
+    "fault_id": "SPD-1",
+    "licence_area": "SPD",
+    "region": "Glasgow",
+    "status": "Open",
+    "planned": false,
+    "planned_outage_start_date": null,
+    "date_of_reported_fault": "2026-10-25T07:00:00Z",
+    "etr": "2026-10-25T19:00:00Z",
+    "voltage": "11kV",
+    "postcode_sector": "G1 2",
+    "customers": 0
+  },
+  {
+    "fault_id": "SPM-1",
+    "licence_area": "SPM",
+    "region": "Wrexham",
+    "status": "Open",
+    "planned": false,
+    "planned_outage_start_date": null,
+    "date_of_reported_fault": "2026-10-25T09:00:00Z",
+    "etr": "2026-10-25T20:00:00Z",
+    "voltage": "11kV",
+    "postcode_sector": "LL11 1"
+  },
+  {
+    "fault_id": "SPM-2",
+    "licence_area": "SPM",
+    "region": "Liverpool",
+    "status": "Open",
+    "planned": true,
+    "planned_outage_start_date": "2026-10-25T05:00:00Z",
+    "date_of_reported_fault": "2026-10-25T04:00:00Z",
+    "etr": "2026-10-25T16:00:00Z",
+    "voltage": "LV",
+    "postcode_sector": "L1 1"
+  },
+  {
+    "fault_id": "SPD-0",
+    "licence_area": "SPD",
+    "region": "Glasgow",
+    "status": "Restored",
+    "planned": false,
+    "planned_outage_start_date": null,
+    "date_of_reported_fault": "2026-10-24T07:00:00Z",
+    "etr": null,
+    "voltage": "11kV",
+    "postcode_sector": "G1 2",
+    "customers": 0
+  }
+]

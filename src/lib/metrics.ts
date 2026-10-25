@@ -84,6 +84,12 @@ const SOURCE_LABEL: Record<DataSourceId, string> = {
   geonames: "GeoNames",
   "elexon-isd": "Elexon ISD",
   "ons-nspl": "ONS National Statistics Postcode Lookup",
+  "uk-power-networks": "UK Power Networks",
+  "northern-powergrid": "Northern Powergrid",
+  nged: "National Grid Electricity Distribution",
+  "electricity-north-west": "Electricity North West",
+  "sp-energy-networks": "SP Energy Networks",
+  ofgem: "Ofgem",
 };
 
 export function metricSourceIds(metric: MetricDefinition): readonly DataSourceId[] {

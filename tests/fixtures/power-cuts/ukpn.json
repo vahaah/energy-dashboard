@@ -1,0 +1,59 @@
+[
+  {
+    "incidentreference": "INCD-640589-Z",
+    "powercuttype": "Restored",
+    "creationdatetime": "2026-10-23T11:54:25.537",
+    "estimatedrestorationdate": null,
+    "restoreddatetime": "2026-10-25T09:21:50.42",
+    "nocustomeraffected": 0,
+    "noplannedcustomers": 0,
+    "postcodesaffected": "HA1 1;HA1 2",
+    "geopoint": {
+      "lon": -0.32785,
+      "lat": 51.58258
+    },
+    "operatingzone": "PINNER"
+  },
+  {
+    "incidentreference": "INCD-466033-G",
+    "powercuttype": "Unplanned",
+    "creationdatetime": "2026-10-24T09:36:04",
+    "estimatedrestorationdate": "2026-10-25T20:00:00",
+    "restoreddatetime": null,
+    "nocustomeraffected": 4,
+    "noplannedcustomers": 0,
+    "postcodesaffected": "TW1 1;TW1 3",
+    "geopoint": {
+      "lon": -0.32686,
+      "lat": 51.45742
+    },
+    "operatingzone": "Kingston Zone"
+  },
+  {
+    "incidentreference": "MULT-a97af3f1-cb8e-4a8c-b9d4-e8072cd7d922",
+    "powercuttype": "Multiple",
+    "creationdatetime": "0001-01-01T00:00:00",
+    "estimatedrestorationdate": null,
+    "restoreddatetime": null,
+    "nocustomeraffected": 0,
+    "noplannedcustomers": 0,
+    "postcodesaffected": "SS9 3",
+    "geopoint": {
+      "lon": 0.64851,
+      "lat": 51.55217
+    },
+    "operatingzone": null
+  },
+  {
+    "incidentreference": "INCD-27268-O",
+    "powercuttype": "Planned",
+    "creationdatetime": "2026-09-30T14:15:38.03",
+    "estimatedrestorationdate": "2026-10-25T13:00:00",
+    "restoreddatetime": null,
+    "nocustomeraffected": 0,
+    "noplannedcustomers": 0,
+    "postcodesaffected": "IP6 8",
+    "geopoint": null,
+    "operatingzone": "BURY ST EDMUNDS"
+  }
+]

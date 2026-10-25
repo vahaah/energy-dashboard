@@ -74,6 +74,8 @@ describe("homepage module graph", () => {
     expect(files.some((file) => file.includes(`${join("lib", "eirgrid", "reader.ts")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "eirgrid", "pipeline.ts")}`))).toBe(false);
     expect(files.some((file) => file.includes(`${join("lib", "postcode")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("lib", "power-cuts")}`))).toBe(false);
+    expect(files.some((file) => file.includes(`${join("components", "power-cuts")}`))).toBe(false);
     expect(joined).not.toContain("releases/eirgrid-ni");
     expect(joined).not.toContain("releases/neso-constraints");
     expect(joined).not.toContain("blob.vercel-storage");
@@ -90,6 +92,15 @@ describe("homepage module graph", () => {
     const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
     expect(files.some((file) => file === "maplibre-gl" || file.endsWith("maplibre.css") || file.includes("maplibre-gl"))).toBe(false);
     expect(joined).not.toMatch(/import\s+["'][^"']*maplibre/);
+    expect(joined).not.toMatch(/from\s+["']maplibre-gl["']/);
+    expect(joined).not.toMatch(/from\s+["']pmtiles["']/);
+  });
+
+  it("keeps MapLibre off the static graph of /power-cuts", () => {
+    const entry = resolve(process.cwd(), "src/app/power-cuts/page.tsx");
+    const files = moduleGraph(entry, false);
+    expect(files.some((file) => file === "maplibre-gl" || file.includes("maplibre-gl") || file.endsWith("map-browser.ts"))).toBe(false);
+    const joined = files.map((file) => (file.endsWith(".ts") || file.endsWith(".tsx") ? readFileSync(file, "utf8") : "")).join("\n");
     expect(joined).not.toMatch(/from\s+["']maplibre-gl["']/);
     expect(joined).not.toMatch(/from\s+["']pmtiles["']/);
   });

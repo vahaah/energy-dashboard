@@ -29,6 +29,7 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-directory",
   "/api/cron-tec",
   "/api/cron-northern-ireland",
+  "/api/cron-power-cuts",
   "/api/health",
 ]);
 
