@@ -1,5 +1,6 @@
+import { POWER_CUTS_FRESH_MS } from "@/lib/power-cuts/model";
 import { loadPowerCutsSnapshot } from "@/lib/power-cuts/reader";
-import { OPERATORS, type Operator, type SourceStatus } from "@/lib/power-cuts/schema";
+import { OPERATORS, type Operator, type SourceReport, type SourceStatus } from "@/lib/power-cuts/schema";
 
 export type PowerCutsHealthSource = {
   operator: Operator;
@@ -14,7 +15,18 @@ export type PowerCutsHealth = {
   sources: PowerCutsHealthSource[];
 };
 
-export async function loadPowerCutsHealth(): Promise<PowerCutsHealth> {
+function agedStatus(report: SourceReport, now: Date): SourceStatus {
+  if (report.status === "unlicensed" || report.status === "absent") {
+    return report.status;
+  }
+  const fetchedAt = report.fetchedAt ? new Date(report.fetchedAt).getTime() : Number.NaN;
+  if (!Number.isFinite(fetchedAt) || now.getTime() - fetchedAt > POWER_CUTS_FRESH_MS) {
+    return "stale";
+  }
+  return report.status;
+}
+
+export async function loadPowerCutsHealth(now = new Date()): Promise<PowerCutsHealth> {
   try {
     const snapshot = await loadPowerCutsSnapshot();
     if (!snapshot) {
@@ -34,7 +46,7 @@ export async function loadPowerCutsHealth(): Promise<PowerCutsHealth> {
         const report = snapshot.sources[operator];
         return {
           operator,
-          status: report.status,
+          status: agedStatus(report, now),
           fetchedAt: report.fetchedAt,
           count: report.count,
           ...(report.error ? { error: report.error } : {}),

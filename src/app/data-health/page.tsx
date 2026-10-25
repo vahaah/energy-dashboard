@@ -15,7 +15,7 @@ import {
 import { NI_PATH } from "@/lib/eirgrid/copy";
 import { physicalGasCoverage } from "@/lib/metrics";
 import { readDnoLayerFlag } from "@/lib/map/layer-flag";
-import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
+import { formatLondon, formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { pageJsonLd } from "@/lib/jsonld";
 import { dataHealthPageMetadata } from "@/lib/page-metadata";
 import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
@@ -203,6 +203,7 @@ export default async function DataHealthPage() {
                 <p className="text-label-12 text-gray-900">
                   {source.status}
                   {source.count > 0 ? ` · ${source.count}` : ""}
+                  {source.fetchedAt ? ` · ${formatLondon(new Date(source.fetchedAt))}` : ""}
                 </p>
                 {source.error ? <p className="mt-1 break-words text-copy-14 text-gray-900">{source.error}</p> : null}
               </li>

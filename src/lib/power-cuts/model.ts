@@ -1,4 +1,4 @@
-import { displayedPercents, formatDisplay, largestRemainder } from "@/lib/display-rounding";
+import { displayedPercents, largestRemainder } from "@/lib/display-rounding";
 import { formatGrouped } from "@/lib/format/quantity";
 import { formatLondon } from "@/lib/london-time";
 import { normalizePostcode } from "@/lib/postcode/parse";
@@ -35,7 +35,8 @@ export type AreaTableRow = {
   label: string;
   incidents: number;
   customers: number | null;
-  customersLabel: string;
+  /** Largest-remainder customer count. Grouping happens in the view. */
+  customersShown: number | null;
   unplanned: number;
   planned: number;
 };
@@ -259,7 +260,7 @@ export function areaTable(incidents: readonly PowerCut[]): AreaTableRow[] {
       label: areaName(area),
       incidents: rows.length,
       customers,
-      customersLabel: customers == null ? "" : formatDisplay(shown, 1).replace(/\.0$/, ""),
+      customersShown: customers == null ? null : shown,
       unplanned: rows.filter((row) => row.kind === "unplanned").length,
       planned: rows.filter((row) => row.kind === "planned").length,
     };
@@ -272,7 +273,7 @@ export function areaTable(incidents: readonly PowerCut[]): AreaTableRow[] {
     const customers = members.every((row) => row.customers == null)
       ? null
       : members.reduce((sum, row) => sum + (row.customers ?? 0), 0);
-    const shown = members.reduce((sum, row) => sum + Number(row.customersLabel || 0), 0);
+    const shown = members.reduce((sum, row) => sum + (row.customersShown ?? 0), 0);
     return [
       {
         row: "nation" as const,
@@ -282,7 +283,7 @@ export function areaTable(incidents: readonly PowerCut[]): AreaTableRow[] {
         label: nation,
         incidents: members.reduce((sum, row) => sum + row.incidents, 0),
         customers,
-        customersLabel: customers == null ? "" : String(shown),
+        customersShown: customers == null ? null : shown,
         unplanned: members.reduce((sum, row) => sum + row.unplanned, 0),
         planned: members.reduce((sum, row) => sum + row.planned, 0),
       },
@@ -291,7 +292,7 @@ export function areaTable(incidents: readonly PowerCut[]): AreaTableRow[] {
   const ukCustomers = areaRows.every((row) => row.customers == null)
     ? null
     : areaRows.reduce((sum, row) => sum + (row.customers ?? 0), 0);
-  const ukShown = areaRows.reduce((sum, row) => sum + Number(row.customersLabel || 0), 0);
+  const ukShown = areaRows.reduce((sum, row) => sum + (row.customersShown ?? 0), 0);
   const uk: AreaTableRow = {
     row: "uk",
     area: null,
@@ -300,7 +301,7 @@ export function areaTable(incidents: readonly PowerCut[]): AreaTableRow[] {
     label: "Areas reporting",
     incidents: areaRows.reduce((sum, row) => sum + row.incidents, 0),
     customers: ukCustomers,
-    customersLabel: ukCustomers == null ? "" : String(ukShown),
+    customersShown: ukCustomers == null ? null : ukShown,
     unplanned: areaRows.reduce((sum, row) => sum + row.unplanned, 0),
     planned: areaRows.reduce((sum, row) => sum + row.planned, 0),
   };

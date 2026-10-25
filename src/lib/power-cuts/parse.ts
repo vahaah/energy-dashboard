@@ -1,5 +1,5 @@
 import { nationOfPostcode, ngedArea, npgArea, ukpnArea } from "@/lib/power-cuts/areas";
-import { csvRecords } from "@/lib/power-cuts/csv";
+import { csvRecords, parseCsv } from "@/lib/power-cuts/csv";
 import { parseIrishPair } from "@/lib/power-cuts/irish-grid";
 import {
   powerCutSchema,
@@ -446,6 +446,73 @@ export function parseNie(payload: unknown, now: Date): PowerCut[] {
     }
   }
   return incidents;
+}
+
+const NGED_HEADERS = [
+  "Region",
+  "Incident ID",
+  "Confirmed Off",
+  "Status",
+  "Planned",
+  "Start Time",
+  "ETR",
+  "Location Latitude",
+  "Location Longitude",
+  "Postcodes",
+] as const;
+
+export class FeedShapeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FeedShapeError";
+  }
+}
+
+/** A real empty feed is an array, a Faults array, or a CSV that still has its columns. */
+export function assertFeedShape(operator: Operator, payload: unknown): void {
+  switch (operator) {
+    case "ukpn":
+    case "npg":
+    case "enw":
+    case "spen":
+      if (!Array.isArray(payload)) {
+        throw new FeedShapeError(`${operator} feed is not an incident array`);
+      }
+      return;
+    case "ssen": {
+      const faults = record(payload)?.Faults;
+      if (!Array.isArray(faults)) {
+        throw new FeedShapeError("SSEN feed has no Faults array");
+      }
+      return;
+    }
+    case "nie": {
+      if (Array.isArray(payload)) {
+        return;
+      }
+      const object = record(payload);
+      if (object && (Array.isArray(object.outageMessage) || Array.isArray(object.faults))) {
+        return;
+      }
+      throw new FeedShapeError("NIE feed is not an outage list");
+    }
+    case "nged": {
+      if (typeof payload !== "string") {
+        throw new FeedShapeError("NGED feed is not CSV");
+      }
+      const header = parseCsv(payload)[0]?.map((cell) => cell.trim()) ?? [];
+      const names = new Set(header);
+      const missing = NGED_HEADERS.filter((name) => !names.has(name));
+      if (missing.length > 0) {
+        throw new FeedShapeError(`NGED feed is missing ${missing[0] ?? "columns"}`);
+      }
+      return;
+    }
+    default: {
+      const exhaustive: never = operator;
+      throw new FeedShapeError(String(exhaustive));
+    }
+  }
 }
 
 export function parseOperator(operator: Operator, payload: unknown, now: Date, lookup?: SectorPointLookup): PowerCut[] {

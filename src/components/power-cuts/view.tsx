@@ -203,10 +203,10 @@ export function PowerCutsView({
                         <td className="py-3 pr-3">{row.nation ?? ""}</td>
                         <td className="py-3 pr-3 tabular-nums">{formatGrouped(row.incidents, 0)}</td>
                         <td className="py-3 pr-3 tabular-nums">
-                          {row.customersLabel === "" ? (
+                          {row.customersShown == null ? (
                             <Absent reason="No published count" />
                           ) : (
-                            formatGrouped(Number(row.customersLabel), 0)
+                            formatGrouped(row.customersShown, 0)
                           )}
                         </td>
                         <td className="py-3 pr-3 tabular-nums">{formatGrouped(row.unplanned, 0)}</td>

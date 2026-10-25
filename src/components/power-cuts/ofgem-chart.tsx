@@ -28,17 +28,24 @@ export function OfgemContext({ data }: { data: OfgemCiCml }) {
         Interruptions and minutes lost, {data.year}
       </h2>
       <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">
-        Ofgem RIIO-ED2 annual figures, in minutes. A higher number is worse. The mark on each bar is that
-        operator&apos;s target. {data.note}
+        Ofgem RIIO-ED2 annual figures for {data.year}. Customer interruptions (CI) are {data.ci_unit}. Customer
+        minutes lost (CML) are {data.cml_unit} per connected customer. A higher number is worse. The mark on each
+        bar is that operator&apos;s target. {data.note}
       </p>
       <TableScroll className="mt-4">
         <table className="w-full min-w-[44rem] border-collapse text-left text-copy-14">
           <thead>
             <tr className="text-label-13 text-gray-900">
               <th className="py-2 pr-3 font-medium">Network</th>
-              <th className="py-2 pr-3 font-medium">CI</th>
+              <th className="py-2 pr-3 font-medium">
+                CI
+                <span className="mt-1 block font-normal">{data.ci_unit}</span>
+              </th>
               <th className="py-2 pr-3 font-medium">CI target</th>
-              <th className="py-2 pr-3 font-medium">CML</th>
+              <th className="py-2 pr-3 font-medium">
+                CML
+                <span className="mt-1 block font-normal">{data.cml_unit}</span>
+              </th>
               <th className="py-2 pr-3 font-medium">CML target</th>
               <th className="py-2 font-medium">Against target</th>
             </tr>

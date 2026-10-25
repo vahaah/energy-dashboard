@@ -7,10 +7,12 @@ import { fetchBounded } from "@/lib/power-cuts/fetch";
 import { mergeSnapshot, powerCutsFlags, fetchSource } from "@/lib/power-cuts/collect";
 import { buildFixtureSnapshot } from "@/lib/power-cuts/fixture";
 import { irishGridToWgs84 } from "@/lib/power-cuts/irish-grid";
-import { buildPowerCutsModel, outwardQuery } from "@/lib/power-cuts/model";
+import { areaTable, buildPowerCutsModel, outwardQuery } from "@/lib/power-cuts/model";
+import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
 import { loadOfgemCiCml } from "@/lib/power-cuts/ofgem";
 import { parseEnw, parseNged, parseNie, parseNpg, parseSpen, parseSsen, parseUkpn } from "@/lib/power-cuts/parse";
-import { FETCH_MAX_RETRIES, FETCH_TIMEOUT_MS, OPERATORS, type PowerCutsSnapshot } from "@/lib/power-cuts/schema";
+import { formatGrouped } from "@/lib/format/quantity";
+import { FETCH_MAX_RETRIES, FETCH_TIMEOUT_MS, OPERATORS, type PowerCut, type PowerCutsSnapshot } from "@/lib/power-cuts/schema";
 
 const dir = join(process.cwd(), "tests/fixtures/power-cuts");
 const now = new Date("2026-10-25T18:00:00.000Z");
@@ -126,7 +128,7 @@ describe("power cut reconciliation", () => {
     const uk = model.rows.find((row) => row.row === "uk");
     expect(areas.reduce((sum, row) => sum + row.incidents, 0)).toBe(uk?.incidents);
     expect(areas.reduce((sum, row) => sum + row.incidents, 0)).toBe(model.incidents);
-    expect(areas.reduce((sum, row) => sum + Number(row.customersLabel || 0), 0)).toBe(Number(uk?.customersLabel));
+    expect(areas.reduce((sum, row) => sum + (row.customersShown ?? 0), 0)).toBe(uk?.customersShown);
     expect(model.unplannedPercent + model.plannedPercent).toBe(100);
     expect(model.coverage).not.toMatch(/all of the UK|the whole UK/i);
     expect(model.coverage).toContain("not licensed");
@@ -134,6 +136,30 @@ describe("power cut reconciliation", () => {
     expect(outwardQuery(["SW10 0AA", "TW1 1"], "SW1")).toBe(false);
     expect(outwardQuery(["SW1A 1AA", "TW1 1"], "SW1")).toBe(true);
     expect(outwardQuery(["TW1 1"], "TW")).toBe(true);
+  });
+
+  it("keeps a 1,000-customer area numeric until render", () => {
+    const cut = (id: string, area: PowerCut["area"], nation: PowerCut["nation"], customersOff: number): PowerCut => ({
+      id,
+      operator: area === "SWALES" ? "nged" : "ukpn",
+      area,
+      nation,
+      kind: "unplanned",
+      status: "active",
+      startedAt: "2026-10-25T12:00:00.000Z",
+      estimatedRestorationAt: null,
+      customersOff,
+      postcodes: [],
+      point: null,
+      sourceUrl: "https://example.test/cuts",
+    });
+    const rows = areaTable([cut("ukpn:a", "EPN", "England", 1000), cut("nged:b", "SWALES", "Wales", 1)]);
+    const areas = rows.filter((row) => row.row === "area");
+    const uk = rows.find((row) => row.row === "uk");
+    expect(areas.map((row) => row.customersShown)).toEqual([1000, 1]);
+    expect(areas.reduce((sum, row) => sum + (row.customersShown ?? 0), 0)).toBe(1001);
+    expect(uk?.customersShown).toBe(1001);
+    expect(formatGrouped(uk?.customersShown ?? 0, 0)).toBe("1,001");
   });
 
 });
@@ -264,6 +290,67 @@ describe("ofgem context", () => {
     expect(data?.rows[0]).toMatchObject({ label: "SP ENW", ci: 26.07, ci_target: 29.74, cml: 27.09, cml_target: 26.87 });
     expect(data?.rows).toHaveLength(14);
     expect(data?.attribution).toBe("Contains Ofgem data licensed under the Open Government Licence v3.0.");
+    expect(data?.ci_unit).toBe("interruptions per 100 customers");
+    expect(data?.cml_unit).toBe("minutes");
+  });
+});
+
+describe("feed shape", () => {
+  const flags = powerCutsFlags({ NODE_ENV: "test" });
+
+  it("rejects an HTML page and an object, and accepts an empty array or a header-only CSV", async () => {
+    const html = await fetchSource(
+      "nged",
+      flags,
+      now,
+      async () => new Response("<html>maintenance</html>", { status: 200 }),
+    );
+    expect(html).toMatchObject({ status: "absent", incidents: [] });
+    const prior = buildFixtureSnapshot();
+    const merged = mergeSnapshot(
+      OPERATORS.map((operator) =>
+        operator === "nged"
+          ? html
+          : {
+              operator,
+              status:
+                prior.sources[operator].status === "unlicensed"
+                  ? ("unlicensed" as const)
+                  : prior.sources[operator].status === "absent"
+                    ? ("absent" as const)
+                    : ("ok" as const),
+              incidents: prior.incidents.filter((row) => row.operator === operator),
+              error: prior.sources[operator].error,
+            },
+      ),
+      prior,
+      new Date("2026-10-25T19:30:00.000Z"),
+    );
+    expect(merged.sources.nged.status).toBe("stale");
+    expect(merged.incidents.some((row) => row.operator === "nged")).toBe(true);
+
+    const empty = await fetchSource("ukpn", flags, now, async () => new Response("[]", { status: 200 }));
+    expect(empty).toMatchObject({ status: "ok", incidents: [] });
+    const header =
+      '"Region","Incident ID","Confirmed Off","Status","Planned","Start Time","ETR","Location Latitude","Location Longitude","Postcodes"\n';
+    const csv = await fetchSource("nged", flags, now, async () => new Response(header, { status: 200 }));
+    expect(csv).toMatchObject({ status: "ok", incidents: [] });
+    const object = await fetchSource("ukpn", flags, now, async () => new Response("{}", { status: 200 }));
+    expect(object.status).toBe("absent");
+  });
+});
+
+describe("health age", () => {
+  it("marks an old ok source stale and shows the fetch time", async () => {
+    const fresh = await loadPowerCutsHealth(new Date("2026-10-25T19:20:00.000Z"));
+    expect(fresh.sources.find((source) => source.operator === "ukpn")).toMatchObject({
+      status: "ok",
+      fetchedAt: "2026-10-25T19:10:00.000Z",
+    });
+    const aged = await loadPowerCutsHealth(new Date("2026-10-25T20:00:00.000Z"));
+    expect(aged.sources.find((source) => source.operator === "ukpn")?.status).toBe("stale");
+    expect(aged.sources.find((source) => source.operator === "enw")?.status).toBe("absent");
+    expect(aged.sources.find((source) => source.operator === "ssen")?.status).toBe("unlicensed");
   });
 });
 

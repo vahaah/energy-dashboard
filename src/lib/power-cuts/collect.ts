@@ -1,7 +1,7 @@
 import { API_KEY_ABSENT_REASON, UNLICENSED_REASON } from "@/lib/power-cuts/copy";
 import { POWER_CUT_ENDPOINTS } from "@/lib/power-cuts/endpoints";
 import { fetchBounded } from "@/lib/power-cuts/fetch";
-import { parseOperator } from "@/lib/power-cuts/parse";
+import { assertFeedShape, parseOperator } from "@/lib/power-cuts/parse";
 import {
   OPERATORS,
   STALE_AFTER_MS,
@@ -104,6 +104,7 @@ export async function fetchSource(
       init: key ? { headers: { Authorization: `Apikey ${key}`, Accept: "application/json" } } : { headers: { Accept: endpoint.format === "csv" ? "text/csv" : "application/json" } },
     });
     const payload = endpoint.format === "csv" ? body : (JSON.parse(body) as unknown);
+    assertFeedShape(operator, payload);
     return { operator, status: "ok", incidents: parseOperator(operator, payload, now, lookup) };
   } catch (error) {
     return { operator, status: "absent", incidents: [], error: publicError(error) };
