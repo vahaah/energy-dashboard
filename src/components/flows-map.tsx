@@ -685,15 +685,6 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           </>
         ) : null}
         <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
-          <details>
-            <summary className="cursor-pointer text-copy-14 text-gray-1000">©</summary>
-            <div className="mt-2 flex min-w-0 flex-col gap-2">
-              {visibleCredits.map((credit) => (
-                <p key={credit.id}>{credit.text}</p>
-              ))}
-              {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
-            </div>
-          </details>
           <button
             type="button"
             className="w-fit text-blue-700 underline-offset-2 hover:underline"
@@ -739,6 +730,17 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           }
         >
           <div ref={mapRef} className="absolute inset-0 h-full w-full" data-map-status={status} />
+          <details className="absolute bottom-3 left-3 z-20 flex w-[min(18rem,calc(100%-1.5rem))] flex-col-reverse">
+            <summary className="w-fit cursor-pointer rounded-md border border-gray-alpha-400 bg-background-100 px-2 py-1 text-copy-14 text-gray-1000">
+              ©
+            </summary>
+            <div className="mb-2 flex max-h-48 min-w-0 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-copy-14 break-words text-gray-900">
+              {visibleCredits.map((credit) => (
+                <p key={credit.id}>{credit.text}</p>
+              ))}
+              {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
+            </div>
+          </details>
         </div>
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (
