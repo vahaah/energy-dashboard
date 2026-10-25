@@ -131,7 +131,7 @@ export function gasCitePlainText(model: GasPageModel): string {
 }
 
 export function gasCitation(model: GasPageModel, accessedDate: string): string {
-  return `Grid, "UK gas price today", grid.vahaah.com/prices/gas, accessed ${formatLondonDayMonthYear(accessedDate)}. Data: National Gas, EIA, World Bank.`;
+  return `Grid, "GB gas price today", grid.vahaah.com/prices/gas, accessed ${formatLondonDayMonthYear(accessedDate)}. Data: National Gas, EIA, World Bank.`;
 }
 
 export function gasFaqs(model: GasPageModel): Array<{ question: string; answer: string }> {

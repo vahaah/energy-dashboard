@@ -558,7 +558,7 @@ export function Dashboard({
             <>
               {captionCommodities()}{" "}
               <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
-                UK gas price
+                GB gas price
               </Link>
             </>
           }

@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
-import { Card } from "@/components/ui/card";
-import { TableScroll } from "@/components/ui/table-scroll";
+import { ApiEndpointList } from "@/components/api/api-endpoint-list";
 import {
   API_DOCS_CONVENTIONS,
   API_DOCS_ENDPOINTS,
@@ -55,24 +54,12 @@ export default async function ApiDocsPage() {
 
         <section>
           <h2 className="text-heading-24 text-gray-1000">Endpoints</h2>
-          <div className="mt-4 space-y-4">
-            {API_DOCS_ENDPOINTS.map((endpoint) => (
-              <Card key={`${endpoint.method} ${endpoint.path}`} title={endpoint.path}>
-                <p className="break-all text-mono-12 text-gray-1000">
-                  <code>
-                    {endpoint.method} {endpoint.path}
-                  </code>
-                </p>
-                <p className="mt-2 break-words text-copy-14 text-gray-900">{endpoint.summary}</p>
-                <p className="mt-2 break-words text-copy-14 text-gray-900">{endpoint.note}</p>
-                <TableScroll className="mt-3">
-                  <pre className="w-max min-w-full rounded-lg border border-gray-alpha-400 bg-background-200 p-3 text-mono-12 text-gray-1000">
-                    {curlExample(endpoint.method, endpoint.path)}
-                  </pre>
-                </TableScroll>
-              </Card>
-            ))}
-          </div>
+          <ApiEndpointList
+            endpoints={API_DOCS_ENDPOINTS.map((endpoint) => ({
+              ...endpoint,
+              curl: curlExample(endpoint.method, endpoint.path),
+            }))}
+          />
         </section>
 
         <section>

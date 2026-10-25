@@ -164,7 +164,7 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
   },
   gas: {
     eyebrow: gridEyebrow("Gas"),
-    title: "UK gas price today",
+    title: "GB gas price today",
     kicker: "GB System Average Price, Henry Hub and World Bank gas.",
     metrics: [{ label: "Cadence", value: "As published" }],
     mix: [],
@@ -685,7 +685,7 @@ function gasCard(snapshot: OgCacheSnapshot): OgCard {
 
   return {
     eyebrow: gridEyebrow("Gas"),
-    title: "UK gas price today",
+    title: "GB gas price today",
     kicker: "GB System Average Price, Henry Hub and World Bank gas.",
     metrics: [
       {
