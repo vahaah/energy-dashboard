@@ -1,4 +1,4 @@
-import { FUEL_COLORS, carbonIndexColor } from "@/lib/colors";
+import { FUEL_COLORS } from "@/lib/colors";
 import type { EnergySnapshot } from "@/lib/types";
 
 export const MIX_FAVICON_FUELS = [
@@ -12,6 +12,13 @@ export const MIX_FAVICON_FUELS = [
   "imports",
   "other",
 ] as const;
+
+/** Outer radius on a 32 viewBox. Leaves a 3px gap so the ring is not clipped. */
+export const MIX_FAVICON_OUTER = 13;
+/** Inner radius. The hole stays transparent so light and dark tabs both read as a donut. */
+export const MIX_FAVICON_INNER = 7;
+/** Stroke ring used when no mix is available. One ring, not two filled discs. */
+export const MIX_FAVICON_NEUTRAL = "#737373";
 
 export type MixFaviconSegment = {
   fuel: string;
@@ -70,21 +77,19 @@ function mixPct(
 }
 
 export function renderMixFaviconSvg(snapshot: EnergySnapshot | null): string {
-  const segments = mixSegmentsFromSnapshot(snapshot);
-  const center = carbonIndexColor(snapshot?.carbon_index ?? "");
-  const slices = pieSlices(segments);
+  return renderMixFaviconSegments(mixSegmentsFromSnapshot(snapshot));
+}
 
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">`,
-    `<title>Current GB generation mix</title>`,
-    `<circle cx="16" cy="16" r="15" fill="${escapeXml(center)}"/>`,
-    ...slices.map(
-      (slice) =>
-        `<path d="${slice.d}" fill="${escapeXml(slice.color)}" stroke="#0a0a0a" stroke-width="0.6"/>`
-    ),
-    `<circle cx="16" cy="16" r="6" fill="${escapeXml(center)}"/>`,
-    `</svg>`,
-  ].join("");
+export function renderMixFaviconSegments(segments: MixFaviconSegment[]): string {
+  const slices = pieSlices(segments);
+  const body =
+    slices.length > 0
+      ? slices
+          .map((slice) => `<path d="${slice.d}" fill="${escapeXml(slice.color)}"/>`)
+          .join("")
+      : `<circle cx="16" cy="16" r="10" fill="none" stroke="${MIX_FAVICON_NEUTRAL}" stroke-width="6"/>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><title>Current GB generation mix</title>${body}</svg>`;
 }
 
 function pieSlices(segments: MixFaviconSegment[]): Array<{ d: string; color: string }> {
@@ -100,14 +105,27 @@ function pieSlices(segments: MixFaviconSegment[]): Array<{ d: string; color: str
     // A single 2π arc starts and ends on the same point, so SVG draws nothing.
     if (sweep >= Math.PI * 2 - 1e-9) {
       slices.push(
-        { d: donutSlice(16, 16, 15, 7, angle, angle + Math.PI), color: segment.color },
         {
-          d: donutSlice(16, 16, 15, 7, angle + Math.PI, angle + Math.PI * 2),
+          d: donutSlice(16, 16, MIX_FAVICON_OUTER, MIX_FAVICON_INNER, angle, angle + Math.PI),
+          color: segment.color,
+        },
+        {
+          d: donutSlice(
+            16,
+            16,
+            MIX_FAVICON_OUTER,
+            MIX_FAVICON_INNER,
+            angle + Math.PI,
+            angle + Math.PI * 2
+          ),
           color: segment.color,
         }
       );
     } else {
-      slices.push({ d: donutSlice(16, 16, 15, 7, angle, angle + sweep), color: segment.color });
+      slices.push({
+        d: donutSlice(16, 16, MIX_FAVICON_OUTER, MIX_FAVICON_INNER, angle, angle + sweep),
+        color: segment.color,
+      });
     }
     angle += sweep;
   }
