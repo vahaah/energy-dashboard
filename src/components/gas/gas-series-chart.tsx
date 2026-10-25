@@ -18,7 +18,7 @@ import { formatDisplay } from "@/lib/display-rounding";
 
 const SUPPLY = "var(--gray-1000)";
 const DEMAND = "var(--chart-gas)";
-const FORECAST = "var(--gray-700)";
+const FORECAST = "var(--chart-wind)";
 
 type ChartRow = {
   time: number;
@@ -64,14 +64,14 @@ export function GasSeriesChart({
             type="number"
             domain={["dataMin", "dataMax"]}
             tickFormatter={(value: number) => data.find((row) => row.time === value)?.label ?? ""}
-            stroke="var(--gray-700)"
-            tick={{ fill: "var(--gray-900)", fontSize: 12 }}
+            stroke="var(--gray-900)"
+            tick={{ fill: "var(--gray-900)", fontSize: 13 }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
-            stroke="var(--gray-700)"
-            tick={{ fill: "var(--gray-900)", fontSize: 12 }}
+            stroke="var(--gray-900)"
+            tick={{ fill: "var(--gray-900)", fontSize: 13 }}
             tickFormatter={(value: number) => formatDisplay(value, 0.1)}
             tickLine={false}
             axisLine={false}
@@ -81,9 +81,9 @@ export function GasSeriesChart({
           {Number.isFinite(nowMs) ? (
             <ReferenceLine
               x={nowMs}
-              stroke="var(--gray-700)"
+              stroke="var(--gray-900)"
               strokeDasharray="4 4"
-              label={{ value: "Now", position: "insideTopLeft", fill: "var(--gray-900)", fontSize: 12 }}
+              label={{ value: "Now", position: "insideTopLeft", fill: "var(--gray-900)", fontSize: 13 }}
             />
           ) : null}
           <Line
@@ -121,7 +121,7 @@ export function GasSeriesChart({
         </LineChart>
         </ResponsiveContainer>
       </ResponsiveChartFrame>
-      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-label-12 text-gray-900">
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-label-13 text-gray-900">
         <Key swatch={SUPPLY} label="Supply" />
         {showDemand ? <Key swatch={DEMAND} label="Demand" /> : null}
         {showForecast ? <Key swatch={FORECAST} label="Forecast" dashed /> : null}

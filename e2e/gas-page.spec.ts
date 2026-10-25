@@ -13,6 +13,9 @@ test("shows a stale published time, partial and complete days, and the table wit
   const published = page.locator('[data-clock="published"]');
   await expect(published).toBeVisible();
   await expect(published).toHaveAttribute("datetime", "2026-10-14T03:05:00.000Z");
+  const tableToggle = page.getByRole("button", { name: "Show table" });
+  await expect(tableToggle).toHaveAttribute("aria-expanded", "false");
+  await tableToggle.click();
   await expect(page.locator("[data-gas-table]")).toBeVisible();
 
   await page.getByRole("button", { name: "Completed gas day" }).click();

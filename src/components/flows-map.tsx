@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { formatEnergyText } from "@/lib/format/quantity";
 import { assetPath } from "@/lib/assets/href";
 import { mapViewParsers } from "@/lib/assets/params";
 import { NI_FLOW_NOTE } from "@/lib/attribution";
@@ -55,7 +56,18 @@ type StationPick = {
 };
 
 function themeOf(): FlowsMapTheme {
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  const root = document.documentElement;
+  const scheme = root.style.colorScheme;
+  if (scheme === "light" || scheme === "dark") {
+    return scheme;
+  }
+  if (root.classList.contains("light")) {
+    return "light";
+  }
+  if (root.classList.contains("dark")) {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function ShapeMark({ shape, color }: { shape: MarkerShape; color: string }) {
@@ -153,7 +165,7 @@ function StationDetails({ station }: { station: StationPick }) {
       <h2 className="text-heading-16 text-gray-1000">{station.name}</h2>
       <p className="text-copy-14 text-gray-1000">{station.group}</p>
       <p className="text-copy-14 text-gray-1000">
-        Rated power: {station.mw === null ? "—" : `${station.mw.toLocaleString("en-GB")} MW`}
+        Rated power: {station.mw === null ? "—" : formatEnergyText(station.mw)}
       </p>
       <p>
         <Link href={station.href} className="text-blue-700 underline-offset-2 hover:underline">
@@ -361,7 +373,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
     const observer = new MutationObserver(() => {
       handle.current?.setTheme(themeOf());
     });
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
     return () => observer.disconnect();
   }, []);
 
@@ -533,7 +545,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   const viewStandfirst = preset === "stations" ? STATIONS_STANDFIRST : model.standfirst;
   const panelLabel = preset === "stations" ? STATIONS_PANEL_LABEL : FLOWS_PANEL_LABEL;
 
-  function Controls({ radioName, title }: { radioName: string; title: boolean }) {
+  function Controls({ radioName, title, list }: { radioName: string; title: boolean; list?: ReactNode }) {
     return (
       <div className="flex min-w-0 flex-col gap-4">
         <div>
@@ -550,6 +562,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             </p>
           ) : null}
         </div>
+        {list}
         {model.feed === "unavailable" ? (
           <p className="border-l-2 border-amber-700 pl-3 text-copy-14 text-gray-1000">{FEED_FAILED}</p>
         ) : null}
@@ -672,10 +685,15 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           </>
         ) : null}
         <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
-          {visibleCredits.map((credit) => (
-            <p key={credit.id}>{credit.text}</p>
-          ))}
-          {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
+          <details>
+            <summary className="cursor-pointer text-copy-14 text-gray-1000">©</summary>
+            <div className="mt-2 flex min-w-0 flex-col gap-2">
+              {visibleCredits.map((credit) => (
+                <p key={credit.id}>{credit.text}</p>
+              ))}
+              {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
+            </div>
+          </details>
           <button
             type="button"
             className="w-fit text-blue-700 underline-offset-2 hover:underline"
@@ -704,8 +722,11 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         {announcement}
       </p>
       <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
-        <Controls radioName="map-view-panel" title={desktop} />
-        {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
+        <Controls
+          radioName="map-view-panel"
+          title={desktop}
+          list={preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
+        />
       </aside>
       <div className="relative min-h-0 min-w-0">
         <div
@@ -758,8 +779,11 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             {snap === "full" ? "Collapse" : "Expand"}
           </button>
         </div>
-        <Controls radioName="map-view-sheet" title={!desktop} />
-        {preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
+        <Controls
+          radioName="map-view-sheet"
+          title={!desktop}
+          list={preset === "flows" ? <FlowList features={model.features} selectedId={selectedId} onSelect={choose} /> : null}
+        />
         <div className="mt-4">{details}</div>
       </div>
       {about ? (

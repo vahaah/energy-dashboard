@@ -54,18 +54,18 @@ export function TransfersChart({ data }: Props) {
           <XAxis
             dataKey="time"
             tickFormatter={(t) => format(new Date(t), "HH:mm")}
-            tick={{ fontSize: 12, fill: "var(--gray-900)" }}
+            tick={{ fontSize: 13, fill: "var(--gray-900)" }}
             stroke="#27272a"
           />
           <YAxis
             tickFormatter={(v: number) => `${v.toFixed(1)}`}
-            tick={{ fontSize: 12, fill: "var(--gray-900)" }}
+            tick={{ fontSize: 13, fill: "var(--gray-900)" }}
             stroke="#27272a"
             label={{
               value: "GW",
               angle: -90,
               position: "insideLeft",
-              style: { fontSize: 12, fill: "var(--gray-900)" },
+              style: { fontSize: 13, fill: "var(--gray-900)" },
             }}
           />
           <Tooltip

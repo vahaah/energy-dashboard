@@ -29,6 +29,10 @@ html.dark [data-map-frame] .maplibregl-map {
   background: #0d1b27;
 }
 
+html.light [data-map-frame] .maplibregl-map {
+  background: #c5d7e6;
+}
+
 /* MapLibre paints the zoom group white with a #333 icon. Geist dark tokens
    replace that. The rules stay in this file so they load with the map. */
 [data-map-frame] .maplibregl-ctrl-group {

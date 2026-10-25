@@ -553,6 +553,10 @@ for (const theme of THEMES) {
           }
         }
         if (path === "/map") {
+          const credits = page.locator("summary:visible").filter({ hasText: "©" });
+          if ((await credits.count()) > 0) {
+            await credits.first().click();
+          }
           await page
             .getByText("Contains OS data © Crown copyright and database right 2026")
             .filter({ visible: true })

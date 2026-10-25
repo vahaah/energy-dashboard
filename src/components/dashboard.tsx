@@ -42,21 +42,17 @@ import {
   type DashboardPeriod,
 } from "@/lib/dashboard-period";
 import {
-  blockPeriodParam,
   dashboardQueryKey,
   effectiveBlockPeriod,
-  PERIOD_OPTIONS,
   pricesQueryKey,
-  type DashboardBlock,
 } from "@/lib/dashboard-blocks";
 import { fetchDashboardPayload, fetchPublicPrices } from "@/lib/dashboard-client";
 import { prefetchQuery, revalidateAllQueries, seedQuery } from "@/lib/client-query";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { useClientQuery } from "@/lib/use-client-query";
-import { PeriodAveragesRow } from "@/components/period-averages";
+import { JumpTo } from "@/components/jump-to";
 import { RecordsCard } from "@/components/records-card";
 import { EnergyTransition } from "@/components/energy-transition";
-import { snapshotPeriodAverages } from "@/lib/period-averages";
 import { buildAnswerSentence } from "@/lib/answer-sentence";
 import { getDisplayedPower } from "@/lib/displayed-demand";
 import {
@@ -79,12 +75,10 @@ import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { TodayMapCard } from "@/components/today-map-card";
 import { SectionBlock } from "@/components/section-block";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { SiteHeader } from "@/components/site-header";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { GbGasSapCard } from "@/components/gb-gas-sap-card";
 import {
-  CARD_PAD,
   CARD_PAD_RIGHT_FROM_LG,
   CARD_PAD_X_FROM_LG,
   Card,
@@ -209,7 +203,6 @@ export function Dashboard({
   const chartRange = chartRangeForPeriod(generationPeriod, range);
   const neso = isNesoPeriod(generationPeriod);
   const power = getDisplayedPower(facts, headlineSnapshots);
-  const averages = historicView?.averages ?? snapshotPeriodAverages(initialSnapshots);
   const isPending = generation.isValidating || price.isValidating || transfers.isValidating || mix.isValidating || carbon.isValidating;
 
   useEffect(() => {
@@ -298,10 +291,6 @@ export function Dashboard({
     ).generationRows
   ).interconnectors;
 
-  const setBlockPeriod = (block: DashboardBlock, next: DashboardPeriod) => {
-    void setUrlState({ [blockPeriodParam(block)]: next === period ? null : next });
-  };
-
   const prefetchBlock = (next: DashboardPeriod) => {
     prefetchPeriod(next, queryDateForPeriod(next, urlState.date, todayDate));
   };
@@ -347,15 +336,25 @@ export function Dashboard({
               onPeriodChange={(nextPeriod) => {
                 void setUrlState({
                   ...searchStateForPeriod(nextPeriod),
-                  generationPeriod: urlState.generationPeriod === nextPeriod ? null : urlState.generationPeriod,
-                  pricePeriod: urlState.pricePeriod === nextPeriod ? null : urlState.pricePeriod,
-                  transfersPeriod: urlState.transfersPeriod === nextPeriod ? null : urlState.transfersPeriod,
-                  mixPeriod: urlState.mixPeriod === nextPeriod ? null : urlState.mixPeriod,
-                  carbonPeriod: urlState.carbonPeriod === nextPeriod ? null : urlState.carbonPeriod,
+                  generationPeriod: null,
+                  pricePeriod: null,
+                  transfersPeriod: null,
+                  mixPeriod: null,
+                  carbonPeriod: null,
                 });
               }}
             />
           }
+        />
+        <JumpTo
+          items={[
+            { href: "#section-generation", label: "Latest half-hour" },
+            { href: "#section-price", label: "Price" },
+            { href: "#section-transfers", label: "Flows" },
+            { href: "#section-commodities", label: "Oil and gas" },
+            { href: "#section-records", label: "Records" },
+            { href: "#section-carbon", label: "Carbon" },
+          ]}
         />
       </div>
 
@@ -405,20 +404,7 @@ export function Dashboard({
                     neso={neso}
                     question="Latest half-hour"
                     answer={answer}
-                    actions={
-                      <BlockPeriodControl
-                        value={generationPeriod}
-                        onChange={(next) => setBlockPeriod("generation", next)}
-                        onIntent={prefetchBlock}
-                      />
-                    }
                   />
-                  <div
-                    data-slot="card-pad"
-                    className={`mt-6 border-t border-gray-alpha-400 ${CARD_PAD}`}
-                  >
-                    <PeriodAveragesRow averages={averages} neso={neso} />
-                  </div>
                 </>
               )}
             </Card>
@@ -435,11 +421,6 @@ export function Dashboard({
           active={focus === "price"}
           headerRight={
             <div className="flex flex-wrap items-center gap-3">
-              <BlockPeriodControl
-                value={pricePeriod}
-                onChange={(next) => setBlockPeriod("price", next)}
-                onIntent={prefetchBlock}
-              />
               <TimeRangeSelector
                 value={priceSeries}
                 onChange={(nextSeries) => {
@@ -474,13 +455,6 @@ export function Dashboard({
           tooltip="Interconnector flows into and out of Great Britain. Positive values are imports."
           footer={captionTransfers(transfersNeso)}
           active={focus === "transfers"}
-          headerRight={
-            <BlockPeriodControl
-              value={transfersPeriod}
-              onChange={(next) => setBlockPeriod("transfers", next)}
-              onIntent={prefetchBlock}
-            />
-          }
         >
           {transfers.error && !transfersData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
@@ -489,31 +463,11 @@ export function Dashboard({
           ) : hasInterconnectorHistory ? (
             <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
               <div className="min-w-0">
-                <div className="mb-3 flex items-center gap-2">
-                  <h3 className="text-heading-16 text-gray-1000">Latest flows</h3>
-                  <InfoTooltip
-                    text={
-                      transfersNeso
-                        ? "NESO historic mix publishes one imports total, not per-link flows. Supported by National Energy SO Open Data."
-                        : "The latest metered flow on each interconnector. Positive is an import into Great Britain. Source: Elexon FUELINST."
-                    }
-                    label="What is Latest flows?"
-                  />
-                </div>
+                <h3 className="mb-3 text-heading-16 text-gray-1000">Latest flows</h3>
                 <InterconnectorChart data={latestTransferInterconnectors} />
               </div>
               <div className="min-w-0">
-                <div className="mb-3 flex items-center gap-2">
-                  <h3 className="text-heading-16 text-gray-1000">Flows over time</h3>
-                  <InfoTooltip
-                    text={
-                      transfersNeso
-                        ? "Imports over the selected historic window. Source: NESO historic generation mix."
-                        : "How those interconnector flows moved through the selected window. Source: Elexon FUELINST."
-                    }
-                    label="What is Flows over time?"
-                  />
-                </div>
+                <h3 className="mb-3 text-heading-16 text-gray-1000">Flows over time</h3>
                 <InterconnectorFlowsChart data={transfersHistory} range={transfersChartRange} />
               </div>
             </div>
@@ -531,13 +485,6 @@ export function Dashboard({
           title="How has the mix changed?"
           tooltip="How the generation stack shifts through the selected window, including embedded solar and wind."
           footer={captionGeneration(isNesoPeriod(mixPeriod))}
-          headerRight={
-            <BlockPeriodControl
-              value={mixPeriod}
-              onChange={(next) => setBlockPeriod("mix", next)}
-              onIntent={prefetchBlock}
-            />
-          }
         >
           {mix.error && !mixData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
@@ -661,13 +608,6 @@ export function Dashboard({
           tooltip="Carbon intensity of GB electricity through the selected window. The line is a single colour; the bands behind it are the official index ranges. The 48-hour forecast is a derived cleanest-window answer from the NESO Carbon Intensity API."
           footer={captionCarbon(isNesoPeriod(carbonPeriod))}
           active={focus === "carbon"}
-          headerRight={
-            <BlockPeriodControl
-              value={carbonPeriod}
-              onChange={(next) => setBlockPeriod("carbon", next)}
-              onIntent={prefetchBlock}
-            />
-          }
         >
           {carbon.error && !carbonData ? (
             <BlockQueryError onRetry={() => revalidateAllQueries()} />
@@ -795,28 +735,6 @@ function fallbackFacts(now: Date) {
   };
 }
 
-function BlockPeriodControl({
-  value,
-  onChange,
-  onIntent,
-}: {
-  value: DashboardPeriod;
-  onChange: (period: DashboardPeriod) => void;
-  onIntent?: (period: DashboardPeriod) => void;
-}) {
-  return (
-    <TimeRangeSelector
-      value={value}
-      onChange={onChange}
-      onOptionIntent={onIntent}
-      options={PERIOD_OPTIONS}
-      compact
-      variant="segmented"
-      ariaLabel="Chart range"
-    />
-  );
-}
-
 function CommodityStatCard({
   commodity,
   latest,
@@ -834,13 +752,9 @@ function CommodityStatCard({
     <div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1">
-          <p className="text-label-13 text-gray-900">
+          <p className="text-label-13 text-gray-900" title={COMMODITY_HELP[commodity]}>
             {COMMODITY_CARD_LABELS[commodity] ?? COMMODITY_LABELS[commodity] ?? commodity}
           </p>
-          <InfoTooltip
-            text={COMMODITY_HELP[commodity] ?? "Oil or gas price context. Source listed on the card."}
-            label={`What is ${COMMODITY_CARD_LABELS[commodity] ?? commodity}?`}
-          />
         </div>
         <span
           className="size-2.5 rounded-full"
@@ -856,7 +770,7 @@ function CommodityStatCard({
           </span>
         ) : null}
       </p>
-      <p className={`mt-1 text-label-12 ${rising ? "text-green-700" : "text-red-700"}`}>
+      <p className={`mt-1 text-label-13 ${rising ? "text-green-700" : "text-red-700"}`}>
         {rising ? (
           <ArrowUpRight className="mr-0.5 inline size-3.5" aria-hidden="true" />
         ) : (

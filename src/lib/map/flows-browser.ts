@@ -66,7 +66,18 @@ function ensureProtocol(): void {
 }
 
 function themeOf(): FlowsMapTheme {
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  const root = document.documentElement;
+  const scheme = root.style.colorScheme;
+  if (scheme === "light" || scheme === "dark") {
+    return scheme;
+  }
+  if (root.classList.contains("light")) {
+    return "light";
+  }
+  if (root.classList.contains("dark")) {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function styleUrl(theme: FlowsMapTheme): string {
@@ -88,6 +99,7 @@ type LineFeature = {
     width: number;
     bucket: "fresh" | "quiet";
     color: string;
+    moving: 0 | 1;
   };
 };
 
@@ -108,7 +120,6 @@ function lineFeatures(
   lines: readonly FlowDrawLine[],
   imports: string,
   gas: string,
-  amber: string,
   quiet: string,
 ): LineFeature[] {
   const features: LineFeature[] = [];
@@ -118,7 +129,7 @@ function lineFeatures(
     const coordinates: [number, number][] = towardTerminal ? [start, line.gb] : [line.gb, start];
     const moving = flowDirectionMoves(line.direction);
     const fresh = moving && !line.stale && line.width !== null;
-    const color = line.stale ? amber : line.kind === "gas_terminal" ? gas : moving ? imports : quiet;
+    const color = line.kind === "gas_terminal" ? gas : moving ? imports : quiet;
     features.push({
       type: "Feature",
       geometry: { type: "LineString", coordinates },
@@ -129,6 +140,7 @@ function lineFeatures(
         width: line.width ?? 1,
         bucket: fresh ? "fresh" : "quiet",
         color,
+        moving: moving ? 1 : 0,
       },
     });
   }
@@ -322,12 +334,19 @@ export function mountFlowsMap(
   canvas.setAttribute("role", "application");
   canvas.setAttribute("aria-label", `${FLOWS_TITLE}. ${FLOWS_KEYBOARD}`);
 
+  function paintCanvas(next: FlowsMapTheme): void {
+    const sea = next === "dark" ? "#0d1b27" : "#c5d7e6";
+    canvas.style.background = sea;
+    canvas.style.colorScheme = next;
+  }
+
+  paintCanvas(theme);
+
   function colors() {
     return {
       imports: cssColor("--chart-imports", "#64748b"),
       gas: cssColor("--chart-gas", "#e06814"),
-      amber: cssColor("--amber-700", "#d97706"),
-      quiet: cssColor("--gray-700", "#737373"),
+      quiet: cssColor("--gray-900", "#171717"),
     };
   }
 
@@ -344,7 +363,7 @@ export function mountFlowsMap(
     return {
       lines: {
         type: "FeatureCollection" as const,
-        features: lineFeatures(shown, palette.imports, palette.gas, palette.amber, palette.quiet),
+        features: lineFeatures(shown, palette.imports, palette.gas, palette.quiet),
       },
       points: {
         type: "FeatureCollection" as const,
@@ -393,6 +412,23 @@ export function mountFlowsMap(
           "line-color": ["get", "color"],
           "line-width": ["get", "width"],
           "line-dasharray": [2, 2],
+        },
+      });
+      map.addLayer({
+        id: "flow-chevron",
+        type: "symbol",
+        source: "flows",
+        filter: ["==", ["get", "moving"], 1],
+        layout: {
+          "symbol-placement": "line",
+          "text-field": "›",
+          "text-font": ["Geist Sans Regular"],
+          "text-size": 16,
+          "text-keep-upright": false,
+          "symbol-spacing": 72,
+        },
+        paint: {
+          "text-color": ["get", "color"],
         },
       });
       map.addLayer({
@@ -749,6 +785,7 @@ export function mountFlowsMap(
 
   map.on("style.load", () => {
     styleLoaded = true;
+    paintCanvas(theme);
     paint();
   });
   map.on("resize", () => {
@@ -921,9 +958,11 @@ export function mountFlowsMap(
     },
     setTheme: (next) => {
       if (next === theme) {
+        paintCanvas(next);
         return;
       }
       theme = next;
+      paintCanvas(next);
       stopMotion();
       ready = false;
       styleLoaded = false;

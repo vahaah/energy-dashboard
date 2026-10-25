@@ -1,4 +1,3 @@
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { CARD_PAD_X } from "@/components/ui/card";
 import { ABSENT_FIGURE } from "@/lib/data-state";
@@ -77,9 +76,8 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
         data-registry-unit={figureMeta?.unit}
         className={demand ? "min-w-0 border-l border-gray-alpha-400 pl-6" : "min-w-0"}
       >
-        <dt className="flex items-center gap-1 text-label-13 font-medium text-gray-900">
-          <span>{term.label}</span>
-          <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
+        <dt className="text-label-13 font-medium text-gray-900" title={popoverText(term)}>
+          {term.label}
         </dt>
         <dd
           data-figure
@@ -116,9 +114,11 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
       <span className="text-xl font-normal text-gray-900" aria-hidden="true">
         {term.operator ?? ""}
       </span>
-      <span className={`flex items-center gap-1 text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}>
-        <span>{term.label}</span>
-        <InfoTooltip text={popoverText(term)} label={`What is ${term.label}?`} />
+      <span
+        className={`text-label-13 font-medium ${demand ? "text-gray-1000" : "text-gray-900"}`}
+        title={popoverText(term)}
+      >
+        {term.label}
       </span>
       <span
         data-figure

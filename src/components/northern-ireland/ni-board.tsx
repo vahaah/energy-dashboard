@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkline } from "@/components/sparkline";
 import { Absent } from "@/components/ui/absent";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
 import { DataStateNotice } from "@/components/ui/data-state";
+import { Freshness } from "@/components/ui/freshness";
 import { Quantity } from "@/components/ui/quantity";
 import { ABSENT_FIGURE } from "@/lib/data-state";
 import { NI_SCOPE_ALL, NI_SCOPE_NI } from "@/lib/eirgrid/copy";
@@ -77,23 +79,27 @@ function ScopePanel({ model, hidden }: { model: NiScopeModel; hidden: boolean })
 }
 
 function FigureCard({ figure }: { figure: NiFigure }) {
+  const missing = figure.value === ABSENT_FIGURE;
   return (
     <Card title={figure.label} footer={<p className="break-words">{figure.sourceLine}</p>}>
+      <Freshness state={figure.freshness} asOf={figure.asOf} />
       {figure.forecast ? <DataStateNotice state="forecast" /> : null}
       <p className="break-words text-heading-24 text-gray-1000">
-        {figure.value === ABSENT_FIGURE ? (
-          <Absent reason="Not yet published" />
-        ) : (
-          <Quantity value={figure.value} unit={figure.unit} />
-        )}
+        {missing ? <Absent reason="Not yet published" /> : <Quantity value={figure.value} unit={figure.unit} />}
       </p>
-      <ul className="mt-4 flex flex-col">
+      {figure.spark.length > 1 ? (
+        <div className="mt-3">
+          <Sparkline values={figure.spark} color="var(--chart-wind)" label={`${figure.label} half-hour readings`} />
+        </div>
+      ) : null}
+      {figure.caption ? <p className="mt-4 text-copy-14 text-gray-900">Times on {figure.caption}</p> : null}
+      <ul className="mt-2 flex flex-col">
         {figure.rows.map((row) => (
           <li
             key={`${figure.metricId}-${row.time}`}
             className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-gray-alpha-400 py-2 first:border-t-0"
           >
-            <span className="min-w-0 break-words text-mono-12 text-gray-900">{row.time}</span>
+            <span className="min-w-0 break-words text-copy-14 text-gray-900">{row.time}</span>
             <span className="text-mono-13 text-gray-1000">
               {row.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : row.value}
             </span>

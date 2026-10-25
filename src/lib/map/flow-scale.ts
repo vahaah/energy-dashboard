@@ -1,4 +1,5 @@
 import { ABSENT_FIGURE } from "@/lib/data-state";
+import { formatEnergyText } from "@/lib/format/quantity";
 
 export const ELECTRICITY_STALE_MS = 60 * 60 * 1000;
 /** Banner waits out the same 90 minutes as the FUELINST delay note. Chevrons still pause at ELECTRICITY_STALE_MS. */
@@ -128,7 +129,7 @@ export function netElectricityLabel(mw: number | null, included: number, missing
   const words = mw > 0 ? "Net import" : mw < 0 ? "Net export" : "Balanced";
   const missingText = missing > 0 ? `, ${missing} missing` : "";
   const links = included === 1 ? "interconnector" : "interconnectors";
-  return `${words} ${formatFlowReading(Math.abs(mw), "MW")} across ${included} ${links}${missingText}`;
+  return `${words} ${formatEnergyText(Math.abs(mw))} across ${included} ${links}${missingText}`;
 }
 
 export function netGasLabel(mcm: number | null, missing = 0): string {

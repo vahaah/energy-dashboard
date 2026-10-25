@@ -99,7 +99,7 @@ export function Card({
           <div className="flex min-w-0 items-center gap-2">
             {title ? <h2 className={titleClass(size)}>{title}</h2> : null}
             {tooltip ? (
-              <InfoTooltip text={tooltip} label={`What is ${title ?? "this"}?`} />
+              <InfoTooltip text={tooltip} label={`About ${title ?? "this card"}`} />
             ) : null}
           </div>
           {actions ? (
