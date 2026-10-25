@@ -4,7 +4,7 @@
     "source_id": "elexon-bmrs",
     "name": "Elexon BMRS / Insights",
     "url": "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
-    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF. Interconnector pages attach the warmed FUELINST series by the exact INT fuel-type code. The map draws a straight schematic line between landing points, not the cable route, and reads the warmed interconnector envelope from Blob. The storage page reads pumped-storage and battery charging and discharge from the warmed FUELINST envelope.",
+    "used_for": "Market Index (APXMIDP), system (imbalance) price, ITSDO demand, FUELINST generation and interconnectors, WINDFOR, and NDF. Interconnector pages attach the FUELINST series by the exact INT fuel-type code. The map draws a straight schematic line between landing points, not the cable route, and reads the latest interconnector flows. The storage page reads pumped-storage and battery charging and discharge from the latest FUELINST reading.",
     "licence": "Elexon BMRS Data Licence. Read on 20 Oct 2026.",
     "licence_url": "https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/",
     "attribution": "Contains BMRS data © Elexon Limited copyright and database right 2026.",

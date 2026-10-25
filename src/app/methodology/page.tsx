@@ -3,7 +3,6 @@ import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
-import { Card } from "@/components/ui/card";
 import { dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
 import { methodologyJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -59,59 +58,18 @@ export default function MethodologyPage() {
       >
         <section>
           <h2 className="text-heading-24 text-gray-1000">Sources</h2>
-          <Card className="mt-4">
-            <div className="relative min-w-0 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-copy-14">
-                <caption className="sr-only">Grid data sources, licences and refresh</caption>
-                <thead className="text-label-13 text-gray-900">
-                  <tr>
-                    <th scope="col" className="pb-2 font-medium">
-                      Source
-                    </th>
-                    <th scope="col" className="pb-2 font-medium">
-                      Used for
-                    </th>
-                    <th scope="col" className="pb-2 font-medium">
-                      Licence
-                    </th>
-                    <th scope="col" className="pb-2 font-medium">
-                      Refresh
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sources.map((source) => (
-                    <tr id={source.id} key={source.id} className="border-t border-gray-alpha-200 align-top">
-                      <th scope="row" className="py-2 font-medium">
-                        <a
-                          href={source.url}
-                          className="text-blue-700 underline-offset-2 hover:underline"
-                        >
-                          {source.name}
-                        </a>
-                      </th>
-                      <td className="py-2">{source.usedFor}</td>
-                      <td className="py-2">
-                        {source.licenceUrl ? (
-                          <a
-                            href={source.licenceUrl}
-                            className="text-blue-700 underline-offset-2 hover:underline"
-                          >
-                            {source.licence}
-                          </a>
-                        ) : (
-                          source.licence
-                        )}
-                      </td>
-                      <td className="py-2">{sourceRefreshLabel(source.id)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <ul className="mt-4 flex flex-col gap-2 text-copy-14">
+            {sources.map((source) => (
+              <li key={source.id} className="flex min-w-0 flex-wrap items-baseline justify-between gap-3">
+                <a href={`/data-sources#${source.id}`} className="text-blue-700 underline-offset-2 hover:underline">
+                  {source.name}
+                </a>
+                <span className="text-gray-900">{sourceRefreshLabel(source.id)}</span>
+              </li>
+            ))}
+          </ul>
           <p className="mt-3 text-copy-14 text-gray-900">
-            Attribution text required by each licence is on{" "}
+            Licences, attribution and what each source is used for are on{" "}
             <Link href="/data-sources" className="text-blue-700 underline-offset-2 hover:underline">
               Data sources
             </Link>

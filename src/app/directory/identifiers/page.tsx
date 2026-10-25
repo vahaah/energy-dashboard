@@ -9,6 +9,8 @@ import {
   IDENTIFIERS_H1,
   IDENTIFIERS_STANDFIRST,
   IDENTIFIERS_TITLE,
+  MPID_LABEL,
+  ROLE_LABEL,
 } from "@/lib/directory/copy";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { pageJsonLd } from "@/lib/jsonld";
@@ -64,6 +66,8 @@ export default function DirectoryIdentifiersPage() {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
+          <p className="text-copy-14 text-gray-900">{MPID_LABEL}</p>
+          <p className="text-copy-14 text-gray-900">{ROLE_LABEL}</p>
           <p className="text-copy-14 text-gray-900">
             <Link href="/directory" className="text-blue-700 underline-offset-2 hover:underline">
               Energy organisations and codes

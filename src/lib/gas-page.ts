@@ -19,6 +19,9 @@ export type GasBenchmark = {
   value: string;
   unit: string;
   source: string;
+  monthly: boolean;
+  spark: number[];
+  change: string | null;
 };
 
 export type GasPageModel = {
@@ -49,6 +52,26 @@ const BENCHMARKS = [
     source: "World Bank Pink Sheet",
   },
 ] as const;
+
+export function displayCommodityUnit(commodity: string, unit: string): string {
+  if (commodity === GB_GAS_SAP_COMMODITY) {
+    return "p/therm";
+  }
+  return unit.replace("MMBTU", "MMBtu");
+}
+
+function recentValues(rows: CommodityPrice[], commodity: string): number[] {
+  return rows
+    .filter((row) => row.commodity === commodity)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .map((row) => (commodity === GB_GAS_SAP_COMMODITY ? sapPencePerTherm(row.price) : row.price));
+}
+
+function formatChange(delta: number, commodity: string): string {
+  const digits = commodity === GB_GAS_SAP_COMMODITY ? 1 : 2;
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${delta.toFixed(digits)} vs prior`;
+}
 
 export function latestCommodity(
   rows: CommodityPrice[],
@@ -96,6 +119,10 @@ export function buildGasPageModel(rows: CommodityPrice[]): GasPageModel {
     if (!row) {
       return [];
     }
+    const monthly = row.commodity === "eu_natural_gas" || row.commodity === "lng_asia";
+    const history = recentValues(publicRows, row.commodity);
+    const latestValue = history[history.length - 1] ?? 0;
+    const previous = history.length > 1 ? history[history.length - 2] : null;
     return [
       {
         commodity: row.commodity,
@@ -103,11 +130,12 @@ export function buildGasPageModel(rows: CommodityPrice[]): GasPageModel {
         date: row.date,
         dateLabel: formatLondonDayMonthYear(row.date),
         value:
-          row.commodity === GB_GAS_SAP_COMMODITY
-            ? sapPencePerTherm(row.price).toFixed(1)
-            : row.price.toFixed(2),
-        unit: row.commodity === GB_GAS_SAP_COMMODITY ? "p/therm" : row.unit,
+          row.commodity === GB_GAS_SAP_COMMODITY ? latestValue.toFixed(1) : latestValue.toFixed(2),
+        unit: displayCommodityUnit(row.commodity, row.unit),
         source: benchmark.source,
+        monthly,
+        spark: history.slice(-30),
+        change: previous == null ? null : formatChange(latestValue - previous, row.commodity),
       } satisfies GasBenchmark,
     ];
   });

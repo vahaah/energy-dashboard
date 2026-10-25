@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
-import { cataloguePageSources } from "@/lib/catalogue/page-sources";
+import { Card } from "@/components/ui/card";
+import { cataloguePageSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
 import { pageJsonLd } from "@/lib/jsonld";
 import { DATA_SOURCES_DESCRIPTION, DATA_SOURCES_TITLE, dataSourcesPageMetadata } from "@/lib/page-metadata";
 import { SITE_ORIGIN } from "@/lib/site";
@@ -36,28 +37,36 @@ export default function DataSourcesPage() {
       </LegalSection>
 
       {sources.map((source) => (
-        <LegalSection key={source.id} title={source.name}>
-          <p>{source.usedFor}</p>
-          <p>
-            Licence:{" "}
-            {source.licenceUrl ? (
-              <a
-                href={source.licenceUrl}
-                className="text-blue-700 underline-offset-2 hover:underline"
-              >
-                {source.licence}
-              </a>
-            ) : (
-              source.licence
-            )}
-            . Source:{" "}
-            <a href={source.url} className="break-all text-blue-700 underline-offset-2 hover:underline">
+        <Card key={source.id} id={source.id} title={source.name}>
+          <p className="text-copy-14 text-gray-900">{source.usedFor}</p>
+          <dl className="mt-3 grid gap-3">
+            <div>
+              <dt className="text-label-13 text-gray-900">Licence</dt>
+              <dd className="text-copy-14 text-gray-1000">
+                {source.licenceUrl ? (
+                  <a href={source.licenceUrl} className="text-blue-700 underline-offset-2 hover:underline">
+                    {source.licence}
+                  </a>
+                ) : (
+                  source.licence
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-label-13 text-gray-900">Attribution</dt>
+              <dd className="whitespace-pre-line text-copy-14 text-gray-1000">{source.attribution}</dd>
+            </div>
+            <div>
+              <dt className="text-label-13 text-gray-900">Refresh</dt>
+              <dd className="text-copy-14 text-gray-1000">{sourceRefreshLabel(source.id)}</dd>
+            </div>
+          </dl>
+          <p className="mt-3 break-all text-copy-14">
+            <a href={source.url} className="text-blue-700 underline-offset-2 hover:underline">
               {source.url.replace(/^https?:\/\//, "")}
             </a>
-            .
           </p>
-          <p className="text-copy-14 whitespace-pre-line text-gray-1000">{source.attribution}</p>
-        </LegalSection>
+        </Card>
       ))}
     </LegalPage>
   );

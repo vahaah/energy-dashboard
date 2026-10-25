@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnergyTransition } from "@/components/energy-transition";
+import { Sparkline } from "@/components/sparkline";
 import { JsonLd } from "@/components/json-ld";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePageHeader } from "@/components/site-page-header";
@@ -103,8 +104,9 @@ export default async function RecordsPage() {
           <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{RECORDS_SUBLINE}</p>
         </section>
 
-        <section className={CARD_GRID_CLASS}>
+        <section className={`${CARD_GRID_CLASS} lg:grid-cols-6`}>
           <RecordBlock
+            className="lg:col-span-2"
             title="Highest wind since Grid's records began"
             value={`${formatHeadlineGw(records.maxWind?.value ?? null)} GW`}
             record={records.maxWind}
@@ -113,6 +115,7 @@ export default async function RecordsPage() {
           />
           {HIDE_SOLAR_RECORD ? null : (
             <RecordBlock
+              className="lg:col-span-2"
               title="Highest solar since Grid's records began"
               value={`${formatHeadlineGw(records.maxSolar?.value ?? null)} GW`}
               record={records.maxSolar}
@@ -121,6 +124,7 @@ export default async function RecordsPage() {
             />
           )}
           <RecordBlock
+            className="lg:col-span-2"
             title="Lowest carbon since Grid's records began"
             value={records.lowestCarbon ? `${records.lowestCarbon.value.toFixed(0)} gCO₂/kWh` : "Not available"}
             record={records.lowestCarbon}
@@ -131,6 +135,7 @@ export default async function RecordsPage() {
             )}
           />
           <RecordBlock
+            className="lg:col-span-2"
             title="Highest renewable share since Grid's records began"
             value={
               records.highestRenewableShare
@@ -146,6 +151,7 @@ export default async function RecordsPage() {
           />
           {HIDE_ZERO_CARBON_RECORD ? null : (
             <RecordBlock
+              className="lg:col-span-2"
               title="Highest zero-carbon share since Grid's records began"
               value={
                 records.highestZeroCarbonShare
@@ -158,6 +164,7 @@ export default async function RecordsPage() {
             />
           )}
           <RecordBlock
+            className="lg:col-span-6"
             title="Days since coal power ended"
             value={records.daysSinceCoal == null ? "Not available" : `${records.daysSinceCoal} days`}
             record={records.lastCoal}
@@ -174,6 +181,15 @@ export default async function RecordsPage() {
             reached each whole gigawatt from 10 GW up, since Grid&apos;s records began.
           </p>
           <Card className="mt-4">
+            <div className="mb-3 flex items-center gap-3">
+              <Sparkline
+                variant="step"
+                values={records.windMilestones.map((milestone) => milestone.gw)}
+                color="var(--chart-wind)"
+                label="Wind milestones, step"
+              />
+              <p className="text-copy-14 text-gray-900">First time the series reached each whole gigawatt.</p>
+            </div>
             <div className="relative min-w-0 overflow-x-auto">
               <table className="w-full min-w-[480px] text-left text-copy-14">
                 <caption className="sr-only">Wind milestones since Grid&apos;s records began</caption>
@@ -191,7 +207,7 @@ export default async function RecordsPage() {
                   {records.windMilestones.map((milestone) => (
                     <tr key={milestone.gw} className="border-t border-gray-alpha-200">
                       <td className="py-2 tabular-nums">{milestone.gw} GW</td>
-                      <td className="py-2 text-mono-12">
+                      <td className="py-2 text-copy-14">
                         {formatLondonDateTimeStamp(parseUtcDateTime(milestone.timestampUtc))}
                       </td>
                     </tr>
@@ -284,6 +300,7 @@ function RecordBlock({
   extra,
   whenLabel,
   nesoLine,
+  className = "",
 }: {
   title: string;
   value: string;
@@ -292,16 +309,17 @@ function RecordBlock({
   extra?: string;
   whenLabel?: string;
   nesoLine?: string;
+  className?: string;
 }) {
   const stamp =
     whenLabel ?? (record ? formatLondonDateTimeStamp(parseUtcDateTime(record.timestampUtc)) : null);
 
   return (
-    <Card as="article" title={title} size="stat">
+    <Card as="article" title={title} size="stat" className={className}>
       <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
         <span data-value>{value}</span>
       </p>
-      {stamp ? <p className="mt-2 text-mono-12 text-gray-900">{stamp}</p> : null}
+      {stamp ? <p className="mt-2 text-copy-14 text-gray-900">{stamp}</p> : null}
       <p className="mt-2 text-copy-14 text-gray-900">{metricProvenance(metric)}</p>
       {nesoLine ? <p className="mt-2 text-copy-14 text-gray-900">{nesoLine}</p> : null}
       {extra ? <p className="mt-2 text-copy-14 text-gray-900">{extra}</p> : null}
