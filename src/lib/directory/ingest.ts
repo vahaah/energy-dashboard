@@ -3,6 +3,7 @@ import { putImmutable } from "@/lib/blob-readback";
 import {
   DIRECTORY_LATEST_PATH,
   DIRECTORY_PREVIOUS_PATH,
+  directoryBlobCommand,
   directoryImmutablePut,
   directoryMutablePut,
   directoryReleasePath,
@@ -77,7 +78,7 @@ export async function ingestDirectory(input: {
 }
 
 export async function runDirectoryIngest(now = new Date()): Promise<DirectoryIngestResult> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!directoryBlobCommand()) {
     return { ...emptyResult(), error: "blob store is not set" };
   }
   return ingestDirectory({
@@ -104,10 +105,14 @@ function directoryErrorMessage(error: unknown): string {
     message.includes("columns changed") ||
     message.includes("timeout") ||
     message.includes("aborted") ||
+    message === "fetch failed" ||
     message === "blob store is not set" ||
     message.startsWith("directory blob")
   ) {
     return message;
+  }
+  if (message.startsWith("Vercel Blob:")) {
+    return message.replace(/vercel_blob_\S+/g, "[redacted]").slice(0, 300);
   }
   return "directory extract did not validate";
 }
