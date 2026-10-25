@@ -351,9 +351,8 @@ describe("pipeline page", () => {
     expect(html).not.toContain("0.0 GW");
     expect(html).not.toContain("&lt;0.1 GW");
     expect(html).not.toContain("<0.1 GW");
-    expect(html).toContain("49.9 MW");
-    expect(html).toContain("5.0 MW");
-    expect(html).toContain("2.0 MW");
+    expect(html).toContain("Other");
+    expect(html).not.toContain("49.9 MW");
     expect(html).toContain(
       "A technology under 0.1 GW is shown in MW to one decimal and is left out of the gigawatt split.",
     );

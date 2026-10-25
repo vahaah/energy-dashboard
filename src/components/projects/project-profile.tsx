@@ -2,11 +2,34 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import {
   CONNECTION_CAPACITY,
+  NO_DATE_PUBLISHED,
   PROJECTS_PATH,
   RATED_POWER,
   STORAGE_ENERGY,
 } from "@/lib/projects/copy";
 import type { ProjectProfile } from "@/lib/projects/page-model";
+
+function StatusGroup({ lines }: { lines: ProjectProfile["statuses"] }) {
+  if (lines.length === 0) {
+    return <p className="text-copy-14 text-gray-900">Not published</p>;
+  }
+  return (
+    <dl className="flex flex-col gap-4">
+      {lines.map((status) => (
+        <div key={status.label}>
+          <dt className="text-label-13 text-gray-900">{status.label === "Operation" ? "Operational status" : status.label}</dt>
+          <dd className="break-words text-copy-16 text-gray-1000">{status.value}</dd>
+          {status.date !== NO_DATE_PUBLISHED ? (
+            <dd className="mt-1 break-words text-copy-14 text-gray-900">{status.date}</dd>
+          ) : null}
+          {status.source !== "No source published" ? (
+            <dd className="mt-1 break-words text-label-13 text-gray-900">{status.source}</dd>
+          ) : null}
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 export function ProjectProfileView({ profile }: { profile: ProjectProfile }) {
   return (
@@ -16,18 +39,23 @@ export function ProjectProfileView({ profile }: { profile: ProjectProfile }) {
           {profile.technology} · {profile.country}
         </p>
       </div>
-      {profile.statuses.map((status) => (
-        <div key={status.label} className="col-span-12 sm:col-span-6">
-          <Card title={status.label} className="h-full">
-            <p className="break-words text-heading-24 text-gray-1000">{status.value}</p>
-            <p className="mt-2 break-words text-copy-14 text-gray-900">{status.date}</p>
-            <p className="mt-2 break-words text-label-12 text-gray-900">{status.source}</p>
-            {status.label === "Connection" && profile.expectationChange ? (
-              <p className="mt-3 break-words text-copy-14 text-gray-900">{profile.expectationCopy}</p>
-            ) : null}
-          </Card>
-        </div>
-      ))}
+      <div className="col-span-12 lg:col-span-6">
+        <Card title="Planning" className="h-full">
+          <StatusGroup
+            lines={profile.statuses.filter(
+              (status) => status.label !== "Connection" && status.value !== "Unknown",
+            )}
+          />
+        </Card>
+      </div>
+      <div className="col-span-12 lg:col-span-6">
+        <Card title="Connection" className="h-full">
+          <StatusGroup lines={profile.statuses.filter((status) => status.label === "Connection")} />
+          {profile.expectationChange ? (
+            <p className="mt-3 break-words text-copy-14 text-gray-900">{profile.expectationCopy}</p>
+          ) : null}
+        </Card>
+      </div>
       <div className="col-span-12">
         <Card title="Measures">
           <dl className="grid min-w-0 gap-3">

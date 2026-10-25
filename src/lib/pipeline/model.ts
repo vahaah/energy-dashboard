@@ -76,6 +76,8 @@ export type MedianStep = {
   id: PipelineStageId;
   label: string;
   days: number | null;
+  q1: number | null;
+  q3: number | null;
   projects: number;
 };
 
@@ -300,11 +302,27 @@ function daysBetween(start: string, end: string): number | null {
 
 /** Higher of the two central values when the count is even, so the median is an observed duration. */
 export function medianDays(values: readonly number[]): number | null {
+  return percentileDays(values, 0.5);
+}
+
+export function percentileDays(values: readonly number[], fraction: number): number | null {
   if (values.length === 0) {
     return null;
   }
   const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * fraction)));
+  return sorted[index] ?? null;
+}
+
+function medianStep(id: PipelineStageId, label: string, values: readonly number[]): MedianStep {
+  return {
+    id,
+    label,
+    days: medianDays(values),
+    q1: percentileDays(values, 0.25),
+    q3: percentileDays(values, 0.75),
+    projects: values.length,
+  };
 }
 
 function formatGw(exactGw: number): string {
@@ -584,9 +602,9 @@ export function buildPipelineFigures(
       outcomes,
     },
     medians: [
-      { id: "in_planning", label: "In planning", days: medianDays(planningDays), projects: planningDays.length },
-      { id: "consented", label: stageLabel("consented"), days: medianDays(consentedDays), projects: consentedDays.length },
-      { id: "under_construction", label: "Under construction", days: medianDays(constructionDays), projects: constructionDays.length },
+      medianStep("in_planning", "In planning", planningDays),
+      medianStep("consented", stageLabel("consented"), consentedDays),
+      medianStep("under_construction", "Under construction", constructionDays),
     ],
     northernIreland: {
       projects: ni.projects,

@@ -38,7 +38,7 @@ export function DataHealthReading({
         data-figure
         className={
           featured
-            ? "whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000"
+            ? "whitespace-nowrap font-sans text-copy-16 tabular-nums text-gray-1000"
             : "whitespace-nowrap font-sans text-copy-16 tabular-nums text-gray-1000"
         }
       >

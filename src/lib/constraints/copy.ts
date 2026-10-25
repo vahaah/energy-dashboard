@@ -1,4 +1,5 @@
 import { NESO_OPEN_DATA_ATTRIBUTION } from "@/lib/attribution";
+import { formatLondonDayMonthYear } from "@/lib/london-time";
 
 export const CONSTRAINTS_TITLE = "GB grid constraint costs and volumes | Grid";
 export const CONSTRAINTS_DESCRIPTION =
@@ -19,9 +20,19 @@ export function nesoFinancialYearLabel(year: string): string {
   return `NESO financial year ${match[1]}/${match[2].slice(2)} (from 1 Apr ${match[1]}).`;
 }
 
-export function measuredBreakdownLagNote(settlementDate: string): string {
-  return `NESO's measured breakdown is published on a delay. The latest settlement date in the file is ${settlementDate}.`;
+export function formatSettlementDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1));
+  const weekday = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short" }).format(date);
+  return `${weekday} ${formatLondonDayMonthYear(isoDate)}`;
 }
+
+export function measuredBreakdownLagNote(settlementDate: string, ageDays = 8): string {
+  return `The latest settlement date is ${ageDays} days old (${formatSettlementDate(settlementDate)}).`;
+}
+
+export const CONSTRAINTS_SIGN =
+  "A negative MWh means the action reduced the constraint volume. A positive MWh is energy moved to manage the constraint.";
 
 export const CONSTRAINTS_VOLUME_TITLE = "Constraint volume";
 export const CONSTRAINTS_VOLUME_SOURCE = "Energy volume of those actions, MWh.";

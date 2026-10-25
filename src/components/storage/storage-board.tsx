@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { Card } from "@/components/ui/card";
 import { Quantity } from "@/components/ui/quantity";
+import { Absent } from "@/components/ui/absent";
 import { NOT_AVAILABLE } from "@/lib/assets/labels";
 import { formatEnergy, formatGrouped } from "@/lib/format/quantity";
 import {
@@ -164,7 +168,10 @@ function CoverageLine({ line }: { line: StorageCoverageLine }) {
         <li>
           <p className="break-words text-copy-14 text-gray-900">{line.label}</p>
           <p className="mt-1 break-words font-sans text-heading-24 tabular-nums text-gray-1000">
-            {line.coveredLabel} of {line.totalLabel} <span className="text-label-13 text-gray-900">MW monitored</span>
+            {reportingPercent(line.coveredLabel, line.totalLabel)}% of capacity reporting
+          </p>
+          <p className="mt-1 break-words text-copy-14 text-gray-900">
+            {line.coveredLabel} of {line.totalLabel} MW monitored
           </p>
         </li>
       );
@@ -194,7 +201,10 @@ function ShareList({ shares, unit }: { shares: readonly StorageShare[]; unit: st
             <p className="shrink-0 text-label-13 tabular-nums text-gray-1000">{share.percent}%</p>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-sm bg-gray-200">
-            <div className="h-2 rounded-sm bg-gray-1000" style={{ width: `${share.percent}%`, opacity: 0.85 }} />
+            <div
+              className="h-2 rounded-sm"
+              style={{ width: `${share.percent}%`, backgroundColor: storageColor(share.technology) }}
+            />
           </div>
           <p className="mt-1 text-label-12 text-gray-900">
             {share.mwLabel} {unit}
@@ -232,11 +242,49 @@ function InventoryTable({
   showEnergy: boolean;
   showDuration: boolean;
 }) {
+  const [technology, setTechnology] = useState("all");
+  const [status, setStatus] = useState("all");
+  const technologies = useMemo(() => [...new Set(rows.map((row) => row.technologyLabel))].sort(), [rows]);
+  const filtered = rows.filter((row) => {
+    if (technology !== "all" && row.technologyLabel !== technology) {
+      return false;
+    }
+    if (status !== "all" && status !== "operational") {
+      return false;
+    }
+    return true;
+  });
   const grid = tableGrid(showEnergy, showDuration);
-  const preview = rows.slice(0, STATION_PREVIEW);
-  const remainder = rows.slice(STATION_PREVIEW);
+  const preview = filtered.slice(0, STATION_PREVIEW);
+  const remainder = filtered.slice(STATION_PREVIEW);
   return (
     <div className="mt-4">
+      <div className="mb-3 grid min-w-0 gap-3 sm:grid-cols-2">
+        <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
+          Type
+          <select
+            value={technology}
+            onChange={(event) => setTechnology(event.target.value)}
+            className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
+          >
+            <option value="all">All types</option>
+            {technologies.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
+          Status
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
+          >
+            <option value="all">All statuses</option>
+            <option value="operational">Operational</option>
+          </select>
+        </label>
+      </div>
       <div className={`hidden min-w-0 ${grid} gap-3 border-b border-gray-alpha-400 py-2 text-label-12 text-gray-900 md:grid`}>
         <p className="min-w-0 break-words">Station</p>
         <p className="min-w-0 break-words">Technology</p>
@@ -253,7 +301,7 @@ function InventoryTable({
       {remainder.length > 0 ? (
         <details className="mt-4">
           <summary className="cursor-pointer text-copy-14 text-gray-1000">
-            Show all {rows.length} stations
+            Show all {filtered.length} stations
           </summary>
           <StationRows rows={remainder} grid={grid} showEnergy={showEnergy} showDuration={showDuration} />
         </details>
@@ -279,8 +327,9 @@ function StationRows({
         <li key={row.id} className={`grid grid-cols-1 gap-1 border-b border-gray-alpha-400 py-3 ${grid} md:gap-3`}>
           <p className="min-w-0 break-words text-copy-14 text-gray-1000">
             {row.href ? (
-              <Link href={row.href} className="text-blue-700 underline-offset-2 hover:underline">
+              <Link href={row.href} className="inline-flex min-h-11 items-center gap-2 text-gray-1000 underline-offset-2 hover:bg-background-200 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none">
                 {row.name}
+                <span aria-hidden="true" className="text-gray-900">›</span>
               </Link>
             ) : (
               row.name
@@ -303,11 +352,33 @@ function OptionalField({ label, value }: { label: string; value: string | null }
   return <Field label={label} value={value} numeric />;
 }
 
+function reportingPercent(covered: string, total: string): number {
+  const coveredMw = Number(covered.replaceAll(",", ""));
+  const totalMw = Number(total.replaceAll(",", ""));
+  if (!Number.isFinite(coveredMw) || !Number.isFinite(totalMw) || totalMw === 0) {
+    return 0;
+  }
+  return Math.round((coveredMw / totalMw) * 100);
+}
+
+function storageColor(technology: StorageShare["technology"]): string {
+  switch (technology) {
+    case "battery":
+      return "var(--chart-battery)";
+    case "pumped_storage":
+      return "var(--chart-hydro)";
+    default: {
+      const neverTechnology: never = technology;
+      return neverTechnology;
+    }
+  }
+}
+
 function Field({ label, value, numeric = false }: { label: string; value: string; numeric?: boolean }) {
   return (
     <p className={`min-w-0 break-words text-copy-14 text-gray-1000 ${numeric ? "tabular-nums" : ""}`}>
       <span className="text-label-12 text-gray-900 md:hidden">{label} </span>
-      {value}
+      {value === NOT_AVAILABLE ? <Absent reason="Not published" /> : value}
     </p>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { displayedPercents } from "@/lib/display-rounding";
 import { WHOLE_ENERGY_SECTORS, type WholeEnergySectorId } from "@/lib/whole-energy/copy";
 
 type SectorFuel = {
@@ -61,16 +62,38 @@ export function SectorSwitch({ sectors }: { sectors: readonly SectorPanel[] }) {
             {sector.shareText}
           </p>
           <p className="mt-2 text-copy-14 text-gray-900">{sector.note}</p>
-          <ul className="mt-4 flex flex-col gap-2">
-            {sector.fuels.map((fuel) => (
-              <li key={fuel.column} className="flex min-w-0 items-baseline justify-between gap-3 text-copy-14">
-                <span className="min-w-0 break-words text-gray-900">{fuel.label}</span>
-                <span className="shrink-0 tabular-nums text-gray-1000">{fuel.text}</span>
-              </li>
-            ))}
+          <ul className="mt-4 flex flex-col gap-3">
+            {sectorShares(sector.fuels).map(({ fuel, width, share }) => {
+              return (
+                <li key={fuel.column} className="min-w-0">
+                  <span className="flex items-baseline justify-between gap-3 text-copy-14">
+                    <span className="min-w-0 break-words text-gray-900">{fuel.label}</span>
+                    <span className="shrink-0 tabular-nums text-gray-1000">
+                      {fuel.text} · {share}%
+                    </span>
+                  </span>
+                  <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
+                    <span className="block h-full rounded-full" style={{ width: `${width}%`, backgroundColor: "var(--chart-gas)" }} />
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
     </div>
   );
+}
+
+function sectorShares(fuels: readonly SectorFuel[]): { fuel: SectorFuel; width: number; share: number }[] {
+  const magnitudes = fuels.map((fuel) => Math.abs(fuel.value));
+  const max = Math.max(0, ...magnitudes);
+  const total = magnitudes.reduce((sum, value) => sum + value, 0);
+  const shares =
+    total > 0 ? displayedPercents(magnitudes.map((value) => (value / total) * 100)) : magnitudes.map(() => 0);
+  return fuels.map((fuel, index) => ({
+    fuel,
+    width: max > 0 ? (Math.abs(fuel.value) / max) * 100 : 0,
+    share: shares[index] ?? 0,
+  }));
 }

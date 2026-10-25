@@ -102,7 +102,14 @@ export function AssetDirectory({
         </nav>
       }
     >
-      <form className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={(event) => event.preventDefault()}>
+      <details className="rounded-lg border border-gray-alpha-400 px-3 py-2">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-copy-14 text-gray-1000">
+          Filters
+          <span className="rounded-md border border-gray-alpha-400 px-2 py-0.5 text-label-13 text-gray-900">
+            {activeFilters(url)}
+          </span>
+        </summary>
+      <form className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={(event) => event.preventDefault()}>
         <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900 sm:col-span-2 lg:col-span-3">
           Search
           <input
@@ -138,11 +145,21 @@ export function AssetDirectory({
           options={regions.map((region) => ({ value: region, label: region }))}
         />
       </form>
+      </details>
       <p className="mt-4 text-label-13 text-gray-900">
         {result.total.toLocaleString("en-GB")} {result.total === 1 ? "asset" : "assets"}
       </p>
       {result.rows.length === 0 ? (
-        <p className="mt-4 text-copy-14 text-gray-900">No assets match these filters.</p>
+        <div className="mt-4">
+          <p className="text-copy-14 text-gray-900">No assets match these filters.</p>
+          <button
+            type="button"
+            className="mt-3 inline-flex h-11 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
+            onClick={() => void setUrl({ q: "", technology: null, status: null, source: null, region: "", page: 1 })}
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <TableScroll className="mt-3">
           <table className="w-full min-w-[40rem] border-collapse text-left text-copy-14">
@@ -183,7 +200,7 @@ export function AssetDirectory({
                   </th>
                   <td className="py-3 pr-3 text-gray-1000">{technologyLabel(row.technology)}</td>
                   <td className="py-3 pr-3 text-gray-1000">Operational</td>
-                  <td className="py-3 pr-3 text-gray-1000">{formatMw(row.mw)}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums text-gray-1000">{formatMw(row.mw)}</td>
                   <td className="py-3 pr-3 text-gray-1000">
                     {row.location === LOCATION_UNAVAILABLE ? LOCATION_UNAVAILABLE : row.region}
                   </td>
@@ -196,6 +213,16 @@ export function AssetDirectory({
       )}
     </Card>
   );
+}
+
+function activeFilters(url: {
+  q: string;
+  technology: string | null;
+  status: string | null;
+  source: string | null;
+  region: string;
+}): number {
+  return [url.q, url.technology, url.status, url.source, url.region].filter((value) => value != null && value !== "").length;
 }
 
 function FilterSelect({

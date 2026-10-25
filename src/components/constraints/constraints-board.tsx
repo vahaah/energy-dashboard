@@ -1,5 +1,4 @@
-import { ConstraintCostChart } from "@/components/constraints/constraint-cost-chart";
-import { ConstraintVolumeChart } from "@/components/constraints/constraint-volume-chart";
+import { ConstraintSeries } from "@/components/constraints/constraint-series";
 import { Card } from "@/components/ui/card";
 import { TableScroll } from "@/components/ui/table-scroll";
 import {
@@ -10,11 +9,19 @@ import {
   CONSTRAINTS_COST_SOURCE,
   CONSTRAINTS_COST_TITLE,
   CONSTRAINTS_REVISIONS,
+  CONSTRAINTS_SIGN,
+  formatSettlementDate,
   nesoFinancialYearLabel,
-  CONSTRAINTS_VOLUME_SOURCE,
   CONSTRAINTS_VOLUME_TITLE,
 } from "@/lib/constraints/copy";
 import type { ConstraintsPageModel } from "@/lib/constraints/page-model";
+
+function amountOrNone(value: number): string {
+  if (value === 0) {
+    return "None";
+  }
+  return integer(value);
+}
 
 function integer(value: number): string {
   return new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(value);
@@ -37,21 +44,17 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
           {model.earlierReleaseKept ? (
             <p className="mt-2 text-copy-14 text-gray-900">An earlier release for this financial year is kept.</p>
           ) : null}
-          <div className="mt-4">
-            <ConstraintCostChart series={model.cost} />
-          </div>
+          <ConstraintSeries cost={model.cost} volume={model.volume} />
         </Card>
       ) : null}
-      {model.volume ? (
+      {model.volume && !model.cost ? (
         <Card title={CONSTRAINTS_VOLUME_TITLE}>
-          <p className="break-words text-copy-14 text-gray-900">{CONSTRAINTS_VOLUME_SOURCE}</p>
-          <div className="mt-4">
-            <ConstraintVolumeChart series={model.volume} />
-          </div>
+          <ConstraintSeries cost={null} volume={model.volume} />
         </Card>
       ) : null}
       {model.latest ? (
-        <Card title={`Settlement date ${model.latest.settlementDate}`}>
+        <Card title={`Settlement date ${formatSettlementDate(model.latest.settlementDate)}`}>
+          <p className="mb-3 break-words text-copy-14 text-gray-900">{CONSTRAINTS_SIGN}</p>
           <TableScroll>
             <table className="w-full min-w-[36rem] text-left text-copy-14">
               <thead>
@@ -66,10 +69,12 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
                 {model.latest.rows.map((row) => (
                   <tr key={row.category} className="border-t border-gray-alpha-400">
                     <th className="py-2 pr-4 text-left font-normal text-gray-1000">{row.label}</th>
-                    <td className="py-2 pr-4 tabular-nums text-gray-1000">{integer(row.gbp)}</td>
-                    <td className="py-2 pr-4 tabular-nums text-gray-1000">{integer(row.mwh)}</td>
+                    <td className="py-2 pr-4 tabular-nums text-gray-1000">{amountOrNone(row.gbp)}</td>
+                    <td className="py-2 pr-4 tabular-nums text-gray-1000">{amountOrNone(row.mwh)}</td>
                     {shares ? (
-                      <td className="py-2 tabular-nums text-gray-1000">{row.share == null ? "—" : `${row.share}%`}</td>
+                      <td className="py-2 tabular-nums text-gray-1000">
+                        {row.gbp === 0 && row.mwh === 0 ? "None" : row.share == null ? "—" : `${row.share}%`}
+                      </td>
                     ) : null}
                   </tr>
                 ))}
@@ -101,7 +106,7 @@ export function ConstraintsBoard({ model }: { model: ConstraintsPageModel }) {
                 <summary className="cursor-pointer px-3 py-3 text-copy-14 break-words text-gray-1000">
                   <span className="font-medium">{boundary.boundary}</span>
                   <span className="mt-1 block text-copy-14 break-words text-gray-900">
-                    {model.dayAhead?.settlementDate} {boundary.latestWall}
+                    {model.dayAhead ? formatSettlementDate(model.dayAhead.settlementDate) : ""} {boundary.latestWall}
                   </span>
                   <span className="mt-1 block text-copy-14 text-gray-900">
                     Limit {integer(boundary.latestLimit)} MW
