@@ -92,20 +92,24 @@ function FigureCard({ figure }: { figure: NiFigure }) {
           <Sparkline values={figure.spark} color="var(--chart-wind)" label={`${figure.label} half-hour readings`} />
         </div>
       ) : null}
-      {figure.caption ? <p className="mt-4 text-copy-14 text-gray-900">Times on {figure.caption}</p> : null}
-      <ul className="mt-2 flex flex-col">
-        {figure.rows.map((row) => (
-          <li
-            key={`${figure.metricId}-${row.time}`}
-            className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-gray-alpha-400 py-2 first:border-t-0"
-          >
-            <span className="min-w-0 break-words text-copy-14 text-gray-900">{row.time}</span>
-            <span className="text-mono-13 text-gray-1000">
-              {row.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : row.value}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {figure.groups.map((group) => (
+        <div key={`${figure.metricId}-${group.caption}`} className="mt-4">
+          <p className="text-copy-14 text-gray-900">Times on {group.caption}</p>
+          <ul className="mt-2 flex flex-col">
+            {group.rows.map((row) => (
+              <li
+                key={`${figure.metricId}-${group.caption}-${row.time}`}
+                className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-gray-alpha-400 py-2 first:border-t-0"
+              >
+                <span className="min-w-0 break-words text-copy-14 text-gray-900">{row.time}</span>
+                <span className="text-mono-13 text-gray-1000">
+                  {row.value === ABSENT_FIGURE ? <Absent reason="Not yet published" /> : row.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </Card>
   );
 }

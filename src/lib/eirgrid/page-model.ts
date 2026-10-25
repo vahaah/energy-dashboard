@@ -9,6 +9,11 @@ import { formatLondonClock, formatLondonDateLabel, formatLondonDateTimeStamp, pa
 
 export type NiScopeId = "ni" | "all";
 
+export type NiTableGroup = {
+  caption: string;
+  rows: { time: string; value: string }[];
+};
+
 export type NiFigure = {
   metricId: string;
   label: string;
@@ -17,6 +22,7 @@ export type NiFigure = {
   value: string;
   forecast: boolean;
   rows: { time: string; value: string }[];
+  groups: NiTableGroup[];
   caption: string | null;
   spark: number[];
   freshness: "current" | "partial";
@@ -135,13 +141,16 @@ function figure(metricId: string, series: NiSeries | undefined, now: Date): NiFi
   const points = shownPoints(series?.points ?? [], forecast, now);
   const latest = [...points].reverse().find((point) => point.value != null) ?? null;
   const windowPoints = points.slice(-TABLE_ROWS);
-  const rows = collapseTrailingAbsent(
-    windowPoints.map((point) => ({
-      time: formatLondonClock(parseUtcDateTime(point.time)),
+  const dated = windowPoints.map((point) => {
+    const instant = parseUtcDateTime(point.time);
+    return {
+      date: formatLondonDateLabel(instant),
+      time: formatLondonClock(instant),
       value: point.value == null ? formatAbsent(null) : formatFigure(point.value, spec.unit),
-    })),
-  );
-  const first = windowPoints[0];
+    };
+  });
+  const groups = groupByLondonDate(collapseTrailingAbsent(dated));
+  const rows = groups.flatMap((group) => group.rows);
   const gaps = windowPoints.some((point) => point.value == null) || latest == null;
   return {
     metricId,
@@ -151,14 +160,17 @@ function figure(metricId: string, series: NiSeries | undefined, now: Date): NiFi
     forecast,
     value: latest?.value == null ? formatAbsent(null) : formatFigure(latest.value, spec.unit),
     rows,
-    caption: first ? formatLondonDateLabel(parseUtcDateTime(first.time)) : null,
+    groups,
+    caption: groups.length === 1 ? groups[0]?.caption ?? null : null,
     spark: windowPoints.map((point) => point.value).filter((value): value is number => value != null),
     freshness: gaps ? "partial" : "current",
     asOf: latest ? formatLondonClock(parseUtcDateTime(latest.time)) : null,
   };
 }
 
-function collapseTrailingAbsent(rows: { time: string; value: string }[]): { time: string; value: string }[] {
+type DatedRow = { date: string; time: string; value: string };
+
+function collapseTrailingAbsent(rows: DatedRow[]): DatedRow[] {
   let end = rows.length;
   while (end > 0 && rows[end - 1]?.value === ABSENT_FIGURE) {
     end -= 1;
@@ -166,7 +178,27 @@ function collapseTrailingAbsent(rows: { time: string; value: string }[]): { time
   if (rows.length - end < 2) {
     return rows;
   }
-  return [...rows.slice(0, end), { time: "Not yet published", value: ABSENT_FIGURE }];
+  return [...rows.slice(0, end), { date: "", time: "Not yet published", value: ABSENT_FIGURE }];
+}
+
+function groupByLondonDate(rows: DatedRow[]): NiTableGroup[] {
+  const groups: NiTableGroup[] = [];
+  for (const row of rows) {
+    const item = { time: row.time, value: row.value };
+    const last = groups[groups.length - 1];
+    if (!row.date) {
+      if (last) {
+        last.rows.push(item);
+      }
+      continue;
+    }
+    if (last && last.caption === row.date) {
+      last.rows.push(item);
+      continue;
+    }
+    groups.push({ caption: row.date, rows: [item] });
+  }
+  return groups;
 }
 
 function shownPoints(

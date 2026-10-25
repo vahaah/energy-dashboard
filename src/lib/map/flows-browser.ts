@@ -421,7 +421,7 @@ export function mountFlowsMap(
         filter: ["==", ["get", "moving"], 1],
         layout: {
           "symbol-placement": "line",
-          "text-field": "›",
+          "text-field": ">",
           "text-font": ["Geist Sans Regular"],
           "text-size": 16,
           "text-keep-upright": false,
