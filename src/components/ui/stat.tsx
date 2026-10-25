@@ -39,7 +39,7 @@ export function Stat({
         }
       >
         <span data-value>{value}</span>
-        <span data-unit={unit} className="align-baseline text-[0.6em] font-medium text-gray-900">
+        <span data-unit={unit} className="align-baseline unit-label font-medium text-gray-900">
           {THIN_SPACE}
           {unit}
         </span>

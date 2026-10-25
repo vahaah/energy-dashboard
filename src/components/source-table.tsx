@@ -15,7 +15,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
             <p className="shrink-0 text-right text-copy-14 tabular-nums text-gray-900">
               <span data-value className="text-gray-1000">{group.gwLabel}</span>
               {group.mw != null ? (
-                <span data-unit className="align-baseline text-[0.6em] text-gray-900">
+                <span data-unit className="align-baseline unit-label text-gray-900">
                   {" "}
                   GW
                 </span>
@@ -41,7 +41,7 @@ export function SourceTable({ table }: { table: GroupedSourceTable }) {
                 <p data-figure className="text-right text-copy-14 tabular-nums text-gray-1000">
                   <span data-value>{row.gwLabel}</span>
                   {row.mw != null ? (
-                    <span data-unit className="align-baseline text-[0.6em] text-gray-900">
+                    <span data-unit className="align-baseline unit-label text-gray-900">
                       {" "}
                       GW
                     </span>

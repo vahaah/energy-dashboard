@@ -365,7 +365,7 @@ export function Dashboard({
               Couldn&apos;t load the grid.{" "}
               <button
                 type="button"
-                className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+                className="inline-flex min-h-6 items-center underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
                 onClick={() => revalidateAllQueries()}
               >
                 Retry
@@ -651,11 +651,11 @@ export function Dashboard({
             Grid is a public dashboard of Great Britain&apos;s electricity and gas. It refreshes every
             hour from Elexon, NESO, the Carbon Intensity API and solar (PV Live estimate). Oil and
             gas prices from EIA, the World Bank and National Gas refresh every 6 hours.{" "}
-            <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
+            <Link href="/methodology" className="inline-flex min-h-6 items-center text-blue-700 underline-offset-2 hover:underline">
               How the numbers are made
             </Link>
             . The{" "}
-            <Link href="/api" className="text-blue-700 underline-offset-2 hover:underline">
+            <Link href="/api" className="inline-flex min-h-6 items-center text-blue-700 underline-offset-2 hover:underline">
               API page
             </Link>{" "}
             documents the public JSON.
@@ -664,21 +664,21 @@ export function Dashboard({
             {elexonBmrsAttribution()}{" "}
             <a
               href={ELEXON_BMRS_LICENCE_URL}
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+              className="inline-flex min-h-6 items-center underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
             >
               BMRS Data Licence
             </a>
             . {NESO_OPEN_DATA_ATTRIBUTION}.{" "}
             <a
               href={NESO_OPEN_DATA_LICENCE_URL}
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+              className="inline-flex min-h-6 items-center underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
             >
               NESO Open Data Licence
             </a>
             . {CARBON_INTENSITY_ATTRIBUTION}{" "}
             <a
               href={CARBON_INTENSITY_API_URL}
-              className="underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
+              className="inline-flex min-h-6 items-center underline decoration-gray-alpha-400 underline-offset-2 hover:text-gray-1000"
             >
               carbonintensity.org.uk
             </a>
@@ -765,7 +765,7 @@ function CommodityStatCard({
       <p data-figure className="mt-2 whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
         <span data-value>{latest ? formatCommodityPrice(latest) : "—"}</span>
         {latest ? (
-          <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
+          <span data-unit className="align-baseline unit-label font-medium text-gray-900">
             {commodityUnitSuffix(latest.unit)}
           </span>
         ) : null}

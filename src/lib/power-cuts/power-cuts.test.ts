@@ -7,7 +7,8 @@ import { fetchBounded } from "@/lib/power-cuts/fetch";
 import { mergeSnapshot, powerCutsFlags, fetchSource } from "@/lib/power-cuts/collect";
 import { buildFixtureSnapshot } from "@/lib/power-cuts/fixture";
 import { irishGridToWgs84 } from "@/lib/power-cuts/irish-grid";
-import { areaTable, buildPowerCutsModel, outwardQuery } from "@/lib/power-cuts/model";
+import { shadeByLicenceArea, postcodePreview } from "@/lib/power-cuts/dno-shade";
+import { areaTable, buildPowerCutsModel, outwardQuery, publicPowerCutsSnapshot } from "@/lib/power-cuts/model";
 import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
 import { loadOfgemCiCml } from "@/lib/power-cuts/ofgem";
 import { parseEnw, parseNged, parseNie, parseNpg, parseSpen, parseSsen, parseUkpn } from "@/lib/power-cuts/parse";
@@ -133,6 +134,14 @@ describe("power cut reconciliation", () => {
     expect(model.coverage).not.toMatch(/all of the UK|the whole UK/i);
     expect(model.coverage).toContain("not licensed");
     expect(model.freshness).toBe("partial");
+    expect(JSON.stringify(model)).not.toMatch(/api key/i);
+    expect(model.freshnessDetail).toContain("Not yet included");
+    expect(model.freshnessDetail).toContain("This operator is not in the public feed yet.");
+    expect(model.notices.map((notice) => notice.error).join(" ")).not.toMatch(/api key/i);
+    const published = publicPowerCutsSnapshot(buildFixtureSnapshot());
+    expect(JSON.stringify(published)).not.toMatch(/api key/i);
+    expect(published.sources.enw.error).toBe("Not yet included. This operator is not in the public feed yet.");
+    expect(published.sources.ssen.error).toBe("Not licensed");
     expect(outwardQuery(["SW10 0AA", "TW1 1"], "SW1")).toBe(false);
     expect(outwardQuery(["SW1A 1AA", "TW1 1"], "SW1")).toBe(true);
     expect(outwardQuery(["TW1 1"], "TW")).toBe(true);
@@ -368,6 +377,34 @@ function walk(dir: string): string {
     })
     .join("\n");
 }
+
+describe("public power-cut map", () => {
+  it("shades a licence area once and collapses postcodes to five", () => {
+    const cut = (area: PowerCut["area"], kind: PowerCut["kind"]): PowerCut => ({
+      id: `ukpn:${area}-${kind}`,
+      operator: "ukpn",
+      area,
+      nation: area === "NI" ? "Northern Ireland" : "England",
+      kind,
+      status: "active",
+      startedAt: "2026-10-25T12:00:00.000Z",
+      estimatedRestorationAt: null,
+      customersOff: 1,
+      postcodes: [],
+      point: null,
+      sourceUrl: "https://example.test/cuts",
+    });
+    const shades = shadeByLicenceArea([cut("EPN", "planned"), cut("EPN", "unplanned"), cut("LPN", "planned"), cut("NI", "unplanned")]);
+    expect(shades.get("East England")).toBe("unplanned");
+    expect(shades.get("London")).toBe("planned");
+    expect(shades.size).toBe(2);
+    expect(postcodePreview(["a", "b", "c", "d", "e", "f"])).toEqual({
+      count: 6,
+      shown: ["a", "b", "c", "d", "e"],
+      rest: 1,
+    });
+  });
+});
 
 describe("power cuts has no Tinybird query", () => {
   it("does not call queryPipe", () => {

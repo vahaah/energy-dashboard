@@ -85,7 +85,7 @@ function EquationTerm({ term, wide }: { term: HeadlineTerm; wide: boolean }) {
           aria-describedby={demand ? PERIOD_ID : undefined}
         >
           <span data-value>{term.displayGw}</span>
-          <span data-unit className="ml-1 align-baseline text-[0.6em] font-medium tracking-normal text-gray-900">
+          <span data-unit className="ml-1 align-baseline unit-label font-medium tracking-normal text-gray-900">
             {figureMeta?.displayUnit ?? "GW"}
           </span>
         </dd>
@@ -125,7 +125,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         className={`font-sans leading-tight font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 ${figure}`}
       >
         <span data-value>{term.displayGw}</span>
-        <span data-unit className="ml-1 align-baseline text-[0.6em] font-medium tracking-normal text-gray-900">
+        <span data-unit className="ml-1 align-baseline unit-label font-medium tracking-normal text-gray-900">
           {figureMeta?.displayUnit ?? "GW"}
         </span>
       </span>

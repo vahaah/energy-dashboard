@@ -33,11 +33,12 @@ export function SiteTopBar({
           <div className="hidden min-w-0 flex-1 md:block">
             <ConnectedSitePrimaryNav idPrefix={`${idPrefix}-desktop`} />
           </div>
-          <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex">
-            <AssetSearchButton />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <div className="hidden md:block">
+              <AssetSearchButton />
+            </div>
             {trailing}
           </div>
-          {trailing ? <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">{trailing}</div> : null}
         </div>
         <div className="flex min-w-0 items-center gap-3 border-t border-gray-alpha-400 py-2 md:hidden">
           <AssetSearchButton />

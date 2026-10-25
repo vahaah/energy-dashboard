@@ -1,3 +1,4 @@
+import { publicOperatorError } from "@/lib/power-cuts/copy";
 import { POWER_CUTS_FRESH_MS } from "@/lib/power-cuts/model";
 import { loadPowerCutsSnapshot } from "@/lib/power-cuts/reader";
 import { OPERATORS, type Operator, type SourceReport, type SourceStatus } from "@/lib/power-cuts/schema";
@@ -44,12 +45,13 @@ export async function loadPowerCutsHealth(now = new Date()): Promise<PowerCutsHe
       fetchedAt: snapshot.fetchedAt,
       sources: OPERATORS.map((operator) => {
         const report = snapshot.sources[operator];
+        const error = publicOperatorError(report.error);
         return {
           operator,
           status: agedStatus(report, now),
           fetchedAt: report.fetchedAt,
           count: report.count,
-          ...(report.error ? { error: report.error } : {}),
+          ...(error ? { error } : {}),
         };
       }),
     };

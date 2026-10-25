@@ -12,7 +12,10 @@ export function Quantity({
   return (
     <span className={`whitespace-nowrap tabular-nums ${className}`.trim()}>
       <span data-value>{value}</span>
-      <span data-unit={unit} className="align-baseline text-[0.6em] font-medium text-gray-900">
+      <span
+        data-unit={unit}
+        className={`align-baseline font-medium text-gray-900 ${unit === "customers" ? "unit-customers" : "unit-label"}`}
+      >
         {THIN_SPACE}
         {unit}
       </span>

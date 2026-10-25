@@ -65,7 +65,7 @@ export function SeoPage({
             <a
               href="https://vahaah.com/"
               rel="author"
-              className="text-blue-700 underline-offset-2 hover:underline"
+              className="inline-flex min-h-6 items-center text-blue-700 underline-offset-2 hover:underline"
             >
               Alex Vakhitov
             </a>

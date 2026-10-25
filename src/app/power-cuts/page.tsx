@@ -6,7 +6,7 @@ import { pageJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
 import { OFGEM_CREDIT, POWER_CUT_CREDITS, POWER_CUTS_CALL_105, POWER_CUTS_CALL_NI, POWER_CUTS_DESCRIPTION, POWER_CUTS_H1, POWER_CUTS_TITLE } from "@/lib/power-cuts/copy";
-import { buildPowerCutsModel } from "@/lib/power-cuts/model";
+import { buildPowerCutsModel, publicPowerCutsSnapshot } from "@/lib/power-cuts/model";
 import { loadOfgemCiCml } from "@/lib/power-cuts/ofgem";
 import { readCachedPowerCuts } from "@/lib/power-cuts/reader";
 import { SITE_ORIGIN } from "@/lib/site";
@@ -80,7 +80,7 @@ export default async function PowerCutsPage() {
       cite={<p>{POWER_CUTS_DESCRIPTION}</p>}
       citation={`Grid, "Power cuts by area", grid.vahaah.com/power-cuts, accessed ${formatLondonDayMonthYear(getLondonDate(now))}. ${POWER_CUT_CREDITS.map((credit) => credit.attribution).join(" ")}`}
     >
-      <PowerCutsView snapshot={snapshot} nowIso={now.toISOString()} ofgem={ofgem} />
+      <PowerCutsView snapshot={snapshot ? publicPowerCutsSnapshot(snapshot) : null} nowIso={now.toISOString()} ofgem={ofgem} />
       <FaqList items={faqs} />
     </SeoPage>
   );

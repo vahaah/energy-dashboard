@@ -38,9 +38,10 @@ import {
 } from "@/lib/map/flows-copy";
 import { flowSelectionFromQuery, layerOn, withLayer } from "@/lib/map/flows-selection";
 import type { FlowsFeature, FlowsPageModel } from "@/lib/map/flows-types";
-import type { FlowsMapHandle, FlowsMapTheme } from "@/lib/map/flows-browser";
+import type { FlowsMapHandle } from "@/lib/map/flows-browser";
 import { sparklinePath } from "@/lib/map/sparkline";
 import { startStaleClock } from "@/lib/map/stale-clock";
+import { documentTheme } from "@/lib/theme";
 import type { StationFeatureCollection } from "@/lib/map/stations-layer";
 import type { MarkerShape } from "@/lib/map/marker";
 
@@ -54,21 +55,6 @@ type StationPick = {
   mw: number | null;
   href: string;
 };
-
-function themeOf(): FlowsMapTheme {
-  const root = document.documentElement;
-  const scheme = root.style.colorScheme;
-  if (scheme === "light" || scheme === "dark") {
-    return scheme;
-  }
-  if (root.classList.contains("light")) {
-    return "light";
-  }
-  if (root.classList.contains("dark")) {
-    return "dark";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
 
 function ShapeMark({ shape, color }: { shape: MarkerShape; color: string }) {
   switch (shape) {
@@ -371,7 +357,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
   useEffect(() => {
     const root = document.documentElement;
     const observer = new MutationObserver(() => {
-      handle.current?.setTheme(themeOf());
+      handle.current?.setTheme(documentTheme(document.documentElement));
     });
     observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
     return () => observer.disconnect();

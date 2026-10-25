@@ -9,6 +9,7 @@ import {
   NO_POWER_CUTS,
   operatorName,
   POWER_CUT_CREDITS,
+  publicOperatorError,
 } from "@/lib/power-cuts/copy";
 import {
   AREAS,
@@ -192,7 +193,7 @@ export function freshnessOf(snapshot: PowerCutsSnapshot, now: Date): {
     return report.status === "absent";
   });
   const detailParts = licensedAbsent.map((operator) => {
-    const error = snapshot.sources[operator].error;
+    const error = publicOperatorError(snapshot.sources[operator].error);
     return error ? `${operatorName(operator)}: ${error}` : operatorName(operator);
   });
   if (staleSource || aged) {
@@ -413,7 +414,7 @@ export function buildPowerCutsModel(snapshot: PowerCutsSnapshot, now: Date): Pow
       operator,
       name: operatorName(operator),
       status: snapshot.sources[operator].status,
-      error: snapshot.sources[operator].error ?? snapshot.sources[operator].status,
+      error: publicOperatorError(snapshot.sources[operator].error) ?? snapshot.sources[operator].status,
     })),
     allFailed,
     empty: !allFailed && incidents.length === 0,
@@ -422,4 +423,15 @@ export function buildPowerCutsModel(snapshot: PowerCutsSnapshot, now: Date): Pow
 
 export function licensedCredits() {
   return POWER_CUT_CREDITS;
+}
+
+/** Drop internal source errors before a snapshot is rendered or sent to the client. */
+export function publicPowerCutsSnapshot(snapshot: PowerCutsSnapshot): PowerCutsSnapshot {
+  const sources = { ...snapshot.sources };
+  for (const operator of OPERATORS) {
+    const report = sources[operator];
+    const error = publicOperatorError(report.error);
+    sources[operator] = error ? { ...report, error } : { status: report.status, fetchedAt: report.fetchedAt, count: report.count };
+  }
+  return { ...snapshot, sources };
 }

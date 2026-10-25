@@ -199,7 +199,7 @@ export default async function DataHealthPage() {
         <h2 className="text-heading-24 text-gray-1000">Power cuts</h2>
         <Card className="mt-4" title="Network operators">
           <p className="break-words text-copy-14 text-gray-900">
-            Each operator is fetched on its own. A missing key, a failed read, or a source that is not licensed stays on its own row.
+            Each operator is fetched on its own. An operator that is not included yet, a failed read, or a source that is not licensed stays on its own row.
           </p>
           <ul className="mt-4 flex flex-col">
             {powerCuts.sources.map((source) => (

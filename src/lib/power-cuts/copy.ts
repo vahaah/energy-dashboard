@@ -25,7 +25,20 @@ export const POWER_CUTS_CALL_105 = "Power cut? Call 105";
 export const POWER_CUTS_CALL_NI = "In Northern Ireland call 03457 643 643";
 
 export const API_KEY_ABSENT_REASON = "API key not configured";
+export const NOT_YET_INCLUDED = "Not yet included";
+export const NOT_YET_INCLUDED_NOTE = "This operator is not in the public feed yet.";
 export const UNLICENSED_REASON = "Not licensed";
+
+/** Public pages never name a missing key. The stored report can keep the internal reason. */
+export function publicOperatorError(error: string | null | undefined): string | null {
+  if (error == null || error.length === 0) {
+    return null;
+  }
+  if (error === API_KEY_ABSENT_REASON || /api key/i.test(error)) {
+    return `${NOT_YET_INCLUDED}. ${NOT_YET_INCLUDED_NOTE}`;
+  }
+  return error;
+}
 
 export const NO_POWER_CUTS = "No power cuts reported";
 export const ALL_FEEDS_FAILED = "None of the operator feeds could be read.";
