@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DataHealthReading } from "@/components/data-health-reading";
+import { DataHealthSeriesList } from "@/components/data-health-series";
 import { MapLayerChangeNotice } from "@/components/map-layer-change";
 import { SeoPage } from "@/components/seo-page";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
@@ -59,7 +60,27 @@ export default async function DataHealthPage() {
       }
       citation={`Grid, "Data health", grid.vahaah.com/data-health, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}
     >
-      <section>
+      <nav aria-label="On this page" className="flex flex-wrap gap-x-4 gap-y-2 text-copy-14">
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#source-time">
+          Source time
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#series">
+          Series
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#nts">
+          National Transmission System
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#constraints">
+          Transmission constraints
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#northern-ireland">
+          Northern Ireland
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#storage">
+          Electricity storage
+        </a>
+      </nav>
+      <section id="source-time" className="scroll-mt-28">
         <h2 className="text-heading-24 text-gray-1000">Source time and Grid time</h2>
         <div className={`mt-4 ${CARD_GRID_CLASS}`}>
           {featured.map((reading) =>
@@ -71,19 +92,10 @@ export default async function DataHealthPage() {
           )}
         </div>
       </section>
-      <section>
+      <section id="series" className="scroll-mt-28">
         <h2 className="text-heading-24 text-gray-1000">Every series</h2>
         <Card className="mt-4" title="Registry">
-          <ul className="flex flex-col">
-            {rest.map((reading) => (
-              <li
-                key={reading.metric_id}
-                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <SeriesRow reading={reading} />
-              </li>
-            ))}
-          </ul>
+          <DataHealthSeriesList readings={rest} />
         </Card>
       </section>
       <section id="nts" className="scroll-mt-28">

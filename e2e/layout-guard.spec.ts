@@ -118,6 +118,11 @@ async function auditLayout(page: Page): Promise<LayoutIssue[]> {
       if (el.closest(".sr-only")) {
         return false;
       }
+      // Chrome lays out a closed <details> body and still reports its box. It is not painted.
+      const closedDetails = el.closest("details:not([open])");
+      if (closedDetails && !el.closest("summary")) {
+        return false;
+      }
       const style = getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
         return false;

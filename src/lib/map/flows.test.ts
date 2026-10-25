@@ -20,6 +20,7 @@ import {
 } from "@/lib/map/flow-scale";
 import { FLOWS_HTML_BUDGET_BYTES, buildFlowsPageModel, catalogueFlowsInput, flowsModelBytes } from "@/lib/map/flows-model";
 import { flowSelectionFromQuery } from "@/lib/map/flows-selection";
+import { londonClock, normaliseLondonZone } from "@/lib/map/flows-copy";
 import { fixtureMapFlows } from "@/lib/map/flows-fixture";
 import {
   MAP_FLOWS_ELECTRICITY,
@@ -339,5 +340,13 @@ describe("flows map review fixes", () => {
     expect(partial.gasMissing).toBe(1);
     expect(partial.netGasMcm).toBeNull();
     expect(netGasLabel(partial.netGasMcm, partial.gasMissing)).toBe("Partial gas coverage, 1 terminal missing");
+  });
+
+  it("names winter Greenwich time GMT in Node and Chromium", () => {
+    expect(normaliseLondonZone("25 Oct, 01:30 GMT+0")).toBe("25 Oct, 01:30 GMT");
+    expect(normaliseLondonZone("15 Jan, 12:00 GMT+00:00")).toBe("15 Jan, 12:00 GMT");
+    expect(normaliseLondonZone("15 Jul, 13:00 BST")).toBe("15 Jul, 13:00 BST");
+    expect(londonClock(new Date("2026-10-25T01:30:00.000Z"))).toBe("25 Oct, 01:30 GMT");
+    expect(londonClock(new Date("2026-07-15T12:00:00.000Z"))).toBe("15 Jul, 13:00 BST");
   });
 });
