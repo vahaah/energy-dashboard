@@ -365,7 +365,7 @@ function groupTechnologies(rows: PipelineFigures["technologies"]): {
       projects: rest.reduce((sum, row) => sum + row.projects, 0),
       exactGw,
       color: "var(--chart-other)",
-      marker: undefined,
+      marker: <span aria-hidden="true" className="size-3.5 shrink-0 rounded-full bg-[var(--chart-other)]" />,
     });
   }
   const total = grouped.reduce((sum, row) => sum + row.exactGw, 0);
