@@ -704,6 +704,28 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
     );
   }
 
+  function creditsControl(growSheet: boolean) {
+    return (
+      <details
+        className="relative"
+        onToggle={(event) => {
+          if (!growSheet || !event.currentTarget.open) {
+            return;
+          }
+          setSnap((current) => (current === FLOW_SHEET_PEEK_PX ? 430 : current));
+        }}
+      >
+        <summary className="w-fit cursor-pointer text-copy-14 text-gray-1000">©</summary>
+        <div className="absolute left-0 top-full z-30 mt-2 flex max-h-48 w-[min(18rem,calc(100vw-2rem))] min-w-0 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-copy-14 break-words text-gray-900">
+          {visibleCredits.map((credit) => (
+            <p key={credit.id}>{credit.text}</p>
+          ))}
+          {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
+        </div>
+      </details>
+    );
+  }
+
   return (
     <div
       data-flows-stage
@@ -713,6 +735,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         {announcement}
       </p>
       <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-gray-alpha-400 bg-background-100 p-4 lg:block">
+        <div className="mb-4">{creditsControl(false)}</div>
         <Controls
           radioName="map-view-panel"
           title={desktop}
@@ -730,17 +753,6 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           }
         >
           <div ref={mapRef} className="absolute inset-0 h-full w-full" data-map-status={status} />
-          <details className="absolute bottom-3 left-3 z-20 flex w-[min(18rem,calc(100%-1.5rem))] flex-col-reverse">
-            <summary className="w-fit cursor-pointer rounded-md border border-gray-alpha-400 bg-background-100 px-2 py-1 text-copy-14 text-gray-1000">
-              ©
-            </summary>
-            <div className="mb-2 flex max-h-48 min-w-0 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-copy-14 break-words text-gray-900">
-              {visibleCredits.map((credit) => (
-                <p key={credit.id}>{credit.text}</p>
-              ))}
-              {dno && model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
-            </div>
-          </details>
         </div>
         {status === "loading" ? <Skeleton className="absolute inset-4" /> : null}
         {status === "error" ? (
@@ -770,9 +782,12 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         style={{ height: snap === "full" ? "100%" : snap }}
       >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <p id="flow-sheet-title" className="text-label-13 text-gray-900">
-            {panelLabel}
-          </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <p id="flow-sheet-title" className="text-label-13 text-gray-900">
+              {panelLabel}
+            </p>
+            {creditsControl(true)}
+          </div>
           <button
             type="button"
             className="text-label-13 text-blue-700"
