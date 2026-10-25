@@ -25,6 +25,9 @@ describe("gas page model", () => {
       "eu_natural_gas",
       "lng_asia",
     ]);
+    expect(model.series.find((row) => row.commodity === "henry_hub_gas")?.unit).toBe("$/MMBtu");
+    expect(model.series.find((row) => row.commodity === "eu_natural_gas")?.monthly).toBe(true);
+    expect(model.series.find((row) => row.commodity === GB_GAS_SAP_COMMODITY)?.change).toContain("vs prior");
   });
 
   it("averages SAP inside the observation window", () => {

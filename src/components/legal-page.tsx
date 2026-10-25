@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { JsonLd } from "@/components/json-ld";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
+import { SiteBreadcrumb } from "@/components/site-breadcrumb";
 import { SiteLegalNav } from "@/components/site-legal-nav";
 import { SitePageHeader } from "@/components/site-page-header";
 import { SitePublicNav } from "@/components/site-public-nav";
@@ -23,6 +24,7 @@ export function LegalPage({
       {schema ? <JsonLd data={schema} /> : null}
       <SitePageHeader section={section} />
       <main className={PAGE_STACK_CLASS}>
+        <SiteBreadcrumb items={[{ label: title }]} />
         <section>
           <p className="text-label-13 text-gray-900">Grid</p>
           <h1 className="mt-1 text-heading-32 text-gray-1000">{title}</h1>

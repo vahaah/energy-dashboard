@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { attributionLine, ChangesBoard, type ChangeCard } from "@/components/changes/changes-board";
+import { ChangesBoard, type ChangeCard } from "@/components/changes/changes-board";
 import { SeoPage } from "@/components/seo-page";
-import { allChangeRows, readCheckedInChanges } from "@/lib/changes/query";
+import { changeFieldLabel, changeValueLabel } from "@/lib/changes/template";
+import { allChangeRows, attributionLine, readCheckedInChanges } from "@/lib/changes/query";
 import { CHANGES_DESCRIPTION, CHANGES_H1, CHANGES_STANDFIRST, CHANGES_TITLE } from "@/lib/changes/copy";
 import { pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
@@ -31,6 +32,9 @@ export default async function ChangesPage() {
     status: row.status,
     observedAt: row.observed_at,
     effectiveAt: row.effective_at,
+    fieldLabel: changeFieldLabel(row.field),
+    oldLabel: changeValueLabel(row.field, row.old),
+    newLabel: changeValueLabel(row.field, row.new),
   }));
   const today = getLondonDate(new Date());
   return (

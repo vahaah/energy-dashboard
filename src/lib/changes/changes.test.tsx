@@ -84,7 +84,9 @@ describe("change events", () => {
     expect(first?.sentence).toBe(
       "Clashindarroch 2 construction status changed from Not started to Under construction.",
     );
-    expect(first?.evidence).toBe("Compared NESO (TEC register) of 13 Oct 2026 with 13 Oct 2026.");
+    expect(first?.evidence).toBe(
+      "Compared NESO (TEC register) of 13 Oct 2026. Both sides are that publication; there is no earlier snapshot in the catalogue.",
+    );
     expect(changeSentence(checked.events!.events[0]!, "Clashindarroch 2")).toBe(first?.sentence);
   });
 

@@ -6,7 +6,10 @@ import { DataStateNotice } from "@/components/ui/data-state";
 import { nameLookupReady, nameLookupRejection, type LookupResult } from "@/lib/directory/lookup";
 
 const FIELD =
-  "h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000";
+  "h-11 w-full min-w-0 max-w-[480px] rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000";
+const SEARCH =
+  "inline-flex h-11 min-h-6 items-center justify-center self-start rounded-md bg-gray-1000 px-3 text-label-13 text-background-100";
+const EXAMPLES = ["Elexon", "Centrica", "Octopus Energy"] as const;
 
 export function DirectoryNameSearch({ defaultDate }: { defaultDate: string }) {
   const [name, setName] = useState("");
@@ -53,17 +56,32 @@ export function DirectoryNameSearch({ defaultDate }: { defaultDate: string }) {
     <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-4">
       <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
         Name
-        <input value={name} onChange={(event) => setName(event.target.value)} className={FIELD} autoComplete="off" />
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className={FIELD}
+          autoComplete="off"
+          placeholder="for example, Elexon"
+        />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
         Date
         <input type="date" lang="en-GB" value={effectiveOn} onChange={(event) => setEffectiveOn(event.target.value)} className={FIELD} required />
         <span className="text-label-13 font-normal text-gray-900">Example: 23 Oct 2026</span>
       </label>
-      <button
-        type="submit"
-        className="inline-flex h-11 items-center justify-center self-start rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-label-13 text-gray-1000"
-      >
+      <div className="flex flex-wrap gap-2">
+        {EXAMPLES.map((example) => (
+          <button
+            key={example}
+            type="button"
+            onClick={() => setName(example)}
+            className="inline-flex h-8 items-center rounded-md border border-gray-alpha-400 px-2 text-label-13 text-gray-1000"
+          >
+            {example}
+          </button>
+        ))}
+      </div>
+      <button type="submit" className={SEARCH}>
         {pending ? "Searching" : "Search"}
       </button>
       {notice ? <DataStateNotice state={notice} /> : null}

@@ -5,7 +5,7 @@ import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
 import { FaqList } from "@/components/ui/faq-list";
-import { DIRECTORY_DESCRIPTION, DIRECTORY_FAQS, DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE, MPID_LABEL, ROLE_LABEL } from "@/lib/directory/copy";
+import { DIRECTORY_DESCRIPTION, DIRECTORY_FAQS, DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE } from "@/lib/directory/copy";
 import { pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -58,8 +58,6 @@ export default function DirectoryPage() {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
-          <p className="text-copy-14 text-gray-900">{MPID_LABEL}</p>
-          <p className="text-copy-14 text-gray-900">{ROLE_LABEL}</p>
           <p className="text-copy-14 text-gray-900">
             <Link href="/directory/identifiers" className="text-blue-700 underline-offset-2 hover:underline">
               Look up an MPID or industry code

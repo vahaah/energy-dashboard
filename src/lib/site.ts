@@ -22,7 +22,7 @@ export const PRICE_CAP_DESCRIPTION =
   "Ofgem announces the January–March 2027 price cap on 25 November 2026. The cap is £1,723 a year now. What sets it, what gas has done, what it covers.";
 export const PRICE_CAP_H1 = "Will energy bills go up in January 2027?";
 
-export const GAS_TITLE = "UK gas price today: SAP, Henry Hub and LNG | Grid";
+export const GAS_TITLE = "GB gas price today: SAP, Henry Hub and LNG | Grid";
 export const GAS_DESCRIPTION =
   "Today's GB System Average Price of gas in p/therm and p/kWh from National Gas, with Henry Hub, European gas and Japan LNG for context. Free, with sources.";
 export const GAS_H1 = "GB gas price today";

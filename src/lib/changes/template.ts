@@ -134,6 +134,9 @@ export function changeEvidence(event: ChangeEvent): string {
   const oldDate = tecReleaseDate(event.old_release_id);
   const newDate = tecReleaseDate(event.new_release_id);
   if (oldDate && newDate) {
+    if (event.old_release_id === event.new_release_id) {
+      return `Compared NESO (TEC register) of ${oldDate}. Both sides are that publication; there is no earlier snapshot in the catalogue.`;
+    }
     return `Compared NESO (TEC register) of ${oldDate} with ${newDate}.`;
   }
   return `Compared ${event.old_release_id} with ${event.new_release_id}.`;

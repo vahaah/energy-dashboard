@@ -49,13 +49,13 @@ export function EnergyTransition({
             <XAxis
               dataKey="year"
               {...chartAxisLine}
-              tick={chartAxisTick}
+              tick={{ ...chartAxisTick, fontSize: 13 }}
               interval="preserveStartEnd"
               minTickGap={24}
             />
             <YAxis
               {...chartAxisLine}
-              tick={chartAxisTick}
+              tick={{ ...chartAxisTick, fontSize: 13 }}
               width={36}
               tickFormatter={(value: number) => `${value}%`}
             />
@@ -75,6 +75,11 @@ export function EnergyTransition({
           { id: "wind", label: "Wind, share of generation", color: WIND_COLOR, dash: "6 4" },
         ]}
       />
+      {data.length > 0 ? (
+        <p className="mt-2 text-copy-14 text-gray-1000">
+          {data[data.length - 1]?.year}: Coal {data[data.length - 1]?.coal}% · Wind {data[data.length - 1]?.wind}% of generation
+        </p>
+      ) : null}
       </div>
       <div className="space-y-3 text-copy-14 text-gray-1000">
         {sentences ? (

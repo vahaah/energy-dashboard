@@ -3,9 +3,11 @@ import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
+import { Sparkline } from "@/components/sparkline";
 import { Card } from "@/components/ui/card";
 import { loadCachedPublicPrices } from "@/lib/cached-prices";
 import { GB_GAS_SAP_COMMODITY, sapPencePerTherm } from "@/lib/gb-gas-sap";
+import type { CommodityPrice } from "@/lib/types";
 import { meanCommodityInWindow } from "@/lib/gas-page";
 import { priceCapJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -32,6 +34,14 @@ export default async function PriceCapPage() {
     GB_GAS_SAP_COMMODITY,
     PRICE_CAP_OBSERVATION_WINDOW.from,
     PRICE_CAP_OBSERVATION_WINDOW.to
+  );
+  const sapSpark = sapWindowSeries(prices);
+  const footnotes = PUBLISHED_PRICE_CAPS.flatMap((cap, capIndex) =>
+    cap.notes.map((note, noteIndex) => ({
+      marker: capIndex + noteIndex + 1,
+      periodFrom: cap.periodFrom,
+      note,
+    })),
   );
   const cite = priceCapAnswerFirst();
   const faqs = [...PRICE_CAP_FAQS];
@@ -67,7 +77,7 @@ export default async function PriceCapPage() {
                     <th scope="col" className="pb-2 font-medium">
                       Period
                     </th>
-                    <th scope="col" className="pb-2 font-medium">
+                    <th scope="col" className="pb-2 text-right font-medium">
                       Typical dual-fuel DD
                     </th>
                     <th scope="col" className="pb-2 font-medium">
@@ -84,7 +94,16 @@ export default async function PriceCapPage() {
                       <th scope="row" className="py-2 font-medium">
                         {cap.periodLabel}
                       </th>
-                      <td className="py-2 tabular-nums">£{cap.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB")}</td>
+                      <td className="py-2 text-right tabular-nums">
+                        £{cap.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB")}
+                        {footnotes
+                          .filter((note) => note.periodFrom === cap.periodFrom)
+                          .map((note) => (
+                            <sup key={note.marker} className="ml-0.5 text-label-13">
+                              {note.marker}
+                            </sup>
+                          ))}
+                      </td>
                       <td className="py-2">{cap.announcedLabel}</td>
                       <td className="py-2">
                         <a
@@ -100,13 +119,14 @@ export default async function PriceCapPage() {
               </table>
             </div>
           </Card>
-          {PUBLISHED_PRICE_CAPS.flatMap((cap) =>
-            cap.notes.map((note) => (
-              <p key={`${cap.periodFrom}-${note}`} className="mt-3 max-w-3xl text-copy-14 text-gray-900">
-                {cap.periodLabel}: {note}
-              </p>
-            ))
-          )}
+          <ol className="mt-3 max-w-3xl list-none text-copy-14 text-gray-900">
+            {footnotes.map((note) => (
+              <li key={note.marker} className="mt-2">
+                <sup className="mr-1">{note.marker}</sup>
+                {note.note}
+              </li>
+            ))}
+          </ol>
         </section>
 
         <section>
@@ -126,13 +146,22 @@ export default async function PriceCapPage() {
             2027 cap at 19 August to 17 November 2026. Grid does not restate Ofgem&apos;s model.
           </p>
           <Card className="mt-4" title="GB gas SAP in that window">
+            {sapSpark.length > 1 ? (
+              <div className="mb-3">
+                <Sparkline
+                  values={sapSpark}
+                  color="var(--chart-gas)"
+                  label="GB gas SAP over the observation window"
+                />
+              </div>
+            ) : null}
             <p className="text-copy-16 text-gray-1000">
               {sapWindow
                 ? `National Gas SAP averaged ${sapWindow.average.toFixed(2)}p/kWh (${sapPencePerTherm(sapWindow.average).toFixed(1)} p/therm) over ${sapWindow.count} published gas days from ${formatLondonDayMonthYear(sapWindow.from)} to ${formatLondonDayMonthYear(sapWindow.to)}.`
                 : "Grid does not yet have cached SAP days in that window."}{" "}
               Grid does not republish a separate NBP series.{" "}
               <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
-                UK gas price
+                GB gas price
               </Link>
               .
             </p>
@@ -165,4 +194,16 @@ export default async function PriceCapPage() {
       </SeoPage>
     </>
   );
+}
+
+function sapWindowSeries(prices: CommodityPrice[]): number[] {
+  return prices
+    .filter(
+      (row) =>
+        row.commodity === GB_GAS_SAP_COMMODITY &&
+        row.date >= PRICE_CAP_OBSERVATION_WINDOW.from &&
+        row.date <= PRICE_CAP_OBSERVATION_WINDOW.to,
+    )
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .map((row) => row.price);
 }

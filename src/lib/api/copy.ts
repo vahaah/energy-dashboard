@@ -8,7 +8,7 @@ export const API_DOCS_INTRO =
   "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.";
 
 export const API_DOCS_CONVENTIONS = [
-  "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to UK local time (Europe/London) yourself.",
+  "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to London time (Europe/London) yourself.",
   "Every value carries its unit, interval, source, publication time and the time Grid fetched it.",
   "Missing data is null, never 0. A reported zero is 0.",
   "Forecasts carry forecast_issued_at. Revised values carry their revision.",
