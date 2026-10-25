@@ -27,8 +27,13 @@ export function staleCopy(clock: string): string {
   return `Not updated · Latest electricity data is from ${clock}. Grid checks every hour.`;
 }
 
+/** Chromium names winter Greenwich time "GMT+0". Node names it "GMT". */
+export function normaliseLondonZone(formatted: string): string {
+  return formatted.replace(/GMT\+0+(?::00)?$/, "GMT");
+}
+
 export function londonClock(at: Date): string {
-  return new Intl.DateTimeFormat("en-GB", {
+  const formatted = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
     hour: "2-digit",
     minute: "2-digit",
@@ -36,6 +41,8 @@ export function londonClock(at: Date): string {
     month: "short",
     timeZoneName: "short",
   }).format(at);
+  // The map clock is rendered on the server and again in the browser.
+  return normaliseLondonZone(formatted);
 }
 
 export const FLOWS_KEYBOARD =
