@@ -29,16 +29,19 @@ export function InterconnectorChart({ data }: Props) {
         const isImport = mw >= 0;
         const barPct = (Math.abs(mw) / maxAbsMw) * 100;
 
+        const label = INTERCONNECTOR_LABELS[ic] ?? ic;
         return (
-          <div key={ic} className="flex min-w-0 items-center gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-1.5 text-copy-14 text-gray-1000">
+          <div key={ic} className="min-w-0 space-y-1">
+            <div className="flex min-w-0 items-start gap-1.5 text-copy-14 text-gray-1000">
               <span
-                className="size-2 shrink-0 rounded-full"
+                className="mt-1.5 size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: INTERCONNECTOR_COLORS[ic] ?? "#94a3b8" }}
               />
-              <span className="truncate">{INTERCONNECTOR_LABELS[ic] ?? ic}</span>
+              <span className="min-w-0 break-words" title={label}>
+                {label}
+              </span>
             </div>
-            <div className="flex min-w-0 flex-[1.2] items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-background-200">
                 <div
                   className={`absolute top-0 h-full rounded-full ${isImport ? "left-0" : "right-0"}`}
@@ -50,7 +53,7 @@ export function InterconnectorChart({ data }: Props) {
               </div>
               <p className="shrink-0 whitespace-nowrap text-right font-sans text-copy-14 tabular-nums text-gray-1000">
                 {Math.abs(gw).toFixed(2)}
-                <span className="text-[0.6em] text-gray-900">{"\u2009"}GW</span>
+                <span className="unit-label text-gray-900">{"\u2009"}GW</span>
                 <span className="ml-1 text-label-12 text-gray-900">{isImport ? "in" : "out"}</span>
               </p>
             </div>

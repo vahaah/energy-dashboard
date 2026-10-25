@@ -1,5 +1,7 @@
-import { Map, setWorkerUrl, type GeoJSONSource } from "maplibre-gl";
+import { Map, setWorkerUrl, type ExpressionSpecification } from "maplibre-gl";
+import { documentTheme } from "@/lib/theme";
 import { BASEMAP_GLYPHS, GB_FRAME_BOUNDS, MAP_CAMERA_MIN_ZOOM, MAP_MAX_BOUNDS } from "@/lib/map/constants";
+import { POWER_CUTS_DNO_GEOJSON, shadeByLicenceArea } from "@/lib/power-cuts/dno-shade";
 import type { PowerCut } from "@/lib/power-cuts/schema";
 
 const WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
@@ -24,8 +26,27 @@ function features(incidents: readonly PowerCut[]) {
   };
 }
 
-function darkTheme(): boolean {
-  return document.documentElement.classList.contains("dark");
+function cssColor(name: string, fallback: string): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value.length > 0 ? value : fallback;
+}
+
+function areaFill(
+  incidents: readonly PowerCut[],
+  quiet: string,
+  planned: string,
+  unplanned: string,
+): string | ExpressionSpecification {
+  const shades = shadeByLicenceArea(incidents);
+  if (shades.size === 0) {
+    return quiet;
+  }
+  const expression: unknown[] = ["match", ["get", "Area"]];
+  for (const [name, shade] of shades) {
+    expression.push(name, shade === "unplanned" ? unplanned : planned);
+  }
+  expression.push(quiet);
+  return expression as ExpressionSpecification;
 }
 
 export function mountPowerCutsMap(
@@ -37,7 +58,11 @@ export function mountPowerCutsMap(
     setWorkerUrl(WORKER_URL);
     workerReady = true;
   }
-  const dark = darkTheme();
+  const dark = documentTheme(document.documentElement) === "dark";
+  const planned = cssColor("--chart-wind", dark ? "#0ea5e9" : "#0d94d2");
+  const unplanned = cssColor("--chart-gas", dark ? "#f97316" : "#e06814");
+  const quiet = dark ? "#3f3f46" : "#e4e4e7";
+  const line = dark ? "#a1a1aa" : "#71717a";
   const map = new Map({
     container,
     attributionControl: false,
@@ -52,10 +77,26 @@ export function mountPowerCutsMap(
       glyphs: BASEMAP_GLYPHS,
       sources: {
         coast: { type: "geojson", data: "/basemap/coastline.geojson" },
-        cuts: { type: "geojson", data: features(incidents), cluster: true, clusterRadius: 48, clusterMaxZoom: 11 },
+        dno: { type: "geojson", data: POWER_CUTS_DNO_GEOJSON },
+        cuts: { type: "geojson", data: features(incidents), cluster: false },
       },
       layers: [
         { id: "background", type: "background", paint: { "background-color": dark ? "#0a0a0a" : "#f4f4f5" } },
+        {
+          id: "dno-fill",
+          type: "fill",
+          source: "dno",
+          paint: {
+            "fill-color": areaFill(incidents, quiet, planned, unplanned),
+            "fill-opacity": 0.72,
+          },
+        },
+        {
+          id: "dno-line",
+          type: "line",
+          source: "dno",
+          paint: { "line-color": line, "line-width": 1.25 },
+        },
         {
           id: "coast",
           type: "line",
@@ -63,25 +104,12 @@ export function mountPowerCutsMap(
           paint: { "line-color": dark ? "#3f3f46" : "#a1a1aa", "line-width": 1 },
         },
         {
-          id: "clusters",
-          type: "circle",
-          source: "cuts",
-          filter: ["has", "point_count"],
-          paint: {
-            "circle-color": dark ? "#3f3f46" : "#d4d4d8",
-            "circle-radius": ["step", ["get", "point_count"], 14, 10, 18, 30, 24],
-            "circle-stroke-width": 1,
-            "circle-stroke-color": dark ? "#a1a1aa" : "#3f3f46",
-          },
-        },
-        {
           id: "cuts",
           type: "circle",
           source: "cuts",
-          filter: ["!", ["has", "point_count"]],
           paint: {
-            "circle-color": ["match", ["get", "kind"], "planned", "#0d94d2", "#f97316"],
-            "circle-radius": 6,
+            "circle-color": ["match", ["get", "kind"], "planned", planned, unplanned],
+            "circle-radius": 5,
             "circle-stroke-width": 1,
             "circle-stroke-color": dark ? "#0a0a0a" : "#ffffff",
           },
@@ -101,23 +129,6 @@ export function mountPowerCutsMap(
       { padding: 24, animate: false },
     );
     onStatus("ready");
-  });
-  map.on("click", "clusters", (event) => {
-    const feature = event.features?.[0];
-    const clusterId = feature?.properties?.cluster_id;
-    const source = map.getSource("cuts");
-    if (typeof clusterId !== "number" || !source || !("getClusterExpansionZoom" in source)) {
-      return;
-    }
-    (source as GeoJSONSource).getClusterExpansionZoom(clusterId).then((zoom) => {
-      const geometry = feature?.geometry;
-      if (geometry?.type !== "Point") {
-        return;
-      }
-      map.easeTo({ center: geometry.coordinates as [number, number], zoom });
-    }).catch(() => {
-      onStatus("error");
-    });
   });
   return () => {
     map.remove();

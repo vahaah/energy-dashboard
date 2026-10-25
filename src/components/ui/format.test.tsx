@@ -15,8 +15,12 @@ describe("cross-site formatting", () => {
     expect(html).toContain("57.4");
     expect(html).toContain(`${THIN_SPACE}GW`);
     expect(html).toContain("text-gray-900");
-    expect(html).toContain("text-[0.6em]");
+    expect(html).toContain("unit-label");
+    expect(html).not.toContain("text-[0.6em]");
     expect(html).not.toContain("text-gray-700");
+    const customers = renderToStaticMarkup(<Quantity value="16,329" unit="customers" />);
+    expect(customers).toContain("unit-customers");
+    expect(customers).toContain("customers");
   });
 
   it("never renders a bare dash", () => {

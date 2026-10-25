@@ -25,6 +25,27 @@ export function resolveTheme(stored: Theme | null, system: Theme): Theme {
   return stored ?? system;
 }
 
+/**
+ * The class is what Tailwind paints. A stale inline `color-scheme` must not
+ * win, or the page is light and the basemap stays on the dark style. When
+ * both classes are present, `.dark` wins: it is later in `globals.css`.
+ */
+export function documentTheme(root: HTMLElement): Theme {
+  const light = root.classList.contains("light");
+  const dark = root.classList.contains("dark");
+  if (light !== dark) {
+    return light ? "light" : "dark";
+  }
+  if (light && dark) {
+    return "dark";
+  }
+  const scheme = root.style.colorScheme;
+  if (scheme === "light" || scheme === "dark") {
+    return scheme;
+  }
+  return themeFromSystem();
+}
+
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   root.classList.toggle("dark", theme === "dark");

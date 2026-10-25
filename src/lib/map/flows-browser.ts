@@ -1,5 +1,6 @@
 import { addProtocol, GeoJSONSource, Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
 import { Protocol } from "pmtiles";
+import { documentTheme } from "@/lib/theme";
 import { transformBasemapStyle as transformStyle } from "@/lib/map/absolute-style";
 import { themeColor } from "@/lib/map/basemap-style";
 import { CHEVRON_STEPS, chevronDash } from "@/lib/map/chevron-dash";
@@ -65,19 +66,16 @@ function ensureProtocol(): void {
   protocolReady = true;
 }
 
+/**
+ * 64rem hides the sheet. 80rem is the audit width where the map column is
+ * wide enough that the basemap is the whole view. Re-read the theme when
+ * either query flips: a stale inline color-scheme was keeping style-dark
+ * on that wide map after the page had switched to the light class.
+ */
+const LAYOUT_THEME_QUERIES = ["(min-width: 64rem)", "(min-width: 80rem)"] as const;
+
 function themeOf(): FlowsMapTheme {
-  const root = document.documentElement;
-  const scheme = root.style.colorScheme;
-  if (scheme === "light" || scheme === "dark") {
-    return scheme;
-  }
-  if (root.classList.contains("light")) {
-    return "light";
-  }
-  if (root.classList.contains("dark")) {
-    return "dark";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return documentTheme(document.documentElement);
 }
 
 function styleUrl(theme: FlowsMapTheme): string {
@@ -299,6 +297,7 @@ export function mountFlowsMap(
   ensureProtocol();
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let theme = themeOf();
+  let requestedTheme: FlowsMapTheme | null = null;
   let lines = options.lines.slice();
   let electricity = options.electricity;
   let gas = options.gas;
@@ -783,7 +782,46 @@ export function mountFlowsMap(
     }
   }
 
+  function loadedTheme(): FlowsMapTheme | null {
+    const metadata = map.getStyle()?.metadata as { "grid:theme"?: unknown } | null | undefined;
+    const value = metadata?.["grid:theme"];
+    return value === "light" || value === "dark" ? value : null;
+  }
+
+  function syncTheme(): void {
+    const next = themeOf();
+    const loaded = loadedTheme();
+    if (next === theme && (loaded === null || loaded === next)) {
+      requestedTheme = null;
+      paintCanvas(next);
+      return;
+    }
+    if (requestedTheme === next) {
+      paintCanvas(next);
+      return;
+    }
+    requestedTheme = next;
+    theme = next;
+    paintCanvas(next);
+    stopMotion();
+    ready = false;
+    styleLoaded = false;
+    basemapLoaded = false;
+    pointersBound = false;
+    map.setStyle(styleUrl(next), { transformStyle });
+  }
+
   map.on("style.load", () => {
+    const live = themeOf();
+    const loaded = loadedTheme();
+    if (loaded !== null && loaded !== live) {
+      if (requestedTheme !== live) {
+        syncTheme();
+      }
+      return;
+    }
+    requestedTheme = null;
+    theme = live;
     styleLoaded = true;
     paintCanvas(theme);
     paint();
@@ -877,10 +915,20 @@ export function mountFlowsMap(
     }
   };
   document.addEventListener("visibilitychange", onVisibility);
+  const layoutQueries = LAYOUT_THEME_QUERIES.map((query) => window.matchMedia(query));
+  const onLayout = () => {
+    syncTheme();
+  };
+  for (const query of layoutQueries) {
+    query.addEventListener("change", onLayout);
+  }
 
   return {
     destroy: () => {
       document.removeEventListener("visibilitychange", onVisibility);
+      for (const query of layoutQueries) {
+        query.removeEventListener("change", onLayout);
+      }
       stopMotion();
       resizeObserver.disconnect();
       delete tested.maplibreMap;
@@ -956,19 +1004,8 @@ export function mountFlowsMap(
         addStationLayers();
       }
     },
-    setTheme: (next) => {
-      if (next === theme) {
-        paintCanvas(next);
-        return;
-      }
-      theme = next;
-      paintCanvas(next);
-      stopMotion();
-      ready = false;
-      styleLoaded = false;
-      basemapLoaded = false;
-      pointersBound = false;
-      map.setStyle(styleUrl(next), { transformStyle });
+    setTheme: () => {
+      syncTheme();
     },
   };
 }

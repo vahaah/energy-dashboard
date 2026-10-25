@@ -138,7 +138,7 @@ function StatValue({ value, unit }: { value: string; unit: string | null }) {
   return (
     <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
       <span className="font-sans text-heading-24 tabular-nums text-gray-1000">{value}</span>
-      {unit && value !== NOT_AVAILABLE ? <span className="text-[0.6em] text-gray-900">{unit}</span> : null}
+      {unit && value !== NOT_AVAILABLE ? <span className="unit-label text-gray-900">{unit}</span> : null}
     </p>
   );
 }

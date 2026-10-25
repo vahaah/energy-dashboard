@@ -220,7 +220,7 @@ function ProjectLine({ row }: { row: ProjectIndexRow }) {
         className="group flex min-h-11 items-start justify-between gap-3 rounded-md py-3 hover:bg-background-200 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none"
       >
         <span className="min-w-0">
-          <span className="block break-words text-copy-16 text-gray-1000 group-hover:underline">{row.name}</span>
+          <span className="block break-words text-copy-16 text-blue-700 group-hover:underline">{row.name}</span>
           <span className="mt-1 block break-words text-label-13 text-gray-900">{stage}</span>
           {statuses.length > 0 ? (
             <span className="mt-1 block break-words text-label-13 text-gray-900">{statuses.join(" · ")}</span>
@@ -229,7 +229,7 @@ function ProjectLine({ row }: { row: ProjectIndexRow }) {
             Rated power {row.power} · Connection capacity {row.connection}
           </span>
         </span>
-        <span aria-hidden="true" className="text-copy-16 text-gray-900">
+        <span aria-hidden="true" className="text-copy-16 text-blue-700">
           ›
         </span>
       </Link>

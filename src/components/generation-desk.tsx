@@ -246,7 +246,7 @@ function BalanceFooter({
         {BALANCE_SOURCES.map((source, index) => (
           <span key={source.href}>
             {index > 0 ? " · " : null}
-            <a href={source.href} className="underline-offset-2 hover:text-gray-1000 hover:underline">
+            <a href={source.href} className="inline-flex min-h-6 items-center underline-offset-2 hover:text-gray-1000 hover:underline">
               {source.label}
             </a>
           </span>

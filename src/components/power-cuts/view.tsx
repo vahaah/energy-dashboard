@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { PowerCutsMap } from "@/components/power-cuts/map";
+import { PostcodeList } from "@/components/power-cuts/postcode-list";
 import { OfgemContext } from "@/components/power-cuts/ofgem-chart";
 import { Absent } from "@/components/ui/absent";
 import { Card, CARD_GRID_CLASS } from "@/components/ui/card";
@@ -231,6 +232,9 @@ export function PowerCutsView({
                   <span className="inline-block size-2 rounded-full bg-chart-wind" /> Planned
                 </span>
               </p>
+              <p className="mt-1 text-copy-14 text-gray-900">
+                Each licence area is shaded. Grey means that area has no reported cut.
+              </p>
               <div className="mt-4">
                 <PowerCutsMap incidents={model.list} />
               </div>
@@ -307,9 +311,7 @@ export function PowerCutsView({
                       {". "}
                       {incident.startedLabel}. {incident.restorationLabel}.
                     </p>
-                    {incident.postcodes.length > 0 ? (
-                      <p className="mt-1 break-words text-copy-14 text-gray-900">{incident.postcodes.join(", ")}</p>
-                    ) : null}
+                    <PostcodeList postcodes={incident.postcodes} />
                   </li>
                 ))}
               </ol>

@@ -47,7 +47,7 @@ export function DataHealthReading({
         ) : (
           <>
             <span data-value>{reading.value_label}</span>
-            <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
+            <span data-unit className="align-baseline unit-label font-medium text-gray-900">
               {"\u2009"}
               {reading.unit}
             </span>

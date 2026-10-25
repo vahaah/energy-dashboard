@@ -218,6 +218,15 @@ body {
   font-weight: 400;
 }
 
+/* 0.6em of 14px copy is 8.4px. Keep the scale on large figures, floor the rest. */
+.unit-label {
+  font-size: max(0.6875rem, 0.6em);
+}
+
+.unit-customers {
+  font-size: max(0.75rem, 0.6em);
+}
+
 .text-mono-12 {
   font-family: var(--font-mono);
   font-size: 0.8125rem;

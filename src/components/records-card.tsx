@@ -65,7 +65,7 @@ function RecordStat({
       <p data-figure className="mt-1 whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000">
         <span data-value>{value}</span>
         {unit ? (
-          <span data-unit className="align-baseline text-[0.6em] font-medium text-gray-900">
+          <span data-unit className="align-baseline unit-label font-medium text-gray-900">
             {unit}
           </span>
         ) : null}
