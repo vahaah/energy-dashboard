@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { DataStateNotice } from "@/components/ui/data-state";
-import type { ChangeSource } from "@/lib/changes/query";
 import { formatLondonDateLabel, formatLondonDayMonthYear, formatVisibleInstants, parseUtcDateTime } from "@/lib/london-time";
 
 export type ChangeCard = {
@@ -142,11 +141,4 @@ function displayWhen(value: string): string {
     return formatLondonDayMonthYear(value);
   }
   return formatVisibleInstants(value);
-}
-
-export function attributionLine(sources: readonly ChangeSource[]): string {
-  return sources
-    .map((source) => source.attribution)
-    .filter((line) => line.length > 0)
-    .join(" ");
 }

@@ -26,6 +26,13 @@ export const CHANGES_PAGE_SIZE = 20;
 const ALLOWED = new Set(["entity_id", "cursor", "scope", "geography"]);
 const CURSOR = /^v1:(\d+)$/;
 
+export function attributionLine(sources: readonly ChangeSource[]): string {
+  return sources
+    .map((source) => source.attribution)
+    .filter((line) => line.length > 0)
+    .join(" ");
+}
+
 export type ChangeSource = {
   source_id: string;
   name: string;

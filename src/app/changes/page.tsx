@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { attributionLine, ChangesBoard, type ChangeCard } from "@/components/changes/changes-board";
+import { ChangesBoard, type ChangeCard } from "@/components/changes/changes-board";
 import { SeoPage } from "@/components/seo-page";
 import { changeFieldLabel, changeValueLabel } from "@/lib/changes/template";
-import { allChangeRows, readCheckedInChanges } from "@/lib/changes/query";
+import { allChangeRows, attributionLine, readCheckedInChanges } from "@/lib/changes/query";
 import { CHANGES_DESCRIPTION, CHANGES_H1, CHANGES_STANDFIRST, CHANGES_TITLE } from "@/lib/changes/copy";
 import { pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
