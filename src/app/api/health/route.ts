@@ -15,6 +15,7 @@ import {
 } from "@/lib/health";
 import { healthMetrics, loadDataHealth, type HealthMetric } from "@/lib/data-health";
 import { loadJobHealth, type JobHealth } from "@/lib/job-health";
+import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
 import type { CommodityPrice, EnergySnapshot, Generation5min } from "@/lib/types";
 import { peekWarmedPipe } from "@/lib/warm-envelope";
 
@@ -100,12 +101,14 @@ export async function GET() {
 
     const status = healthHttpStatus(streams);
     const jobs = await jobsPromise;
+    const powerCuts = await loadPowerCutsHealth();
     return NextResponse.json(
       {
         ok: status === 200,
         checkedAt: now.toISOString(),
         streams,
         jobs,
+        powerCuts,
         ...(metrics ? { metrics } : {}),
       },
       {

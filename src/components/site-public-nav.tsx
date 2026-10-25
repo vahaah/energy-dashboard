@@ -10,6 +10,7 @@ export const SITE_NAV_LINKS = [
   { href: "/explained/price-cap", label: "Price cap" },
   { href: "/methodology", label: "Methodology" },
   { href: "/data-health", label: "Data health" },
+  { href: "/power-cuts", label: "Power cuts" },
   { href: "/tools", label: "Tools" },
   { href: "/changes", label: "Changes" },
   { href: "/api", label: "API" },

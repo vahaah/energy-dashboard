@@ -163,5 +163,71 @@
     "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
     "attribution": "Contains OS data © Crown copyright and database right 2026\nContains Royal Mail data © Royal Mail copyright and database right 2026\nSource: Office for National Statistics licensed under the Open Government Licence v.3.0",
     "cadence": "P3M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "uk-power-networks",
+    "name": "UK Power Networks",
+    "url": "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-live-faults/",
+    "used_for": "Current power cuts in the East of England, London and the South East. Planned, unplanned and restored faults. Restored faults are left out of the totals on the power cuts page.",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains UK Power Networks data, licensed under CC BY 4.0.",
+    "cadence": "PT15M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "northern-powergrid",
+    "name": "Northern Powergrid",
+    "url": "https://northernpowergrid.opendatasoft.com/explore/dataset/live-power-cuts-data/",
+    "used_for": "Current power cuts in the North East and Yorkshire. One incident is published once per postcode; Grid counts it once.",
+    "licence": "Northern Powergrid Open Data Licence.",
+    "licence_url": "https://northernpowergrid.opendatasoft.com/p/opendatalicence/",
+    "attribution": "Supported by Northern Powergrid Open Data",
+    "cadence": "PT15M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "nged",
+    "name": "National Grid Electricity Distribution",
+    "url": "https://connecteddata.nationalgrid.co.uk/dataset/d6672e1e-c684-4cea-bb78-c7e5248b62a2",
+    "used_for": "Current power cuts in the East Midlands, West Midlands, South West and South Wales. The reuse licence is still being confirmed.",
+    "licence": "Licence under confirmation. Read on 25 Oct 2026. The dataset is published on the NGED Connected Data portal.",
+    "licence_url": "https://connecteddata.nationalgrid.co.uk/dataset/d6672e1e-c684-4cea-bb78-c7e5248b62a2",
+    "attribution": "Contains National Grid Electricity Distribution data",
+    "cadence": "PT15M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "electricity-north-west",
+    "name": "Electricity North West",
+    "url": "https://electricitynorthwest.opendatasoft.com/explore/dataset/live_incidents/",
+    "used_for": "Current incidents in north-west England, published for outages of at least 5 customers. Shown when an API key is configured. Without a key the source is absent.",
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains SP Electricity North West data, CC BY 4.0.",
+    "cadence": "PT15M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "sp-energy-networks",
+    "name": "SP Energy Networks",
+    "url": "https://spenergynetworks.opendatasoft.com/explore/dataset/distribution-network-live-outages/",
+    "used_for": "Current outages in central and southern Scotland (SPD) and north Wales, Merseyside and Cheshire (SPM). No customer count is published. Shown when an API key is configured. Without a key the source is absent.",
+    "licence": "CC BY 4.0. SP Energy Networks accepts no liability for its accuracy.",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains SP Energy Networks data, CC BY 4.0. SP Energy Networks accepts no liability for its accuracy.",
+    "cadence": "PT15M"
+  },
+  {
+    "catalogue_schema_version": 1,
+    "source_id": "ofgem",
+    "name": "Ofgem",
+    "url": "https://www.ofgem.gov.uk/transparency-document/riio-2-electricity-distribution-annual-report-2024-2025",
+    "used_for": "RIIO-ED2 2024/25 customer interruptions and customer minutes lost, shown as context beside current power cuts. Not an outage feed.",
+    "licence": "Open Government Licence v3.0. Read on 25 Oct 2026.",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "Contains Ofgem data licensed under the Open Government Licence v3.0.",
+    "cadence": "P1Y"
   }
 ]

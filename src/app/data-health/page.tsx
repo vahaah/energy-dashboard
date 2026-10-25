@@ -18,6 +18,8 @@ import { readDnoLayerFlag } from "@/lib/map/layer-flag";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { pageJsonLd } from "@/lib/jsonld";
 import { dataHealthPageMetadata } from "@/lib/page-metadata";
+import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
+import { operatorName } from "@/lib/power-cuts/copy";
 import { DATA_HEALTH_DESCRIPTION, DATA_HEALTH_H1, DATA_HEALTH_TITLE, SITE_ORIGIN } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,7 @@ export const metadata: Metadata = dataHealthPageMetadata();
 
 export default async function DataHealthPage() {
   const readings = await loadDataHealth(new Date());
+  const powerCuts = await loadPowerCutsHealth();
   const mapLayerFlag = await readDnoLayerFlag();
   const featuredIds = new Set<string>(featuredMetricIds());
   const constraintIds = new Set<string>(constraintMetricIds());
@@ -78,6 +81,9 @@ export default async function DataHealthPage() {
         </a>
         <a className="text-blue-700 underline-offset-2 hover:underline" href="#storage">
           Electricity storage
+        </a>
+        <a className="text-blue-700 underline-offset-2 hover:underline" href="#power-cuts">
+          Power cuts
         </a>
       </nav>
       <section id="source-time" className="scroll-mt-28">
@@ -179,6 +185,26 @@ export default async function DataHealthPage() {
                 className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
               >
                 <DataHealthReading reading={reading} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
+      <section id="power-cuts" className="scroll-mt-28">
+        <h2 className="text-heading-24 text-gray-1000">Power cuts</h2>
+        <Card className="mt-4" title="Network operators">
+          <p className="break-words text-copy-14 text-gray-900">
+            Each operator is fetched on its own. A missing key, a failed read, or a source that is not licensed stays on its own row.
+          </p>
+          <ul className="mt-4 flex flex-col">
+            {powerCuts.sources.map((source) => (
+              <li key={source.operator} className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0">
+                <p className="text-copy-14 text-gray-1000">{operatorName(source.operator)}</p>
+                <p className="text-label-12 text-gray-900">
+                  {source.status}
+                  {source.count > 0 ? ` · ${source.count}` : ""}
+                </p>
+                {source.error ? <p className="mt-1 break-words text-copy-14 text-gray-900">{source.error}</p> : null}
               </li>
             ))}
           </ul>

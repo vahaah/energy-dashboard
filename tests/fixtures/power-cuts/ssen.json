@@ -1,0 +1,36 @@
+{
+  "Faults": [
+    {
+      "reference": "UE6960",
+      "type": "HV",
+      "loggedAt": "2026-10-23T09:47:00.000+0000",
+      "estimatedRestoration": "2026-10-26T18:00:00.000+0000",
+      "resolved": false,
+      "affectedCustomerCount": 7,
+      "latitude": 51.12765968471991,
+      "longitude": -0.8016514536803886,
+      "networkId": "com.sse.ssepd.sepd",
+      "affectedAreas": [
+        "GU35 3FR",
+        "GU35 8SJ",
+        "GU35 8SR"
+      ]
+    },
+    {
+      "reference": "UF0211",
+      "type": "LV",
+      "loggedAt": "2026-10-24T15:30:00.000+0000",
+      "estimatedRestoration": "2026-10-29T20:00:00.000+0000",
+      "resolved": false,
+      "affectedCustomerCount": 6,
+      "latitude": 56.26498013139461,
+      "longitude": -4.937286053305299,
+      "networkId": "com.sse.ssepd.shepd",
+      "affectedAreas": [
+        "PA26 8AB",
+        "PA26 8BH",
+        "PA26 8BL"
+      ]
+    }
+  ]
+}

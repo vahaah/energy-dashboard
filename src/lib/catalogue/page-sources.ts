@@ -38,6 +38,7 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
     case "ons-nspl":
       return "Quarterly";
     case "desnz-dukes":
+    case "ofgem":
       return "Annual";
     case "neso-dno-areas":
       return "Daily";
@@ -55,6 +56,12 @@ export function sourceRefreshLabel(id: CataloguePageSource["id"]): string {
     case "sheffield-pv-live":
     case "national-gas":
       return "Hourly";
+    case "uk-power-networks":
+    case "northern-powergrid":
+    case "nged":
+    case "electricity-north-west":
+    case "sp-energy-networks":
+      return "Every 15 minutes";
     default: {
       const neverId: never = id;
       return neverId;

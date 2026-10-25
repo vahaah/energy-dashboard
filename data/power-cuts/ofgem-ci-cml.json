@@ -1,0 +1,124 @@
+{
+  "source_url": "https://www.ofgem.gov.uk/sites/default/files/2026-01/ED2-annual-summary-report-2024-2025-supplementary-datafile.xlsm",
+  "page_url": "https://www.ofgem.gov.uk/transparency-document/riio-2-electricity-distribution-annual-report-2024-2025",
+  "published": "2026-01-15",
+  "year": "2024/25",
+  "unit": "minutes",
+  "licence": "Open Government Licence v3.0",
+  "attribution": "Contains Ofgem data licensed under the Open Government Licence v3.0.",
+  "note": "A higher figure is worse. The sheet total is the published GB total and is not the sum of these rows.",
+  "rows": [
+    {
+      "label": "SP ENW",
+      "name": "SP Electricity North West",
+      "ci": 26.07,
+      "ci_target": 29.74,
+      "cml": 27.09,
+      "cml_target": 26.87
+    },
+    {
+      "label": "NPgN",
+      "name": "Northern Powergrid North East",
+      "ci": 51.03,
+      "ci_target": 46.69,
+      "cml": 46.75,
+      "cml_target": 41.06
+    },
+    {
+      "label": "NPgY",
+      "name": "Northern Powergrid Yorkshire",
+      "ci": 54.66,
+      "ci_target": 45.85,
+      "cml": 51.2,
+      "cml_target": 39.09
+    },
+    {
+      "label": "WMID",
+      "name": "West Midlands",
+      "ci": 46.31,
+      "ci_target": 47.88,
+      "cml": 34.18,
+      "cml_target": 29.54
+    },
+    {
+      "label": "EMID",
+      "name": "East Midlands",
+      "ci": 34.31,
+      "ci_target": 38.5,
+      "cml": 24.61,
+      "cml_target": 22.71
+    },
+    {
+      "label": "SWALES",
+      "name": "South Wales",
+      "ci": 42.1,
+      "ci_target": 42.27,
+      "cml": 27.51,
+      "cml_target": 24.59
+    },
+    {
+      "label": "SWEST",
+      "name": "South West",
+      "ci": 59.01,
+      "ci_target": 51.45,
+      "cml": 50.43,
+      "cml_target": 38.83
+    },
+    {
+      "label": "LPN",
+      "name": "London",
+      "ci": 11.2,
+      "ci_target": 13.39,
+      "cml": 10.46,
+      "cml_target": 13.56
+    },
+    {
+      "label": "SPN",
+      "name": "South East",
+      "ci": 42.19,
+      "ci_target": 42.54,
+      "cml": 30.37,
+      "cml_target": 31.15
+    },
+    {
+      "label": "EPN",
+      "name": "East of England",
+      "ci": 44.62,
+      "ci_target": 41.83,
+      "cml": 32.51,
+      "cml_target": 30.09
+    },
+    {
+      "label": "SPD",
+      "name": "SP Distribution",
+      "ci": 31.29,
+      "ci_target": 41.76,
+      "cml": 25.76,
+      "cml_target": 29.56
+    },
+    {
+      "label": "SPMW",
+      "name": "SP Manweb",
+      "ci": 28.55,
+      "ci_target": 33,
+      "cml": 34.54,
+      "cml_target": 31.04
+    },
+    {
+      "label": "SSEH",
+      "name": "SSEN North",
+      "ci": 59.1,
+      "ci_target": 61.89,
+      "cml": 68.91,
+      "cml_target": 52.87
+    },
+    {
+      "label": "SSES",
+      "name": "SSEN South",
+      "ci": 41.85,
+      "ci_target": 46.06,
+      "cml": 51.18,
+      "cml_target": 41.65
+    }
+  ]
+}

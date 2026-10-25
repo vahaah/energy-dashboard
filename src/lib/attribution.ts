@@ -129,6 +129,15 @@ export const ONS_POSTCODE_ATTRIBUTION_LINES = [
 
 export const ONS_POSTCODE_ATTRIBUTION = ONS_POSTCODE_ATTRIBUTION_LINES.join("\n");
 
+export const UKPN_POWER_CUTS_ATTRIBUTION = "Contains UK Power Networks data, licensed under CC BY 4.0.";
+export const NPG_POWER_CUTS_ATTRIBUTION = "Supported by Northern Powergrid Open Data";
+export const NPG_OPEN_DATA_LICENCE_URL = "https://northernpowergrid.opendatasoft.com/p/opendatalicence/";
+export const NGED_POWER_CUTS_ATTRIBUTION = "Contains National Grid Electricity Distribution data";
+export const ENW_POWER_CUTS_ATTRIBUTION = "Contains SP Electricity North West data, CC BY 4.0.";
+export const SPEN_POWER_CUTS_ATTRIBUTION =
+  "Contains SP Energy Networks data, CC BY 4.0. SP Energy Networks accepts no liability for its accuracy.";
+export const OFGEM_CI_CML_ATTRIBUTION = "Contains Ofgem data licensed under the Open Government Licence v3.0.";
+
 export const DATA_SOURCE_IDS = [
   "elexon-bmrs",
   "neso-open-data",
@@ -145,6 +154,12 @@ export const DATA_SOURCE_IDS = [
   "geonames",
   "elexon-isd",
   "ons-nspl",
+  "uk-power-networks",
+  "northern-powergrid",
+  "nged",
+  "electricity-north-west",
+  "sp-energy-networks",
+  "ofgem",
 ] as const;
 
 export const GEONAMES_URL = "https://www.geonames.org/";

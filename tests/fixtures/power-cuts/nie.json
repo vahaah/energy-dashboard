@@ -1,0 +1,35 @@
+[
+  {
+    "outageId": "5943972",
+    "outageType": "Fault",
+    "point": {
+      "coordinates": "285738.38500000,439743.16600000"
+    },
+    "startTime": "7:55 AM, 25 Oct",
+    "estRestoreFullDateTime": "6:30 PM, 25 Oct 2026",
+    "postCode": "BT56 8",
+    "numCustAffected": "1"
+  },
+  {
+    "outageId": "5943919",
+    "outageType": "Fault",
+    "point": {
+      "coordinates": "259138.76798000,420156.50047700"
+    },
+    "startTime": "7:30 AM, 25 Oct",
+    "estRestoreFullDateTime": "11:30 PM, 25 Oct 2026",
+    "postCode": "BT47 3 ;BT49 9",
+    "numCustAffected": "37"
+  },
+  {
+    "outageId": "5943180",
+    "outageType": "Fault",
+    "point": {
+      "coordinates": "223820.00000000,358111.79300000"
+    },
+    "startTime": "1:32 PM, 24 Oct",
+    "estRestoreFullDateTime": "Not available - Update to follow",
+    "postCode": "BT94 1 ;BT94 2",
+    "numCustAffected": "1"
+  }
+]

@@ -34,6 +34,9 @@ const PAGES = [
   "/pipeline?state=unavailable",
   "/pipeline?state=empty",
   "/pipeline?state=chart",
+  "/power-cuts",
+  "/power-cuts?state=empty",
+  "/power-cuts?state=absent",
   "/projects/epj_12b1f540736598a6/reliance-worldwide-corporation-buildings-3-4-5-7-and-12-horton-road-solar-photov",
   "/assets/ast_6fd10c193ba2193d/moyle",
 ] as const;
@@ -524,12 +527,30 @@ for (const theme of THEMES) {
           })
         );
         await page.route(/pmtiles|blob\.vercel-storage\.com/i, (route) => route.abort());
+        const mapAssets: string[] = [];
+        page.on("request", (request) => {
+          if (/maplibre|coastline\.geojson/i.test(request.url())) {
+            mapAssets.push(request.url());
+          }
+        });
         const mapPage = path === "/map";
         await page.goto(path, { waitUntil: mapPage ? "domcontentloaded" : "networkidle" });
         await page.locator("main").first().waitFor({ state: "visible" });
-        const preview = new URL(path, "http://127.0.0.1").searchParams.get("state");
-        if (preview) {
+        const location = new URL(path, "http://127.0.0.1");
+        const preview = location.searchParams.get("state");
+        if (preview && location.pathname.startsWith("/pipeline")) {
           await page.locator(`[data-pipeline-state="${preview}"]`).waitFor();
+        }
+        if (location.pathname === "/power-cuts") {
+          await page.locator(`[data-power-cuts-state="${preview ?? "ready"}"]`).waitFor();
+          await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+          if (preview === "empty" || preview === "absent") {
+            await expect(page.locator("[data-power-cuts-map]")).toHaveCount(0);
+            expect(mapAssets).toEqual([]);
+          } else {
+            await expect(page.locator("[data-power-cuts-map]")).toHaveCount(1);
+            await expect(page.locator(".overflow-x-auto table").first()).toBeVisible();
+          }
         }
         if (path === "/map") {
           await page
