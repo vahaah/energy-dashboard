@@ -105,17 +105,22 @@ export default async function DataHealthPage() {
             Supply, demand, linepack and storage for the gas day. These series are separate from the System Average Price.
           </p>
           <ul className="mt-4 flex flex-col">
-            {physicalGasCoverage().map((series) => (
-              <li
-                key={series.dataset_id}
-                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <p className="text-copy-14 text-gray-1000">{series.dataset_id}</p>
-                <p className="text-label-12 text-gray-900">{series.expected_cadence}</p>
-                <p className="mt-1 break-words text-copy-14 text-gray-900">{series.coverage}</p>
-              </li>
+            {physicalGasCoverage().slice(0, 6).map((series) => (
+              <GasCoverageItem key={series.dataset_id} series={series} />
             ))}
           </ul>
+          {physicalGasCoverage().length > 6 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-copy-14 text-gray-1000">
+                Show all {physicalGasCoverage().length} publications
+              </summary>
+              <ul className="mt-3 flex flex-col">
+                {physicalGasCoverage().slice(6).map((series) => (
+                  <GasCoverageItem key={series.dataset_id} series={series} />
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </Card>
       </section>
       <section id="constraints" className="scroll-mt-28">
@@ -164,7 +169,7 @@ export default async function DataHealthPage() {
         <h2 className="text-heading-24 text-gray-1000">Electricity storage</h2>
         <Card className="mt-4" title="Pumped storage and batteries">
           <p className="break-words text-copy-14 text-gray-900">
-            Discharge and charging from the warmed FUELINST envelope. The storage page keeps the DESNZ inventory
+            Discharge and charging from the latest FUELINST reading Grid already holds. The storage page keeps the DESNZ inventory
             separate from this monitored fleet.
           </p>
           <p className="mt-3">
@@ -205,6 +210,20 @@ function storageReadings(readings: readonly Reading[]): Reading[] {
     }
   }
   return rows;
+}
+
+function GasCoverageItem({
+  series,
+}: {
+  series: { dataset_id: string; expected_cadence: string; coverage: string };
+}) {
+  return (
+    <li className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0">
+      <p className="text-copy-14 text-gray-1000">{series.dataset_id}</p>
+      <p className="text-label-12 text-gray-900">{series.expected_cadence}</p>
+      <p className="mt-1 break-words text-copy-14 text-gray-900">{series.coverage}</p>
+    </li>
+  );
 }
 
 function SeriesRow({ reading }: { reading: Reading }) {

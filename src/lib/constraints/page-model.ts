@@ -108,7 +108,7 @@ function publishingLag(settlementDate: string | null, now: Date | undefined): st
   if (days <= 7) {
     return null;
   }
-  return measuredBreakdownLagNote(settlementDate);
+  return measuredBreakdownLagNote(settlementDate, days);
 }
 
 function costSeries(release: ConstraintRelease): MeasuredCostChartSeries {

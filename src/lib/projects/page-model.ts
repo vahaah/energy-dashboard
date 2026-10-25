@@ -34,6 +34,7 @@ export type ProjectIndexRow = {
   gate: string;
   power: string;
   connection: string;
+  nation: string;
 };
 
 export type StatusLine = {
@@ -80,6 +81,22 @@ export function projectPlace(country: string | null, region: string | null): str
   return "Country not published";
 }
 
+function publishedStatus(label: string): string | null {
+  return label === "Unknown" ? null : label;
+}
+
+function connectionStatus(project: EnergyProject): string {
+  const parts = [
+    publishedStatus(stageLabel(project.connection_stage)),
+    publishedStatus(gateLabel(project.connection_gate)),
+    publishedStatus(agreementLabel(project.agreement_status)),
+  ].filter((part): part is string => part !== null);
+  if (parts.length === 0) {
+    return `${technologyLabel(project.technology)} project, ${project.project_id}`;
+  }
+  return parts.join(", ");
+}
+
 function measureLabel(value: number | null, unit: string): string {
   if (value === null) {
     return "Not published";
@@ -112,6 +129,7 @@ export function projectIndexRow(project: EnergyProject): ProjectIndexRow {
     gate: gateLabel(project.connection_gate),
     power: measureLabel(project.power_mw, "MW"),
     connection: measureLabel(project.connection_capacity_mw, "MW"),
+    nation: project.country ?? "Not published",
   };
 }
 
@@ -154,7 +172,7 @@ export function buildProjectProfile(project: EnergyProject, events: readonly Cha
       },
       {
         label: "Connection",
-        value: `${stageLabel(project.connection_stage)}, ${gateLabel(project.connection_gate)}, ${agreementLabel(project.agreement_status)}`,
+        value: connectionStatus(project),
         date: formatProjectDate(project.expected_energisation, NO_DATE_PUBLISHED),
         source: sourceLine(project.connection_source_id, project.connection_release_id),
       },

@@ -165,8 +165,7 @@ export function formatMw(mw: number | null): string {
   if (mw === null) {
     return "—";
   }
-  const text = mw.toFixed(3).replace(/\.?0+$/, "");
-  return `${text} MW`;
+  return `${mw.toLocaleString("en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MW`;
 }
 
 export function formatFactMw(mw: number | null): string {

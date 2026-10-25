@@ -172,11 +172,12 @@ export function PipelineTable({ rows, forcedEmpty = false }: { rows: PipelineTab
             </thead>
             <tbody>
               {slice.map((row) => (
-                <tr key={row.ref} className="border-b border-gray-alpha-400 align-top">
+                <tr key={row.ref} className={`border-b border-gray-alpha-400 align-top ${row.href ? "hover:bg-background-200" : ""}`}>
                   <td className="max-w-64 min-w-0 py-3 pr-3">
                     {row.href ? (
-                      <Link href={row.href} className="break-words text-copy-14 text-blue-700 underline-offset-2 hover:underline">
+                      <Link href={row.href} className="inline-flex min-h-11 items-center gap-2 break-words text-copy-14 text-gray-1000 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none">
                         {row.name}
+                        <span aria-hidden="true" className="text-gray-900">›</span>
                       </Link>
                     ) : (
                       <span className="break-words text-copy-14 text-gray-1000">{row.name}</span>

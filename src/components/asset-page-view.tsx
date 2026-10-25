@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CiteButton } from "@/components/cite-button";
 import { CopyLinkButton } from "@/components/copy-link-button";
-import { Card } from "@/components/ui/card";
+import { Absent } from "@/components/ui/absent";
+import { Card, CardEmpty } from "@/components/ui/card";
 import { flowDirection, latestFlow } from "@/lib/assets/flows";
 import { LOCATION_UNAVAILABLE, NOT_AVAILABLE, missingSeriesCopy, precisionLabel } from "@/lib/assets/labels";
 import type { AssetFact, AssetPageModel } from "@/lib/assets/page-model";
@@ -38,8 +39,10 @@ export function AssetFacts({ facts }: { facts: readonly AssetFact[] }) {
           data-fact-column={fact.column}
           className={`min-w-0 ${fact.column === 1 ? "sm:col-start-1" : "sm:col-start-2"}`}
         >
-          <Card as="article" size="stat" title={fact.label} tooltip={fact.tooltip}>
-            <p className="break-words text-heading-24 text-gray-1000">{fact.value}</p>
+          <Card as="article" size={fact.id === "mw" ? "stat" : undefined} title={fact.label} tooltip={fact.tooltip}>
+            <p className={fact.id === "mw" ? "break-words text-heading-24 text-gray-1000" : "break-words text-copy-16 text-gray-1000"}>
+              {fact.value === NOT_AVAILABLE ? <Absent reason="Not published" /> : fact.value}
+            </p>
           </Card>
         </div>
       ))}
@@ -81,8 +84,10 @@ function MiniMap({ model }: { model: AssetPageModel }) {
 function PointSketch({ longitude, latitude }: { longitude: number; latitude: number }) {
   const spot = project(longitude, latitude, POINT_BOX);
   return (
-    <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label="Approximate location">
+    <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label="Approximate location, 100 km scale">
       <circle cx={spot.x} cy={spot.y} r="5" fill="var(--chart-wind)" />
+      <line x1="16" y1="144" x2="60" y2="144" stroke="currentColor" strokeWidth="2" />
+      <text x="16" y="136" fill="currentColor" fontSize="11">100 km</text>
     </svg>
   );
 }
@@ -96,7 +101,7 @@ function SchematicLine({
   const end = project(map.remoteLongitude, map.remoteLatitude, SCHEMATIC_BBOX);
   return (
     <div className="min-w-0">
-      <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label={SCHEMATIC_LINK_LABEL}>
+      <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label={`${SCHEMATIC_LINK_LABEL} Scale is schematic.`}>
         <line
           x1={start.x}
           y1={start.y}
@@ -116,7 +121,7 @@ function OutputSeries({ model, series }: { model: AssetPageModel; series: readon
   if (!model.output.attached) {
     return (
       <Card title="Output">
-        <p className="text-copy-16 text-gray-1000">{missingSeriesCopy(model.output.source)}</p>
+        <CardEmpty>{missingSeriesCopy(model.output.source)}</CardEmpty>
       </Card>
     );
   }
@@ -127,7 +132,7 @@ function OutputSeries({ model, series }: { model: AssetPageModel; series: readon
     <Card title="Output" footer={<p className="break-words">{model.attributions.join(" ")}</p>}>
       <p className="text-label-13 text-gray-900">FUELINST {model.output.code}</p>
       <p className="mt-2 break-words text-heading-24 text-gray-1000">
-        {latest ? `${latest.generation_mw} MW` : NOT_AVAILABLE}
+        {latest ? `${latest.generation_mw} MW` : <Absent reason="Not published" />}
       </p>
       {direction ? (
         <p className="mt-1 text-copy-14 text-gray-900">
@@ -219,7 +224,9 @@ export function AssetPageView({
               <p className="text-label-13 text-gray-900">
                 {claim.role} · {claim.source}
               </p>
-              <p className="mt-1 break-words text-copy-16 text-gray-1000">{claim.value}</p>
+              <p className="mt-1 break-words text-copy-16 text-gray-1000">
+                {claim.value === NOT_AVAILABLE ? <Absent reason="Not published" /> : claim.value}
+              </p>
               <p className="mt-1 break-words text-copy-14 text-gray-900">{claim.evidence}</p>
             </li>
           ))}

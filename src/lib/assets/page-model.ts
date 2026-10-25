@@ -139,7 +139,7 @@ function stationClaims(projects: readonly AssetProjectView[], sources: readonly 
 function stationFacts(detail: AssetDetail): AssetFact[] {
   const storage = detail.row.technology === "pumped_storage";
   const facts: AssetFact[] = [
-    { id: "mw", label: "MW", value: formatFactMw(detail.row.mw), column: 1 },
+    { id: "mw", label: "Capacity", value: formatFactMw(detail.row.mw), column: 1 },
   ];
   if (storage) {
     facts.push({ id: "mwh", label: "MWh", value: NOT_AVAILABLE, column: 2 });
@@ -273,7 +273,7 @@ export function assetPageModel(detail: AssetDetail): AssetPageModel {
     : stationClaims(detail.projects, detail.row.sources);
   const facts = link
     ? [
-        { id: "mw", label: "MW", value: NOT_AVAILABLE, column: 1 as const },
+        { id: "mw", label: "Capacity", value: NOT_AVAILABLE, column: 1 as const },
         { id: "basis", label: "Capacity basis", value: NOT_AVAILABLE, column: 2 as const },
         {
           id: "precision",
