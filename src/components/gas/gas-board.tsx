@@ -2,10 +2,11 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { ChartBoundary } from "@/components/gas/chart-boundary";
 import { DataStateNotice } from "@/components/ui/data-state";
+import { Freshness } from "@/components/ui/freshness";
 import { Card } from "@/components/ui/card";
 import { ABSENT_FIGURE } from "@/lib/data-state";
 import { formatDisplay } from "@/lib/display-rounding";
@@ -24,7 +25,14 @@ import {
   GAS_UNIT_STOCK,
   type GasPageBasis,
 } from "@/lib/gas/copy";
-import { selectGasSlice, type GasDocument, type GasShareRow, type GasSlice, type GasStat } from "@/lib/gas/view";
+import {
+  selectGasSlice,
+  type GasComparisonRow,
+  type GasDocument,
+  type GasShareRow,
+  type GasSlice,
+  type GasStat,
+} from "@/lib/gas/view";
 
 const GasSeriesChart = dynamic(
   () => import("@/components/gas/gas-series-chart").then((mod) => mod.GasSeriesChart),
@@ -79,29 +87,32 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
           </Link>
         </div>
         <p className="text-copy-14 text-gray-1000">{slice.dayLabel}</p>
-        <p className="text-mono-12 break-words text-gray-900">
-          Data time{" "}
-          <time data-clock="data" dateTime={slice.stamp.dataTime}>
-            {slice.stamp.dataTimeLabel}
-          </time>
-          {" · Published "}
-          <time data-clock="published" dateTime={slice.stamp.publishedAt}>
-            {slice.stamp.publishedLabel}
-          </time>
-          {" · Retrieved "}
-          <time data-clock="retrieved" dateTime={slice.stamp.retrievedAt}>
-            {slice.stamp.retrievedLabel}
-          </time>
-        </p>
-        {slice.staleText ? <p data-gas-stale>{slice.staleText}</p> : null}
-        {slice.partialText ? <p data-gas-partial>{slice.partialText}</p> : null}
+        <Freshness
+          state={slice.staleText ? "stale" : slice.partialText ? "partial" : "current"}
+          asOf={slice.stamp.publishedLabel}
+          asOfDateTime={slice.stamp.publishedAt}
+          detail={
+            slice.staleText || slice.partialText ? (
+              <>
+                {slice.staleText ? <span data-gas-stale>{slice.staleText}</span> : null}
+                {slice.staleText && slice.partialText ? " " : null}
+                {slice.partialText ? <span data-gas-partial>{slice.partialText}</span> : null}
+              </>
+            ) : null
+          }
+        />
       </header>
 
-      {slice.stats.map((stat) => (
-        <div key={stat.id} className="col-span-6 lg:col-span-3">
-          <StatCard stat={stat} />
-        </div>
-      ))}
+      <div className="col-span-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {slice.stats.map((stat) => (
+          <StatCard
+            key={stat.id}
+            stat={stat}
+            partialReason={slice.partialText}
+            suppressPartial={suppressPartialBadges(slice)}
+          />
+        ))}
+      </div>
 
       <div className="col-span-12">
         <SeriesCard slice={slice} />
@@ -190,6 +201,8 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
         <Card title="Comparison with recent days">
           {slice.comparison.length === 0 ? (
             <p className="text-copy-14 text-gray-900">No other gas day is published on this basis.</p>
+          ) : slice.comparison.length === 1 && slice.comparison[0] ? (
+            <ComparisonSentence row={slice.comparison[0]} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-0 text-left text-copy-14">
@@ -272,23 +285,54 @@ function BasisControl({
   );
 }
 
-function StatCard({ stat }: { stat: GasStat }) {
+function suppressPartialBadges(slice: GasSlice): boolean {
+  const partial = slice.stats.filter((stat) => stat.state === "partial").length;
+  const other = slice.stats.some((stat) => stat.state != null && stat.state !== "partial");
+  return partial > 0 && !other && slice.partialText != null;
+}
+
+function StatCard({
+  stat,
+  partialReason,
+  suppressPartial,
+}: {
+  stat: GasStat;
+  partialReason: string | null;
+  suppressPartial: boolean;
+}) {
   const absent = stat.valueLabel === ABSENT_FIGURE;
   const basis = stat.asOfLabel ? `${GAS_BASIS_LABEL.completed}, ${stat.asOfLabel}` : stat.basisLabel;
+  const partial = stat.state === "partial";
+  const showNotice = stat.state != null && !(partial && suppressPartial);
   return (
-    <Card size="stat" title={stat.title} className="h-full">
-      {stat.state ? <DataStateNotice state={stat.state} /> : null}
+    <Card
+      size="stat"
+      title={stat.title}
+      className="h-full min-w-0"
+      tooltip={partial && !suppressPartial && partialReason ? partialReason : undefined}
+    >
+      {showNotice && stat.state ? <DataStateNotice state={stat.state} /> : null}
       {absent ? null : <p className="mt-2 font-sans text-heading-24 tabular-nums text-gray-1000">{stat.valueLabel}</p>}
       {absent ? null : <p className="text-label-13 text-gray-900">{stat.unit}</p>}
-      <p className="mt-2 text-label-12 text-gray-900">{basis}</p>
+      <p className="mt-2 text-label-13 text-gray-900">{basis}</p>
     </Card>
   );
 }
 
 const GAS_TABLE_PREVIEW = 25;
 
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 function SeriesCard({ slice }: { slice: GasSlice }) {
-  const [showTable, setShowTable] = useState(true);
+  const hydrated = useHydrated();
+  const [opened, setOpened] = useState(false);
+  const showTable = !hydrated || opened;
   const showForecast = slice.series.some((point) => point.supplyForecast != null || point.demandForecast != null);
   const showDemand = slice.series.some((point) => point.demand != null);
   return (
@@ -296,24 +340,28 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
       title="Supply and demand"
       footer={<p className="break-words">{slice.footer}</p>}
     >
-      <div>
+      <p className="text-copy-14 text-gray-900">
+        {seriesUnit(slice.basis)}. as of {slice.stamp.publishedLabel}
+      </p>
+      <ChartBoundary>
+        <GasSeriesChart points={slice.series} now={slice.now} unit={seriesUnit(slice.basis)} />
+      </ChartBoundary>
+      <div className="mt-4">
         <button
           type="button"
-          aria-pressed={showTable}
-          onClick={() => setShowTable((current) => !current)}
+          aria-expanded={showTable}
+          aria-controls="gas-series-table"
+          onClick={() => setOpened((current) => !current)}
           className="inline-flex h-8 items-center text-label-13 text-gray-1000"
         >
-          Show table
+          {showTable ? "Hide table" : "Show table"}
         </button>
         {showTable ? (
-          <div className="mt-4 overflow-x-auto">
+          <div id="gas-series-table" className="mt-4 overflow-x-auto">
             <GasSeriesTable series={slice.series} showDemand={showDemand} showForecast={showForecast} />
           </div>
         ) : null}
       </div>
-      <ChartBoundary>
-        <GasSeriesChart points={slice.series} now={slice.now} unit={seriesUnit(slice.basis)} />
-      </ChartBoundary>
     </Card>
   );
 }
@@ -388,10 +436,11 @@ function ShareList({ rows }: { rows: readonly GasShareRow[] }) {
       {rows.map((row) => (
         <li key={row.publicationId} className="min-w-0">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="min-w-0 break-words text-copy-14 text-gray-1000">{row.label}</p>
+            <p className="min-w-0 break-words text-copy-14 text-gray-1000" title={row.publicationId}>
+              {row.label}
+            </p>
             <p className="shrink-0 text-label-13 tabular-nums text-gray-1000">{row.percent}%</p>
           </div>
-          <p className="text-mono-12 text-gray-900">{row.publicationId}</p>
           <div className="mt-2 h-2 overflow-hidden rounded-sm bg-gray-200">
             <div className="h-2 rounded-sm bg-gray-1000" style={{ width: `${row.percent}%`, opacity: 0.85 }} />
           </div>
@@ -442,6 +491,16 @@ function BridgeFigure({
         <time dateTime={at}>{atLabel}</time>
       </p>
     </div>
+  );
+}
+
+function ComparisonSentence({ row }: { row: GasComparisonRow }) {
+  const state = row.state === "partial" ? "partial" : "complete";
+  return (
+    <p className="text-copy-14 text-gray-1000" data-comparison-basis={row.basis} data-comparison-state={row.state}>
+      {row.dayLabel} was {state}, with supply {row.supply} and demand {row.demand}, on a {GAS_BASIS_LABEL[row.basis]}{" "}
+      basis.
+    </p>
   );
 }
 

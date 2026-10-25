@@ -138,7 +138,7 @@ export function GenerationDesk({
           <h3 className="text-heading-16 text-gray-1000">Demand and generation, including embedded</h3>
           <InfoTooltip
             text="The lines are transmission demand plus estimated embedded wind and solar, and GB generation including that embedded output. The headline above is the half-hour supply balance."
-            label="What is Demand and generation, including embedded?"
+            label="About Demand and generation, including embedded"
           />
         </div>
         {pending ? (

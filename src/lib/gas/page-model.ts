@@ -186,7 +186,7 @@ function buildSlice(
     storage: storageFigures(release, history, basis),
     bridge: bridgeFor(release, generation),
     comparison: comparisonFor(release, basis, history, now),
-    footer: `${dayLabel}. ${publicationFooter(rows)}. ${GAS_ATTRIBUTION}`,
+    footer: `${dayLabel}. ${publicationFooter()}. ${GAS_ATTRIBUTION}`,
   };
 }
 
@@ -936,12 +936,8 @@ function isPageBasis(value: string): value is GasPageBasis {
   return (GAS_PAGE_BASES as readonly string[]).includes(value);
 }
 
-function publicationFooter(rows: readonly GasComponent[]): string {
-  const ids = [...new Set(rows.map((row) => row.publication_id))].sort();
-  if (ids.length === 0) {
-    return "National Gas";
-  }
-  return `National Gas ${ids.join(", ")}`;
+function publicationFooter(): string {
+  return "National Gas";
 }
 
 function isThinSlice(slice: GasSlice): boolean {

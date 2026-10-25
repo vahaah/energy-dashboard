@@ -156,7 +156,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
                   value: "Now",
                   position: "insideTopLeft",
                   fill: "var(--gray-700)",
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               />
             ) : null}

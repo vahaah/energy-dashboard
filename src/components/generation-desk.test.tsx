@@ -241,7 +241,8 @@ describe("generation desk layout", () => {
     expect(dashboardSource).toContain('from "@/components/ui/card"');
     expect(dashboardSource).toContain("PAGE_STACK_CLASS");
     expect(dashboardSource).toContain('id="section-generation"');
-    expect(dashboardSource).toContain("actions={");
+    expect(dashboardSource).toContain("<JumpTo");
+    expect(dashboardSource).not.toContain("BlockPeriodControl");
     expect(dashboardSource).toContain("headerRight=");
     expect(dashboardSource).not.toContain("gap-12");
     expect(dashboardSource).not.toContain("function EmptyState");
@@ -285,7 +286,7 @@ describe("generation desk layout", () => {
     expect(html).not.toContain('aria-label="Generation 20.2 GW');
     expect(html).toContain("grid-cols-[minmax(0,1fr)_2.5rem");
     expect(html).not.toContain("grid-cols-3");
-    expect(html.match(/What is Exports\?/g)?.length).toBe(2);
+    expect(html.match(/What is Exports\?/g) ?? []).toEqual([]);
     expect(html).toContain(">Imports<");
   });
 

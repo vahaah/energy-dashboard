@@ -19,7 +19,7 @@ describe("Card", () => {
     expect(html).toContain('data-slot="card"');
     expect(html).toContain("surface-card");
     expect(html).toContain("What does power cost?");
-    expect(html).toContain("What is What does power cost?");
+    expect(html).toContain("About What does power cost?");
     expect(html).toContain('data-slot="card-actions"');
     expect(html).toContain("Week");
     expect(html).toContain('data-slot="card-footer"');

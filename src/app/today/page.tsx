@@ -71,7 +71,7 @@ export default async function TodayPage() {
         }
       >
         <section className={CARD_GRID_CLASS}>
-          <Card as="article" title="Latest half-hour" size="stat" id="demand">
+          <Card as="article" title="Demand, latest half-hour" size="stat" id="demand">
             <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">
               <span data-value>{model.latest.demandGw}</span>
               <span data-unit className="align-baseline">
@@ -80,7 +80,7 @@ export default async function TodayPage() {
               </span>
             </p>
             <p className="mt-2 text-copy-14 text-gray-900">
-              Demand. Generation {model.latest.generationGw} GW
+              Generation {model.latest.generationGw} GW
               {model.latest.importsGw && model.latest.exportsGw
                 ? `. Importing ${model.latest.importsGw} GW, exporting ${model.latest.exportsGw} GW`
                 : ""}
@@ -170,15 +170,32 @@ export default async function TodayPage() {
             {model.interconnectors.length === 0 ? (
               <p className="text-copy-14 text-gray-900">No interconnector flows in the latest half-hour.</p>
             ) : (
-              <ul className="divide-y divide-gray-alpha-200 text-copy-14">
-                {model.interconnectors.map((flow) => (
-                  <li key={flow.country} className="flex justify-between py-2">
-                    <span>{flow.country}</span>
-                    <span className="tabular-nums">
-                      {flow.mw > 0 ? "Import" : flow.mw < 0 ? "Export" : "Flat"} {flow.gwLabel} GW
-                    </span>
-                  </li>
-                ))}
+              <ul className="flex flex-col gap-3 text-copy-14">
+                {model.interconnectors.map((flow) => {
+                  const peak = Math.max(...model.interconnectors.map((row) => Math.abs(row.mw)), 1);
+                  const direction = flow.mw > 0 ? "Import" : flow.mw < 0 ? "Export" : "Flat";
+                  const arrow = flow.mw > 0 ? "→" : flow.mw < 0 ? "←" : "·";
+                  const width = `${Math.round((Math.abs(flow.mw) / peak) * 100)}%`;
+                  return (
+                    <li key={flow.country} className="min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="text-gray-1000">{flow.country}</span>
+                        <span className="tabular-nums text-gray-900">
+                          {arrow} {direction} {flow.gwLabel} GW
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-sm bg-gray-200" aria-hidden="true">
+                        <div
+                          className="h-1.5 rounded-sm"
+                          style={{
+                            width,
+                            backgroundColor: flow.mw < 0 ? "var(--chart-biomass)" : "var(--chart-imports)",
+                          }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Card>

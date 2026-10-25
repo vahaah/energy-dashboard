@@ -189,6 +189,36 @@ describe("Northern Ireland page model", () => {
     expect(forecast?.rows.map((row) => row.value)).toEqual(["1,102", "900"]);
     expect(forecast?.rows.some((row) => row.time.includes("22:00"))).toBe(true);
   });
+
+  it("keeps a caption per London date when readings cross midnight", () => {
+    const now = new Date("2026-10-24T12:00:00.000Z");
+    const before = "2026-10-23T22:45:00.000Z";
+    const after = "2026-10-23T23:15:00.000Z";
+    const next = {
+      ...release,
+      series: release.series.map((series) => {
+        if (series.metric_id !== "elec.ni.demand.system") {
+          return series;
+        }
+        return {
+          ...series,
+          points: [
+            { time: before, value: 1000 },
+            { time: after, value: 1100 },
+          ],
+        };
+      }),
+    };
+    const model = buildNiPage(next, "Supported by EirGrid Group Data", now);
+    const demand = model.scopes
+      .find((scope) => scope.id === "ni")
+      ?.figures.find((figure) => figure.metricId === "elec.ni.demand.system");
+    expect(demand?.caption).toBeNull();
+    expect(demand?.groups.map((group) => group.caption)).toEqual(["23 Oct 2026", "24 Oct 2026"]);
+    expect(demand?.groups[0]?.rows[0]?.time).toContain("23:45");
+    expect(demand?.groups[1]?.rows[0]?.time).toContain("00:15");
+    expect(demand?.rows.every((row) => !row.time.includes("Oct"))).toBe(true);
+  });
 });
 
 describe("data sources", () => {

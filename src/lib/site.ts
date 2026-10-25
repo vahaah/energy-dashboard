@@ -4,7 +4,7 @@ export const SITE_ORIGIN = "https://grid.vahaah.com";
 export const SITE_URL = SITE_ORIGIN;
 export const SITE_NAME = "Grid";
 
-export const HOME_TITLE = "What's powering Britain's electricity today? | Grid";
+export const HOME_TITLE = "What's powering electricity in Great Britain? | Grid";
 export const HOME_DESCRIPTION =
   "GB electricity mix, carbon intensity, demand and prices. Free and updated hourly from Elexon, NESO and Sheffield Solar, with a source on each figure.";
 
@@ -53,7 +53,7 @@ export const API_DOCS_DESCRIPTION =
   "Free JSON API for GB electricity and gas data: no key, 60 requests a minute. Gas flows, projects, constraints, code lookups, changes and data health.";
 export const API_DOCS_H1 = "What data can I get from Grid, and how?";
 
-export const HOME_H1 = "What's powering Britain?";
+export const HOME_H1 = "What's powering electricity in Great Britain?";
 export const RECORDS_H1 = "GB electricity records";
 export const RECORDS_SUBLINE =
   "Highest and lowest half-hours since Grid's records began (NESO historic data from 2009), shown next to NESO's official records.";

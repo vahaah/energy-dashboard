@@ -1,13 +1,18 @@
 import { displayedPercents } from "@/lib/display-rounding";
 import { formatGrouped } from "@/lib/format/quantity";
 import { SEMO_SOURCE_LINE, SONI_SOURCE_LINE } from "@/lib/attribution";
-import { formatAbsent } from "@/lib/data-state";
+import { ABSENT_FIGURE, formatAbsent } from "@/lib/data-state";
 import { NI_EMPTY, NI_PARTIAL, niLatestSentence } from "@/lib/eirgrid/copy";
 import type { NiRelease, NiSeries } from "@/lib/eirgrid/release";
 import { EIRGRID_SERIES, type EirgridSeriesSpec } from "@/lib/eirgrid/spec";
-import { formatLondonDateTimeStamp, parseUtcDateTime } from "@/lib/london-time";
+import { formatLondonClock, formatLondonDateLabel, formatLondonDateTimeStamp, parseUtcDateTime } from "@/lib/london-time";
 
 export type NiScopeId = "ni" | "all";
+
+export type NiTableGroup = {
+  caption: string;
+  rows: { time: string; value: string }[];
+};
 
 export type NiFigure = {
   metricId: string;
@@ -17,6 +22,11 @@ export type NiFigure = {
   value: string;
   forecast: boolean;
   rows: { time: string; value: string }[];
+  groups: NiTableGroup[];
+  caption: string | null;
+  spark: number[];
+  freshness: "current" | "partial";
+  asOf: string | null;
 };
 
 export type NiFuelRow = {
@@ -130,10 +140,18 @@ function figure(metricId: string, series: NiSeries | undefined, now: Date): NiFi
   const forecast = spec.area.endsWith("forecast");
   const points = shownPoints(series?.points ?? [], forecast, now);
   const latest = [...points].reverse().find((point) => point.value != null) ?? null;
-  const rows = points.slice(-TABLE_ROWS).map((point) => ({
-    time: formatLondonDateTimeStamp(parseUtcDateTime(point.time)),
-    value: point.value == null ? formatAbsent(null) : formatFigure(point.value, spec.unit),
-  }));
+  const windowPoints = points.slice(-TABLE_ROWS);
+  const dated = windowPoints.map((point) => {
+    const instant = parseUtcDateTime(point.time);
+    return {
+      date: formatLondonDateLabel(instant),
+      time: formatLondonClock(instant),
+      value: point.value == null ? formatAbsent(null) : formatFigure(point.value, spec.unit),
+    };
+  });
+  const groups = groupByLondonDate(collapseTrailingAbsent(dated));
+  const rows = groups.flatMap((group) => group.rows);
+  const gaps = windowPoints.some((point) => point.value == null) || latest == null;
   return {
     metricId,
     label: spec.label,
@@ -142,7 +160,45 @@ function figure(metricId: string, series: NiSeries | undefined, now: Date): NiFi
     forecast,
     value: latest?.value == null ? formatAbsent(null) : formatFigure(latest.value, spec.unit),
     rows,
+    groups,
+    caption: groups.length === 1 ? groups[0]?.caption ?? null : null,
+    spark: windowPoints.map((point) => point.value).filter((value): value is number => value != null),
+    freshness: gaps ? "partial" : "current",
+    asOf: latest ? formatLondonClock(parseUtcDateTime(latest.time)) : null,
   };
+}
+
+type DatedRow = { date: string; time: string; value: string };
+
+function collapseTrailingAbsent(rows: DatedRow[]): DatedRow[] {
+  let end = rows.length;
+  while (end > 0 && rows[end - 1]?.value === ABSENT_FIGURE) {
+    end -= 1;
+  }
+  if (rows.length - end < 2) {
+    return rows;
+  }
+  return [...rows.slice(0, end), { date: "", time: "Not yet published", value: ABSENT_FIGURE }];
+}
+
+function groupByLondonDate(rows: DatedRow[]): NiTableGroup[] {
+  const groups: NiTableGroup[] = [];
+  for (const row of rows) {
+    const item = { time: row.time, value: row.value };
+    const last = groups[groups.length - 1];
+    if (!row.date) {
+      if (last) {
+        last.rows.push(item);
+      }
+      continue;
+    }
+    if (last && last.caption === row.date) {
+      last.rows.push(item);
+      continue;
+    }
+    groups.push({ caption: row.date, rows: [item] });
+  }
+  return groups;
 }
 
 function shownPoints(

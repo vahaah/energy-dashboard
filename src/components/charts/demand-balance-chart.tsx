@@ -18,7 +18,6 @@ import {
   NESO_EMBEDDED_FORECAST_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
 } from "@/lib/attribution";
-import { EXPORT_GAP_COLOR, IMPORT_GAP_COLOR } from "@/lib/colors";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
 import { useElementWidth } from "@/components/charts/use-element-width";
@@ -190,11 +189,13 @@ export function DemandBalanceChart({
   const forecastLabel = forecastLabelLayout(compact);
   const plotMargin = demandChartMargin(compact, datedDayTicks, demandForecast.length > 0);
   const lifted = demandBasis === DEMAND_FORECAST_EMBEDDED_BASIS;
+  const showImports = chartData.some((point) => (point.importGw ?? 0) > 0);
+  const showExports = chartData.some((point) => (point.exportGw ?? 0) > 0);
 
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <GapKey />
+        {showImports || showExports ? <GapKey showImports={showImports} showExports={showExports} /> : null}
         {demandForecast.length > 0 ? <DataStateNotice state="forecast" /> : null}
       </div>
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
@@ -256,7 +257,7 @@ export function DemandBalanceChart({
                   value: "Now",
                   position: "insideTopLeft",
                   fill: "var(--gray-700)",
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               />
             ) : null}
@@ -269,7 +270,7 @@ export function DemandBalanceChart({
                   value: "Forecast starts",
                   position: "insideTopLeft",
                   fill: "var(--gray-700)",
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               />
             ) : null}
@@ -315,7 +316,7 @@ export function DemandBalanceChart({
               dataKey="importGw"
               stackId="gap"
               stroke="none"
-              fill={IMPORT_GAP_COLOR}
+              fill="var(--chart-imports)"
               fillOpacity={0.28}
               name="Imports"
               connectNulls={false}
@@ -326,7 +327,7 @@ export function DemandBalanceChart({
               dataKey="exportGw"
               stackId="gap"
               stroke="none"
-              fill={EXPORT_GAP_COLOR}
+              fill="var(--chart-biomass)"
               fillOpacity={0.28}
               name="Exports"
               connectNulls={false}
@@ -439,25 +440,27 @@ export function DemandBalanceChart({
   );
 }
 
-function GapKey() {
+function GapKey({ showImports, showExports }: { showImports: boolean; showExports: boolean }) {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-1000">
-      <li className="inline-flex items-center gap-1.5">
-        <span
-          className="h-2 w-2.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: EXPORT_GAP_COLOR }}
-          aria-hidden="true"
-        />
-        Exports (generation above demand)
-      </li>
-      <li className="inline-flex items-center gap-1.5">
-        <span
-          className="h-2 w-2.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: IMPORT_GAP_COLOR }}
-          aria-hidden="true"
-        />
-        Imports (demand above generation)
-      </li>
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-label-13 text-gray-1000">
+      {showExports ? (
+        <li className="inline-flex items-center gap-1.5">
+          <span
+            className="h-2 w-2.5 shrink-0 rounded-sm bg-[var(--chart-biomass)]"
+            aria-hidden="true"
+          />
+          Exports (generation above demand)
+        </li>
+      ) : null}
+      {showImports ? (
+        <li className="inline-flex items-center gap-1.5">
+          <span
+            className="h-2 w-2.5 shrink-0 rounded-sm bg-[var(--chart-imports)]"
+            aria-hidden="true"
+          />
+          Imports (demand above generation)
+        </li>
+      ) : null}
     </ul>
   );
 }

@@ -34,7 +34,7 @@ describe("SEO titles and descriptions", () => {
   it("keeps homepage, records and P1 copy within the plan limits", () => {
     expect(SITE_ORIGIN).toBe("https://grid.vahaah.com");
     expect(SITE_URL).toBe(SITE_ORIGIN);
-    expect(HOME_TITLE).toBe("What's powering Britain's electricity today? | Grid");
+    expect(HOME_TITLE).toBe("What's powering electricity in Great Britain? | Grid");
     expect(RECORDS_TITLE).toBe("GB electricity records: wind, carbon, renewables | Grid");
     const titles = [
       HOME_TITLE,
