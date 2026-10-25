@@ -22,6 +22,7 @@ export async function publishAfterSuccess(
   await dropComposedDashboardPayloads();
   revalidateTag(DASHBOARD_CACHE_TAG, { expire: 0 });
   revalidatePath("/");
+  revalidatePath("/icon");
   revalidatePath("/today");
   revalidatePath("/prices/gas");
   revalidatePath("/api/dashboard");
