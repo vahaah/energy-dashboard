@@ -27,8 +27,8 @@ export function formatSettlementDate(isoDate: string): string {
   return `${weekday} ${formatLondonDayMonthYear(isoDate)}`;
 }
 
-export function measuredBreakdownLagNote(settlementDate: string, lagDays = 8): string {
-  return `Published with a lag of ${lagDays} days. The latest settlement date is ${formatSettlementDate(settlementDate)}.`;
+export function measuredBreakdownLagNote(settlementDate: string, ageDays = 8): string {
+  return `The latest settlement date is ${ageDays} days old (${formatSettlementDate(settlementDate)}).`;
 }
 
 export const CONSTRAINTS_SIGN =

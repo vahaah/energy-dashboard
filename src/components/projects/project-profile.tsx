@@ -43,10 +43,7 @@ export function ProjectProfileView({ profile }: { profile: ProjectProfile }) {
         <Card title="Planning" className="h-full">
           <StatusGroup
             lines={profile.statuses.filter(
-              (status) =>
-                status.label !== "Connection" &&
-                status.value !== "Unknown" &&
-                !(status.label === "Operation" && status.value === "Proposed"),
+              (status) => status.label !== "Connection" && status.value !== "Unknown",
             )}
           />
         </Card>

@@ -81,13 +81,25 @@ function MiniMap({ model }: { model: AssetPageModel }) {
   );
 }
 
+const KM_PER_DEGREE = 111.32;
+
+function scaleBarUnits(latitude: number): number {
+  const span = POINT_BOX.east - POINT_BOX.west;
+  const kmPerDegree = KM_PER_DEGREE * Math.cos((latitude * Math.PI) / 180);
+  if (span <= 0 || kmPerDegree <= 0) {
+    return 0;
+  }
+  return ((100 / kmPerDegree) / span) * 280;
+}
+
 function PointSketch({ longitude, latitude }: { longitude: number; latitude: number }) {
   const spot = project(longitude, latitude, POINT_BOX);
+  const bar = scaleBarUnits(latitude);
   return (
-    <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label="Approximate location, 100 km scale">
+    <svg viewBox="0 0 280 160" className="h-40 w-full rounded-lg bg-background-200" role="img" aria-label="Approximate location. The bar is 100 km at this latitude.">
       <circle cx={spot.x} cy={spot.y} r="5" fill="var(--chart-wind)" />
-      <line x1="16" y1="144" x2="60" y2="144" stroke="currentColor" strokeWidth="2" />
-      <text x="16" y="136" fill="currentColor" fontSize="11">100 km</text>
+      <line x1="16" y1="144" x2={16 + bar} y2="144" stroke="currentColor" strokeWidth="2" />
+      <text x="16" y="136" fill="currentColor" fontSize="13">100 km</text>
     </svg>
   );
 }
