@@ -3,6 +3,8 @@ name: IndexNow submit
 # Changed mode after a successful production deploy of main.
 # workflow_dispatch submits every sitemap URL (--all).
 # The key is the checked-in public file. Do not echo the environment.
+# deployment.ref may be refs/heads/main, main, or the commit SHA.
+# The same rule is indexNowDeploymentOnMain in src/lib/indexnow.ts.
 on:
   deployment_status:
   workflow_dispatch:
@@ -18,7 +20,6 @@ jobs:
       (
         github.event_name == 'deployment_status' &&
         github.event.deployment_status.state == 'success' &&
-        github.event.deployment.ref == 'refs/heads/main' &&
         contains(fromJSON('["Production","production"]'), github.event.deployment.environment)
       )
     runs-on: ubuntu-24.04
@@ -29,13 +30,41 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.deployment.sha || github.sha }}
+      - name: Confirm the deployment is on main
+        id: main
+        if: github.event_name == 'deployment_status'
+        env:
+          DEPLOY_REF: ${{ github.event.deployment.ref }}
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          set -euo pipefail
+          ref="${DEPLOY_REF}"
+          sha="${DEPLOY_SHA}"
+          on_main=false
+          if [ "$ref" = "main" ] || [ "$ref" = "refs/heads/main" ]; then
+            on_main=true
+          else
+            if [ -z "$sha" ]; then
+              sha="$ref"
+            fi
+            git fetch --no-tags origin main
+            if git merge-base --is-ancestor "$sha" origin/main; then
+              on_main=true
+            fi
+          fi
+          echo "on_main=${on_main}" >> "$GITHUB_OUTPUT"
+          if [ "$on_main" != "true" ]; then
+            echo "deployment is not on main"
+          fi
       - uses: actions/setup-node@v7
+        if: github.event_name == 'workflow_dispatch' || steps.main.outputs.on_main == 'true'
         with:
           node-version: "22"
           cache: npm
       - run: npm ci
+        if: github.event_name == 'workflow_dispatch' || steps.main.outputs.on_main == 'true'
       - name: Submit changed URLs
-        if: github.event_name == 'deployment_status'
+        if: github.event_name == 'deployment_status' && steps.main.outputs.on_main == 'true'
         run: npx tsx scripts/indexnow.ts
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}

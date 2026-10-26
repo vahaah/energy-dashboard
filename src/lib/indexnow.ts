@@ -1,4 +1,9 @@
-import { resolveIndexNowMarkerStore, type IndexNowMarkerStore } from "@/lib/indexnow-marker";
+import {
+  formatIndexNowMarker,
+  resolveIndexNowMarkerStore,
+  type IndexNowMarker,
+  type IndexNowMarkerStore,
+} from "@/lib/indexnow-marker";
 
 export const INDEXNOW_HOST = "grid.vahaah.com";
 export const INDEXNOW_KEY = "79e85fd471ac4c8e8327acd532d0a9c9";
@@ -83,7 +88,20 @@ export type IndexNowRunOptions = {
 export type SitemapUrlEntry = {
   url: string;
   lastmod: string | null;
+  /** Sitemap child this URL came from. Checkpoints are per stream. */
+  stream: string;
 };
+
+/** A production deployment ref of `main`, `refs/heads/main`, or a SHA that is on main. */
+export function indexNowDeploymentOnMain(ref: string, shaIsOnMain: boolean): boolean {
+  switch (ref) {
+    case "main":
+    case "refs/heads/main":
+      return true;
+    default:
+      return shaIsOnMain;
+  }
+}
 
 /** Paths already submitted before the Phase 1A routes. The one-shot posts the rest. */
 export const INDEXNOW_SETTLED_PATHS = [
@@ -162,7 +180,7 @@ export function sitemapLocs(xml: string): string[] {
 }
 
 /** `<loc>` values paired with the `<lastmod>` that follows each one. */
-export function sitemapUrlEntries(xml: string): SitemapUrlEntry[] {
+export function sitemapUrlEntries(xml: string, stream: string): SitemapUrlEntry[] {
   const seen = new Set<string>();
   const entries: SitemapUrlEntry[] = [];
   const pattern = /<loc\b[^>]*>([\s\S]*?)<\/loc>([\s\S]*?)(?=<loc\b|<\/url>|<\/sitemap>|$)/gi;
@@ -172,7 +190,7 @@ export function sitemapUrlEntries(xml: string): SitemapUrlEntry[] {
     seen.add(url);
     const lastmodMatch = /<lastmod\b[^>]*>([\s\S]*?)<\/lastmod>/i.exec(match[2] ?? "");
     const raw = lastmodMatch ? locText(lastmodMatch[1] ?? "") : "";
-    entries.push({ url, lastmod: lastmodTime(raw) == null ? null : raw.trim() });
+    entries.push({ url, stream, lastmod: lastmodTime(raw) == null ? null : raw.trim() });
   }
   return entries;
 }
@@ -183,18 +201,38 @@ export function lastmodTime(value: string | null | undefined): number | null {
   return Number.isFinite(time) ? time : null;
 }
 
-/** URLs whose lastmod is strictly newer than the stored marker. */
+/** URLs whose lastmod is strictly newer than that sitemap stream's checkpoint. */
 export function changedIndexNowUrls(
   entries: readonly SitemapUrlEntry[],
-  marker: string | null,
+  marker: IndexNowMarker | null,
 ): SitemapUrlEntry[] {
-  const floor = lastmodTime(marker);
+  const streams = marker?.streams ?? {};
   return entries.filter((entry) => {
     const time = lastmodTime(entry.lastmod);
     if (time == null) return false;
+    const floor = lastmodTime(streams[entry.stream]);
     if (floor == null) return true;
     return time > floor;
   });
+}
+
+/** Advance only the streams represented in `submitted`. Other checkpoints stay. */
+export function advanceIndexNowMarker(
+  previous: IndexNowMarker | null,
+  submitted: readonly SitemapUrlEntry[],
+): IndexNowMarker {
+  const streams = { ...(previous?.streams ?? {}) };
+  const best = new Map<string, number>();
+  for (const entry of submitted) {
+    const time = lastmodTime(entry.lastmod);
+    if (time == null) continue;
+    const current = best.get(entry.stream);
+    if (current == null || time > current) best.set(entry.stream, time);
+  }
+  for (const [stream, time] of best) {
+    streams[stream] = new Date(time).toISOString();
+  }
+  return { streams };
 }
 
 export function maxLastmod(entries: readonly SitemapUrlEntry[]): string | null {
@@ -210,7 +248,7 @@ export function maxLastmod(entries: readonly SitemapUrlEntry[]): string | null {
 /** Page URLs from a urlset, or from one level of sitemap index. */
 export async function pageEntriesFromSitemap(xml: string, fetchImpl: IndexNowFetch): Promise<SitemapUrlEntry[]> {
   if (!isSitemapIndex(xml)) {
-    return sitemapUrlEntries(xml);
+    return sitemapUrlEntries(xml, INDEXNOW_SITEMAP_URL);
   }
   const pages: SitemapUrlEntry[] = [];
   const seen = new Set<string>();
@@ -232,7 +270,7 @@ export async function pageEntriesFromSitemap(xml: string, fetchImpl: IndexNowFet
     if (!/<urlset[\s>]/.test(body) || /<sitemapindex[\s>]/.test(body)) {
       throw new Error("sitemap child: not a urlset");
     }
-    for (const entry of sitemapUrlEntries(body)) {
+    for (const entry of sitemapUrlEntries(body, loc)) {
       if (seen.has(entry.url)) continue;
       seen.add(entry.url);
       pages.push(entry);
@@ -357,7 +395,14 @@ async function submitAll(
     if (reportMissingStore) log("marker: store unset");
     return 0;
   }
-  return writeMarker(store, maxLastmod(entries), log);
+  let previous: IndexNowMarker | null;
+  try {
+    previous = await store.read();
+  } catch (error) {
+    log(`marker: error ${errorMessage(error)}`);
+    return 1;
+  }
+  return writeMarker(store, advanceIndexNowMarker(previous, entries), log);
 }
 
 async function submitChanged(
@@ -372,15 +417,11 @@ async function submitChanged(
     log("marker: store unset");
     return 1;
   }
-  let marker: string | null;
+  let marker: IndexNowMarker | null;
   try {
     marker = await markerStore.read();
   } catch (error) {
     log(`marker: error ${errorMessage(error)}`);
-    return 1;
-  }
-  if (marker != null && lastmodTime(marker) == null) {
-    log("marker: invalid");
     return 1;
   }
   const selected = changedIndexNowUrls(entries, marker);
@@ -388,25 +429,25 @@ async function submitChanged(
   if (selected.length === 0) return 0;
   const code = await postIndexNow(selected.map((entry) => entry.url), key, fetchImpl, log, sleep);
   if (code !== 0) return code;
-  return writeMarker(markerStore, maxLastmod(selected), log);
+  return writeMarker(markerStore, advanceIndexNowMarker(marker, selected), log);
 }
 
 async function writeMarker(
   store: IndexNowMarkerStore,
-  lastmod: string | null,
+  marker: IndexNowMarker,
   log: (line: string) => void,
 ): Promise<number> {
-  if (!lastmod) {
+  if (Object.keys(marker.streams).length === 0) {
     log("marker: no lastmod");
     return 0;
   }
   try {
-    await store.write(lastmod);
+    await store.write(marker);
   } catch (error) {
     log(`marker: error ${errorMessage(error)}`);
     return 1;
   }
-  log(`marker: ${lastmod}`);
+  log(`marker: ${formatIndexNowMarker(marker)}`);
   return 0;
 }
 

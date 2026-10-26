@@ -21,6 +21,8 @@ import {
   phase1bSettledPaths,
   batchUrlList,
   changedIndexNowUrls,
+  advanceIndexNowMarker,
+  indexNowDeploymentOnMain,
   maxLastmod,
   sitemapUrlEntries,
   indexNowReleaseReady,
@@ -338,15 +340,21 @@ describe("IndexNow", () => {
       <url><loc>https://grid.vahaah.com/new</loc><lastmod>2026-10-03T12:00:00.000Z</lastmod></url>
       <url><loc>https://grid.vahaah.com/blank</loc></url>
     </urlset>`;
-    let stored: string | null = "2026-10-02T00:00:00.000Z";
+    const pagesStream = "https://grid.vahaah.com/sitemap/pages.xml";
+    let stored: { streams: Record<string, string> } | null = {
+      streams: {
+        [pagesStream]: "2026-10-02T00:00:00.000Z",
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+      },
+    };
     const posts: string[][] = [];
     const lines: string[] = [];
     const code = await runIndexNow({
       mode: "changed",
       marker: {
         read: async () => stored,
-        write: async (lastmod) => {
-          stored = lastmod;
+        write: async (marker) => {
+          stored = marker;
         },
       },
       log: (line) => lines.push(line),
@@ -360,16 +368,55 @@ describe("IndexNow", () => {
     });
     expect(code).toBe(0);
     expect(posts).toEqual([["https://grid.vahaah.com/new"]]);
-    expect(stored).toBe("2026-10-03T12:00:00.000Z");
+    expect(stored).toEqual({
+      streams: {
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+        [pagesStream]: "2026-10-03T12:00:00.000Z",
+      },
+    });
     expect(lines).toEqual([
       "changed: 1 urls",
       "batch 1/1: 202 (1 urls)",
-      "marker: 2026-10-03T12:00:00.000Z",
+      'marker: {"streams":{"https://grid.vahaah.com/sitemap/assets.xml":"2026-08-03T09:00:03.000Z","https://grid.vahaah.com/sitemap/pages.xml":"2026-10-03T12:00:00.000Z"}}',
     ]);
-    expect(changedIndexNowUrls(sitemapUrlEntries(pages), "2026-10-02T00:00:00.000Z").map((entry) => entry.url)).toEqual([
-      "https://grid.vahaah.com/new",
+    expect(
+      changedIndexNowUrls(sitemapUrlEntries(pages, pagesStream), {
+        streams: { [pagesStream]: "2026-10-02T00:00:00.000Z" },
+      }).map((entry) => entry.url),
+    ).toEqual(["https://grid.vahaah.com/new"]);
+    expect(maxLastmod(sitemapUrlEntries(pages, pagesStream))).toBe("2026-10-03T12:00:00.000Z");
+  });
+
+  it("submits a catalogue URL published before the pages checkpoint", () => {
+    const pages = "https://grid.vahaah.com/sitemap/pages.xml";
+    const assets = "https://grid.vahaah.com/sitemap/assets.xml";
+    const entries = [
+      { url: "https://grid.vahaah.com/", lastmod: "2026-10-26T17:00:00.000Z", stream: pages },
+      { url: "https://grid.vahaah.com/assets/new", lastmod: "2026-10-20T00:00:00.000Z", stream: assets },
+      { url: "https://grid.vahaah.com/assets/old", lastmod: "2026-08-03T09:00:03.000Z", stream: assets },
+    ];
+    const marker = {
+      streams: {
+        [pages]: "2026-10-26T17:00:00.000Z",
+        [assets]: "2026-08-03T09:00:03.000Z",
+      },
+    };
+    expect(changedIndexNowUrls(entries, marker).map((entry) => entry.url)).toEqual([
+      "https://grid.vahaah.com/assets/new",
     ]);
-    expect(maxLastmod(sitemapUrlEntries(pages))).toBe("2026-10-03T12:00:00.000Z");
+    expect(advanceIndexNowMarker(marker, changedIndexNowUrls(entries, marker))).toEqual({
+      streams: {
+        [pages]: "2026-10-26T17:00:00.000Z",
+        [assets]: "2026-10-20T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("treats main and a SHA on main as the production branch", () => {
+    expect(indexNowDeploymentOnMain("refs/heads/main", false)).toBe(true);
+    expect(indexNowDeploymentOnMain("main", false)).toBe(true);
+    expect(indexNowDeploymentOnMain("5da675f58aeb72266c87c42c5bbcf475beac82fd", true)).toBe(true);
+    expect(indexNowDeploymentOnMain("5da675f58aeb72266c87c42c5bbcf475beac82fd", false)).toBe(false);
   });
 
   it("leaves the marker in place when a changed batch fails", async () => {
@@ -415,14 +462,16 @@ describe("IndexNow", () => {
       <url><loc>https://grid.vahaah.com/old</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
       <url><loc>https://grid.vahaah.com/new</loc><lastmod>2026-10-05T00:00:00.000Z</lastmod></url>
     </urlset>`;
-    let stored: string | null = "2026-10-04T00:00:00.000Z";
+    let stored: { streams: Record<string, string> } | null = {
+      streams: { "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z" },
+    };
     const posts: string[][] = [];
     const code = await runIndexNow({
       mode: "all",
       marker: {
         read: async () => stored,
-        write: async (lastmod) => {
-          stored = lastmod;
+        write: async (marker) => {
+          stored = marker;
         },
       },
       fetch: async (input, init) => {
@@ -434,7 +483,12 @@ describe("IndexNow", () => {
     });
     expect(code).toBe(0);
     expect(posts).toEqual([["https://grid.vahaah.com/old", "https://grid.vahaah.com/new"]]);
-    expect(stored).toBe("2026-10-05T00:00:00.000Z");
+    expect(stored).toEqual({
+      streams: {
+        "https://grid.vahaah.com/sitemap.xml": "2026-10-05T00:00:00.000Z",
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+      },
+    });
   });
 
   it("parses the script flags", () => {

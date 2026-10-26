@@ -14,9 +14,10 @@
  * 200 and 202 are success. Other statuses and network errors retry
  * when they are transient, then the batch is a failure.
  *
- * The default submits URLs whose lastmod is newer than the marker in
- * Redis (`grid:indexnow:lastmod`) or, when Redis is unset, Vercel Blob
- * (`releases/indexnow/marker.json`). `--all` submits every page URL and
+ * The default submits URLs whose lastmod is newer than that child
+ * sitemap's checkpoint in Redis (`grid:indexnow:lastmod`) or, when Redis
+ * is unset, Vercel Blob (`releases/indexnow/marker.json`). A pages build
+ * time does not hide an older catalogue stream. `--all` submits every page URL and
  * advances that marker when a store is configured. The key is the
  * checked-in public file and is never printed.
  */
