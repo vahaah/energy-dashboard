@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import sitemap from "@/app/sitemap";
+import sitemap from "@/lib/sitemap-document";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import { SITE_NAV_LINKS } from "@/components/site-public-nav";
 import {

@@ -116,6 +116,12 @@ function decodeXmlText(value: string): string {
   return value.replace(/&(amp|lt|gt|quot|apos);/g, (match, name: string) => XML_ENTITIES[name] ?? match);
 }
 
+const SITEMAP_READ_TIMEOUT_MS = 20_000;
+
+export function isSitemapIndex(xml: string): boolean {
+  return /<sitemapindex[\s>]/.test(xml);
+}
+
 export function sitemapLocs(xml: string): string[] {
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -127,6 +133,40 @@ export function sitemapLocs(xml: string): string[] {
     urls.push(loc);
   }
   return urls;
+}
+
+/** Page URLs from a urlset, or from one level of sitemap index. */
+export async function pageUrlsFromSitemap(xml: string, fetchImpl: IndexNowFetch): Promise<string[]> {
+  if (!isSitemapIndex(xml)) {
+    return sitemapLocs(xml);
+  }
+  const pages: string[] = [];
+  const seen = new Set<string>();
+  for (const loc of sitemapLocs(xml)) {
+    let response: Response;
+    try {
+      response = await fetchImpl(loc, {
+        redirect: "manual",
+        cache: "no-store",
+        signal: AbortSignal.timeout(SITEMAP_READ_TIMEOUT_MS),
+      });
+    } catch (error) {
+      throw new Error(`sitemap child: ${errorMessage(error)}`);
+    }
+    if (!response.ok) {
+      throw new Error(`sitemap child: ${response.status}`);
+    }
+    const body = await response.text();
+    if (!/<urlset[\s>]/.test(body) || /<sitemapindex[\s>]/.test(body)) {
+      throw new Error("sitemap child: not a urlset");
+    }
+    for (const url of sitemapLocs(body)) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      pages.push(url);
+    }
+  }
+  return pages;
 }
 
 export function batchUrlList(urls: readonly string[], size = INDEXNOW_MAX_BATCH): string[][] {
@@ -161,7 +201,11 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
 
   let sitemapResponse: Response;
   try {
-    sitemapResponse = await fetchImpl(INDEXNOW_SITEMAP_URL);
+    sitemapResponse = await fetchImpl(INDEXNOW_SITEMAP_URL, {
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(SITEMAP_READ_TIMEOUT_MS),
+    });
   } catch (error) {
     log(`sitemap: error ${errorMessage(error)}`);
     return 1;
@@ -173,7 +217,13 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
     return 1;
   }
 
-  const urls = sitemapLocs(await sitemapResponse.text());
+  let urls: string[];
+  try {
+    urls = await pageUrlsFromSitemap(await sitemapResponse.text(), fetchImpl);
+  } catch (error) {
+    log(`sitemap: error ${errorMessage(error)}`);
+    return 1;
+  }
   if (urls.length === 0) {
     log("sitemap: error no <loc> URLs");
     return 1;

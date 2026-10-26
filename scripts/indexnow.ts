@@ -5,8 +5,9 @@
  *   npm run indexnow
  *   npx tsx scripts/indexnow.ts
  *
- * Fetches https://grid.vahaah.com/sitemap.xml, collects unique <loc> values,
- * and POSTs { host, key, keyLocation, urlList } to
+ * Fetches https://grid.vahaah.com/sitemap.xml, follows one sitemap index,
+ * collects unique <loc> values from each child urlset, and POSTs
+ * { host, key, keyLocation, urlList } to
  * https://api.indexnow.org/indexnow in batches of at most 10,000.
  * Prints each batch status. Exits non-zero if the sitemap fetch or a batch fails.
  */

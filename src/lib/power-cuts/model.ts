@@ -196,21 +196,30 @@ export function freshnessOf(snapshot: PowerCutsSnapshot, now: Date): {
     const error = publicOperatorError(snapshot.sources[operator].error);
     return error ? `${operatorName(operator)}: ${error}` : operatorName(operator);
   });
+  const detail = joinSentences(detailParts);
   if (staleSource || aged) {
     return {
       state: "stale",
       asOf: oldest ? formatLondon(oldest) : null,
-      detail: detailParts.length > 0 ? detailParts.join(". ") : null,
+      detail,
     };
   }
   if (licensedAbsent.length > 0) {
     return {
       state: "partial",
       asOf: oldest ? formatLondon(oldest) : null,
-      detail: detailParts.join(". "),
+      detail,
     };
   }
   return { state: "current", asOf: oldest ? formatLondon(oldest) : null, detail: null };
+}
+
+function joinSentences(parts: readonly string[]): string | null {
+  const sentences = parts.map((part) => part.replace(/\.+$/, "").trim()).filter((part) => part.length > 0);
+  if (sentences.length === 0) {
+    return null;
+  }
+  return `${sentences.join(". ")}.`;
 }
 
 function areaKey(incident: PowerCut): string {

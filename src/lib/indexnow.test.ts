@@ -61,6 +61,34 @@ describe("IndexNow", () => {
     expect(() => batchUrlList(["a"], 0)).toThrow(/10000/);
   });
 
+  it("follows one sitemap index and posts the child page URLs", async () => {
+    const index = `<?xml version="1.0" encoding="UTF-8"?>
+      <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <sitemap><loc>https://grid.vahaah.com/sitemap/pages.xml</loc><lastmod>2026-10-26T00:00:00.000Z</lastmod></sitemap>
+        <sitemap><loc>https://grid.vahaah.com/sitemap/assets.xml</loc><lastmod>2026-10-26T00:00:00.000Z</lastmod></sitemap>
+      </sitemapindex>`;
+    const pages = `<urlset><url><loc>https://grid.vahaah.com/</loc></url><url><loc>https://grid.vahaah.com/gas</loc></url></urlset>`;
+    const assets = `<urlset><url><loc>https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa</loc></url></urlset>`;
+    const posts: string[][] = [];
+    const code = await runIndexNow({
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(index, { status: 200 });
+        if (input === "https://grid.vahaah.com/sitemap/pages.xml") return new Response(pages, { status: 200 });
+        if (input === "https://grid.vahaah.com/sitemap/assets.xml") return new Response(assets, { status: 200 });
+        expect(input).toBe(INDEXNOW_ENDPOINT);
+        const payload = JSON.parse(String(init?.body)) as { urlList: string[] };
+        posts.push(payload.urlList);
+        return new Response("", { status: 200 });
+      },
+    });
+    expect(code).toBe(0);
+    expect(posts).toEqual([[
+      "https://grid.vahaah.com/",
+      "https://grid.vahaah.com/gas",
+      "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+    ]]);
+  });
+
   it("posts sitemap URLs in batches of at most 10000", async () => {
     const count = INDEXNOW_MAX_BATCH + 1;
     const urls = Array.from({ length: count }, (_, index) => `https://grid.vahaah.com/p/${index}`);
