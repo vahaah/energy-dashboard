@@ -1,3 +1,5 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { get, put } from "@vercel/blob";
 import { blobReadSignal, readBlobResponse } from "@/lib/blob-read";
 import { getRedis, type RedisCommands } from "@/lib/redis-cache";
@@ -5,6 +7,8 @@ import { getRedis, type RedisCommands } from "@/lib/redis-cache";
 /** High-water lastmod for IndexNow changed mode. Not a database. */
 export const INDEXNOW_MARKER_KEY = "grid:indexnow:lastmod";
 export const INDEXNOW_MARKER_PATH = "releases/indexnow/marker.json";
+/** GitHub Actions writes this path. It wins over Redis and Blob. */
+export const INDEXNOW_MARKER_FILE_ENV = "INDEXNOW_MARKER_FILE";
 
 /** One checkpoint per sitemap child. A pages build time must not hide an older catalogue stream. */
 export type IndexNowMarker = {
@@ -44,8 +48,15 @@ export function parseIndexNowMarker(value: unknown): IndexNowMarker | null {
   throw new Error("marker: invalid");
 }
 
-/** Redis when that pair is set, otherwise Blob. A missing store is null. */
+/**
+ * `INDEXNOW_MARKER_FILE` when set, otherwise Redis, otherwise Blob.
+ * A missing file is an empty marker. No configured store is null.
+ */
 export function resolveIndexNowMarkerStore(): IndexNowMarkerStore | null {
+  const file = process.env[INDEXNOW_MARKER_FILE_ENV]?.trim();
+  if (file) {
+    return fileIndexNowMarkerStore(file);
+  }
   const redis = getRedis();
   if (redis) {
     return redisIndexNowMarkerStore(redis);
@@ -54,6 +65,24 @@ export function resolveIndexNowMarkerStore(): IndexNowMarkerStore | null {
     return blobIndexNowMarkerStore();
   }
   return null;
+}
+
+/** Checkpoint file used by GitHub Actions. A missing file reads as null. */
+export function fileIndexNowMarkerStore(path: string): IndexNowMarkerStore {
+  return indexNowMarkerStoreFromBodies(
+    async () => {
+      try {
+        return await readFile(path, "utf8");
+      } catch (error) {
+        if (isEnoent(error)) return null;
+        throw error;
+      }
+    },
+    async (body) => {
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, body, "utf8");
+    },
+  );
 }
 
 export function redisIndexNowMarkerStore(redis: RedisCommands): IndexNowMarkerStore {
@@ -155,4 +184,8 @@ function assertInstant(value: unknown): asserts value is string {
   if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
     throw new Error("marker: invalid");
   }
+}
+
+function isEnoent(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }

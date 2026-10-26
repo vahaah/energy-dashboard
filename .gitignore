@@ -55,6 +55,9 @@ next-env.d.ts
 .env
 .tinyb
 
+# IndexNow checkpoint downloaded by the submit workflow. Not a database.
+/.indexnow/
+
 # REPD / DUKES extracts downloaded by scripts/catalogue. The register is committed; the raw files are not.
 /data/catalogue/raw/
 .claude/settings.local.json

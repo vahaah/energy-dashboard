@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { INDEXNOW_MARKER_FILE_ENV } from "@/lib/indexnow-marker";
 import { invokedDirectly, parseIndexNowArgs } from "../../scripts/indexnow";
 import {
   INDEXNOW_ENDPOINT,
@@ -441,20 +444,119 @@ describe("IndexNow", () => {
     expect(writes).toBe(0);
   });
 
-  it("does not call IndexNow when the marker store is unset", async () => {
-    let called = false;
+  it("submits every sitemap URL when the marker store is unset", async () => {
+    delete process.env[INDEXNOW_MARKER_FILE_ENV];
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/dated</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/blank</loc></url>
+    </urlset>`;
     const lines: string[] = [];
+    const posts: string[][] = [];
     const code = await runIndexNow({
       mode: "changed",
       log: (line) => lines.push(line),
-      fetch: async () => {
-        called = true;
-        return new Response("", { status: 500 });
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        const payload = JSON.parse(String(init?.body)) as { urlList: string[] };
+        posts.push(payload.urlList);
+        return new Response("", { status: 200 });
       },
     });
-    expect(code).toBe(1);
-    expect(called).toBe(false);
-    expect(lines).toEqual(["marker: store unset"]);
+    expect(code).toBe(0);
+    expect(posts).toEqual([["https://grid.vahaah.com/dated", "https://grid.vahaah.com/blank"]]);
+    expect(lines).toEqual(["marker: none", "changed: 2 urls", "batch 1/1: 200 (2 urls)"]);
+  });
+
+  it("submits every URL when --all has no marker store", async () => {
+    delete process.env[INDEXNOW_MARKER_FILE_ENV];
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/a</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+    </urlset>`;
+    const lines: string[] = [];
+    const posts: string[][] = [];
+    const code = await runIndexNow({
+      mode: "all",
+      log: (line) => lines.push(line),
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        const payload = JSON.parse(String(init?.body)) as { urlList: string[] };
+        posts.push(payload.urlList);
+        return new Response("", { status: 200 });
+      },
+    });
+    expect(code).toBe(0);
+    expect(posts).toEqual([["https://grid.vahaah.com/a"]]);
+    expect(lines).toEqual(["batch 1/1: 200 (1 urls)", "marker: none"]);
+  });
+
+  it("writes the file marker after the first changed run", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "indexnow-file-"));
+    const path = join(dir, "marker.json");
+    process.env[INDEXNOW_MARKER_FILE_ENV] = path;
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/dated</loc><lastmod>2026-10-06T00:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/blank</loc></url>
+    </urlset>`;
+    const lines: string[] = [];
+    try {
+      const code = await runIndexNow({
+        mode: "changed",
+        log: (line) => lines.push(line),
+        fetch: async (input) => {
+          if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+          return new Response("", { status: 202 });
+        },
+      });
+      expect(code).toBe(0);
+      expect(lines[0]).toBe("marker: none");
+      expect(readFileSync(path, "utf8")).toBe(
+        '{"streams":{"https://grid.vahaah.com/sitemap.xml":"2026-10-06T00:00:00.000Z"}}\n',
+      );
+    } finally {
+      delete process.env[INDEXNOW_MARKER_FILE_ENV];
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("submits every URL when the marker cannot be read", async () => {
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/a</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+    </urlset>`;
+    let writes = 0;
+    const lines: string[] = [];
+    const code = await runIndexNow({
+      mode: "changed",
+      marker: {
+        read: async () => {
+          throw new Error("marker: invalid");
+        },
+        write: async () => {
+          writes += 1;
+        },
+      },
+      log: (line) => lines.push(line),
+      fetch: async (input) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        return new Response("", { status: 200 });
+      },
+    });
+    expect(code).toBe(0);
+    expect(writes).toBe(1);
+    expect(lines[0]).toBe("marker: error marker: invalid");
+    expect(lines).toContain("changed: 1 urls");
+  });
+
+  it("keeps the Actions marker off Blob and Redis", () => {
+    const workflow = readFileSync(resolve(process.cwd(), ".github/workflows/indexnow-submit.yml"), "utf8");
+    expect(workflow).not.toMatch(/BLOB_READ_WRITE_TOKEN|UPSTASH_REDIS|KV_REST_API|secrets\./);
+    expect(workflow).toContain("INDEXNOW_MARKER_FILE: .indexnow/marker.json");
+    expect(workflow).toContain("name: indexnow-marker");
+    expect(workflow).toContain("github.token");
+    expect(workflow).toContain("actions: write");
+    expect(workflow).toContain("npx tsx scripts/indexnow.ts --all");
+    expect(workflow).toContain("if gh run download");
   });
 
   it("submits every URL in --all mode and advances the marker", async () => {
