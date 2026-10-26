@@ -24,7 +24,7 @@ import {
   phase1bSettledPaths,
   redactIndexNow,
   runIndexNow,
-  sitemapLocs,
+  pageUrlsFromSitemap,
   unsubmittedIndexNowUrls,
 } from "../src/lib/indexnow";
 
@@ -75,7 +75,11 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
   await waitForProbe(key);
   let sitemap: Response;
   try {
-    sitemap = await fetch(indexNowPhaseSitemapUrl(INDEXNOW_PHASE_1B_MARKER), { redirect: "manual", cache: "no-store" });
+    sitemap = await fetch(indexNowPhaseSitemapUrl(INDEXNOW_PHASE_1B_MARKER), {
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "sitemap failed";
     console.error(redactIndexNow(`sitemap: ${message}`, key));
@@ -85,7 +89,15 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
     console.error(redactIndexNow(`sitemap: ${sitemap.status}`, key));
     return 1;
   }
-  const urls = unsubmittedIndexNowUrls(sitemapLocs(await sitemap.text()), phase1bSettledPaths(), INDEXNOW_PHASE_1A_PREFIXES);
+  let locs: string[];
+  try {
+    locs = await pageUrlsFromSitemap(await sitemap.text(), fetch);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "sitemap failed";
+    console.error(redactIndexNow(`sitemap: ${message}`, key));
+    return 1;
+  }
+  const urls = unsubmittedIndexNowUrls(locs, phase1bSettledPaths(), INDEXNOW_PHASE_1A_PREFIXES);
   console.log(redactIndexNow(`submitting ${urls.length} urls`, key));
   return runIndexNow({
     key,

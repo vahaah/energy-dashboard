@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import sitemap, { catalogueLastModified, generateSitemaps, lastModifiedForPath, latestCommodityTimestamp } from "@/app/sitemap";
+import { GET as getSitemapIndex } from "@/app/sitemap.xml/route";
+import { GET as getSitemapChild } from "@/app/sitemap/[id]/route";
+import sitemap, {
+  catalogueLastModified,
+  generateSitemaps,
+  lastModifiedForPath,
+  latestCommodityTimestamp,
+  SITEMAP_BYTE_LIMIT,
+  SITEMAP_URL_LIMIT,
+} from "@/lib/sitemap-document";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { assetDetailIndexable, projectDetailIndexable } from "@/lib/seo/indexable";
@@ -120,8 +129,44 @@ describe("sitemap", () => {
     }
   });
 
+  it("serves /sitemap.xml as an index and each child as XML", async () => {
+    const index = await getSitemapIndex();
+    expect(index.status).toBe(200);
+    expect(index.headers.get("content-type")).toContain("application/xml");
+    const xml = await index.text();
+    expect(xml).toContain("<sitemapindex");
+    expect(xml).not.toContain("<urlset");
+    const blocks = [...xml.matchAll(/<sitemap>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>\s*<\/sitemap>/g)];
+    expect(blocks.map((match) => match[1])).toEqual([
+      "https://grid.vahaah.com/sitemap/pages.xml",
+      "https://grid.vahaah.com/sitemap/assets.xml",
+      "https://grid.vahaah.com/sitemap/projects.xml",
+    ]);
+    for (const match of blocks) {
+      expect(Number.isNaN(Date.parse(match[2] ?? ""))).toBe(false);
+    }
+    for (const loc of blocks.map((match) => match[1] ?? "")) {
+      const id = new URL(loc).pathname.split("/").pop() ?? "";
+      const child = await getSitemapChild(new Request(loc), { params: Promise.resolve({ id }) });
+      expect(child.status).toBe(200);
+      expect(child.headers.get("content-type")).toContain("application/xml");
+      const body = await child.text();
+      expect(body.startsWith("<?xml")).toBe(true);
+      expect(body).toContain("<urlset");
+      expect(body).not.toContain("<sitemapindex");
+      const count = body.match(/<loc>/g)?.length ?? 0;
+      expect(count).toBeGreaterThan(0);
+      expect(count).toBeLessThanOrEqual(SITEMAP_URL_LIMIT);
+      expect(Buffer.byteLength(body, "utf8")).toBeLessThanOrEqual(SITEMAP_BYTE_LIMIT);
+    }
+    const missing = await getSitemapChild(new Request("https://grid.vahaah.com/sitemap/nope.xml"), {
+      params: Promise.resolve({ id: "nope.xml" }),
+    });
+    expect(missing.status).toBe(404);
+  });
+
   it("peeks Redis only and does not query Tinybird", () => {
-    const source = readFileSync(resolve(import.meta.dirname, "./sitemap.ts"), "utf8");
+    const source = readFileSync(resolve(import.meta.dirname, "../lib/sitemap-document.ts"), "utf8");
     expect(source).toContain("peekWarmedPipe");
     expect(source).toContain("peekLatestPrices");
     expect(source).not.toContain("peekThroughCache");

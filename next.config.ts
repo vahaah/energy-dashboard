@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
     "/assets/[id]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/assets/[id]/[slug]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/sitemap.xml": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
+    "/sitemap/[id]": ["./data/catalogue/**/*", "./public/tiles/layers/dno/**/*"],
     "/projects": ["./data/catalogue/**/*"],
     "/pipeline": ["./data/catalogue/**/*"],
     "/pipeline/opengraph-image": ["./data/catalogue/**/*"],

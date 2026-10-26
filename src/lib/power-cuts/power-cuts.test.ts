@@ -135,8 +135,24 @@ describe("power cut reconciliation", () => {
     expect(model.coverage).toContain("not licensed");
     expect(model.freshness).toBe("partial");
     expect(JSON.stringify(model)).not.toMatch(/api key/i);
-    expect(model.freshnessDetail).toContain("Not yet included");
-    expect(model.freshnessDetail).toContain("This operator is not in the public feed yet.");
+    expect(model.freshnessDetail).toBe(
+      "Electricity North West: Not yet included. This operator is not in the public feed yet. SP Energy Networks: Not yet included. This operator is not in the public feed yet.",
+    );
+    expect(model.freshnessDetail).not.toContain("..");
+    const mixed = buildPowerCutsModel(
+      {
+        ...buildFixtureSnapshot(),
+        sources: {
+          ...buildFixtureSnapshot().sources,
+          enw: { status: "absent", fetchedAt: null, count: 0, error: "Not licensed" },
+        },
+      },
+      now,
+    );
+    expect(mixed.freshnessDetail).toBe(
+      "Electricity North West: Not licensed. SP Energy Networks: Not yet included. This operator is not in the public feed yet.",
+    );
+    expect(mixed.freshnessDetail).not.toContain("..");
     expect(model.notices.map((notice) => notice.error).join(" ")).not.toMatch(/api key/i);
     const published = publicPowerCutsSnapshot(buildFixtureSnapshot());
     expect(JSON.stringify(published)).not.toMatch(/api key/i);
