@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { invokedDirectly } from "../../scripts/indexnow";
+import { invokedDirectly, parseIndexNowArgs } from "../../scripts/indexnow";
 import {
   INDEXNOW_ENDPOINT,
   INDEXNOW_HOST,
@@ -10,6 +10,7 @@ import {
   INDEXNOW_KEY_LOCATION,
   INDEXNOW_KEY_PATH,
   INDEXNOW_MAX_BATCH,
+  INDEXNOW_POST_ATTEMPTS,
   INDEXNOW_PHASE_1A_PREFIXES,
   INDEXNOW_PHASE_1B_MARKER,
   INDEXNOW_PHASE_1B_PROBE_PATH,
@@ -19,6 +20,11 @@ import {
   indexNowPhaseSitemapUrl,
   phase1bSettledPaths,
   batchUrlList,
+  changedIndexNowUrls,
+  advanceIndexNowMarker,
+  indexNowDeploymentOnMain,
+  maxLastmod,
+  sitemapUrlEntries,
   indexNowReleaseReady,
   indexNowReleaseSitemapUrl,
   redactIndexNow,
@@ -157,17 +163,20 @@ describe("IndexNow", () => {
     let posts = 0;
     const code = await runIndexNow({
       log: (line) => lines.push(line),
+      sleep: async () => undefined,
       fetch: async (input) => {
         if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
         posts += 1;
-        if (posts === 1) throw new Error("socket hang up");
+        if (posts <= INDEXNOW_POST_ATTEMPTS) throw new Error("socket hang up");
         return new Response("Invalid key", { status: 422 });
       },
     });
 
     expect(code).toBe(1);
-    expect(posts).toBe(2);
+    expect(posts).toBe(INDEXNOW_POST_ATTEMPTS + 1);
     expect(lines).toEqual([
+      "batch 1/2: error socket hang up retry",
+      "batch 1/2: error socket hang up retry",
       "batch 1/2: error socket hang up",
       "batch 2/2: 422 (1 urls) Invalid key",
     ]);
@@ -284,6 +293,208 @@ describe("IndexNow", () => {
     expect(lines.join("\n")).not.toContain(secret);
     expect(lines[0]).toContain("[redacted]");
     expect(redactIndexNow(`key ${secret}`, secret)).toBe("key [redacted]");
+  });
+
+  it("retries a transient batch status and accepts only 200 or 202", async () => {
+    const xml = `<urlset><url><loc>https://grid.vahaah.com/</loc><lastmod>2026-10-26T00:00:00.000Z</lastmod></url></urlset>`;
+    const lines: string[] = [];
+    const waits: number[] = [];
+    let posts = 0;
+    const retried = await runIndexNow({
+      log: (line) => lines.push(line),
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        expect(init?.signal).toBeInstanceOf(AbortSignal);
+        posts += 1;
+        if (posts === 1) return new Response("busy", { status: 503 });
+        return new Response("", { status: 200 });
+      },
+    });
+    const rejected = await runIndexNow({
+      log: (line) => lines.push(line),
+      fetch: async (input) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        return new Response(null, { status: 204 });
+      },
+    });
+    expect(retried).toBe(0);
+    expect(rejected).toBe(1);
+    expect(waits).toEqual([200]);
+    expect(lines).toEqual([
+      "batch 1/1: 503 (1 urls) busy retry",
+      "batch 1/1: 200 (1 urls)",
+      "batch 1/1: 204 (1 urls)",
+    ]);
+  });
+
+  it("submits lastmods newer than the marker and stores the high water mark", async () => {
+    const index = `<sitemapindex>
+      <sitemap><loc>https://grid.vahaah.com/sitemap/pages.xml</loc><lastmod>2026-10-02T00:00:00.000Z</lastmod></sitemap>
+    </sitemapindex>`;
+    const pages = `<urlset>
+      <url><loc>https://grid.vahaah.com/old</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/same</loc><lastmod>2026-10-02T00:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/new</loc><lastmod>2026-10-03T12:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/blank</loc></url>
+    </urlset>`;
+    const pagesStream = "https://grid.vahaah.com/sitemap/pages.xml";
+    let stored: { streams: Record<string, string> } | null = {
+      streams: {
+        [pagesStream]: "2026-10-02T00:00:00.000Z",
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+      },
+    };
+    const posts: string[][] = [];
+    const lines: string[] = [];
+    const code = await runIndexNow({
+      mode: "changed",
+      marker: {
+        read: async () => stored,
+        write: async (marker) => {
+          stored = marker;
+        },
+      },
+      log: (line) => lines.push(line),
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(index, { status: 200 });
+        if (input === "https://grid.vahaah.com/sitemap/pages.xml") return new Response(pages, { status: 200 });
+        const payload = JSON.parse(String(init?.body)) as { urlList: string[] };
+        posts.push(payload.urlList);
+        return new Response("", { status: 202 });
+      },
+    });
+    expect(code).toBe(0);
+    expect(posts).toEqual([["https://grid.vahaah.com/new"]]);
+    expect(stored).toEqual({
+      streams: {
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+        [pagesStream]: "2026-10-03T12:00:00.000Z",
+      },
+    });
+    expect(lines).toEqual([
+      "changed: 1 urls",
+      "batch 1/1: 202 (1 urls)",
+      'marker: {"streams":{"https://grid.vahaah.com/sitemap/assets.xml":"2026-08-03T09:00:03.000Z","https://grid.vahaah.com/sitemap/pages.xml":"2026-10-03T12:00:00.000Z"}}',
+    ]);
+    expect(
+      changedIndexNowUrls(sitemapUrlEntries(pages, pagesStream), {
+        streams: { [pagesStream]: "2026-10-02T00:00:00.000Z" },
+      }).map((entry) => entry.url),
+    ).toEqual(["https://grid.vahaah.com/new"]);
+    expect(maxLastmod(sitemapUrlEntries(pages, pagesStream))).toBe("2026-10-03T12:00:00.000Z");
+  });
+
+  it("submits a catalogue URL published before the pages checkpoint", () => {
+    const pages = "https://grid.vahaah.com/sitemap/pages.xml";
+    const assets = "https://grid.vahaah.com/sitemap/assets.xml";
+    const entries = [
+      { url: "https://grid.vahaah.com/", lastmod: "2026-10-26T17:00:00.000Z", stream: pages },
+      { url: "https://grid.vahaah.com/assets/new", lastmod: "2026-10-20T00:00:00.000Z", stream: assets },
+      { url: "https://grid.vahaah.com/assets/old", lastmod: "2026-08-03T09:00:03.000Z", stream: assets },
+    ];
+    const marker = {
+      streams: {
+        [pages]: "2026-10-26T17:00:00.000Z",
+        [assets]: "2026-08-03T09:00:03.000Z",
+      },
+    };
+    expect(changedIndexNowUrls(entries, marker).map((entry) => entry.url)).toEqual([
+      "https://grid.vahaah.com/assets/new",
+    ]);
+    expect(advanceIndexNowMarker(marker, changedIndexNowUrls(entries, marker))).toEqual({
+      streams: {
+        [pages]: "2026-10-26T17:00:00.000Z",
+        [assets]: "2026-10-20T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("treats main and a SHA on main as the production branch", () => {
+    expect(indexNowDeploymentOnMain("refs/heads/main", false)).toBe(true);
+    expect(indexNowDeploymentOnMain("main", false)).toBe(true);
+    expect(indexNowDeploymentOnMain("5da675f58aeb72266c87c42c5bbcf475beac82fd", true)).toBe(true);
+    expect(indexNowDeploymentOnMain("5da675f58aeb72266c87c42c5bbcf475beac82fd", false)).toBe(false);
+  });
+
+  it("leaves the marker in place when a changed batch fails", async () => {
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/a</loc><lastmod>2026-10-04T00:00:00.000Z</lastmod></url>
+    </urlset>`;
+    let writes = 0;
+    const code = await runIndexNow({
+      mode: "changed",
+      marker: {
+        read: async () => null,
+        write: async () => {
+          writes += 1;
+        },
+      },
+      fetch: async (input) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        return new Response("no", { status: 400 });
+      },
+    });
+    expect(code).toBe(1);
+    expect(writes).toBe(0);
+  });
+
+  it("does not call IndexNow when the marker store is unset", async () => {
+    let called = false;
+    const lines: string[] = [];
+    const code = await runIndexNow({
+      mode: "changed",
+      log: (line) => lines.push(line),
+      fetch: async () => {
+        called = true;
+        return new Response("", { status: 500 });
+      },
+    });
+    expect(code).toBe(1);
+    expect(called).toBe(false);
+    expect(lines).toEqual(["marker: store unset"]);
+  });
+
+  it("submits every URL in --all mode and advances the marker", async () => {
+    const xml = `<urlset>
+      <url><loc>https://grid.vahaah.com/old</loc><lastmod>2026-10-01T00:00:00.000Z</lastmod></url>
+      <url><loc>https://grid.vahaah.com/new</loc><lastmod>2026-10-05T00:00:00.000Z</lastmod></url>
+    </urlset>`;
+    let stored: { streams: Record<string, string> } | null = {
+      streams: { "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z" },
+    };
+    const posts: string[][] = [];
+    const code = await runIndexNow({
+      mode: "all",
+      marker: {
+        read: async () => stored,
+        write: async (marker) => {
+          stored = marker;
+        },
+      },
+      fetch: async (input, init) => {
+        if (input === INDEXNOW_SITEMAP_URL) return new Response(xml, { status: 200 });
+        const payload = JSON.parse(String(init?.body)) as { urlList: string[] };
+        posts.push(payload.urlList);
+        return new Response("", { status: 200 });
+      },
+    });
+    expect(code).toBe(0);
+    expect(posts).toEqual([["https://grid.vahaah.com/old", "https://grid.vahaah.com/new"]]);
+    expect(stored).toEqual({
+      streams: {
+        "https://grid.vahaah.com/sitemap.xml": "2026-10-05T00:00:00.000Z",
+        "https://grid.vahaah.com/sitemap/assets.xml": "2026-08-03T09:00:03.000Z",
+      },
+    });
+  });
+
+  it("parses the script flags", () => {
+    expect(parseIndexNowArgs([])).toBe("changed");
+    expect(parseIndexNowArgs(["--all"])).toBe("all");
+    expect(() => parseIndexNowArgs(["--changed"])).toThrow(/usage/);
   });
 
   it("runs only as the tsx entrypoint", () => {
