@@ -193,13 +193,14 @@ The cron job runs automatically every hour via `vercel.json`. Commodity ingest (
 
 ### 8. Ping IndexNow
 
-After `public/79e85fd471ac4c8e8327acd532d0a9c9.txt` is live, submit every URL in the production sitemap:
+After `public/79e85fd471ac4c8e8327acd532d0a9c9.txt` is live:
 
 ```bash
 npm run indexnow
+npm run indexnow -- --all
 ```
 
-`scripts/indexnow.ts` fetches `https://grid.vahaah.com/sitemap.xml`, collects unique `<loc>` values, and POSTs `{ host, key, keyLocation, urlList }` to `https://api.indexnow.org/indexnow` in batches of at most 10,000 URLs. It prints the HTTP status of each batch and exits non-zero if the sitemap fetch or any batch fails.
+`scripts/indexnow.ts` fetches `https://grid.vahaah.com/sitemap.xml`, follows the sitemap index, and reads `<loc>` and `<lastmod>` from each child. It POSTs `{ host, key, keyLocation, urlList }` to `https://api.indexnow.org/indexnow` in batches of at most 10,000 URLs. 200 and 202 are success. Transient failures retry up to three attempts. The default submits URLs whose lastmod is newer than the marker in Redis or Vercel Blob. `--all` submits every page URL. It prints the HTTP status of each batch and exits non-zero if the sitemap fetch or any batch fails. Changed mode also exits non-zero when neither store is configured.
 
 The IndexNow key is public by design. The file contains only `79e85fd471ac4c8e8327acd532d0a9c9` and is served at `https://grid.vahaah.com/79e85fd471ac4c8e8327acd532d0a9c9.txt`. `src/proxy.ts` matches `/api/:path*` and returns that path before the rate limiter, so key verification stays on the static file.
 
