@@ -80,7 +80,7 @@ export type IndexNowRunOptions = {
   urls?: readonly string[];
   /** Default is every sitemap URL. The script's default is `changed`. */
   mode?: IndexNowMode;
-  /** Changed mode reads this store. When omitted, Redis or Blob is used. */
+  /** When omitted, `INDEXNOW_MARKER_FILE`, then Redis, then Blob. A missing store still submits. */
   marker?: IndexNowMarkerStore;
   sleep?: (ms: number) => Promise<void>;
 };
@@ -328,15 +328,6 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
     return postIndexNow(options.urls, key, fetchImpl, log, sleep);
   }
 
-  let markerStore: IndexNowMarkerStore | null = null;
-  if (mode === "changed") {
-    markerStore = options.marker ?? resolveIndexNowMarkerStore();
-    if (!markerStore) {
-      log("marker: store unset");
-      return 1;
-    }
-  }
-
   let sitemapResponse: Response;
   try {
     sitemapResponse = await fetchImpl(INDEXNOW_SITEMAP_URL, {
@@ -367,9 +358,10 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
     return 1;
   }
 
+  const markerStore = options.marker ?? resolveIndexNowMarkerStore();
   switch (mode) {
     case "all":
-      return submitAll(entries, options.marker, options.mode === "all", key, fetchImpl, log, sleep);
+      return submitAll(entries, markerStore, options.mode === "all", key, fetchImpl, log, sleep);
     case "changed":
       return submitChanged(entries, markerStore, key, fetchImpl, log, sleep);
     default: {
@@ -381,7 +373,7 @@ export async function runIndexNow(options: IndexNowRunOptions = {}): Promise<num
 
 async function submitAll(
   entries: readonly SitemapUrlEntry[],
-  marker: IndexNowMarkerStore | undefined,
+  markerStore: IndexNowMarkerStore | null,
   reportMissingStore: boolean,
   key: string,
   fetchImpl: IndexNowFetch,
@@ -390,19 +382,18 @@ async function submitAll(
 ): Promise<number> {
   const code = await postIndexNow(entries.map((entry) => entry.url), key, fetchImpl, log, sleep);
   if (code !== 0) return code;
-  const store = marker ?? resolveIndexNowMarkerStore();
-  if (!store) {
-    if (reportMissingStore) log("marker: store unset");
+  if (!markerStore) {
+    if (reportMissingStore) log("marker: none");
     return 0;
   }
   let previous: IndexNowMarker | null;
   try {
-    previous = await store.read();
+    previous = await markerStore.read();
   } catch (error) {
     log(`marker: error ${errorMessage(error)}`);
-    return 1;
+    previous = null;
   }
-  return writeMarker(store, advanceIndexNowMarker(previous, entries), log);
+  return writeMarker(markerStore, advanceIndexNowMarker(previous, entries), log);
 }
 
 async function submitChanged(
@@ -413,22 +404,24 @@ async function submitChanged(
   log: (line: string) => void,
   sleep: (ms: number) => Promise<void>,
 ): Promise<number> {
+  let marker: IndexNowMarker | null = null;
   if (!markerStore) {
-    log("marker: store unset");
-    return 1;
+    log("marker: none");
+  } else {
+    try {
+      marker = await markerStore.read();
+      if (marker == null) log("marker: none");
+    } catch (error) {
+      log(`marker: error ${errorMessage(error)}`);
+      marker = null;
+    }
   }
-  let marker: IndexNowMarker | null;
-  try {
-    marker = await markerStore.read();
-  } catch (error) {
-    log(`marker: error ${errorMessage(error)}`);
-    return 1;
-  }
-  const selected = changedIndexNowUrls(entries, marker);
+  const selected = marker == null ? [...entries] : changedIndexNowUrls(entries, marker);
   log(`changed: ${selected.length} urls`);
   if (selected.length === 0) return 0;
   const code = await postIndexNow(selected.map((entry) => entry.url), key, fetchImpl, log, sleep);
   if (code !== 0) return code;
+  if (!markerStore) return 0;
   return writeMarker(markerStore, advanceIndexNowMarker(marker, selected), log);
 }
 

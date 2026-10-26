@@ -15,11 +15,13 @@
  * when they are transient, then the batch is a failure.
  *
  * The default submits URLs whose lastmod is newer than that child
- * sitemap's checkpoint in Redis (`grid:indexnow:lastmod`) or, when Redis
- * is unset, Vercel Blob (`releases/indexnow/marker.json`). A pages build
- * time does not hide an older catalogue stream. `--all` submits every page URL and
- * advances that marker when a store is configured. The key is the
- * checked-in public file and is never printed.
+ * sitemap's checkpoint. GitHub Actions stores the checkpoint in
+ * `.indexnow/marker.json` (`INDEXNOW_MARKER_FILE`). Redis or Vercel Blob
+ * is used only when that store is configured and the file env is unset.
+ * A missing marker submits every sitemap URL and does not fail. A pages
+ * build time does not hide an older catalogue stream. `--all` submits
+ * every page URL and needs no store. The key is the checked-in public
+ * file and is never printed.
  */
 import { pathToFileURL } from "node:url";
 import { runIndexNow, type IndexNowMode } from "../src/lib/indexnow";

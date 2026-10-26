@@ -2,6 +2,9 @@ name: IndexNow submit
 
 # Changed mode after a successful production deploy of main.
 # workflow_dispatch submits every sitemap URL (--all).
+# The checkpoint is the previous successful run's indexnow-marker artifact,
+# downloaded with GITHUB_TOKEN. No Blob store and no Redis store.
+# A missing artifact submits every URL and the job still succeeds.
 # The key is the checked-in public file. Do not echo the environment.
 # deployment.ref may be refs/heads/main, main, or the commit SHA.
 # The same rule is indexNowDeploymentOnMain in src/lib/indexnow.ts.
@@ -26,6 +29,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -63,21 +67,51 @@ jobs:
           cache: npm
       - run: npm ci
         if: github.event_name == 'workflow_dispatch' || steps.main.outputs.on_main == 'true'
+      - name: Restore IndexNow marker
+        if: github.event_name == 'workflow_dispatch' || steps.main.outputs.on_main == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .indexnow
+          ids=""
+          if ids="$(gh run list --workflow indexnow-submit.yml --status success --limit 20 --json databaseId --jq '.[].databaseId')"; then
+            :
+          else
+            ids=""
+            echo "marker: run list failed"
+          fi
+          for id in $ids; do
+            tmp="$(mktemp -d)"
+            if gh run download "$id" --name indexnow-marker --dir "$tmp"; then
+              found="$(find "$tmp" -type f -name marker.json -print -quit)"
+              if [ -n "$found" ]; then
+                mv "$found" .indexnow/marker.json
+                rm -rf "$tmp"
+                echo "marker: restored from run ${id}"
+                break
+              fi
+            fi
+            rm -rf "$tmp"
+          done
+          if [ ! -f .indexnow/marker.json ]; then
+            echo "marker: none"
+          fi
       - name: Submit changed URLs
         if: github.event_name == 'deployment_status' && steps.main.outputs.on_main == 'true'
-        run: npx tsx scripts/indexnow.ts
         env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
-          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          INDEXNOW_MARKER_FILE: .indexnow/marker.json
+        run: npx tsx scripts/indexnow.ts
       - name: Submit every URL
         if: github.event_name == 'workflow_dispatch'
-        run: npx tsx scripts/indexnow.ts --all
         env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
-          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          INDEXNOW_MARKER_FILE: .indexnow/marker.json
+        run: npx tsx scripts/indexnow.ts --all
+      - name: Upload IndexNow marker
+        if: success() && (github.event_name == 'workflow_dispatch' || steps.main.outputs.on_main == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexnow-marker
+          path: .indexnow/marker.json
+          retention-days: 90
+          if-no-files-found: ignore
