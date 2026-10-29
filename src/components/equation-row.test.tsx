@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { EquationRow } from "@/components/equation-row";
+import { EquationRow, equationGridTemplate } from "@/components/equation-row";
 import type { DisplayedPower } from "@/lib/displayed-demand";
 import { homepageDemandFigureInputs } from "@/lib/metrics";
 
@@ -50,6 +50,22 @@ function power(demandSource: string): DisplayedPower {
   };
 }
 
+describe("equation columns", () => {
+  it("inserts a 2.5rem operator track between terms and drops one pair at four terms", () => {
+    const five = equationGridTemplate(5, true);
+    const four = equationGridTemplate(4, true);
+    expect(five).toBe(
+      "minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr)"
+    );
+    expect(four).toBe(
+      "minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr)"
+    );
+    expect(five.split("2.5rem")).toHaveLength(5);
+    expect(four.split("2.5rem")).toHaveLength(4);
+    expect(equationGridTemplate(3, false)).toBe("repeat(3, minmax(0, 1fr))");
+  });
+});
+
 describe("homepage demand figure", () => {
   it("takes unit, geography and source from the registry and leaves the megawatts", () => {
     const figure = homepageDemandFigureInputs();
@@ -63,6 +79,22 @@ describe("homepage demand figure", () => {
     expect(html).toContain(">31.4<");
     expect(html).toContain('data-stat="generation"');
     expect(html).not.toContain('data-stat="generation" data-geography');
+    expect(html).toContain("grid-rows-subgrid");
+    expect(html).toContain("grid-rows-[auto_auto_auto]");
+    expect(html).toContain("repeat(2, minmax(0, 1fr))");
+    expect(html).toContain("line-clamp-2");
+    expect(html).toContain("max-w-[24ch]");
+    expect(html).toContain('title="Plant and embedded wind and solar"');
+    expect(html).not.toContain("pb-[0.35rem]");
+    expect(html).not.toContain("border-l");
+    expect(html).not.toContain("pl-6");
+    expect(html).toContain("items-baseline");
+    expect(html).toContain("border-t border-gray-alpha-400");
+    expect(html).toContain("font-semibold text-gray-1000");
+    expect(html).toContain("font-light");
+    expect(html).toContain("leading-none");
+    expect(html).toContain("ml-[0.15em]");
+    expect(html).toContain("text-[2.25rem] @min-[1102px]:text-[3rem]");
   });
 
   it("keeps a non-ITSDO demand source on the figure", () => {

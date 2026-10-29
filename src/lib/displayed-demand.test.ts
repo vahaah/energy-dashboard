@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DISPLAYED_DEMAND_STAT,
+  GENERATION_CAPTION,
+  HEADLINE_CAPTION_MAX,
   balanceEquationSentence,
   getDisplayedPower,
   headlineBalanceHolds,
@@ -290,6 +292,64 @@ describe("displayed demand", () => {
     expect(power.terms.map((term) => term.label)).toContain("Storage charging");
     expect(balanceEquationSentence(power)).toBe(
       "Generation 0.2 GW, plus Imports 0.2 GW, minus Exports 0.2 GW, minus Storage charging 0.2 GW, equals Demand 0.0 GW."
+    );
+  });
+
+  it("keeps every headline caption within 32 characters", () => {
+    expect(GENERATION_CAPTION.length).toBeLessThanOrEqual(HEADLINE_CAPTION_MAX);
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const timestamp = "2026-10-10 11:00:00";
+    const books: Generation5min[][] = [
+      [
+        generation(timestamp, "ccgt", 15_000),
+        generation(timestamp, "wind", 8_000),
+        generation(timestamp, "ps", -2_000),
+        generation(timestamp, "bess", -400),
+        generation(timestamp, "intfr", 1_500),
+        generation(timestamp, "intned", -800),
+      ],
+      [
+        generation(timestamp, "ccgt", 15_000),
+        generation(timestamp, "ps", -2_000),
+        generation(timestamp, "intfr", 1_500),
+        generation(timestamp, "intned", -800),
+      ],
+      [
+        generation(timestamp, "ccgt", 15_000),
+        generation(timestamp, "bess", -400),
+        generation(timestamp, "intfr", 1_500),
+        generation(timestamp, "intned", -800),
+      ],
+      [generation(timestamp, "ccgt", 15_000), generation(timestamp, "wind", 8_000)],
+    ];
+
+    const roles = new Set<string>();
+    for (const rows of books) {
+      const latest = getLatestFacts({
+        resolution: resolveDashboardDate(null, now, "24h"),
+        snapshots: [snapshot(timestamp, 20_000)],
+        generation: rows,
+        now,
+      });
+      const power = getDisplayedPower(latest, [snapshot(timestamp, 20_000)]);
+      expect(power.terms.find((term) => term.id === "generation")?.role).toBe(GENERATION_CAPTION);
+      for (const term of power.terms) {
+        expect(term.role.length).toBeLessThanOrEqual(HEADLINE_CAPTION_MAX);
+        roles.add(term.role);
+      }
+    }
+
+    expect(roles).toEqual(
+      new Set([
+        GENERATION_CAPTION,
+        "Into GB over interconnectors",
+        "Out of GB over interconnectors",
+        "Pumped storage and batteries",
+        "Pumped storage pumping",
+        "Battery charging",
+        "Electricity use this half-hour",
+        "Interconnector net flow",
+      ])
     );
   });
 
