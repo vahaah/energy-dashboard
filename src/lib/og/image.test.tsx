@@ -94,4 +94,77 @@ describe("og share bars", () => {
     expect(pages[8]).toContain(ELEXON_ISD_ATTRIBUTION);
     expect(pages[9]).toContain(OGL_V3_ATTRIBUTION);
   });
+
+  it("renders the five-term balance in order, with operators between the figures", () => {
+    const facts = fixtureOgSnapshot().facts;
+    if (!facts) {
+      throw new Error("fixture facts missing");
+    }
+    const row = (fuelType: string, generationMw: number, source = "fuelinst"): Generation5min => ({
+      timestamp: "2026-10-10 11:00:00",
+      fuel_type: fuelType,
+      generation_mw: generationMw,
+      source,
+    });
+    const card = buildOgCard(
+      { kind: "focus", focus: "overview" },
+      {
+        ...fixtureOgSnapshot(),
+        facts: {
+          ...facts,
+          demand: { ...facts.demand, value: 40_000 },
+          generationMw: { ...facts.generationMw, value: 99_000 },
+          netImportsMw: { ...facts.netImportsMw, value: 9_000 },
+          generationRows: [
+            row("ccgt", 20_000),
+            row("wind", 8_000),
+            row("embedded_wind", 2_000, "neso"),
+            row("ps", -1_000),
+            row("intfr", 1_500),
+            row("intned", -4_500),
+          ],
+        },
+      }
+    );
+    const terms = card.balance?.terms ?? [];
+    expect(terms.map((term) => term.label)).toEqual([
+      "Generation",
+      "Imports",
+      "Exports",
+      "Storage charging",
+      "Demand",
+    ]);
+    expect(terms.map((term) => term.operator)).toEqual([null, "+", "−", "−", "="]);
+
+    let signed = 0;
+    for (const term of terms) {
+      const value = Number(term.gw);
+      expect(Number.isFinite(value)).toBe(true);
+      if (term.operator === "−") {
+        signed -= value;
+      } else if (term.operator === "=") {
+        expect(signed).toBeCloseTo(value, 5);
+      } else {
+        signed += value;
+      }
+    }
+
+    const html = renderToStaticMarkup(<OgImage card={card} />);
+    let cursor = -1;
+    for (const term of terms) {
+      if (term.operator) {
+        const operator = html.indexOf(`>${term.operator}<`, cursor + 1);
+        expect(operator).toBeGreaterThan(cursor);
+        cursor = operator;
+      }
+      const label = html.indexOf(`>${term.label}<`, cursor + 1);
+      expect(label).toBeGreaterThan(cursor);
+      cursor = label;
+      const figure = html.indexOf(`>${term.gw}<`, cursor + 1);
+      expect(figure).toBeGreaterThan(cursor);
+      cursor = figure;
+    }
+    expect(html).toContain(">GW<");
+    expect(html).not.toContain("Metered plant plus embedded");
+  });
 });

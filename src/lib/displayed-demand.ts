@@ -15,6 +15,11 @@ import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
 const BALANCE_GW_QUANTUM = 0.1;
 
+/** Visible equation captions. The label title keeps the longer definition. */
+export const HEADLINE_CAPTION_MAX = 32;
+
+export const GENERATION_CAPTION = "Includes embedded wind and solar";
+
 export const DISPLAYED_DEMAND_STAT = "demand";
 
 export type HeadlineTermId = "generation" | "imports" | "exports" | "storage_charging" | "demand";
@@ -182,7 +187,7 @@ function headlineTerms(
     {
       id: "generation",
       label: "Generation",
-      role: "Metered plant plus embedded wind and solar",
+      role: GENERATION_CAPTION,
       mw: power.generationMw,
       operator: null,
       help: "GB generation in this half-hour, including estimated embedded wind and solar. Generation includes storage discharge. Half-hour average of Elexon FUELINST.",
@@ -264,7 +269,7 @@ function openTerms(power: DisplayedPower): DraftTerm[] {
     {
       id: "generation",
       label: "Generation",
-      role: "Metered plant plus embedded wind and solar",
+      role: GENERATION_CAPTION,
       mw: power.generationMw,
       operator: null,
       help: "GB generation including estimated embedded wind and solar. Interconnector flows for this half-hour are incomplete, so this is not closed against demand.",

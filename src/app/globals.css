@@ -212,6 +212,12 @@ body {
   font-weight: 500;
 }
 
+/* These text styles set weight. A later utility cannot override an unlayered rule. */
+.text-copy-14.font-semibold,
+.text-label-13.font-semibold {
+  font-weight: 600;
+}
+
 .text-label-12 {
   font-size: 0.8125rem;
   line-height: 1.125rem;

@@ -284,8 +284,8 @@ describe("generation desk layout", () => {
       "Generation 20.2 GW, plus Imports 0.0 GW, minus Exports 1.8 GW, equals Demand 18.4 GW."
     );
     expect(html).not.toContain('aria-label="Generation 20.2 GW');
-    expect(html).toContain("grid-cols-[minmax(0,1fr)_2.5rem");
-    expect(html).not.toContain("grid-cols-3");
+    expect(html).toContain("minmax(0, 1fr) 2.5rem minmax(0, 1fr)");
+    expect(html).not.toContain("repeat(3, minmax(0, 1fr))");
     expect(html.match(/What is Exports\?/g) ?? []).toEqual([]);
     expect(html).toContain(">Imports<");
   });
@@ -335,7 +335,7 @@ describe("generation desk layout", () => {
     );
 
     expect(html).toContain("23:30–00:00 BST");
-    expect(html).toContain("grid-cols-3");
+    expect(html).toContain("repeat(3, minmax(0, 1fr))");
     expect(html).toContain("Half-hour balance is incomplete.");
     expect(html).not.toContain("Latest settlement period is not in yet");
     expect(html).not.toContain("Powering Britain now");
