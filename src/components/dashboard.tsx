@@ -74,6 +74,7 @@ import { shareFocusPath } from "@/lib/page-metadata";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { BalancingHomeCard } from "@/components/balancing-home-card";
+import type { HomeCardFile } from "@/lib/balancing/types";
 import { TodayMapCard } from "@/components/today-map-card";
 import { SectionBlock } from "@/components/section-block";
 import { SiteHeader } from "@/components/site-header";
@@ -126,9 +127,11 @@ function queryDateForPeriod(period: DashboardPeriod, date: string | null, today:
 export function Dashboard({
   initialPayload = null,
   cite,
+  balancingCard = null,
 }: {
   initialPayload?: DashboardPayload | null;
   cite: HomepageCite;
+  balancingCard?: HomeCardFile | null;
 }) {
   const [copied, setCopied] = useState(false);
   const [urlState, setUrlState] = useQueryStates(dashboardSearchParamParsers, {
@@ -413,7 +416,7 @@ export function Dashboard({
         )}
 
         <TodayMapCard />
-        <BalancingHomeCard />
+        <BalancingHomeCard card={balancingCard} />
 
         <SectionBlock
           id="section-price"

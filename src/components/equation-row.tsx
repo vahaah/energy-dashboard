@@ -49,7 +49,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
       </dl>
       <div
         data-equation="ledger"
-        className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-y-3 pt-2 lg:hidden"
+        className="grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(7.75rem,auto)] items-baseline gap-y-3 pt-2 lg:hidden"
         aria-hidden="true"
       >
         {power.terms.map((term) => (
@@ -135,7 +135,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
       <span
         data-operator
         data-row={term.id}
-        className={`min-h-11 text-center leading-none font-light tabular-nums text-gray-900 md:min-h-0 ${figureSize}`}
+        className={`min-h-11 text-center leading-[1.35] font-light tabular-nums text-gray-900 md:min-h-0 ${figureSize}`}
         aria-hidden="true"
       >
         {term.operator ?? "\u200b" /* keeps a baseline when Generation has no glyph */}
@@ -162,7 +162,7 @@ function LedgerRow({ term }: { term: HeadlineTerm }) {
         data-geography={figureMeta?.geography_id}
         data-source={demand ? term.source : undefined}
         data-registry-unit={figureMeta?.unit}
-        className={`min-h-11 self-baseline text-right font-sans leading-none font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 md:min-h-0 ${figureSize}`}
+        className={`min-h-11 self-baseline whitespace-nowrap text-right font-sans leading-[1.35] font-semibold tracking-[-0.04em] tabular-nums slashed-zero text-gray-1000 md:min-h-0 ${figureSize}`}
       >
         <span data-value>{term.displayGw}</span>
         <span data-unit className={UNIT_CLASS}>

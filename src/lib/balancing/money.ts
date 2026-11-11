@@ -31,6 +31,27 @@ export function formatPounds(pence: number, millionDigits = 2): string {
   return `${sign}£${formatGrouped(abs, abs >= 100 ? 0 : 2)}`;
 }
 
+/**
+ * One fraction setting for every tick on a pound axis, including zero.
+ * The scale (£, £k, £m, £bn) follows the largest tick.
+ */
+export function formatPoundAxis(pence: number, ticks: readonly number[]): string {
+  if (!Number.isFinite(pence)) {
+    return "—";
+  }
+  let peak = 0;
+  for (const tick of ticks) {
+    peak = Math.max(peak, Math.abs(tick) / 100);
+  }
+  const scale = peak >= 1_000_000_000 ? 1_000_000_000 : peak >= 1_000_000 ? 1_000_000 : peak >= 10_000 ? 1_000 : 1;
+  const suffix = scale === 1_000_000_000 ? "bn" : scale === 1_000_000 ? "m" : scale === 1_000 ? "k" : "";
+  const step = ticks.length >= 2 ? Math.abs((ticks[1] ?? 0) - (ticks[0] ?? 0)) / 100 / scale : 0;
+  const digits = Math.abs(step - Math.round(step)) > 1e-6 ? 1 : 0;
+  const pounds = pence / 100 / scale;
+  const sign = pounds < 0 ? "−" : "";
+  return `${sign}£${formatGrouped(Math.abs(pounds), digits)}${suffix}`;
+}
+
 export function formatTariff(gbpPerMwh: number): string {
   return `£${formatGrouped(gbpPerMwh, 2)}/MWh`;
 }

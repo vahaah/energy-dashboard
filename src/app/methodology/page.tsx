@@ -105,19 +105,39 @@ export default function MethodologyPage() {
           <h2 className="text-heading-24 text-gray-1000">Balancing cost and traded electricity</h2>
           <div className="mt-3 max-w-3xl space-y-3 text-copy-16 text-gray-900">
             <p>
-              Balancing cost is NESO&apos;s daily file: six categories, one row per settlement period, summed to a day.
-              A financial year is the sum of those days. A short day is provisional. A missing day is a gap, not zero.
-              The figure is not NESO&apos;s broader £3.1 billion headline for 2025/26. That monthly summary includes
-              items outside the daily file. The two are named separately and are not added together.
+              Balancing cost is NESO&apos;s daily file: six categories, summed to a day. A financial year is the sum of
+              those days. A day with fewer half-hours than the clock is incomplete. A missing day is a gap, not zero,
+              and a year-to-date total that skips a day is partial. The figure is not NESO&apos;s £3.1 billion for
+              2025/26, from{" "}
+              <a
+                href="https://www.neso.energy/news/balancing-act"
+                className="text-blue-700 underline-offset-2 hover:underline"
+              >
+                NESO&apos;s 3 November 2026 post
+              </a>
+              . The daily file for that year is a smaller total. The two are not added together.
             </p>
             <p>
-              The per-household figure is the current final BSUoS tariff times 2,700 kWh, Ofgem&apos;s typical medium
-              household, before losses and VAT. NESO puts balancing at about 4.3% of a typical bill.
+              The per-household figure is the current final BSUoS tariff × 2,500 kWh, Ofgem&apos;s typical yearly
+              electricity use for a medium household from 1 Jul 2026. It leaves out network losses. Excluding VAT.
+              NESO puts balancing at 4.3% of a typical household electricity bill in 2025/26.
             </p>
             <p>
-              The interconnector figure is an estimate: half-hourly flow (Elexon FUELHH) times the GB Market Index.
-              Net is imports minus exports. It is not an invoice and it is not added to balancing cost. For 2025 the
-              estimate was within 2.4% of HMRC import statistics and 0.7% of export statistics. See{" "}
+              The interconnector figure is an estimate: half-hourly flow (Elexon FUELHH) × the Market index price
+              (Elexon MID). Net imports are imports minus exports. It is not an invoice and it is not added to
+              balancing cost. Half-hours with flow but no Market index price are left out, and that day is incomplete.
+            </p>
+            <p>
+              HMRC Overseas Trade Statistics publish UK electricity trade under commodity 2716. That series is UK trade
+              and leaves out flows between Great Britain and Northern Ireland. Grid&apos;s estimate is GB
+              interconnectors, including Moyle, so the two are not the same total. The custom table is on{" "}
+              <a
+                href="https://www.uktradeinfo.com/trade-data/ots-custom-table/"
+                className="text-blue-700 underline-offset-2 hover:underline"
+              >
+                UK Trade Info
+              </a>
+              . See{" "}
               <Link href="/system/balancing" className="text-blue-700 underline-offset-2 hover:underline">
                 /system/balancing
               </Link>

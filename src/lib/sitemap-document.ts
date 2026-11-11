@@ -13,6 +13,7 @@ import { assetDetailIndexable, projectDetailIndexable } from "@/lib/seo/indexabl
 import { SITE_URL } from "@/lib/site";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
+import { readBalancingRelease } from "@/lib/balancing/load";
 import { peekWarmedPipe } from "@/lib/warm-envelope";
 
 const GRID_LASTMOD_PATHS = new Set(["", "/today", "/data-health"]);
@@ -31,6 +32,7 @@ export const SITEMAP_IDS = ["pages", "assets", "projects"] as const satisfies re
 export type SitemapStamps = {
   grid?: Date;
   gas?: Date;
+  balancing?: Date;
 };
 
 export function generateSitemaps(): { id: SitemapId }[] {
@@ -62,6 +64,9 @@ export function lastModifiedForPath(path: string, stamps: SitemapStamps): Date |
   }
   if (GAS_LASTMOD_PATHS.has(path)) {
     return stamps.gas;
+  }
+  if (path === "/system/balancing") {
+    return stamps.balancing;
   }
   return undefined;
 }
@@ -270,16 +275,19 @@ function projectEntries(lastModified: Date): MetadataRoute.Sitemap {
 }
 
 async function sitemapStamps(now: Date): Promise<SitemapStamps> {
-  const [snapshots, prices] = await Promise.all([
+  const [snapshots, prices, balancing] = await Promise.all([
     peekWarmedPipe<EnergySnapshot>("snapshots_range", getHeadlineSnapshotsQueryParams(now), {
       range: "24h",
       now,
     }),
     peekLatestPrices(now),
+    readBalancingRelease().catch(() => null),
   ]);
+  const generated = balancing?.generated_at ? new Date(balancing.generated_at) : undefined;
   return {
     grid: gridTimestamp(snapshots, now),
     gas: latestCommodityTimestamp(prices),
+    balancing: generated && !Number.isNaN(generated.getTime()) ? generated : undefined,
   };
 }
 

@@ -5,6 +5,8 @@ import {
   daysInFinancialYear,
   financialYearId,
   financialYearLabel,
+  financialYearStart,
+  missingSettlementDates,
   monthlyChartPoints,
   netTradePence,
   nextDraftTariff,
@@ -27,18 +29,32 @@ export type BalancingPageModel = {
   latest: {
     date: string;
     pence: number;
+    periods: number;
+    expectedPeriods: number;
     provisional: boolean;
     yesterday: boolean;
   } | null;
   financialYear: string;
   financialYearLabel: string;
+  fyFrom: string | null;
   fyPence: number | null;
   fyThrough: string | null;
+  missingDates: string[];
+  constraintsPence: number | null;
   constraintsShare: number | null;
-  tariff: { gbpPerMwh: number; label: string } | null;
+  tariff: { gbpPerMwh: number; title: string; from: string; to: string } | null;
   draft: { gbpPerMwh: number; from: string; to: string } | null;
   householdPence: number | null;
   dailyFy2526Pence: number | null;
+  generatedAt: string | null;
+  calendarTrade: {
+    year: number;
+    from: string;
+    to: string;
+    importPence: number;
+    exportPence: number;
+    netPence: number;
+  } | null;
   days: BalancingRelease["days"];
   tariffs: BalancingRelease["tariffs"];
   tradeByRange: Record<BalancingRange, TradeMonth[]>;
@@ -53,13 +69,18 @@ export function buildBalancingPage(release: BalancingRelease | null, now: Date):
     latest: null,
     financialYear,
     financialYearLabel: financialYearLabel(financialYear),
+    fyFrom: null,
     fyPence: null,
     fyThrough: null,
+    missingDates: [],
+    constraintsPence: null,
     constraintsShare: null,
     tariff: null,
     draft: null,
     householdPence: null,
     dailyFy2526Pence: null,
+    generatedAt: null,
+    calendarTrade: null,
     days: [],
     tariffs: [],
     tradeByRange: emptyTradeRanges(),
@@ -70,7 +91,9 @@ export function buildBalancingPage(release: BalancingRelease | null, now: Date):
   const days = release.days.filter((day) => day.date <= today);
   const latest = days[days.length - 1] ?? null;
   const fyDays = daysInFinancialYear(days, financialYear);
-  const fyPence = fyDays.length > 0 ? sumCategoryRows(fyDays) : null;
+  const fyCategories = fyDays.length > 0 ? sumCategoryRows(fyDays) : null;
+  const fyThrough = fyDays[fyDays.length - 1]?.date ?? null;
+  const fyFrom = fyDays.length > 0 ? financialYearStart(financialYear) : null;
   const tariff = tariffCovering(release.tariffs, today);
   const draft = nextDraftTariff(release.tariffs, today);
   const fy2526 = daysInFinancialYear(days, "2025-2026");
@@ -81,25 +104,43 @@ export function buildBalancingPage(release: BalancingRelease | null, now: Date):
       ? {
           date: latest.date,
           pence: dayTotalPence(latest),
+          periods: latest.periods,
+          expectedPeriods: latest.expected_periods,
           provisional: latest.provisional,
           yesterday: latest.date === addDays(today, -1),
         }
       : null,
     financialYear,
     financialYearLabel: financialYearLabel(financialYear),
-    fyPence: fyPence ? sumCategoryPence(fyPence) : null,
-    fyThrough: fyDays[fyDays.length - 1]?.date ?? null,
-    constraintsShare: fyPence ? constraintsShare(fyPence) : null,
+    fyFrom,
+    fyPence: fyCategories ? sumCategoryPence(fyCategories) : null,
+    fyThrough,
+    missingDates: fyFrom && fyThrough ? missingSettlementDates(fyDays.map((day) => day.date), fyFrom, fyThrough) : [],
+    constraintsPence: fyCategories?.constraints ?? null,
+    constraintsShare: fyCategories ? constraintsShare(fyCategories) : null,
     tariff: tariff
-      ? { gbpPerMwh: tariff.gbp_per_mwh, label: `${tariff.title}, ${tariff.from} to ${tariff.to}` }
+      ? { gbpPerMwh: tariff.gbp_per_mwh, title: tariff.title, from: tariff.from, to: tariff.to }
       : null,
     draft: draft ? { gbpPerMwh: draft.gbp_per_mwh, from: draft.from, to: draft.to } : null,
     householdPence: tariff ? householdPence(tariff.gbp_per_mwh) : null,
     dailyFy2526Pence: fy2526.length > 0 ? sumCategoryPence(sumCategoryRows(fy2526)) : null,
+    generatedAt: release.generated_at,
+    calendarTrade: calendarYearTrade(release.trade_days, 2025),
     days,
     tariffs: release.tariffs,
     tradeByRange: tradeRanges(release.trade_days, today),
   };
+}
+
+function calendarYearTrade(days: BalancingRelease["trade_days"], year: number): BalancingPageModel["calendarTrade"] {
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const months = tradeMonthsInRange(days, from, to);
+  if (months.length === 0) {
+    return null;
+  }
+  const net = tradeNet(months);
+  return { year, from, to, importPence: net.importPence, exportPence: net.exportPence, netPence: net.netPence };
 }
 
 function emptyTradeRanges(): Record<BalancingRange, TradeMonth[]> {

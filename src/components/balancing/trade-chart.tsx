@@ -3,7 +3,10 @@
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { LineSample, Swatch } from "@/components/balancing/chart-marks";
+import { monthTicks, poundChartAxis } from "@/lib/balancing/axis";
 import { netTradePence } from "@/lib/balancing/aggregate";
+import { BALANCING_EXPORTS_COLOR, BALANCING_IMPORTS_COLOR } from "@/lib/balancing/categories";
 import { formatPounds } from "@/lib/balancing/money";
 import type { TradeMonth } from "@/lib/balancing/types";
 import { chartAxisLine, chartAxisTick, chartGrid, chartLine, CHART_HEIGHT_HERO } from "@/lib/chart-theme";
@@ -58,47 +61,59 @@ function TradeTooltip({
     return null;
   }
   return (
-    <ChartTooltipCard time={`${formatMonth(point.month)}${point.provisional ? " · Provisional" : ""}`}>
-      <ChartTooltipRow color="var(--chart-imports)" label="Imports" value={formatPounds(point.imports, 1)} />
-      <ChartTooltipRow color="var(--chart-wind)" label="Exports" value={formatPounds(Math.abs(point.exports), 1)} />
-      <ChartTooltipRow color="var(--gray-1000)" label="Net" value={formatPounds(point.net ?? 0, 1)} />
+    <ChartTooltipCard time={`${formatMonth(point.month)}${point.provisional ? " · Incomplete" : ""}`}>
+      <ChartTooltipRow color={BALANCING_IMPORTS_COLOR} label="Imports" value={formatPounds(point.imports, 1)} />
+      <ChartTooltipRow color={BALANCING_EXPORTS_COLOR} label="Exports" value={formatPounds(Math.abs(point.exports), 1)} />
+      <ChartTooltipRow color="var(--gray-1000)" label="Net imports" value={formatPounds(point.net ?? 0, 1)} />
     </ChartTooltipCard>
   );
 }
 
 export function TradeChart({ rows }: { rows: TradeChartRow[] }) {
+  const axis = poundChartAxis(rows.flatMap((row) => [row.imports, row.exports, row.net ?? 0]));
+  const ticks = monthTicks(rows.map((row) => row.month));
   return (
     <div className="min-w-0">
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid {...chartGrid} />
-            <XAxis dataKey="month" tickFormatter={formatMonth} minTickGap={24} tick={chartAxisTick} {...chartAxisLine} />
+            <XAxis
+              dataKey="month"
+              tickFormatter={formatMonth}
+              ticks={ticks}
+              interval={ticks ? 0 : "preserveStartEnd"}
+              minTickGap={ticks ? 0 : 24}
+              tick={chartAxisTick}
+              {...chartAxisLine}
+            />
             <YAxis
-              tickFormatter={(value: number) => formatPounds(value, 0)}
+              domain={axis.domain}
+              ticks={axis.ticks}
+              tickFormatter={axis.format}
               width={64}
               tick={chartAxisTick}
               {...chartAxisLine}
             />
             <Tooltip content={<TradeTooltip />} wrapperStyle={{ zIndex: 30 }} />
-            <Bar dataKey="imports" fill="var(--chart-imports)" isAnimationActive={false} />
-            <Bar dataKey="exports" fill="var(--chart-wind)" isAnimationActive={false} />
+            <Bar dataKey="imports" fill={BALANCING_IMPORTS_COLOR} isAnimationActive={false} />
+            <Bar dataKey="exports" fill={BALANCING_EXPORTS_COLOR} isAnimationActive={false} />
             <Line dataKey="net" stroke="var(--gray-1000)" {...chartLine} />
           </ComposedChart>
         </ResponsiveContainer>
       </ResponsiveChartFrame>
       <ul className="mt-3 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-label-13 text-gray-900">
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[var(--chart-imports)]" aria-hidden="true" />
+          <Swatch color={BALANCING_IMPORTS_COLOR} />
           Imports
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[var(--chart-wind)]" aria-hidden="true" />
+          <Swatch color={BALANCING_EXPORTS_COLOR} />
           Exports
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-gray-1000" aria-hidden="true" />
-          Net, imports minus exports
+          <LineSample />
+          Net imports (imports minus exports)
         </li>
       </ul>
     </div>

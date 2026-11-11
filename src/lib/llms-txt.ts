@@ -4,7 +4,7 @@ import { CURRENT_PRICE_CAP, OFGEM_JAN_2027_ANNOUNCEMENT_LABEL } from "@/lib/pric
 
 export const LLMS_TXT_REVALIDATE_SECONDS = 3600;
 
-export function buildLlmsTxt(payload: DashboardPayload | null): string {
+export function buildLlmsTxt(payload: DashboardPayload | null, balancingLine?: string | null): string {
   const cite = homepageCiteFromPayload(payload);
   const cap = CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB");
   const latest =
@@ -22,6 +22,7 @@ export function buildLlmsTxt(payload: DashboardPayload | null): string {
 
 ${latest}
 ${sapLine}
+${balancingLine ?? "Latest GB balancing costs are on https://grid.vahaah.com/system/balancing. Source: NESO."}
 Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRICE_CAP.periodLabel}). Next cap announced ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.
 
 ## Answers
@@ -31,12 +32,13 @@ Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRIC
 - [Will energy bills go up in January 2027?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
 - [GB electricity records](https://grid.vahaah.com/records): records since Grid's records began, next to NESO's official records
 - [GB gas system](https://grid.vahaah.com/gas): National Transmission System supply, demand, linepack and storage by gas day
+- [GB grid balancing costs and BSUoS](https://grid.vahaah.com/system/balancing#summary): NESO daily balancing costs by category, the BSUoS tariff, a per-household estimate, and a separate estimate of electricity traded with neighbouring countries
 
 ## Data pages
 - [Map](https://grid.vahaah.com/map): interconnector and gas entry-point flows, power stations, DNO licence areas
 - [Storage](https://grid.vahaah.com/system/storage): battery and pumped-storage capacity, and what pumped storage is doing
 - [Constraints](https://grid.vahaah.com/system/constraints): published transmission constraint cost and volume (NESO, published with a lag)
-- [Balancing](https://grid.vahaah.com/system/balancing): NESO daily balancing cost by category, the BSUoS tariff, and an estimate of electricity traded with neighbouring countries
+- [Balancing](https://grid.vahaah.com/system/balancing#summary): NESO daily balancing cost by category, the BSUoS tariff, and an estimate of electricity traded with neighbouring countries
 - [Pipeline](https://grid.vahaah.com/pipeline): renewable and storage projects by stage, technology and nation (DESNZ REPD, quarterly)
 - [Projects](https://grid.vahaah.com/projects): planning, construction and connection status from REPD and the NESO TEC register
 - [Assets](https://grid.vahaah.com/assets): operational stations from REPD and DUKES

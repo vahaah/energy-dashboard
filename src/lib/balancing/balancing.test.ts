@@ -17,7 +17,7 @@ import {
 } from "@/lib/balancing/aggregate";
 import { BALANCING_TINYBIRD_OPS } from "@/lib/balancing/budget";
 import { emptyPence, sumCategoryPence } from "@/lib/balancing/categories";
-import { TRADE_LABEL } from "@/lib/balancing/copy";
+import { BALANCING_DESCRIPTION, BALANCING_TITLE, TRADE_LABEL } from "@/lib/balancing/copy";
 import { householdPence } from "@/lib/balancing/household";
 import { parseCostRecords, parseTradeDays, priceIndex } from "@/lib/balancing/parse";
 import type { BalancingDay, TradeDay } from "@/lib/balancing/types";
@@ -112,8 +112,8 @@ describe("balancing reconciliation", () => {
     expect(netTradePence(months[0]?.countries[0] ?? { import_pence: 0, export_pence: 0 })).toBe(60);
   });
 
-  it("uses 2,700 kWh times the current tariff for the household figure", () => {
-    expect(householdPence(12.49)).toBe(3_372);
+  it("uses 2,500 kWh times the current tariff for the household figure", () => {
+    expect(householdPence(12.49)).toBe(3_123);
   });
 
   it("names every NESO resource from 2017-2018 through the current year", () => {
@@ -235,7 +235,10 @@ describe("balancing reconciliation", () => {
   });
 
   it("keeps the trade label free of payment wording and states a zero Tinybird impact", () => {
-    expect(TRADE_LABEL).toContain("an estimate, not an invoice");
+    expect(TRADE_LABEL).toContain("Market index price (Elexon MID)");
+    expect(TRADE_LABEL).toContain("Not an invoice");
+    expect(BALANCING_DESCRIPTION.length).toBeLessThanOrEqual(155);
+    expect(BALANCING_TITLE).toBe("GB grid balancing costs and BSUoS | Grid");
     expect(TRADE_LABEL.toLowerCase()).not.toMatch(/pay|earn|profit|britain paid|cost of imports/);
     expect(BALANCING_TINYBIRD_OPS).toBe(0);
     const source = readFileSync(resolve(process.cwd(), "src/lib/balancing/fetch.ts"), "utf8");

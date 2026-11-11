@@ -63,10 +63,14 @@ export type HomeCardFile = {
   schema_version: 1;
   latest_date: string | null;
   latest_pence: number | null;
-  latest_provisional: boolean;
+  latest_periods: number | null;
+  latest_expected_periods: number | null;
+  latest_incomplete: boolean;
   financial_year: string | null;
   fy_pence: number | null;
+  fy_from: string | null;
   fy_through: string | null;
+  missing_dates: string[];
   constraints_share: number | null;
   tariff_gbp_per_mwh: number | null;
   tariff_label: string | null;

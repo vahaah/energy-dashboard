@@ -31,13 +31,18 @@ export const NESO_COST_COLUMN: Record<BalancingCategory, string> = {
 };
 
 export const BALANCING_CATEGORY_COLOR: Record<BalancingCategory, string> = {
-  energy_imbalance: "var(--chart-imports)",
-  frequency_control: "var(--chart-nuclear)",
-  positive_reserve: "var(--chart-gas)",
-  negative_reserve: "var(--chart-hydro)",
-  constraints: "var(--chart-wind)",
-  other: "var(--chart-other)",
+  energy_imbalance: "var(--chart-balancing-imbalance)",
+  frequency_control: "var(--chart-balancing-frequency)",
+  positive_reserve: "var(--chart-balancing-positive)",
+  negative_reserve: "var(--chart-balancing-negative)",
+  constraints: "var(--chart-balancing-constraints)",
+  other: "var(--chart-balancing-other)",
 };
+
+export const BALANCING_CONSTRAINTS_FILL = "url(#balancing-constraints-hatch)";
+
+export const BALANCING_IMPORTS_COLOR = "var(--chart-balancing-imports)";
+export const BALANCING_EXPORTS_COLOR = "var(--chart-balancing-exports)";
 
 export function emptyPence(): CategoryPence {
   return {

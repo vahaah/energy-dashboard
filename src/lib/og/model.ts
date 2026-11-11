@@ -242,7 +242,7 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
   },
   balancing: {
     eyebrow: gridEyebrow("Balancing"),
-    title: "What it costs to balance Britain's grid",
+    title: "GB grid balancing costs and BSUoS",
     kicker: "Daily balancing cost from NESO, kept apart from the trade estimate.",
     metrics: [],
     mix: [],
@@ -826,7 +826,6 @@ function pageCacheControl(page: OgPageId): string {
     case "gas":
     case "gas-system":
     case "constraints":
-    case "balancing":
       return OG_HOURLY_CACHE_CONTROL;
     case "records":
     case "privacy":
@@ -845,6 +844,7 @@ function pageCacheControl(page: OgPageId): string {
     case "directory":
     case "identifiers":
     case "data-health":
+    case "balancing":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

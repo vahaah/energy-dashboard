@@ -1,4 +1,4 @@
-import { constraintsShare, dayTotalPence, daysInFinancialYear, financialYearId, financialYearLabel, mergeCostDays, mergeTradeDays, sumCategoryRows, tariffCovering, tradeMonthsFromDays } from "@/lib/balancing/aggregate";
+import { constraintsShare, dayTotalPence, daysInFinancialYear, financialYearId, financialYearLabel, financialYearStart, mergeCostDays, mergeTradeDays, missingSettlementDates, sumCategoryRows, tariffCovering, tradeMonthsFromDays } from "@/lib/balancing/aggregate";
 import { emptyPence, sumCategoryPence } from "@/lib/balancing/categories";
 import { householdPence } from "@/lib/balancing/household";
 import type { BalancingDay, BalancingRelease, BalancingTariff, HomeCardFile, TradeDay } from "@/lib/balancing/types";
@@ -92,17 +92,23 @@ export function buildHomeCard(release: BalancingRelease, today: string): HomeCar
   const latest = days[days.length - 1] ?? null;
   const financialYear = financialYearId(today);
   const fyDays = daysInFinancialYear(days, financialYear);
-  const fyPence = fyDays.length > 0 ? sumCategoryRows(fyDays) : emptyPence();
+  const fyCategories = fyDays.length > 0 ? sumCategoryRows(fyDays) : emptyPence();
+  const fyFrom = fyDays.length > 0 ? financialYearStart(financialYear) : null;
+  const fyThrough = fyDays[fyDays.length - 1]?.date ?? null;
   const tariff = tariffCovering(release.tariffs, today);
   return {
     schema_version: 1,
     latest_date: latest?.date ?? null,
     latest_pence: latest ? dayTotalPence(latest) : null,
-    latest_provisional: latest?.provisional ?? false,
+    latest_periods: latest?.periods ?? null,
+    latest_expected_periods: latest?.expected_periods ?? null,
+    latest_incomplete: latest?.provisional ?? false,
     financial_year: fyDays.length > 0 ? financialYear : null,
-    fy_pence: fyDays.length > 0 ? sumCategoryPence(fyPence) : null,
-    fy_through: fyDays[fyDays.length - 1]?.date ?? null,
-    constraints_share: fyDays.length > 0 ? constraintsShare(fyPence) : null,
+    fy_pence: fyDays.length > 0 ? sumCategoryPence(fyCategories) : null,
+    fy_from: fyFrom,
+    fy_through: fyThrough,
+    missing_dates: fyFrom && fyThrough ? missingSettlementDates(fyDays.map((day) => day.date), fyFrom, fyThrough) : [],
+    constraints_share: fyDays.length > 0 ? constraintsShare(fyCategories) : null,
     tariff_gbp_per_mwh: tariff?.gbp_per_mwh ?? null,
     tariff_label: tariff ? `${tariff.publication} ${tariff.title}, ${tariff.from} to ${tariff.to}` : null,
     household_pence: tariff ? householdPence(tariff.gbp_per_mwh) : null,

@@ -16,6 +16,7 @@ describe("balancing page", () => {
     expect(home).toContain("export const revalidate = 300");
     expect(BALANCING_TITLE).toContain("Grid");
     expect(BALANCING_H1.length).toBeGreaterThan(10);
-    expect(TRADE_LABEL).toContain("flow × GB market price");
+    expect(TRADE_LABEL).toContain("Market index price (Elexon MID)");
+    expect(home).toContain("readBalancingRelease");
   });
 });

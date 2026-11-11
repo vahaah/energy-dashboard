@@ -3,6 +3,9 @@
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTooltipCard, ChartTooltipRow } from "@/components/charts/chart-tooltip";
 import { ResponsiveChartFrame } from "@/components/charts/responsive-chart-frame";
+import { LineSample, Swatch } from "@/components/balancing/chart-marks";
+import { monthTicks, poundChartAxis, tariffChartAxis } from "@/lib/balancing/axis";
+import { BALANCING_CATEGORY_COLOR, BALANCING_CONSTRAINTS_FILL } from "@/lib/balancing/categories";
 import type { MonthlyChartPoint } from "@/lib/balancing/aggregate";
 import { formatPounds, formatTariff } from "@/lib/balancing/money";
 import { chartAxisLine, chartAxisTick, chartGrid, CHART_HEIGHT_HERO } from "@/lib/chart-theme";
@@ -29,9 +32,17 @@ function MonthlyTooltip({
     return null;
   }
   return (
-    <ChartTooltipCard time={`${formatMonth(point.month)}${point.provisional ? " · Provisional" : ""}`}>
-      <ChartTooltipRow color="var(--chart-wind)" label="Constraints" value={formatPounds(point.constraints ?? 0, 1)} />
-      <ChartTooltipRow color="var(--chart-gas)" label="Everything else" value={formatPounds(point.other ?? 0, 1)} />
+    <ChartTooltipCard time={`${formatMonth(point.month)}${point.provisional ? " · Incomplete" : ""}`}>
+      <ChartTooltipRow
+        color={BALANCING_CATEGORY_COLOR.constraints}
+        label="Constraints"
+        value={formatPounds(point.constraints ?? 0, 1)}
+      />
+      <ChartTooltipRow
+        color={BALANCING_CATEGORY_COLOR.other}
+        label="Other categories"
+        value={formatPounds(point.other ?? 0, 1)}
+      />
       <ChartTooltipRow color="var(--gray-1000)" label="Total" value={formatPounds(point.total ?? 0, 1)} />
       <ChartTooltipRow
         color="var(--gray-1000)"
@@ -43,16 +54,40 @@ function MonthlyTooltip({
 }
 
 export function MonthlyCostChart({ points }: { points: MonthlyChartPoint[] }) {
+  const costs: number[] = [0];
+  const tariffs: number[] = [0];
+  for (const point of points) {
+    if (point.gap) {
+      continue;
+    }
+    costs.push((point.constraints ?? 0) + (point.other ?? 0), point.total ?? 0);
+    if (point.tariff_gbp_per_mwh != null) {
+      tariffs.push(point.tariff_gbp_per_mwh);
+    }
+  }
+  const costAxis = poundChartAxis(costs);
+  const tariffAxis = tariffChartAxis(tariffs);
+  const ticks = monthTicks(points.map((point) => point.month));
   return (
-    <div className="min-w-0">
+    <div className="relative min-w-0">
       <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+          <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid {...chartGrid} />
-            <XAxis dataKey="month" tickFormatter={formatMonth} minTickGap={24} tick={chartAxisTick} {...chartAxisLine} />
+            <XAxis
+              dataKey="month"
+              tickFormatter={formatMonth}
+              ticks={ticks}
+              interval={ticks ? 0 : "preserveStartEnd"}
+              minTickGap={ticks ? 0 : 24}
+              tick={chartAxisTick}
+              {...chartAxisLine}
+            />
             <YAxis
               yAxisId="cost"
-              tickFormatter={(value: number) => formatPounds(value, 0)}
+              domain={costAxis.domain}
+              ticks={costAxis.ticks}
+              tickFormatter={costAxis.format}
               width={64}
               tick={chartAxisTick}
               {...chartAxisLine}
@@ -60,14 +95,35 @@ export function MonthlyCostChart({ points }: { points: MonthlyChartPoint[] }) {
             <YAxis
               yAxisId="tariff"
               orientation="right"
-              tickFormatter={(value: number) => `£${Math.round(value)}`}
-              width={36}
+              domain={tariffAxis.domain}
+              ticks={tariffAxis.ticks}
+              tickFormatter={tariffAxis.format}
+              width={48}
               tick={chartAxisTick}
               {...chartAxisLine}
+              label={{
+                value: "£/MWh",
+                angle: 90,
+                position: "insideRight",
+                offset: -4,
+                style: { fill: "var(--gray-900)", fontSize: 12 },
+              }}
             />
             <Tooltip content={<MonthlyTooltip />} wrapperStyle={{ zIndex: 30 }} />
-            <Bar yAxisId="cost" dataKey="constraints" stackId="month" fill="var(--chart-wind)" isAnimationActive={false} />
-            <Bar yAxisId="cost" dataKey="other" stackId="month" fill="var(--chart-gas)" isAnimationActive={false} />
+            <Bar
+              yAxisId="cost"
+              dataKey="constraints"
+              stackId="month"
+              fill={BALANCING_CONSTRAINTS_FILL}
+              isAnimationActive={false}
+            />
+            <Bar
+              yAxisId="cost"
+              dataKey="other"
+              stackId="month"
+              fill={BALANCING_CATEGORY_COLOR.other}
+              isAnimationActive={false}
+            />
             <Line
               yAxisId="tariff"
               dataKey="tariff_gbp_per_mwh"
@@ -83,15 +139,15 @@ export function MonthlyCostChart({ points }: { points: MonthlyChartPoint[] }) {
       </ResponsiveChartFrame>
       <ul className="mt-3 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-label-13 text-gray-900">
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[var(--chart-wind)]" aria-hidden="true" />
+          <Swatch color={BALANCING_CATEGORY_COLOR.constraints} hatch />
           Constraints
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[var(--chart-gas)]" aria-hidden="true" />
-          Everything else
+          <Swatch color={BALANCING_CATEGORY_COLOR.other} />
+          Other categories
         </li>
         <li className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-gray-1000" aria-hidden="true" />
+          <LineSample dashed />
           BSUoS tariff, £/MWh
         </li>
       </ul>

@@ -74,6 +74,18 @@ export function isProvisionalDay(periods: number, expected: number): boolean {
   return periods < expected;
 }
 
+/** Settlement dates in the inclusive span that the file does not contain. */
+export function missingSettlementDates(dates: readonly string[], from: string, to: string): string[] {
+  const present = new Set(dates);
+  const missing: string[] = [];
+  for (let date = from; date <= to; date = addUtcDays(date, 1)) {
+    if (!present.has(date)) {
+      missing.push(date);
+    }
+  }
+  return missing;
+}
+
 export function costDay(date: string, periods: number, pence: CategoryPence): BalancingDay {
   if (!isIsoDate(date)) {
     throw new Error(`not a settlement date: ${date}`);
