@@ -6,6 +6,7 @@ const PAGES = [
   "/today",
   "/gas",
   "/system/constraints",
+  "/system/balancing",
   "/system/storage",
   "/system/whole-energy",
   "/electricity/northern-ireland",

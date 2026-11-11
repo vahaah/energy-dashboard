@@ -96,6 +96,8 @@ function webPageNode(input: {
   url: string;
   id: string;
   dateModified?: string | null;
+  breadcrumbId?: string;
+  mainEntityId?: string;
 }): JsonLdNode {
   return {
     "@type": "WebPage",
@@ -108,6 +110,8 @@ function webPageNode(input: {
     publisher: { "@id": APP_ID },
     author: { "@id": PERSON_ID },
     ...(input.dateModified ? { dateModified: input.dateModified } : {}),
+    ...(input.breadcrumbId ? { breadcrumb: { "@id": input.breadcrumbId } } : {}),
+    ...(input.mainEntityId ? { mainEntity: { "@id": input.mainEntityId } } : {}),
   };
 }
 
@@ -299,7 +303,7 @@ function recordsDatasetNode(): JsonLdNode {
   };
 }
 
-export function breadcrumbNode(...crumbs: Array<{ name: string; item: string }>): JsonLdNode {
+export function breadcrumbNode(...crumbs: Array<{ name: string; item?: string }>): JsonLdNode {
   return {
     "@type": "BreadcrumbList",
     itemListElement: [
@@ -308,7 +312,7 @@ export function breadcrumbNode(...crumbs: Array<{ name: string; item: string }>)
         "@type": "ListItem",
         position: index + 2,
         name: crumb.name,
-        item: crumb.item,
+        ...(crumb.item ? { item: crumb.item } : {}),
       })),
     ],
   };
@@ -333,13 +337,15 @@ export function pageJsonLd(input: {
   name: string;
   description: string;
   url: string;
-  breadcrumbs: Array<{ name: string; item: string }>;
+  breadcrumbs: Array<{ name: string; item?: string }>;
   faqs?: Array<{ question: string; answer: string }>;
   extra?: JsonLdNode[];
   dateModified?: string;
+  mainEntityId?: string;
 }): { "@context": "https://schema.org"; "@graph": JsonLdNode[] } {
   const breadcrumb = breadcrumbNode(...input.breadcrumbs);
-  breadcrumb["@id"] = `${input.url}#breadcrumb`;
+  const breadcrumbId = `${input.url}#breadcrumb`;
+  breadcrumb["@id"] = breadcrumbId;
   const graph: JsonLdNode[] = [
     webPageNode({
       name: input.name,
@@ -347,6 +353,8 @@ export function pageJsonLd(input: {
       url: input.url,
       id: `${input.url}#webpage`,
       dateModified: input.dateModified,
+      breadcrumbId: input.mainEntityId ? breadcrumbId : undefined,
+      mainEntityId: input.mainEntityId,
     }),
     breadcrumb,
   ];

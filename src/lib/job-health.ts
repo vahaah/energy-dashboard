@@ -9,6 +9,7 @@ export const CRON_JOB_IDS = [
   "cron-map-layers",
   "cron-gas",
   "cron-constraints",
+  "cron-balancing",
   "cron-directory",
   "cron-tec",
   "cron-northern-ireland",

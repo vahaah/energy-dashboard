@@ -26,6 +26,8 @@ export type CardProps = {
   children: ReactNode;
   active?: boolean;
   size?: CardSize;
+  /** Stat labels are not section headings. */
+  titleAs?: "h2" | "h3" | "p";
   as?: "section" | "article" | "div";
   className?: string;
   flush?: boolean;
@@ -44,6 +46,29 @@ function titleClass(size: CardSize): string {
   }
 }
 
+function CardTitle({
+  as,
+  className,
+  children,
+}: {
+  as: "h2" | "h3" | "p";
+  className: string;
+  children: ReactNode;
+}) {
+  switch (as) {
+    case "h2":
+      return <h2 className={className}>{children}</h2>;
+    case "h3":
+      return <h3 className={className}>{children}</h3>;
+    case "p":
+      return <p className={className}>{children}</p>;
+    default: {
+      const exhaustive: never = as;
+      return exhaustive;
+    }
+  }
+}
+
 export function Card({
   id,
   title,
@@ -53,6 +78,7 @@ export function Card({
   children,
   active = false,
   size = "default",
+  titleAs = "h2",
   as = "section",
   className = "",
   flush = false,
@@ -97,7 +123,7 @@ export function Card({
           className={`flex flex-col gap-3 ${CARD_PAD_X} ${CARD_PAD_TOP} sm:flex-row sm:items-start sm:justify-between`}
         >
           <div className="flex min-w-0 items-center gap-2">
-            {title ? <h2 className={titleClass(size)}>{title}</h2> : null}
+            {title ? <CardTitle as={titleAs} className={titleClass(size)}>{title}</CardTitle> : null}
             {tooltip ? (
               <InfoTooltip text={tooltip} label={`About ${title ?? "this card"}`} />
             ) : null}

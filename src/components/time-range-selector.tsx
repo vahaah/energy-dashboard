@@ -4,7 +4,7 @@ interface Props<T extends string> {
   value: T;
   onChange: (value: T) => void;
   onOptionIntent?: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string }>;
+  options: ReadonlyArray<{ value: T; label: string; accessibleName?: string }>;
   pending?: boolean;
   compact?: boolean;
   ariaLabel?: string;
@@ -33,6 +33,7 @@ export function TimeRangeSelector<T extends string>({
             key={opt.value}
             type="button"
             aria-pressed={value === opt.value}
+            aria-label={opt.accessibleName}
             onClick={() => onChange(opt.value)}
             onMouseEnter={() => onOptionIntent?.(opt.value)}
             onFocus={() => onOptionIntent?.(opt.value)}
@@ -63,6 +64,7 @@ export function TimeRangeSelector<T extends string>({
           key={opt.value}
           type="button"
           aria-pressed={value === opt.value}
+          aria-label={opt.accessibleName}
           onClick={() => onChange(opt.value)}
           onMouseEnter={() => onOptionIntent?.(opt.value)}
           onFocus={() => onOptionIntent?.(opt.value)}

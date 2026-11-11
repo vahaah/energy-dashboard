@@ -46,6 +46,15 @@
   --color-chart-battery: var(--chart-battery);
   --color-chart-other: var(--chart-other);
   --color-chart-demand: var(--gray-1000);
+  --color-chart-balancing-imbalance: var(--chart-balancing-imbalance);
+  --color-chart-balancing-frequency: var(--chart-balancing-frequency);
+  --color-chart-balancing-positive: var(--chart-balancing-positive);
+  --color-chart-balancing-negative: var(--chart-balancing-negative);
+  --color-chart-balancing-constraints: var(--chart-balancing-constraints);
+  --color-chart-balancing-constraints-mark: var(--chart-balancing-constraints-mark);
+  --color-chart-balancing-other: var(--chart-balancing-other);
+  --color-chart-balancing-imports: var(--chart-balancing-imports);
+  --color-chart-balancing-exports: var(--chart-balancing-exports);
   --spacing-card: var(--card-pad);
 }
 
@@ -91,6 +100,15 @@
   --chart-pumped: #12a696;
   --chart-battery: #55d3be;
   --chart-other: #8c939b;
+  --chart-balancing-imbalance: #10243a;
+  --chart-balancing-frequency: #f0c14b;
+  --chart-balancing-positive: #1f6b4a;
+  --chart-balancing-negative: #f4b183;
+  --chart-balancing-constraints: #4a1d4a;
+  --chart-balancing-constraints-mark: #f3e1c2;
+  --chart-balancing-other: #d9e2ec;
+  --chart-balancing-imports: #10243a;
+  --chart-balancing-exports: #f0c14b;
 }
 
 .dark {
@@ -134,6 +152,15 @@
   --chart-pumped: #14b8a6;
   --chart-battery: #5eead4;
   --chart-other: #9ca3af;
+  --chart-balancing-imbalance: #d6e4f5;
+  --chart-balancing-frequency: #8a5a12;
+  --chart-balancing-positive: #b7f0d2;
+  --chart-balancing-negative: #7a2e4a;
+  --chart-balancing-constraints: #f3e1c2;
+  --chart-balancing-constraints-mark: #4a1d4a;
+  --chart-balancing-other: #1e3a5f;
+  --chart-balancing-imports: #d6e4f5;
+  --chart-balancing-exports: #8a5a12;
 }
 
 :focus-visible {

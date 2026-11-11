@@ -7,7 +7,10 @@ import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PAGE_STACK_CLASS } from "@/components/ui/card";
 import { homepageCiteFromPayload, homepageCitePlainText } from "@/lib/homepage-briefing";
+import { buildHomeCard } from "@/lib/balancing/build";
+import { readBalancingRelease } from "@/lib/balancing/load";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
+import { getLondonDate } from "@/lib/london-time";
 import { homepageJsonLd } from "@/lib/jsonld";
 import { homepageOgImage } from "@/lib/page-metadata";
 import {
@@ -58,6 +61,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
   const payload = await loadHomepagePayload();
   const cite = homepageCiteFromPayload(payload);
+  const balancingRelease = await readBalancingRelease();
+  const balancingCard = balancingRelease ? buildHomeCard(balancingRelease, getLondonDate(new Date())) : null;
   const briefing = <HomepageBriefing cite={cite} />;
 
   return (
@@ -71,7 +76,7 @@ export default async function Home() {
           </div>
         }
       >
-        <Dashboard initialPayload={payload} cite={cite} />
+        <Dashboard initialPayload={payload} cite={cite} balancingCard={balancingCard} />
       </Suspense>
     </div>
   );

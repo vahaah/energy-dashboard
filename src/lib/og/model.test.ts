@@ -227,6 +227,7 @@ describe("og model", () => {
       "page-map.png",
       "page-assets.png",
       "page-constraints.png",
+      "page-balancing.png",
       "page-storage.png",
       "page-whole-energy.png",
       "page-projects.png",

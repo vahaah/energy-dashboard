@@ -47,6 +47,7 @@ export const OG_PAGE_IDS = [
   "map",
   "assets",
   "constraints",
+  "balancing",
   "storage",
   "whole-energy",
   "projects",
@@ -239,6 +240,15 @@ const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard
     stamp: null,
     source: NESO_OPEN_DATA_ATTRIBUTION,
   },
+  balancing: {
+    eyebrow: gridEyebrow("Balancing"),
+    title: "GB grid balancing costs and BSUoS",
+    kicker: "Daily balancing cost from NESO, kept apart from the trade estimate.",
+    metrics: [],
+    mix: [],
+    stamp: null,
+    source: `${NESO_OPEN_DATA_ATTRIBUTION}. ${elexonBmrsAttribution(2026)}`,
+  },
   storage: {
     eyebrow: gridEyebrow("Storage"),
     title: "Electricity storage in Britain",
@@ -396,6 +406,7 @@ function pageCard(page: OgPageId, snapshot: OgCacheSnapshot): OgCard {
     case "map":
     case "assets":
     case "constraints":
+    case "balancing":
     case "storage":
     case "whole-energy":
     case "projects":
@@ -833,6 +844,7 @@ function pageCacheControl(page: OgPageId): string {
     case "directory":
     case "identifiers":
     case "data-health":
+    case "balancing":
       return OG_CACHE_CONTROL;
     case "storage":
       return OG_SETTLEMENT_CACHE_CONTROL;

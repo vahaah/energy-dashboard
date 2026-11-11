@@ -71,6 +71,7 @@ export const SHIPPED_PAGE_ROUTES = [
   "/gas",
   "/map",
   "/system/constraints",
+  "/system/balancing",
   "/power-cuts",
   "/system/whole-energy",
   "/methodology",

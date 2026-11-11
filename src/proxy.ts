@@ -26,6 +26,7 @@ const CRON_OR_HEALTH = new Set([
   "/api/cron-map-layers",
   "/api/cron-gas",
   "/api/cron-constraints",
+  "/api/cron-balancing",
   "/api/cron-directory",
   "/api/cron-tec",
   "/api/cron-northern-ireland",
