@@ -10,6 +10,7 @@ import {
   nextDraftTariff,
   rangeStart,
   sumCategoryRows,
+  tradeMonthsInRange,
   sumCountries,
   tariffCovering,
   type DailyChartPoint,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/balancing/aggregate";
 import { sumCategoryPence } from "@/lib/balancing/categories";
 import { householdPence } from "@/lib/balancing/household";
-import type { BalancingRange, BalancingRelease, TradeCountry, TradeMonth } from "@/lib/balancing/types";
+import { BALANCING_RANGES, type BalancingRange, type BalancingRelease, type TradeCountry, type TradeMonth } from "@/lib/balancing/types";
 import { getLondonDate } from "@/lib/london-time";
 
 export type BalancingPageModel = {
@@ -40,7 +41,7 @@ export type BalancingPageModel = {
   dailyFy2526Pence: number | null;
   days: BalancingRelease["days"];
   tariffs: BalancingRelease["tariffs"];
-  tradeMonths: TradeMonth[];
+  tradeByRange: Record<BalancingRange, TradeMonth[]>;
 };
 
 export function buildBalancingPage(release: BalancingRelease | null, now: Date): BalancingPageModel {
@@ -61,7 +62,7 @@ export function buildBalancingPage(release: BalancingRelease | null, now: Date):
     dailyFy2526Pence: null,
     days: [],
     tariffs: [],
-    tradeMonths: [],
+    tradeByRange: emptyTradeRanges(),
   };
   if (!release || release.days.length === 0) {
     return empty;
@@ -97,8 +98,20 @@ export function buildBalancingPage(release: BalancingRelease | null, now: Date):
     dailyFy2526Pence: fy2526.length > 0 ? sumCategoryPence(sumCategoryRows(fy2526)) : null,
     days,
     tariffs: release.tariffs,
-    tradeMonths: release.trade_months,
+    tradeByRange: tradeRanges(release.trade_days, today),
   };
+}
+
+function emptyTradeRanges(): Record<BalancingRange, TradeMonth[]> {
+  return { "90d": [], "1y": [], fy: [], all: [] };
+}
+
+function tradeRanges(days: BalancingRelease["trade_days"], today: string): Record<BalancingRange, TradeMonth[]> {
+  const ranges = emptyTradeRanges();
+  for (const range of BALANCING_RANGES) {
+    ranges[range] = tradeMonthsInRange(days, rangeStart(range, today), today);
+  }
+  return ranges;
 }
 
 function addDays(date: string, days: number): string {
@@ -133,14 +146,7 @@ export function monthlySeries(model: BalancingPageModel, range: BalancingRange):
 }
 
 export function tradeInRange(model: BalancingPageModel, range: BalancingRange): TradeMonth[] {
-  const window = chartWindow(range, model.today, model.days);
-  return model.tradeMonths.filter((month) => {
-    const start = `${month.month}-01`;
-    if (window.from && `${month.month}-31` < window.from) {
-      return false;
-    }
-    return start <= window.to;
-  });
+  return model.tradeByRange[range];
 }
 
 export function tradeCountryTotals(months: readonly TradeMonth[]): TradeCountry[] {

@@ -1,5 +1,5 @@
-import { NESO_COST_COLUMN, emptyPence, type BalancingCategory, type CategoryPence } from "@/lib/balancing/categories";
-import { costDay, isIsoDate, isProvisionalDay } from "@/lib/balancing/aggregate";
+import { NESO_COST_COLUMN, emptyPence, type BalancingCategory } from "@/lib/balancing/categories";
+import { costDay, isIsoDate } from "@/lib/balancing/aggregate";
 import { countryForFuel } from "@/lib/balancing/countries";
 import { poundsToPence } from "@/lib/balancing/money";
 import type { BalancingDay, BalancingTariff, TariffPublication, TradeCountry, TradeDay } from "@/lib/balancing/types";
@@ -228,8 +228,8 @@ export function parseTradeDays(fuelRows: readonly FuelHourRow[], prices: Readonl
     }
   }
 
-  const byDate = new Map<string, Map<number, Map<string, number>>>();
-  const periodsByDate = new Map<string, Set<number>>();
+  const byDate = new Map<string, Map<number, Map<string, { country: string; mw: number }>>>();
+  const periodsByFuel = new Map<string, Map<string, Set<number>>>();
   for (const [key, pick] of latest) {
     const [date, periodText, fuel] = key.split(":");
     if (!date || !periodText || !fuel) {
@@ -240,12 +240,14 @@ export function parseTradeDays(fuelRows: readonly FuelHourRow[], prices: Readonl
     if (!country) {
       continue;
     }
-    const periods = periodsByDate.get(date) ?? new Set<number>();
+    const fuels = periodsByFuel.get(date) ?? new Map<string, Set<number>>();
+    const periods = fuels.get(fuel) ?? new Set<number>();
     periods.add(period);
-    periodsByDate.set(date, periods);
-    const dateMap = byDate.get(date) ?? new Map<number, Map<string, number>>();
-    const periodMap = dateMap.get(period) ?? new Map<string, number>();
-    periodMap.set(country, (periodMap.get(country) ?? 0) + pick.mw);
+    fuels.set(fuel, periods);
+    periodsByFuel.set(date, fuels);
+    const dateMap = byDate.get(date) ?? new Map<number, Map<string, { country: string; mw: number }>>();
+    const periodMap = dateMap.get(period) ?? new Map<string, { country: string; mw: number }>();
+    periodMap.set(fuel, { country, mw: pick.mw });
     dateMap.set(period, periodMap);
     byDate.set(date, dateMap);
   }
@@ -253,36 +255,38 @@ export function parseTradeDays(fuelRows: readonly FuelHourRow[], prices: Readonl
   const days: TradeDay[] = [];
   for (const [date, dateMap] of byDate) {
     const expected = periodsInSettlementDay(date);
-    const observed = periodsByDate.get(date)?.size ?? 0;
+    const fuelPeriods = [...(periodsByFuel.get(date)?.values() ?? [])];
+    const observed = fuelPeriods.reduce((smallest, periods) => Math.min(smallest, periods.size), expected);
+    const incompleteFuel = fuelPeriods.some((periods) => periods.size < expected);
     let unpriced = 0;
     const countries = new Map<string, TradeCountry>();
     for (const [period, flows] of dateMap) {
       const price = prices.get(priceKey(date, period));
-      for (const [country, mw] of flows) {
-        if (mw === 0) {
+      for (const flow of flows.values()) {
+        if (flow.mw === 0) {
           continue;
         }
         if (price == null) {
           unpriced += 1;
           continue;
         }
-        const row = countries.get(country) ?? {
-          country,
+        const row = countries.get(flow.country) ?? {
+          country: flow.country,
           import_pence: 0,
           export_pence: 0,
           import_mwh: 0,
           export_mwh: 0,
         };
-        const mwh = Math.abs(mw) * HALF_HOUR_MWH;
+        const mwh = Math.abs(flow.mw) * HALF_HOUR_MWH;
         const pence = poundsToPence(mwh * price);
-        if (mw > 0) {
+        if (flow.mw > 0) {
           row.import_mwh += mwh;
           row.import_pence += pence;
         } else {
           row.export_mwh += mwh;
           row.export_pence += pence;
         }
-        countries.set(country, row);
+        countries.set(flow.country, row);
       }
     }
     days.push({
@@ -290,7 +294,7 @@ export function parseTradeDays(fuelRows: readonly FuelHourRow[], prices: Readonl
       expected_periods: expected,
       observed_periods: observed,
       unpriced_periods: unpriced,
-      provisional: isProvisionalDay(observed, expected) || unpriced > 0,
+      provisional: incompleteFuel || unpriced > 0,
       countries: [...countries.values()].sort((left, right) => left.country.localeCompare(right.country, "en-GB")),
     });
   }

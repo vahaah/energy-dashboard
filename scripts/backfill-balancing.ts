@@ -35,6 +35,8 @@ type Checkpoint = {
   tariffsIssuedAt: string | null;
   nextTradeFrom: string | null;
   unknownFuels: string[];
+  /** Financial years whose cost rows were written. A partial `days` array is not enough. */
+  costYears: string[];
 };
 
 const FIRST_YEAR = 2017;
@@ -111,6 +113,7 @@ async function loadOffline(today: string): Promise<Checkpoint> {
     tariffsIssuedAt: null,
     nextTradeFrom: null,
     unknownFuels: [],
+    costYears: [],
   };
   for (const year of financialYearsThrough(FIRST_YEAR, today)) {
     const text = await readFile(resolve(raw, `costs-${year}.json`), "utf8");
@@ -155,13 +158,16 @@ async function main(): Promise<void> {
     tariffsIssuedAt: null,
     nextTradeFrom: FIRST_DAY,
     unknownFuels: [],
+    costYears: [],
   };
+  checkpoint.costYears ??= [];
 
-  if (checkpoint.days.length === 0) {
-    console.log(`[balancing] costs from FY${FIRST_YEAR}/18 through ${today}`);
+  const years = financialYearsThrough(FIRST_YEAR, today);
+  const pending = years.filter((year) => !checkpoint.costYears.includes(year));
+  if (pending.length > 0) {
+    console.log(`[balancing] costs ${pending.join(", ")}`);
     const resources = await loadNesoResources(NESO_COSTS_PACKAGE, fetchBoundedRetry);
-    const years = financialYearsThrough(FIRST_YEAR, today);
-    for (const year of years) {
+    for (const year of pending) {
       const resource = selectCsvResource(resources, balancingResourceName(year));
       if (!resource) {
         throw new Error(`NESO resource missing for ${year}`);
@@ -172,7 +178,9 @@ async function main(): Promise<void> {
       const to = end < today ? end : today;
       const fetched = await loadCostDays(resource.id, fetchBoundedRetry, start, to);
       const inYear = fetched.filter((day) => financialYearId(day.date) === year && day.date <= today);
+      checkpoint.days = checkpoint.days.filter((day) => financialYearId(day.date) !== year);
       checkpoint.days.push(...inYear);
+      checkpoint.costYears.push(year);
       checkpoint.costsIssuedAt = laterInstant(checkpoint.costsIssuedAt, ckanInstant(resource.last_modified ?? ""));
       console.log(`[balancing] ${year} days ${inYear.length}`);
       await writeCheckpoint(checkpoint);

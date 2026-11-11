@@ -6,12 +6,14 @@ import {
   costDay,
   dailyChartPoints,
   dayTotalPence,
+  financialYearsInRange,
   financialYearsThrough,
   isProvisionalDay,
   mergeCostDays,
   netTradePence,
   sumDaysPence,
   tradeMonthsFromDays,
+  tradeMonthsInRange,
 } from "@/lib/balancing/aggregate";
 import { BALANCING_TINYBIRD_OPS } from "@/lib/balancing/budget";
 import { emptyPence, sumCategoryPence } from "@/lib/balancing/categories";
@@ -19,6 +21,7 @@ import { TRADE_LABEL } from "@/lib/balancing/copy";
 import { householdPence } from "@/lib/balancing/household";
 import { parseCostRecords, parseTradeDays, priceIndex } from "@/lib/balancing/parse";
 import type { BalancingDay, TradeDay } from "@/lib/balancing/types";
+import { assertBalancingWindow } from "@/workflows/steps/balancing";
 
 function day(date: string, periods: number, constraints: number, other = 0): BalancingDay {
   const pence = emptyPence();
@@ -140,6 +143,95 @@ describe("balancing reconciliation", () => {
     expect(parsed[0]?.pence.energy_imbalance).toBe(125);
     expect(parsed[0]?.pence.negative_reserve).toBe(-400);
     expect(dayTotalPence(parsed[0]!)).toBe(sumCategoryPence(parsed[0]!.pence));
+  });
+
+  it("keeps imports and exports when two cables to one country flow opposite ways", () => {
+    const prices = priceIndex([
+      { settlementDate: "2026-11-10", settlementPeriod: 1, dataProvider: "APXMIDP", price: 100, volume: 10 },
+    ]);
+    const parsed = parseTradeDays(
+      [
+        { settlementDate: "2026-11-10", settlementPeriod: 1, fuelType: "INTFR", generation: 200, publishTime: "2026-11-10T01:00:00Z" },
+        { settlementDate: "2026-11-10", settlementPeriod: 1, fuelType: "INTIFA2", generation: -200, publishTime: "2026-11-10T01:00:00Z" },
+      ],
+      prices,
+    );
+    const france = parsed.days[0]?.countries.find((country) => country.country === "France");
+    expect(france?.import_mwh).toBe(100);
+    expect(france?.export_mwh).toBe(100);
+    expect(france?.import_pence).toBe(1_000_000);
+    expect(france?.export_pence).toBe(1_000_000);
+  });
+
+  it("marks a day provisional when one interconnector is short of periods", () => {
+    const prices = priceIndex(
+      Array.from({ length: 48 }, (_, index) => ({
+        settlementDate: "2026-11-10",
+        settlementPeriod: index + 1,
+        dataProvider: "APXMIDP",
+        price: 10,
+        volume: 1,
+      })),
+    );
+    const row = (fuel: string, periods: number) =>
+      Array.from({ length: periods }, (_, index) => ({
+        settlementDate: "2026-11-10",
+        settlementPeriod: index + 1,
+        fuelType: fuel,
+        generation: 10,
+        publishTime: "2026-11-10T12:00:00Z",
+      }));
+    const parsed = parseTradeDays([...row("INTFR", 48), ...row("INTNED", 47)], prices);
+    expect(parsed.days[0]?.provisional).toBe(true);
+    expect(parsed.days[0]?.observed_periods).toBe(47);
+  });
+
+  it("keeps a negative market price and does not reject the release", () => {
+    const prices = priceIndex([
+      { settlementDate: "2026-11-10", settlementPeriod: 1, dataProvider: "APXMIDP", price: -10, volume: 1 },
+    ]);
+    const parsed = parseTradeDays(
+      [{ settlementDate: "2026-11-10", settlementPeriod: 1, fuelType: "INTFR", generation: 100, publishTime: "2026-11-10T01:00:00Z" }],
+      prices,
+    );
+    const france = parsed.days[0]?.countries[0];
+    expect(france?.import_pence).toBeLessThan(0);
+    expect(france?.import_mwh).toBeGreaterThan(0);
+    expect(() =>
+      assertBalancingWindow({
+        from: "2026-11-10",
+        to: "2026-11-10",
+        days: [],
+        tariffs: [],
+        tradeDays: parsed.days,
+        tradeFrom: "2026-11-10",
+        costsIssuedAt: null,
+        tariffsIssuedAt: null,
+        unknownFuels: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it("names both financial years when a cost window crosses April", () => {
+    expect(financialYearsInRange("2026-03-25", "2026-04-03")).toEqual(["2025-2026", "2026-2027"]);
+  });
+
+  it("drops trade from before the range start instead of keeping the whole month", () => {
+    const row = (date: string, pence: number): TradeDay => ({
+      date,
+      expected_periods: 48,
+      observed_periods: 48,
+      unpriced_periods: 0,
+      provisional: false,
+      countries: [{ country: "France", import_pence: pence, export_pence: 0, import_mwh: 1, export_mwh: 0 }],
+    });
+    const months = tradeMonthsInRange(
+      [row("2026-08-10", 10), row("2026-08-20", 20), row("2026-09-01", 30)],
+      "2026-08-14",
+      "2026-11-11",
+    );
+    expect(months.find((month) => month.month === "2026-08")?.countries[0]?.import_pence).toBe(20);
+    expect(months.find((month) => month.month === "2026-09")?.countries[0]?.import_pence).toBe(30);
   });
 
   it("keeps the trade label free of payment wording and states a zero Tinybird impact", () => {

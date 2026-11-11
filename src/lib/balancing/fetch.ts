@@ -1,4 +1,4 @@
-import { financialYearId, balancingResourceName } from "@/lib/balancing/aggregate";
+import { balancingResourceName, financialYearId, financialYearsInRange } from "@/lib/balancing/aggregate";
 import { costSql, parseCostRecords, parseTariffRecords, parseTradeDays, priceIndex, tariffSql, type NesoCostRecord, type NesoTariffRecord, type FuelHourRow, type PriceRow } from "@/lib/balancing/parse";
 import type { BalancingDay, BalancingTariff, TradeDay } from "@/lib/balancing/types";
 import { addUtcDays, londonMidnightUtc } from "@/lib/london-time";
@@ -235,12 +235,18 @@ export async function collectDailyWindow(
 ): Promise<DailyWindow> {
   const from = addUtcDays(today, -9);
   const costResources = await loadNesoResources(NESO_COSTS_PACKAGE, fetchText);
-  const costResource = selectCsvResource(costResources, balancingResourceName(financialYearId(today)));
-  if (!costResource) {
-    throw new Error("NESO daily balancing cost resource is missing");
+  const days: BalancingDay[] = [];
+  let costsIssuedAt: string | null = null;
+  for (const year of financialYearsInRange(from, today)) {
+    const costResource = selectCsvResource(costResources, balancingResourceName(year));
+    if (!costResource) {
+      throw new Error("NESO daily balancing cost resource is missing");
+    }
+    await pause(gapMs);
+    const fetched = await loadCostDays(costResource.id, fetchText, from, today);
+    days.push(...fetched.filter((day) => financialYearId(day.date) === year && day.date >= from && day.date <= today));
+    costsIssuedAt = ckanInstant(costResource.last_modified ?? "") ?? costsIssuedAt;
   }
-  await pause(gapMs);
-  const days = await loadCostDays(costResource.id, fetchText, from, today);
   await pause(gapMs);
   const tariffResources = await loadNesoResources(NESO_TARIFF_PACKAGE, fetchText);
   const tariffResource = tariffResources.find((resource) => resource.format.toUpperCase() === "CSV");
@@ -256,11 +262,11 @@ export async function collectDailyWindow(
   return {
     from,
     to: today,
-    days: days.filter((day) => day.date >= from && day.date <= today),
+    days,
     tariffs,
     tradeDays: parsed.days.filter((day) => day.date >= trade.from && day.date <= trade.to),
     tradeFrom: trade.from,
-    costsIssuedAt: ckanInstant(costResource.last_modified ?? ""),
+    costsIssuedAt,
     tariffsIssuedAt: ckanInstant(tariffResource.last_modified ?? ""),
     unknownFuels: parsed.unknownFuels,
   };

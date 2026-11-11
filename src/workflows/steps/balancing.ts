@@ -36,8 +36,8 @@ export function assertBalancingWindow(window: DailyWindow): void {
   }
   for (const day of window.tradeDays) {
     for (const country of day.countries) {
-      if (country.import_pence < 0 || country.export_pence < 0) {
-        throw new FatalError("trade value is signed the wrong way");
+      if (country.import_mwh < 0 || country.export_mwh < 0) {
+        throw new FatalError("trade flow is signed the wrong way");
       }
     }
   }

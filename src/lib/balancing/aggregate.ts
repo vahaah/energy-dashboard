@@ -18,6 +18,17 @@ export function isIsoDate(value: string): boolean {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
 }
 
+/** Financial years touched by an inclusive settlement-date window. April needs both sides. */
+export function financialYearsInRange(from: string, to: string): string[] {
+  const start = Number(financialYearId(from).slice(0, 4));
+  const end = Number(financialYearId(to).slice(0, 4));
+  const years: string[] = [];
+  for (let year = start; year <= end; year += 1) {
+    years.push(`${year}-${year + 1}`);
+  }
+  return years;
+}
+
 /** NESO financial year, April to March. `2025-11-09` is `2025-2026`. */
 export function financialYearId(isoDate: string): string {
   if (!isIsoDate(isoDate)) {
@@ -141,21 +152,33 @@ function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
-/** Roll daily country rows up to months. A missing day stays missing. The month is provisional when coverage is short. */
-export function tradeMonthsFromDays(days: readonly TradeDay[], today: string): TradeMonth[] {
+function inclusiveDayCount(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  return Math.round((end - start) / 86_400_000) + 1;
+}
+
+/**
+ * Roll daily country rows up to months. Days outside `[from, to]` are left out,
+ * including the start of a month when a 90-day window begins mid-month.
+ * A missing day inside that window stays missing and marks the month provisional.
+ */
+export function tradeMonthsInRange(days: readonly TradeDay[], from: string | null, to: string): TradeMonth[] {
+  const filtered = days.filter((day) => (from == null || day.date >= from) && day.date <= to);
   const byMonth = new Map<string, TradeDay[]>();
-  for (const day of days) {
+  for (const day of filtered) {
     const month = monthOf(day.date);
     const list = byMonth.get(month) ?? [];
     list.push(day);
     byMonth.set(month, list);
   }
-  const months = [...byMonth.keys()].sort();
-  return months.map((month) => {
+  return [...byMonth.keys()].sort().map((month) => {
     const rows = byMonth.get(month) ?? [];
-    const inMonth = daysInMonth(month);
-    const todayMonth = monthOf(today);
-    const expected = month < todayMonth ? inMonth : month === todayMonth ? Number(today.slice(8, 10)) : rows.length;
+    const monthStart = `${month}-01`;
+    const monthEnd = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
+    const clipStart = from != null && from > monthStart ? from : monthStart;
+    const clipEnd = to < monthEnd ? to : monthEnd;
+    const expected = inclusiveDayCount(clipStart, clipEnd);
     const provisional = rows.some((row) => row.provisional) || rows.length < expected;
     return {
       month,
@@ -163,6 +186,11 @@ export function tradeMonthsFromDays(days: readonly TradeDay[], today: string): T
       countries: sumCountries(rows.flatMap((row) => row.countries)),
     };
   });
+}
+
+/** Roll daily country rows up to months through `today`. */
+export function tradeMonthsFromDays(days: readonly TradeDay[], today: string): TradeMonth[] {
+  return tradeMonthsInRange(days, null, today);
 }
 
 export function mergeTradeDays(

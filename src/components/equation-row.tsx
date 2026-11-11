@@ -49,7 +49,7 @@ export function EquationRow({ power }: { power: DisplayedPower }) {
       </dl>
       <div
         data-equation="ledger"
-        className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-y-3 lg:hidden"
+        className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-baseline gap-y-3 pt-2 lg:hidden"
         aria-hidden="true"
       >
         {power.terms.map((term) => (
