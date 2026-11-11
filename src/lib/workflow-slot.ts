@@ -7,6 +7,7 @@ export const SLOT_TTL_SECONDS = {
   yesterday: 24 * 60 * 60,
   gas: 50 * 60,
   constraints: 20 * 60 * 60,
+  balancing: 20 * 60 * 60,
   tec: 12 * 60 * 60,
   eirgrid: 50 * 60,
 } as const;
@@ -37,6 +38,11 @@ export function pricesSlot(now: Date): string {
 
 export function yesterdaySlot(now: Date): string {
   return now.toISOString().slice(0, 10);
+}
+
+/** Balancing cron fires at 05:10 UTC. */
+export function balancingSlot(now: Date): string {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 5, 10, 0, 0)).toISOString();
 }
 
 /** Breakdown at 04:40 UTC. Day-ahead at 16:40 UTC on weekdays. */

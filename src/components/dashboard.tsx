@@ -73,6 +73,7 @@ import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
+import { BalancingHomeCard } from "@/components/balancing-home-card";
 import { TodayMapCard } from "@/components/today-map-card";
 import { SectionBlock } from "@/components/section-block";
 import { SiteHeader } from "@/components/site-header";
@@ -412,6 +413,7 @@ export function Dashboard({
         )}
 
         <TodayMapCard />
+        <BalancingHomeCard />
 
         <SectionBlock
           id="section-price"

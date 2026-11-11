@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "latest_date": "2026-11-09",
+  "latest_pence": 1954336342,
+  "latest_provisional": true,
+  "financial_year": "2026-2027",
+  "fy_pence": 237172406429,
+  "fy_through": "2026-11-09",
+  "constraints_share": 0.9056748915490003,
+  "tariff_gbp_per_mwh": 12.49,
+  "tariff_label": "Final Fixed Tariff 8, 2026-10-01 to 2027-03-31",
+  "household_pence": 3372,
+  "generated_at": "2026-11-11T13:23:22.252Z"
+}

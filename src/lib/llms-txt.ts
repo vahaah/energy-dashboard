@@ -36,6 +36,7 @@ Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRIC
 - [Map](https://grid.vahaah.com/map): interconnector and gas entry-point flows, power stations, DNO licence areas
 - [Storage](https://grid.vahaah.com/system/storage): battery and pumped-storage capacity, and what pumped storage is doing
 - [Constraints](https://grid.vahaah.com/system/constraints): published transmission constraint cost and volume (NESO, published with a lag)
+- [Balancing](https://grid.vahaah.com/system/balancing): NESO daily balancing cost by category, the BSUoS tariff, and an estimate of electricity traded with neighbouring countries
 - [Pipeline](https://grid.vahaah.com/pipeline): renewable and storage projects by stage, technology and nation (DESNZ REPD, quarterly)
 - [Projects](https://grid.vahaah.com/projects): planning, construction and connection status from REPD and the NESO TEC register
 - [Assets](https://grid.vahaah.com/assets): operational stations from REPD and DUKES

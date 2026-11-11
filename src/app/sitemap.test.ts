@@ -29,6 +29,7 @@ describe("sitemap", () => {
       "https://grid.vahaah.com/gas",
       "https://grid.vahaah.com/power-cuts",
       "https://grid.vahaah.com/system/constraints",
+      "https://grid.vahaah.com/system/balancing",
       "https://grid.vahaah.com/system/storage",
       "https://grid.vahaah.com/system/whole-energy",
       "https://grid.vahaah.com/electricity/northern-ireland",

@@ -26,6 +26,10 @@
       "schedule": "5 * * * *"
     },
     {
+      "path": "/api/cron-balancing",
+      "schedule": "10 5 * * *"
+    },
+    {
       "path": "/api/cron-constraints?bundle=breakdown",
       "schedule": "40 4 * * *"
     },
