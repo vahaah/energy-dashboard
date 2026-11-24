@@ -1,10 +1,8 @@
 import { foldSearch } from "@/lib/assets/query";
 
-export type CatalogueGroup = "Projects" | "Assets";
-
 export type CatalogueHit = {
   title: string;
-  group: CatalogueGroup;
+  group: string;
 };
 
 /** Higher means the title is a closer match for the query. */
@@ -41,7 +39,12 @@ export function compareCatalogueHits(query: string, left: CatalogueHit, right: C
     return strength;
   }
   if (left.group !== right.group) {
-    return left.group === "Assets" ? -1 : 1;
+    if (left.group === "Assets") {
+      return -1;
+    }
+    if (right.group === "Assets") {
+      return 1;
+    }
   }
   return left.title.localeCompare(right.title, "en");
 }
