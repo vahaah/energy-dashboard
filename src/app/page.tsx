@@ -23,8 +23,9 @@ import {
 } from "@/lib/site";
 
 /**
- * Homepage shell. Static/ISR so the CDN can HIT `/`. The H1 and cite sentence
- * are in the initial HTML, including the suspense fallback. `?date=`
+ * Homepage shell. Static/ISR so the CDN can HIT `/`. The cite sentence is in
+ * the initial HTML. The suspense fallback repeats the title as a paragraph
+ * with the same type styles; the dashboard header is the only h1. `?date=`
  * is hidden on the client only — the canonical strips it. Homepage metadata
  * versions `/og?p=` with the settlement period and does not use `?focus=`.
  * Per-section cards stay on the `/og` route for the share menu only.
@@ -63,7 +64,7 @@ export default async function Home() {
   const cite = homepageCiteFromPayload(payload);
   const balancingRelease = await readBalancingRelease();
   const balancingCard = balancingRelease ? buildHomeCard(balancingRelease, getLondonDate(new Date())) : null;
-  const briefing = <HomepageBriefing cite={cite} />;
+  const briefing = <HomepageBriefing cite={cite} heading="p" />;
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">

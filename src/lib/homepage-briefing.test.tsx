@@ -137,6 +137,21 @@ describe("homepage briefing", () => {
     expect(html).not.toContain("No data yet");
   });
 
+  it("keeps a single h1 when the homepage fallback and dashboard header are both rendered", () => {
+    const cite = buildHomepageCite({ facts: facts(rows), headlineSnapshots: [snapshot()] });
+    const html = renderToStaticMarkup(
+      <>
+        <HomepageBriefing cite={cite} heading="p" />
+        <HomepageBriefing cite={cite} controls={<div className="shrink-0" />} />
+      </>,
+    );
+    expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
+    expect(html).toContain("<p class=\"min-w-0 text-heading-32 text-gray-1000\">");
+    expect(html).toContain("What&#x27;s powering electricity in Great Britain?");
+    expect(html).toContain('class="shrink-0"');
+    expect(html).toContain('href="/today"');
+  });
+
   it("takes cite shares from the aligned generation frame, not facts.shares", () => {
     const manyRows = [
       ...rows,
