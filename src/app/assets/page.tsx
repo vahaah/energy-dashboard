@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { AssetDirectory } from "@/components/asset-directory";
+import { CountColumns } from "@/components/count-columns";
 import { SeoPage } from "@/components/seo-page";
+import { Card } from "@/components/ui/card";
+import { ASSET_LIST_DEFAULT, assetCounts, queryAssetPage, toAssetListRow } from "@/lib/assets/list";
 import { loadAssetCatalogue } from "@/lib/assets/load";
+import { DIRECTORY_TECHNOLOGIES } from "@/lib/assets/types";
 import { pageJsonLd } from "@/lib/jsonld";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { assetsPageMetadata } from "@/lib/page-metadata";
@@ -14,6 +18,10 @@ export const metadata: Metadata = assetsPageMetadata(loadAssetCatalogue().rows.l
 
 export default function AssetsPage() {
   const catalogue = loadAssetCatalogue();
+  const counts = assetCounts(catalogue.rows);
+  const list = queryAssetPage(catalogue.rows, ASSET_LIST_DEFAULT, null);
+  const present = new Set(catalogue.rows.map((row) => row.technology));
+  const technologies = DIRECTORY_TECHNOLOGIES.filter((technology) => present.has(technology));
 
   return (
     <SeoPage
@@ -33,7 +41,22 @@ export default function AssetsPage() {
       }
       citation={`Grid, "Power assets", grid.vahaah.com/assets, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}
     >
-      <AssetDirectory rows={catalogue.rows} regions={catalogue.regions} />
+      <Card title="Counts">
+        <CountColumns
+          columns={[
+            { title: "By technology", rows: counts.technology },
+            { title: "By nation", rows: counts.nation },
+            { title: "By stage", rows: counts.stage },
+          ]}
+        />
+      </Card>
+      <AssetDirectory
+        rows={list.rows.map(toAssetListRow)}
+        total={list.total}
+        pages={list.pages}
+        regions={catalogue.regions}
+        technologies={technologies}
+      />
     </SeoPage>
   );
 }

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { scopeRejection, unsupportedFilter } from "@/lib/api/errors";
-import { buildBalancingPage } from "@/lib/balancing/page-model";
+import { cdnCacheHeaders } from "@/lib/api-route";
+import { balancingRangeSeries, buildBalancingPage } from "@/lib/balancing/page-model";
 import { readBalancingRelease } from "@/lib/balancing/load";
+import { BALANCING_RANGES, type BalancingRange } from "@/lib/balancing/types";
 
 /**
  * GET /api/v1/balancing
@@ -11,7 +13,12 @@ import { readBalancingRelease } from "@/lib/balancing/load";
  */
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["scope", "geography"]);
+const ALLOWED = new Set(["scope", "geography", "range"]);
+const RANGE_CACHE = "public, s-maxage=300, stale-while-revalidate=86400";
+
+function isRange(value: string): value is BalancingRange {
+  return (BALANCING_RANGES as readonly string[]).includes(value);
+}
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -23,12 +30,29 @@ export async function GET(request: Request) {
   if (filter) {
     return NextResponse.json(filter.body, { status: filter.status });
   }
+  const range = params.get("range");
+  if (range !== null && (!isRange(range) || params.getAll("range").length > 1)) {
+    return NextResponse.json({ error: "unsupported filter" }, { status: 400 });
+  }
   const release = await readBalancingRelease();
   const model = buildBalancingPage(release, new Date());
   if (!model.available || !release) {
     return NextResponse.json(
       { error: "The source is unavailable. The last published data is still returned where Grid holds it." },
       { status: 503 },
+    );
+  }
+  if (range && isRange(range)) {
+    const series = balancingRangeSeries(model, range);
+    return NextResponse.json(
+      {
+        range,
+        daily: series.daily,
+        monthly: series.monthly,
+        trade_months: series.trade,
+        sources: ["neso-open-data", "elexon-bmrs"],
+      },
+      { headers: cdnCacheHeaders(RANGE_CACHE) },
     );
   }
   return NextResponse.json({

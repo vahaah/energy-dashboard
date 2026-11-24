@@ -15,6 +15,7 @@ import {
   PIPELINE_TITLE,
 } from "@/lib/pipeline/copy";
 import { pipelineEditionStale, pipelinePublicationDay } from "@/lib/pipeline/freshness";
+import { PIPELINE_LIST_DEFAULT, pipelineFacets, selectPipelineRows } from "@/lib/pipeline/list";
 import { loadPipelineCatalogue } from "@/lib/pipeline/load";
 
 export const dynamic = "force-static";
@@ -33,6 +34,9 @@ export default function PipelinePage() {
   const now = new Date();
   const stale = pipelineEditionStale(pipelinePublicationDay(catalogue.edition), now);
   const faqs = pipelineFaqs(catalogue.figures, catalogue.edition.edition);
+  const list = selectPipelineRows(catalogue.figures.table, PIPELINE_LIST_DEFAULT);
+  const facets = pipelineFacets(catalogue.figures.table);
+  const figures = { ...catalogue.figures, table: [] };
   return (
     <SeoPage
       section="Pipeline"
@@ -55,10 +59,12 @@ export default function PipelinePage() {
       }
     >
       <PipelineFrame
-        figures={catalogue.figures}
+        figures={figures}
         stamp={catalogue.stamp}
         stale={stale}
         unavailable={catalogue.unavailable}
+        pagedRows={list.rows}
+        facets={{ ...facets, total: list.total, pages: list.pages }}
       />
       <FaqList items={faqs} />
     </SeoPage>

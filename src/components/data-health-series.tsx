@@ -1,4 +1,4 @@
-import { DataHealthReading } from "@/components/data-health-reading";
+import { healthReadingListHtml } from "@/components/data-health-markup";
 import { groupHealthReadings, healthSeriesSummary } from "@/lib/data-health-list";
 import type { DataHealthReading as Reading } from "@/lib/data-health";
 
@@ -22,16 +22,5 @@ export function DataHealthSeriesList({ readings }: { readings: readonly Reading[
 }
 
 function SeriesItems({ readings }: { readings: readonly Reading[] }) {
-  return (
-    <ul className="mt-4 flex flex-col">
-      {readings.map((reading) => (
-        <li
-          key={reading.metric_id}
-          className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-        >
-          <DataHealthReading reading={reading} />
-        </li>
-      ))}
-    </ul>
-  );
+  return <ul className="dh-list" dangerouslySetInnerHTML={{ __html: healthReadingListHtml(readings) }} />;
 }

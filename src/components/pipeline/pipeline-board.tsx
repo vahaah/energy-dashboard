@@ -34,12 +34,16 @@ export function PipelineBoard({
   stale,
   unavailable = false,
   preview = null,
+  pagedRows = null,
+  facets = null,
 }: {
   figures: PipelineFigures;
   stamp: string;
   stale: boolean;
   unavailable?: boolean;
   preview?: PipelinePreview | null;
+  pagedRows?: PipelineFigures["table"] | null;
+  facets?: { technologies: string[]; nations: string[]; total: number; pages: number } | null;
 }) {
   const count = figures.projects.toLocaleString("en-GB");
   const maxNation = Math.max(0, ...figures.nations.map((row) => row.exactGw));
@@ -188,7 +192,12 @@ export function PipelineBoard({
           <CardLoading />
         </Card>
       ) : (
-        <PipelineTable rows={figures.table} forcedEmpty={preview === "empty"} />
+        <PipelineTable
+          rows={pagedRows ?? figures.table}
+          forcedEmpty={preview === "empty"}
+          paged={pagedRows != null}
+          facets={facets ?? undefined}
+        />
       )}
 
       <Card title="Northern Ireland">

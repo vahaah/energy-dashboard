@@ -15,7 +15,7 @@ import {
 import { pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
 import { loadProjectCatalogue } from "@/lib/projects/load";
-import { buildProjectsDocument } from "@/lib/projects/page-model";
+import { loadProjectsPageData } from "@/lib/projects/page-data";
 
 export const dynamic = "force-static";
 export const revalidate = 86_400;
@@ -32,7 +32,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function ProjectsPage() {
   const now = new Date();
-  const document = buildProjectsDocument(loadProjectCatalogue().projects);
+  const data = loadProjectsPageData();
   return (
     <SeoPage
       section={PROJECTS_EYEBROW}
@@ -54,7 +54,7 @@ export default function ProjectsPage() {
         </section>
       }
     >
-      <ProjectsBoard document={document} />
+      <ProjectsBoard document={data.document} counts={data.counts} facets={data.facets} list={data.list} />
     </SeoPage>
   );
 }

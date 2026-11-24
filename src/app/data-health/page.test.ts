@@ -9,7 +9,8 @@ describe("data health page", () => {
 
     expect(source).toContain("loadDataHealth");
     expect(source).toContain("DataHealthReading");
-    expect(source).toContain('export const dynamic = "force-dynamic"');
+    expect(source).toContain('export const dynamic = "force-static"');
+    expect(source).toContain("export const revalidate = 300");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toContain("fetchPipeRows");
     expect(home).toContain('export const dynamic = "force-static"');
