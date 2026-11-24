@@ -1,26 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DailyCostChart } from "@/components/balancing/daily-cost-chart";
 import { MonthlyCostChart } from "@/components/balancing/monthly-cost-chart";
 import { TradeChart, tradeChartRows } from "@/components/balancing/trade-chart";
 import { TimeRangeSelector } from "@/components/time-range-selector";
 import { Card } from "@/components/ui/card";
 import { TableScroll } from "@/components/ui/table-scroll";
-import { netTradePence } from "@/lib/balancing/aggregate";
+import { netTradePence, type DailyChartPoint, type MonthlyChartPoint } from "@/lib/balancing/aggregate";
 import { compareCountries } from "@/lib/balancing/countries";
 import { TRADE_ESTIMATE_BADGE, TRADE_LABEL, TRADE_TITLE } from "@/lib/balancing/copy";
 import { formatBalancingDate } from "@/lib/balancing/dates";
 import { formatGwh, formatPounds } from "@/lib/balancing/money";
-import {
-  dailySeries,
-  monthlySeries,
-  tradeCountryTotals,
-  tradeInRange,
-  tradeNet,
-  type BalancingPageModel,
-} from "@/lib/balancing/page-model";
-import { BALANCING_RANGES, type BalancingRange } from "@/lib/balancing/types";
+import { tradeCountryTotals, tradeNet, type BalancingRangeSeries } from "@/lib/balancing/page-model";
+import { BALANCING_RANGES, type BalancingRange, type TradeMonth } from "@/lib/balancing/types";
+import { fetchBoundedJson } from "@/lib/http/bounded-json";
 
 const RANGE_OPTIONS: ReadonlyArray<{ value: BalancingRange; label: string; accessibleName?: string }> = [
   { value: "90d", label: "90 days" },
@@ -51,15 +45,91 @@ function rangePhrase(range: BalancingRange, through: string): string {
   }
 }
 
-export function BalancingBoard({ model }: { model: BalancingPageModel }) {
+type SeriesCache = {
+  daily: Partial<Record<BalancingRange, DailyChartPoint[]>>;
+  monthly: Partial<Record<BalancingRange, MonthlyChartPoint[]>>;
+  trade: Partial<Record<BalancingRange, TradeMonth[]>>;
+};
+
+function isSeries(value: unknown): value is BalancingRangeSeries {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const body = value as BalancingRangeSeries & { trade_months?: TradeMonth[] };
+  return Array.isArray(body.daily) && Array.isArray(body.monthly) && Array.isArray(body.trade_months);
+}
+
+export function BalancingBoard({
+  today,
+  daily,
+  monthly,
+  trade,
+}: {
+  today: string;
+  daily: DailyChartPoint[];
+  monthly: MonthlyChartPoint[];
+  trade: TradeMonth[];
+}) {
   const [range, setRange] = useState<BalancingRange>("90d");
   const [monthlyRange, setMonthlyRange] = useState<BalancingRange>("1y");
-  const daily = dailySeries(model, range);
-  const monthly = monthlySeries(model, monthlyRange);
-  const months = tradeInRange(model, range);
-  const countries = tradeCountryTotals(months).sort((left, right) => compareCountries(left.country, right.country));
-  const net = tradeNet(months);
-  const through = model.today;
+  const [cache, setCache] = useState<SeriesCache>({
+    daily: { "90d": daily },
+    monthly: { "1y": monthly },
+    trade: { "90d": trade },
+  });
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const dailyPoints = cache.daily[range];
+  const monthlyPoints = cache.monthly[monthlyRange];
+  const months = cache.trade[range];
+  const selectionKey = `${range}\n${monthlyRange}`;
+  const failed = failedKey === selectionKey;
+
+  useEffect(() => {
+    const wanted: BalancingRange[] = [];
+    if (cache.daily[range] == null || cache.trade[range] == null) {
+      wanted.push(range);
+    }
+    if (cache.monthly[monthlyRange] == null && !wanted.includes(monthlyRange)) {
+      wanted.push(monthlyRange);
+    }
+    if (wanted.length === 0) {
+      return;
+    }
+    const controller = new AbortController();
+    const key = selectionKey;
+    for (const item of wanted) {
+      fetchBoundedJson(`/api/v1/balancing?range=${item}`, controller.signal)
+        .then((body) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          if (!isSeries(body)) {
+            setFailedKey(key);
+            return;
+          }
+          const parsed = body as BalancingRangeSeries & { trade_months: TradeMonth[] };
+          setFailedKey((current) => (current === key ? null : current));
+          setCache((current) => ({
+            daily: { ...current.daily, [item]: parsed.daily },
+            monthly: { ...current.monthly, [item]: parsed.monthly },
+            trade: { ...current.trade, [item]: parsed.trade_months },
+          }));
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+            return;
+          }
+          setFailedKey(key);
+        });
+    }
+    return () => controller.abort();
+  }, [cache, monthlyRange, range, selectionKey]);
+
+  const countries = (months ?? []).length
+    ? tradeCountryTotals(months ?? []).sort((left, right) => compareCountries(left.country, right.country))
+    : [];
+  const net = months ? tradeNet(months) : null;
+  const through = today;
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -86,7 +156,13 @@ export function BalancingBoard({ model }: { model: BalancingPageModel }) {
           </p>
         ) : null}
         <div className="mt-4 min-w-0">
-          <DailyCostChart points={daily} />
+          {dailyPoints ? (
+            <DailyCostChart points={dailyPoints} />
+          ) : (
+            <p className="break-words text-copy-14 text-gray-900" role="status">
+              {failed ? "This range could not be loaded." : "Loading this range."}
+            </p>
+          )}
         </div>
       </Card>
       <Card
@@ -111,7 +187,13 @@ export function BalancingBoard({ model }: { model: BalancingPageModel }) {
           of the month, in £/MWh, on its own axis.
         </p>
         <div className="mt-4 min-w-0">
-          <MonthlyCostChart points={monthly} />
+          {monthlyPoints ? (
+            <MonthlyCostChart points={monthlyPoints} />
+          ) : (
+            <p className="break-words text-copy-14 text-gray-900" role="status">
+              {failed ? "This range could not be loaded." : "Loading this range."}
+            </p>
+          )}
         </div>
       </Card>
       <Card
@@ -125,11 +207,14 @@ export function BalancingBoard({ model }: { model: BalancingPageModel }) {
       >
         <p className="break-words text-copy-14 text-gray-900">{TRADE_LABEL}</p>
         <p className="mt-2 break-words text-copy-14 tabular-nums text-gray-1000">
-          {rangePhrase(range, through)}: imports {formatPounds(net.importPence)} · exports {formatPounds(net.exportPence)} ·
-          net imports {formatPounds(net.netPence)} (estimates)
+          {net
+            ? `${rangePhrase(range, through)}: imports ${formatPounds(net.importPence)} · exports ${formatPounds(net.exportPence)} · net imports ${formatPounds(net.netPence)} (estimates)`
+            : failed
+              ? "This range could not be loaded."
+              : "Loading this range."}
         </p>
         <div className="mt-4 min-w-0">
-          <TradeChart rows={tradeChartRows(months)} />
+          {months ? <TradeChart rows={tradeChartRows(months)} /> : null}
         </div>
         <div className="mt-4 min-w-0">
           <TableScroll>

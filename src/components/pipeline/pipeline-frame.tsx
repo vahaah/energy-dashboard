@@ -1,7 +1,7 @@
 "use client";
 
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
-import type { PipelineFigures } from "@/lib/pipeline/model";
+import type { PipelineFigures, PipelineTableRow } from "@/lib/pipeline/model";
 import { pipelinePreview } from "@/lib/pipeline/preview";
 
 function previewFromLocation() {
@@ -16,11 +16,15 @@ export function PipelineFrame({
   stamp,
   stale,
   unavailable,
+  pagedRows = null,
+  facets = null,
 }: {
   figures: PipelineFigures;
   stamp: string;
   stale: boolean;
   unavailable: boolean;
+  pagedRows?: PipelineTableRow[] | null;
+  facets?: { technologies: string[]; nations: string[]; total: number; pages: number } | null;
 }) {
   const preview = previewFromLocation();
   return (
@@ -30,6 +34,8 @@ export function PipelineFrame({
       stale={stale || preview === "stale"}
       unavailable={unavailable || preview === "unavailable"}
       preview={preview}
+      pagedRows={pagedRows}
+      facets={facets}
     />
   );
 }

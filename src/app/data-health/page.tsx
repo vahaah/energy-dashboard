@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DataHealthReading } from "@/components/data-health-reading";
 import { DataHealthSeriesList } from "@/components/data-health-series";
+import { healthReadingListHtml } from "@/components/data-health-markup";
 import { MapLayerChangeNotice } from "@/components/map-layer-change";
 import { SeoPage } from "@/components/seo-page";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
@@ -22,7 +23,8 @@ import { loadPowerCutsHealth } from "@/lib/power-cuts/health";
 import { operatorName } from "@/lib/power-cuts/copy";
 import { DATA_HEALTH_DESCRIPTION, DATA_HEALTH_H1, DATA_HEALTH_TITLE, SITE_ORIGIN } from "@/lib/site";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
+export const revalidate = 300;
 export const metadata: Metadata = dataHealthPageMetadata();
 
 export default async function DataHealthPage() {
@@ -136,16 +138,7 @@ export default async function DataHealthPage() {
             Published constraint cost and volume, and the day-ahead boundary snapshot. Cost stays in £.
             Volume stays in MWh.
           </p>
-          <ul className="mt-4 flex flex-col">
-            {constraints.map((reading) => (
-              <li
-                key={reading.metric_id}
-                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <SeriesRow reading={reading} />
-              </li>
-            ))}
-          </ul>
+          <ul className="dh-list" dangerouslySetInnerHTML={{ __html: healthReadingListHtml(constraints) }} />
         </Card>
       </section>
       <section id="northern-ireland" className="scroll-mt-28">
@@ -159,16 +152,7 @@ export default async function DataHealthPage() {
               Northern Ireland electricity
             </Link>
           </p>
-          <ul className="mt-4 flex flex-col">
-            {northernIreland.map((reading) => (
-              <li
-                key={reading.metric_id}
-                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <SeriesRow reading={reading} />
-              </li>
-            ))}
-          </ul>
+          <ul className="dh-list" dangerouslySetInnerHTML={{ __html: healthReadingListHtml(northernIreland) }} />
         </Card>
       </section>
       <section id="storage" className="scroll-mt-28">
@@ -183,16 +167,7 @@ export default async function DataHealthPage() {
               Storage
             </Link>
           </p>
-          <ul className="mt-4 flex flex-col">
-            {storageReadings(readings).map((reading) => (
-              <li
-                key={reading.metric_id}
-                className="border-t border-gray-alpha-400 py-4 first:border-t-0 first:pt-0 last:pb-0"
-              >
-                <DataHealthReading reading={reading} />
-              </li>
-            ))}
-          </ul>
+          <ul className="dh-list" dangerouslySetInnerHTML={{ __html: healthReadingListHtml(storageReadings(readings)) }} />
         </Card>
       </section>
       <section id="power-cuts" className="scroll-mt-28">
@@ -251,8 +226,4 @@ function GasCoverageItem({
       <p className="mt-1 break-words text-copy-14 text-gray-900">{series.coverage}</p>
     </li>
   );
-}
-
-function SeriesRow({ reading }: { reading: Reading }) {
-  return <DataHealthReading reading={reading} />;
 }

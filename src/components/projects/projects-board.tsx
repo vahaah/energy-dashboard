@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { CountColumns } from "@/components/count-columns";
 import { Card } from "@/components/ui/card";
 import { Quantity } from "@/components/ui/quantity";
+import { fetchBoundedJson } from "@/lib/http/bounded-json";
 import { formatEnergy } from "@/lib/format/quantity";
 import {
   CONNECTION_CAPACITY,
@@ -14,50 +16,106 @@ import {
   STORAGE_ENERGY,
   STORAGE_ENERGY_UNPUBLISHED,
 } from "@/lib/projects/copy";
-import type { ProjectIndexRow, ProjectsDocument } from "@/lib/projects/page-model";
-
-const PAGE_SIZE = 40;
+import { isDefaultProjectQuery, type CountRow, type ProjectListQuery } from "@/lib/projects/list";
+import type { ProjectIndexRow } from "@/lib/projects/page-model";
+import type { ProjectsPageData } from "@/lib/projects/page-data";
 
 const HIDDEN_STATUS = "Unknown";
 
-export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
+type RemotePage = {
+  projects: ProjectIndexRow[];
+  total: number;
+  page: number;
+  pages: number;
+};
+
+function isRemotePage(value: unknown): value is RemotePage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const body = value as RemotePage;
+  return Array.isArray(body.projects) && typeof body.total === "number" && typeof body.page === "number" && typeof body.pages === "number";
+}
+
+export function ProjectsBoard({
+  document,
+  counts,
+  facets,
+  list,
+}: {
+  document: ProjectsPageData["document"];
+  counts: { stage: CountRow[]; technology: CountRow[]; nation: CountRow[] };
+  facets: ProjectsPageData["facets"];
+  list: ProjectsPageData["list"];
+}) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [stage, setStage] = useState("all");
   const [technology, setTechnology] = useState("all");
   const [nation, setNation] = useState("all");
   const [page, setPage] = useState(1);
-  const stages = useMemo(
-    () => unique(document.rows.map((row) => row.displayStage).filter((value) => value !== HIDDEN_STATUS)),
-    [document.rows],
-  );
-  const technologies = useMemo(() => unique(document.rows.map((row) => row.technology)), [document.rows]);
-  const nations = useMemo(
-    () => unique(document.rows.map((row) => row.nation).filter((value) => value !== "Northern Ireland")),
-    [document.rows],
-  );
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return document.rows.filter((row) => {
-      if (stage !== "all" && row.displayStage !== stage) {
-        return false;
-      }
-      if (technology !== "all" && row.technology !== technology) {
-        return false;
-      }
-      if (nation !== "all" && row.nation !== nation) {
-        return false;
-      }
-      if (needle.length === 0) {
-        return true;
-      }
-      return `${row.name} ${row.technology} ${row.displayStage} ${row.planning} ${row.construction} ${row.gate}`
-        .toLowerCase()
-        .includes(needle);
-    });
-  }, [document.rows, nation, query, stage, technology]);
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages);
-  const slice = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const [remote, setRemote] = useState<{ key: string; page: RemotePage } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const request: ProjectListQuery = { q: debouncedQuery, stage, technology, nation, page };
+  const requestKey = `${debouncedQuery}\n${stage}\n${technology}\n${nation}\n${page}`;
+  const initial = isDefaultProjectQuery(request);
+  const failed = !initial && failedKey === requestKey;
+  const loading = !initial && remote?.key !== requestKey && !failed;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (initial) {
+      return;
+    }
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    if (debouncedQuery.trim()) {
+      params.set("q", debouncedQuery.trim());
+    }
+    if (stage !== "all") {
+      params.set("stage", stage);
+    }
+    if (technology !== "all") {
+      params.set("technology", technology);
+    }
+    if (nation !== "all") {
+      params.set("nation", nation);
+    }
+    if (page !== 1) {
+      params.set("page", String(page));
+    }
+    const queryString = params.toString();
+    const key = requestKey;
+    fetchBoundedJson(queryString ? `/projects/rows?${queryString}` : "/projects/rows", controller.signal)
+      .then((body) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!isRemotePage(body)) {
+          setFailedKey(key);
+          return;
+        }
+        setFailedKey((current) => (current === key ? null : current));
+        setRemote({ key, page: body });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+          return;
+        }
+        setFailedKey(key);
+      });
+    return () => controller.abort();
+  }, [debouncedQuery, initial, nation, page, requestKey, stage, technology]);
+
+  const loaded = !initial && remote?.key === requestKey ? remote.page : null;
+  const slice = initial ? list.rows : (loaded?.projects ?? []);
+  const total = initial ? list.total : loaded?.total;
+  const pages = initial ? list.pages : (loaded?.pages ?? 1);
+  const current = initial ? list.page : (loaded?.page ?? page);
 
   return (
     <div className="grid grid-cols-12 gap-4">
@@ -124,6 +182,18 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
       ) : null}
 
       <div className="col-span-12">
+        <Card title="Counts">
+          <CountColumns
+            columns={[
+              { title: "By stage", rows: counts.stage },
+              { title: "By technology", rows: counts.technology },
+              { title: "By nation", rows: counts.nation },
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div className="col-span-12">
         <Card
           title="Projects"
           footer={
@@ -137,7 +207,7 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
                 Previous
               </button>
               <p>
-                Page {current} of {pages}
+                Page {current} of {pages.toLocaleString("en-GB")}
               </p>
               <button
                 type="button"
@@ -153,19 +223,19 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
           <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <Filter label="Stage" value={stage} onChange={(value) => { setStage(value); setPage(1); }}>
               <option value="all">All stages</option>
-              {stages.map((item) => (
+              {facets.stages.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </Filter>
             <Filter label="Technology" value={technology} onChange={(value) => { setTechnology(value); setPage(1); }}>
               <option value="all">All technologies</option>
-              {technologies.map((item) => (
+              {facets.technologies.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </Filter>
             <Filter label="Nation" value={nation} onChange={(value) => { setNation(value); setPage(1); }}>
-              <option value="all">England, Scotland and Wales</option>
-              {nations.map((item) => (
+              <option value="all">All nations</option>
+              {facets.nations.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </Filter>
@@ -184,17 +254,28 @@ export function ProjectsBoard({ document }: { document: ProjectsDocument }) {
             />
           </label>
           <p className="mt-4 text-label-13 text-gray-900">
-            {filtered.length.toLocaleString("en-GB")} {filtered.length === 1 ? "project" : "projects"}
+            {total == null
+              ? "Loading projects"
+              : `${total.toLocaleString("en-GB")} ${total === 1 ? "project" : "projects"}`}
+            {loading && total != null ? " · Loading" : ""}
           </p>
-          {slice.length === 0 ? (
-            <p className="mt-4 break-words text-copy-14 text-gray-900">No projects match this search.</p>
-          ) : (
+          {failed ? (
+            <p className="mt-4 break-words text-copy-14 text-gray-900" role="status">
+              The list could not be loaded.
+            </p>
+          ) : null}
+          {!failed && slice.length === 0 ? (
+            <p className="mt-4 break-words text-copy-14 text-gray-900">
+              {loading ? "Loading projects." : "No projects match this search."}
+            </p>
+          ) : null}
+          {slice.length > 0 ? (
             <ul className="mt-2 min-w-0">
               {slice.map((row) => (
                 <ProjectLine key={row.id} row={row} />
               ))}
             </ul>
-          )}
+          ) : null}
         </Card>
       </div>
     </div>
@@ -260,10 +341,6 @@ function Filter({
       </select>
     </label>
   );
-}
-
-function unique(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
 function technologyColor(technology: string): string {

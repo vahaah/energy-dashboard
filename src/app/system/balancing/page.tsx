@@ -7,6 +7,7 @@ import { DataStateNotice } from "@/components/ui/data-state";
 import { elexonBmrsAttribution } from "@/lib/attribution";
 import { BALANCING_ATTRIBUTION, BALANCING_DESCRIPTION, BALANCING_H1, BALANCING_STANDFIRST, BALANCING_TITLE } from "@/lib/balancing/copy";
 import { balancingFaqs, balancingPageSchema, balancingSummary, calendarTradeSentence } from "@/lib/balancing/leads";
+import { balancingRangeSeries } from "@/lib/balancing/page-model";
 import { readBalancingRelease } from "@/lib/balancing/load";
 import { buildBalancingPage } from "@/lib/balancing/page-model";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -31,6 +32,8 @@ export default async function BalancingPage() {
   const model = buildBalancingPage(await readBalancingRelease(), now);
   const faqs = balancingFaqs(model);
   const tradeYear = calendarTradeSentence(model);
+  const dailyRange = balancingRangeSeries(model, "90d");
+  const monthlyRange = balancingRangeSeries(model, "1y");
   return (
     <SeoPage
       section="Balancing"
@@ -53,7 +56,12 @@ export default async function BalancingPage() {
       {model.available ? (
         <div className="flex min-w-0 flex-col gap-4">
           <BalancingStats model={model} />
-          <BalancingBoard model={model} />
+          <BalancingBoard
+            today={model.today}
+            daily={dailyRange.daily}
+            monthly={monthlyRange.monthly}
+            trade={dailyRange.trade}
+          />
           <BalancingExplainer model={model} faqs={faqs} />
         </div>
       ) : (

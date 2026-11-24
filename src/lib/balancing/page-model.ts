@@ -190,6 +190,21 @@ export function tradeInRange(model: BalancingPageModel, range: BalancingRange): 
   return model.tradeByRange[range];
 }
 
+export type BalancingRangeSeries = {
+  daily: DailyChartPoint[];
+  monthly: MonthlyChartPoint[];
+  trade: TradeMonth[];
+};
+
+/** Chart series for one control. The page ships 90 days and one year, then asks for the rest. */
+export function balancingRangeSeries(model: BalancingPageModel, range: BalancingRange): BalancingRangeSeries {
+  return {
+    daily: dailySeries(model, range),
+    monthly: monthlySeries(model, range),
+    trade: tradeInRange(model, range),
+  };
+}
+
 export function tradeCountryTotals(months: readonly TradeMonth[]): TradeCountry[] {
   return sumCountries(months.flatMap((month) => month.countries));
 }
