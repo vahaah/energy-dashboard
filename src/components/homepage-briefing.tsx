@@ -13,16 +13,19 @@ export function HomepageBriefing({
   title = HOME_H1,
   showCite = true,
   controls = null,
+  heading = "h1",
 }: {
   cite: HomepageCite;
   title?: string;
   showCite?: boolean;
   controls?: ReactNode;
+  /** The suspense fallback is a paragraph. The dashboard header is the only h1. */
+  heading?: "h1" | "p";
 }) {
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="min-w-0 text-heading-32 text-gray-1000">{title}</h1>
+        <BriefingTitle heading={heading} title={title} />
         {controls ? <div className="shrink-0">{controls}</div> : null}
       </div>
       <p className="mt-3 max-w-3xl text-copy-16">
@@ -33,6 +36,20 @@ export function HomepageBriefing({
       {showCite ? <HomepageCiteParagraph cite={cite} /> : null}
     </div>
   );
+}
+
+function BriefingTitle({ heading, title }: { heading: "h1" | "p"; title: string }) {
+  const className = "min-w-0 text-heading-32 text-gray-1000";
+  switch (heading) {
+    case "h1":
+      return <h1 className={className}>{title}</h1>;
+    case "p":
+      return <p className={className}>{title}</p>;
+    default: {
+      const exhaustive: never = heading;
+      return exhaustive;
+    }
+  }
 }
 
 function HomepageCiteParagraph({ cite }: { cite: HomepageCite }) {
