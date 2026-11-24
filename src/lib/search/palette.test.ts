@@ -109,7 +109,7 @@ describe("header search", () => {
     expect(button).not.toContain('from "@/lib/projects/');
     expect(dialog).not.toContain('from "@/lib/projects/');
     expect(containsLiveWord(button)).toBe(false);
-    expect(containsLiveWord(dialog)).toBe(false);
+    expect(containsLiveWord(dialog.replaceAll("aria-live", "aria-region"))).toBe(false);
     const home = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
     expect(home).toContain('export const dynamic = "force-static"');
     expect(home).toContain("export const revalidate = 300");

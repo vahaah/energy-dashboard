@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQueryStates } from "nuqs";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatEnergyText } from "@/lib/format/quantity";
+import { fetchBounded } from "@/lib/http/bounded-json";
 import { assetPath } from "@/lib/assets/href";
 import { mapViewParsers } from "@/lib/assets/params";
 import { NI_FLOW_NOTE } from "@/lib/attribution";
@@ -468,7 +469,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       handle.current?.setStations(stations);
       return;
     }
-    void fetch("/api/v1/map/stations")
+    void fetchBounded("/api/v1/map/stations")
       .then((response) => {
         if (!response.ok) {
           throw new Error("stations");
@@ -582,12 +583,12 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
               ["stations", "Power stations"],
             ] as const
           ).map(([id, label]) => (
-            <label key={id} className="flex items-center gap-2 text-copy-14 text-gray-1000">
+            <label key={id} className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-1000">
               <input type="radio" name={radioName} checked={preset === id} onChange={() => applyPreset(id)} />
               {label}
             </label>
           ))}
-          <label className="flex items-center gap-2 text-copy-14 text-gray-900">
+          <label className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-900">
             <input type="radio" name={radioName} disabled />
             Projects
           </label>
@@ -595,8 +596,9 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         </fieldset>
         <fieldset className="flex min-w-0 flex-col gap-2">
           <legend className="text-label-13 text-gray-900">Layers</legend>
-          <LayerToggle label="Interconnectors" checked={electricity} onChange={setElectricity} />
+          <LayerToggle name="interconnectors" label="Interconnectors" checked={electricity} onChange={setElectricity} />
           <LayerToggle
+            name="gas-entry"
             label="Gas entry points"
             checked={gas}
             onChange={(on) => {
@@ -604,6 +606,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             }}
           />
           <LayerToggle
+            name="power-stations"
             label="Power stations"
             checked={stationsOn}
             onChange={(on) => {
@@ -613,7 +616,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
               }
             }}
           />
-          <LayerToggle label="DNO licence areas" checked={dno} onChange={setDno} />
+          <LayerToggle name="dno" label="DNO licence areas" checked={dno} onChange={setDno} />
           <p className="text-copy-14 text-gray-900">{model.straightLine}</p>
           {electricity ? (
             <p className="text-copy-14 text-gray-900">
@@ -673,7 +676,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         <div className="flex min-w-0 flex-col gap-2 text-copy-14 text-gray-900">
           <button
             type="button"
-            className="w-fit text-blue-700 underline-offset-2 hover:underline"
+            className="inline-flex min-h-11 w-fit items-center text-blue-700 underline-offset-2 hover:underline"
             onClick={() => setAbout(true)}
           >
             About these layers
@@ -701,7 +704,10 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           setSnap((current) => (current === FLOW_SHEET_PEEK_PX ? 430 : current));
         }}
       >
-        <summary className="w-fit cursor-pointer text-copy-14 text-gray-1000">©</summary>
+        <summary className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center text-copy-14 text-gray-1000">
+          <span aria-hidden="true">©</span>
+          <span className="sr-only">Credits</span>
+        </summary>
         <div className="absolute left-0 top-full z-30 mt-2 flex max-h-48 w-[min(18rem,calc(100vw-2rem))] min-w-0 flex-col gap-2 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 p-3 text-copy-14 break-words text-gray-900">
           {visibleCredits.map((credit) => (
             <p key={credit.id}>{credit.text}</p>
@@ -762,7 +768,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
       <div
         ref={sheetRef}
         data-flow-sheet
-        role="dialog"
+        role="region"
         aria-labelledby="flow-sheet-title"
         className="absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-y-auto border-t border-gray-alpha-400 bg-background-100 p-4 lg:hidden"
         style={{ height: snap === "full" ? "100%" : snap }}
@@ -776,7 +782,7 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
           </div>
           <button
             type="button"
-            className="text-label-13 text-blue-700"
+            className="inline-flex min-h-11 items-center px-2 text-label-13 text-blue-700"
             onClick={() => setSnap(snap === FLOW_SHEET_PEEK_PX ? 430 : snap === 430 ? "full" : FLOW_SHEET_PEEK_PX)}
           >
             {snap === "full" ? "Collapse" : "Expand"}
@@ -790,56 +796,110 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
         <div className="mt-4">{details}</div>
       </div>
       {about ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="about-layers-title"
-          className="absolute inset-0 z-20 flex items-end justify-center bg-background-100/80 p-4 sm:items-center"
-        >
-          <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
-            <h2 id="about-layers-title" className="text-heading-16 text-gray-1000">
-              About these layers
-            </h2>
-            <div className="mt-3 flex flex-col gap-2 text-copy-14 text-gray-900">
-              {model.credits.map((credit) => (
-                <p key={credit.id}>{credit.text}</p>
-              ))}
-              <p>{model.straightLine}</p>
-              {model.dnoWarning ? <p>{model.dnoWarning}</p> : null}
-              <p>{PROJECTS_LAYER_NOTE}</p>
-            </div>
-            <button
-              type="button"
-              className="mt-4 text-blue-700 underline-offset-2 hover:underline"
-              onClick={() => setAbout(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <AboutLayers
+          credits={model.credits}
+          straightLine={model.straightLine}
+          dnoWarning={model.dnoWarning}
+          onClose={() => setAbout(false)}
+        />
       ) : null}
     </div>
   );
 }
 
 function LayerToggle({
+  name,
   label,
   checked,
   onChange,
 }: {
+  name: string;
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-copy-14 text-gray-1000">
+    <label className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-1000">
       <input
         type="checkbox"
+        name={name}
         className="size-4"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />
       {label}
     </label>
+  );
+}
+
+function AboutLayers({
+  credits,
+  straightLine,
+  dnoWarning,
+  onClose,
+}: {
+  credits: FlowsPageModel["credits"];
+  straightLine: string;
+  dnoWarning: string | null;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="about-layers-title"
+      className="absolute inset-0 z-20 flex items-end justify-center overscroll-contain bg-background-100/80 p-4 sm:items-center"
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") {
+          return;
+        }
+        const root = panelRef.current;
+        if (!root) {
+          return;
+        }
+        const nodes = [...root.querySelectorAll<HTMLElement>("a, button")].filter((node) => !node.hasAttribute("disabled"));
+        const first = nodes[0];
+        const last = nodes[nodes.length - 1];
+        if (!first || !last) {
+          return;
+        }
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+    >
+      <div ref={panelRef} className="max-h-full w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
+        <h2 id="about-layers-title" className="text-heading-16 text-gray-1000">
+          About these layers
+        </h2>
+        <div className="mt-3 flex flex-col gap-2 text-copy-14 text-gray-900">
+          {credits.map((credit) => (
+            <p key={credit.id}>{credit.text}</p>
+          ))}
+          <p>{straightLine}</p>
+          {dnoWarning ? <p>{dnoWarning}</p> : null}
+          <p>{PROJECTS_LAYER_NOTE}</p>
+        </div>
+        <button
+          ref={closeRef}
+          type="button"
+          className="mt-4 inline-flex min-h-11 items-center text-blue-700 underline-offset-2 hover:underline"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+    </div>
   );
 }

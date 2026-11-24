@@ -17,8 +17,6 @@ export function SeoPage({
   share,
   updated,
   header,
-  skipHref,
-  skipLabel = "Skip to content",
   schema,
   children,
 }: {
@@ -30,24 +28,14 @@ export function SeoPage({
   share?: { url: string; title: string };
   updated?: ReactNode;
   header?: ReactNode;
-  skipHref?: string;
-  skipLabel?: string;
   schema?: { "@context": "https://schema.org"; "@graph": Array<Record<string, unknown>> };
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
       {schema ? <JsonLd data={schema} /> : null}
-      {skipHref ? (
-        <a
-          href={skipHref}
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
-        >
-          {skipLabel}
-        </a>
-      ) : null}
       <SitePageHeader section={section} />
-      <main className={PAGE_STACK_CLASS}>
+      <main id="content" className={PAGE_STACK_CLASS}>
         <SiteBreadcrumb items={breadcrumb} />
         {header ?? (
           <section>

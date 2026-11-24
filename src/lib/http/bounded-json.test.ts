@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchBoundedJson } from "@/lib/http/bounded-json";
+import { fetchBounded, fetchBoundedJson } from "@/lib/http/bounded-json";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -17,6 +17,14 @@ describe("fetchBoundedJson", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const signal = fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal;
     expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("returns a 404 without retrying", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("missing", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await fetchBounded("/lookup");
+    expect(response.status).toBe(404);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry a 400", async () => {

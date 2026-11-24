@@ -263,6 +263,8 @@ function InventoryTable({
         <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
           Type
           <select
+            name="storage-type"
+            autoComplete="off"
             value={technology}
             onChange={(event) => setTechnology(event.target.value)}
             className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
@@ -276,6 +278,8 @@ function InventoryTable({
         <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
           Status
           <select
+            name="storage-status"
+            autoComplete="off"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
             className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"

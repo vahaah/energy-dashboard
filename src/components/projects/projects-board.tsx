@@ -263,8 +263,11 @@ export function ProjectsBoard({
             Search
             <input
               type="search"
+              name="q"
+              autoComplete="off"
+              spellCheck={false}
               value={query}
-              placeholder="Name, technology, or status"
+              placeholder="Name, technology, or status…"
               onChange={(event) => {
                 setTyped(event.target.value);
                 setPage(1);
@@ -272,11 +275,11 @@ export function ProjectsBoard({
               className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
             />
           </label>
-          <p className="mt-4 text-label-13 text-gray-900">
+          <p className="mt-4 text-label-13 text-gray-900" aria-live="polite">
             {total == null
-              ? "Loading projects"
+              ? "Loading projects…"
               : `${total.toLocaleString("en-GB")} ${total === 1 ? "project" : "projects"}`}
-            {loading && total != null ? " · Loading" : ""}
+            {loading && total != null ? " · Loading…" : ""}
           </p>
           {failed ? (
             <p className="mt-4 break-words text-copy-14 text-gray-900" role="status">
@@ -285,7 +288,7 @@ export function ProjectsBoard({
           ) : null}
           {!failed && slice.length === 0 ? (
             <p className="mt-4 break-words text-copy-14 text-gray-900">
-              {loading ? "Loading projects." : "No projects match this search."}
+              {loading ? "Loading projects…" : "No projects match this search."}
             </p>
           ) : null}
           {slice.length > 0 ? (
@@ -352,6 +355,8 @@ function Filter({
     <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
       {label}
       <select
+        name={label.toLowerCase()}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"

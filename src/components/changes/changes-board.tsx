@@ -100,7 +100,7 @@ function FilterChip({ pressed, onClick, label }: { pressed: boolean; onClick: ()
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`inline-flex h-8 items-center rounded-md border px-2 text-label-13 capitalize ${
+      className={`inline-flex h-11 min-h-11 items-center rounded-md border px-3 text-label-13 capitalize sm:h-8 sm:min-h-8 ${
         pressed ? "border-gray-1000 text-gray-1000" : "border-gray-alpha-400 text-gray-900"
       }`}
     >

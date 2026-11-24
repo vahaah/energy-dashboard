@@ -86,7 +86,7 @@ export default async function RecordsPage() {
       <JsonLd data={recordsJsonLd({ faqs, records })} />
       <SitePageHeader section="Records" />
 
-      <main className={PAGE_STACK_CLASS}>
+      <main id="content" className={PAGE_STACK_CLASS}>
         <nav aria-label="Breadcrumb" className="text-label-13 text-gray-900">
           <ol className="flex flex-wrap items-center gap-1">
             <li>

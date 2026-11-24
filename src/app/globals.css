@@ -163,9 +163,19 @@
   --chart-balancing-exports: #8a5a12;
 }
 
+:root {
+  --site-header-height: 4rem;
+  --jump-bar-height: 0px;
+}
+
 :focus-visible {
   outline: 2px solid var(--blue-700);
   outline-offset: 2px;
+}
+
+#content :is(h1, h2, h3, [id^="section-"]),
+:target {
+  scroll-margin-top: calc(var(--site-header-height) + var(--jump-bar-height) + 0.5rem);
 }
 
 html {

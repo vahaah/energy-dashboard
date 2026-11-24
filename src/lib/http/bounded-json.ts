@@ -29,13 +29,15 @@ function retryable(error: unknown): boolean {
 
 /**
  * One attempt, then two retries. 429 and 5xx wait 200ms then 800ms.
- * Each attempt dies after 8 seconds. A caller abort stops the loop.
+ * Each attempt dies after 8 seconds. A 4xx other than 429 is returned.
+ * A caller abort stops the loop.
  */
-export async function fetchBoundedJson(
+export async function fetchBounded(
   url: string,
+  init?: RequestInit,
   parent?: AbortSignal,
   fetchImpl: typeof fetch = fetch,
-): Promise<unknown> {
+): Promise<Response> {
   let last: unknown;
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     if (parent?.aborted) {
@@ -43,13 +45,11 @@ export async function fetchBoundedJson(
     }
     try {
       const signal = parent ? AbortSignal.any([parent, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS);
-      const response = await fetchImpl(url, { signal });
+      const response = await fetchImpl(url, { ...init, signal });
       if (response.status === 429 || response.status >= 500) {
         last = new Error(`HTTP ${response.status}`);
-      } else if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
       } else {
-        return await response.json();
+        return response;
       }
     } catch (error) {
       if (parent?.aborted) {
@@ -65,4 +65,16 @@ export async function fetchBoundedJson(
     }
   }
   throw last instanceof Error ? last : new Error("The request failed.");
+}
+
+export async function fetchBoundedJson(
+  url: string,
+  parent?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<unknown> {
+  const response = await fetchBounded(url, undefined, parent, fetchImpl);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.json();
 }

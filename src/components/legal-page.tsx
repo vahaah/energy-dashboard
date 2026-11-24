@@ -23,7 +23,7 @@ export function LegalPage({
     <div className="min-h-screen bg-background-100 text-gray-1000">
       {schema ? <JsonLd data={schema} /> : null}
       <SitePageHeader section={section} />
-      <main className={PAGE_STACK_CLASS}>
+      <main id="content" className={PAGE_STACK_CLASS}>
         <SiteBreadcrumb items={[{ label: title }]} />
         <section>
           <p className="text-label-13 text-gray-900">Grid</p>

@@ -8,6 +8,7 @@ export function CopyLinkButton({ url }: { url: string }) {
   return (
     <button
       type="button"
+      aria-live="polite"
       onClick={() => {
         void navigator.clipboard.writeText(url).then(() => {
           setCopied(true);

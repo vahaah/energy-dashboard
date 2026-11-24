@@ -249,23 +249,29 @@ export function PowerCutsView({
               <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
                 Outward postcode
                 <input
+                  name="outward"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={query}
+                  placeholder="for example, SW1A…"
                   onChange={(event) => {
                     setQuery(event.target.value);
                     setPage(0);
                   }}
-                  className="h-10 w-full min-w-0 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-40"
+                  className="h-11 min-h-11 w-full min-w-0 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-40"
                 />
               </label>
               <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
                 Operator
                 <select
+                  name="operator"
+                  autoComplete="off"
                   value={operator}
                   onChange={(event) => {
                     setOperator(event.target.value as "all" | Operator);
                     setPage(0);
                   }}
-                  className="h-10 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-64"
+                  className="h-11 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-64"
                 >
                   <option value="all">All operators</option>
                   {OPERATORS.map((item) => (
@@ -278,12 +284,14 @@ export function PowerCutsView({
               <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
                 Kind
                 <select
+                  name="kind"
+                  autoComplete="off"
                   value={kind}
                   onChange={(event) => {
                     setKind(event.target.value as "all" | PowerCutKind);
                     setPage(0);
                   }}
-                  className="h-10 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-56"
+                  className="h-11 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-56"
                 >
                   <option value="all">Planned and unplanned</option>
                   <option value="unplanned">Unplanned</option>
@@ -320,7 +328,7 @@ export function PowerCutsView({
               <div className="mt-4 flex items-center gap-3">
                 <button
                   type="button"
-                  className="h-10 rounded-lg border border-gray-alpha-400 px-3 text-copy-14 disabled:opacity-40"
+                  className="inline-flex h-11 min-h-11 items-center rounded-lg border border-gray-alpha-400 px-3 text-copy-14 disabled:opacity-40"
                   disabled={safePage === 0}
                   onClick={() => setPage(safePage - 1)}
                 >
@@ -331,7 +339,7 @@ export function PowerCutsView({
                 </p>
                 <button
                   type="button"
-                  className="h-10 rounded-lg border border-gray-alpha-400 px-3 text-copy-14 disabled:opacity-40"
+                  className="inline-flex h-11 min-h-11 items-center rounded-lg border border-gray-alpha-400 px-3 text-copy-14 disabled:opacity-40"
                   disabled={safePage >= pages - 1}
                   onClick={() => setPage(safePage + 1)}
                 >

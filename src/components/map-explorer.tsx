@@ -136,10 +136,11 @@ export function MapExplorer({
     >
       <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="sr-only">Map layers</legend>
-        <label className="flex min-w-0 items-start gap-2 text-copy-14 text-gray-1000">
+        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
           <input
             type="checkbox"
-            className="mt-1 size-4 shrink-0"
+            name="power-assets"
+            className="size-4 shrink-0"
             checked={assetsOn}
             onChange={(event) => setAssetsOn(event.target.checked)}
           />
@@ -148,10 +149,11 @@ export function MapExplorer({
             <PrecisionTag precision={ASSET_PRECISION} />
           </span>
         </label>
-        <label className="flex min-w-0 items-start gap-2 text-copy-14 text-gray-1000">
+        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
           <input
             type="checkbox"
-            className="mt-1 size-4 shrink-0"
+            name="interconnectors"
+            className="size-4 shrink-0"
             checked={icOn}
             onChange={(event) => setIc(event.target.checked)}
           />
@@ -161,10 +163,11 @@ export function MapExplorer({
           </span>
         </label>
         <p className="break-words text-copy-14 text-gray-900">{SCHEMATIC_LINK_LABEL}</p>
-        <label className="flex min-w-0 items-start gap-2 text-copy-14 text-gray-1000">
+        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
           <input
             type="checkbox"
-            className="mt-1 size-4 shrink-0"
+            name="dno"
+            className="size-4 shrink-0"
             checked={dnoOn}
             onChange={(event) => setDnoOn(event.target.checked)}
           />
@@ -183,8 +186,11 @@ export function MapExplorer({
           Filter
           <input
             type="search"
+            name="q"
+            autoComplete="off"
+            spellCheck={false}
             value={url.q}
-            placeholder="Name, operator, technology, or location"
+            placeholder="Name, operator, technology, or location…"
             onChange={(event) => void setUrl({ q: event.target.value, page: 1 })}
             className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
           />
@@ -268,6 +274,8 @@ function FilterSelect({
     <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
       {label}
       <select
+        name={label.toLowerCase()}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full min-w-0 truncate rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000"

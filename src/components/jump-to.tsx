@@ -1,15 +1,43 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 export function JumpTo({
   items,
 }: {
   items: readonly { href: string; label: string }[];
 }) {
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+    const write = () => {
+      document.documentElement.style.setProperty("--jump-bar-height", `${nav.getBoundingClientRect().height}px`);
+    };
+    write();
+    const observer = new ResizeObserver(write);
+    observer.observe(nav);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.setProperty("--jump-bar-height", "0px");
+    };
+  }, []);
+
   return (
-    <nav aria-label="On this page" className="sticky top-16 z-10 -mx-[var(--card-pad)] border-b border-gray-alpha-400 bg-background-100 px-[var(--card-pad)] py-2">
-      <label className="flex items-center gap-2 text-label-13 text-gray-900 lg:hidden">
+    <nav
+      ref={navRef}
+      aria-label="On this page"
+      className="sticky z-10 -mx-[var(--card-pad)] border-b border-gray-alpha-400 bg-background-100 px-[var(--card-pad)] py-2"
+      style={{ top: "var(--site-header-height, 4rem)" }}
+    >
+      <label className="flex min-h-11 items-center gap-2 text-label-13 text-gray-900 lg:hidden">
         <span>Jump to</span>
         <select
+          name="section"
+          autoComplete="off"
           aria-label="Jump to"
           defaultValue=""
           onChange={(event) => {
@@ -18,7 +46,7 @@ export function JumpTo({
               window.location.hash = href;
             }
           }}
-          className="h-8 min-h-6 min-w-0 flex-1 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000"
+          className="h-11 min-h-11 min-w-0 flex-1 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000 lg:h-8 lg:min-h-8"
         >
           <option value="">Choose a section</option>
           {items.map((item) => (
@@ -33,7 +61,7 @@ export function JumpTo({
           <li key={item.href}>
             <a
               href={item.href}
-              className="inline-flex min-h-6 items-center text-label-13 text-gray-900 underline-offset-2 hover:text-gray-1000 hover:underline"
+              className="inline-flex min-h-11 items-center text-label-13 text-gray-900 underline-offset-2 hover:text-gray-1000 hover:underline lg:min-h-8"
             >
               {item.label}
             </a>

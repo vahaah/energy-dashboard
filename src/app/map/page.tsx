@@ -25,13 +25,7 @@ export default async function MapPage() {
           breadcrumbs: [{ name: "Map", item: `${SITE_ORIGIN}/map` }],
         })}
       />
-      <a
-        href="#flow-list"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
-      >
-        Skip to flow list
-      </a>
-      <SitePageHeader section="Map" />
+      <SitePageHeader section="Map" skipHref="#flow-list" skipLabel="Skip to flow list" />
       <div id="flow-list" className="min-h-0 flex-1">
         <FlowsMap model={model} />
       </div>

@@ -41,7 +41,9 @@ function showDialog(button: HTMLButtonElement | null) {
 function hideDialog() {
   dialogOpen = false;
   emitDialog();
-  opener?.focus();
+  // The dialog's cleanup removes `inert` after this call. Focusing inside an
+  // inert header does nothing, so wait until that cleanup has run.
+  window.setTimeout(() => opener?.focus(), 0);
 }
 
 function buttonShown(button: HTMLButtonElement | null): boolean {
