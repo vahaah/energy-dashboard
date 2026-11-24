@@ -27,6 +27,18 @@ describe("fetchBoundedJson", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("retries when the JSON body fails after a 200", async () => {
+    const broken = new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    vi.spyOn(broken, "json").mockRejectedValueOnce(new Error("connection reset"));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(broken)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchBoundedJson("/rows")).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("does not retry a 400", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("no", { status: 400 }));
     vi.stubGlobal("fetch", fetchMock);
