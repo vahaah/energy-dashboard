@@ -4,8 +4,11 @@
  * The intro keeps the specified sentence. See the pull request.
  */
 
+export const API_DOCS_STANDFIRST =
+  "Access Grid's GB electricity and gas data as JSON, no API key.";
+
 export const API_DOCS_INTRO =
-  "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.";
+  `${API_DOCS_STANDFIRST} Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.`;
 
 export const API_DOCS_CONVENTIONS = [
   "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to London time (Europe/London) yourself.",

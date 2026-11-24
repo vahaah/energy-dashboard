@@ -29,7 +29,7 @@ Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRIC
 - [GB electricity today](https://grid.vahaah.com/today): today's generation mix, gas share, carbon intensity, demand, imports and market price, with a visible FAQ
 - [What's powering electricity in Great Britain](https://grid.vahaah.com/): the latest half-hour, with day, week, year and all-time views
 - [GB gas price today](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
-- [Will energy bills go up in January 2027?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
+- [Energy price cap January 2027: will bills go up?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
 - [GB electricity records](https://grid.vahaah.com/records): records since Grid's records began, next to NESO's official records
 - [GB gas system](https://grid.vahaah.com/gas): National Transmission System supply, demand, linepack and storage by gas day
 - [GB grid balancing costs and BSUoS](https://grid.vahaah.com/system/balancing#summary): NESO daily balancing costs by category, the BSUoS tariff, a per-household estimate, and a separate estimate of electricity traded with neighbouring countries

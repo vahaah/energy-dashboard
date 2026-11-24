@@ -10,6 +10,8 @@ describe("price cap page", () => {
     expect(source).toContain("priceCapPageMetadata");
     expect(source).toContain("PUBLISHED_PRICE_CAPS");
     expect(source).toContain("OFGEM_JAN_2027_ANNOUNCEMENT_LABEL");
+    expect(source).toContain("January 2027 energy price cap");
+    expect(source).toContain('href="/methodology"');
     expect(source).toContain("loadCachedPublicPrices");
     expect(source).toContain('loadCachedPublicPrices("1y")');
     expect(source).not.toContain('loadCachedPublicPrices("90d")');

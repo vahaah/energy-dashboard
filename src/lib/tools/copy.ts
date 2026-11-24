@@ -2,7 +2,7 @@ import type { ToolRelation, ToolSector, ToolTask } from "@/lib/tools/schema";
 
 export const TOOLS_TITLE = "GB energy tools and official services | Grid";
 export const TOOLS_DESCRIPTION =
-  "Where to go for GB energy tasks: understand a bill, find your network operator, report a power cut or gas leak, check a grid connection or look up a code.";
+  "Official places to look up a UK energy query: ENA search tools, network operators, power cuts, gas leaks, connections and market codes. Grid links out.";
 export const TOOLS_H1 = "Where do I go to do this?";
 export const TOOLS_STANDFIRST =
   "Official and useful services, grouped by task. Grid links to these services. Ones marked Runs on Grid are Grid pages.";

@@ -1,7 +1,8 @@
 import { renderOgImageResponse } from "@/lib/og/response";
+import { PRICE_CAP_TITLE } from "@/lib/site";
 
 export const revalidate = 86_400;
-export const alt = "Will energy bills go up in January 2027? | Grid";
+export const alt = PRICE_CAP_TITLE;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

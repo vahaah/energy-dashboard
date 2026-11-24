@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadAssetCatalogue } from "@/lib/assets/load";
-import { fitDetailTitle } from "@/lib/seo/document-title";
+import { clipAtWord, fitDetailTitle } from "@/lib/seo/document-title";
+import { projectSeoTitle, projectTitleName } from "@/lib/seo/project-meta";
 import { assetSeoDescription, assetSeoTitle } from "@/lib/seo/detail";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { projectsDirectoryDescription } from "@/lib/projects/copy";
@@ -24,6 +25,29 @@ describe("detail titles", () => {
     expect(title.endsWith(" | Grid")).toBe(true);
     expect(title).not.toContain("South East");
     expect(title).toContain("consented");
+  });
+
+  it("keeps the distinctive project name and does not cut a word", () => {
+    expect(projectTitleName("Eurocell Nickel, High View Road - Solar Pv System")).toBe("Eurocell Nickel");
+    const eurocell = loadProjectCatalogue().projects.find((project) => project.name.includes("Eurocell Nickel"));
+    expect(eurocell).toBeDefined();
+    if (!eurocell) {
+      return;
+    }
+    const title = projectSeoTitle(eurocell);
+    expect(title).toBe("Eurocell Nickel: in planning | Grid");
+    expect(pageTitleLength(title)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
+    expect(title).not.toContain("Solar…");
+    expect(title).not.toContain("High View Road");
+
+    const original = "Perham Down Meadow Solar Farm And Battery Storage Project North";
+    const long = fitDetailTitle(original, "in planning");
+    expect(long).toBe("Perham Down Meadow Solar Farm And…: in planning | Grid");
+    expect(pageTitleLength(long)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
+    const body = long.slice(0, long.indexOf("…"));
+    expect(original.startsWith(body)).toBe(true);
+    expect(original[body.length]).toBe(" ");
+    expect(clipAtWord(original, 24)).toBe("Perham Down Meadow…");
   });
 
   it("keeps a short station title with capacity and region", () => {

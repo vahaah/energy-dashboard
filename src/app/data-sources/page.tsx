@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { Card } from "@/components/ui/card";
 import { cataloguePageSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
+import { NO_METER_NUMBERS } from "@/lib/directory/copy";
 import { pageJsonLd } from "@/lib/jsonld";
 import { DATA_SOURCES_DESCRIPTION, DATA_SOURCES_TITLE, dataSourcesPageMetadata } from "@/lib/page-metadata";
 import { SITE_ORIGIN } from "@/lib/site";
@@ -25,6 +27,36 @@ export default function DataSourcesPage() {
         breadcrumbs: [{ name: "Data sources", item: `${SITE_ORIGIN}/data-sources` }],
       })}
     >
+      <LegalSection title="Looking for a meter or official search tool?">
+        <p>
+          {NO_METER_NUMBERS} Use the official registers and Grid&apos;s own lookups instead:{" "}
+          <Link href="/tools" className="text-blue-700 underline-offset-2 hover:underline">
+            Tools
+          </Link>
+          ,{" "}
+          <Link href="/directory" className="text-blue-700 underline-offset-2 hover:underline">
+            Directory
+          </Link>
+          ,{" "}
+          <Link href="/directory/identifiers" className="text-blue-700 underline-offset-2 hover:underline">
+            MPID, BM Unit ID and GSP
+          </Link>
+          ,{" "}
+          <Link href="/api" className="text-blue-700 underline-offset-2 hover:underline">
+            API
+          </Link>
+          ,{" "}
+          <Link href="/pipeline" className="text-blue-700 underline-offset-2 hover:underline">
+            Pipeline
+          </Link>{" "}
+          and{" "}
+          <Link href="/projects" className="text-blue-700 underline-offset-2 hover:underline">
+            Projects
+          </Link>
+          .
+        </p>
+      </LegalSection>
+
       <LegalSection title="How Grid uses data">
         <p>
           Grid reads these sources on a schedule, stores each reading with its source time, and serves

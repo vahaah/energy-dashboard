@@ -180,6 +180,7 @@ export function sharePageMetadata(focus: DashboardSearchParams["focus"]): Metada
     path: "/",
     imagePath: ogFocusImagePath(focus),
     imageAlt: copy.title,
+    index: false,
   });
 }
 

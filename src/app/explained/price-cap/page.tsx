@@ -21,7 +21,7 @@ import {
   PUBLISHED_PRICE_CAPS,
   priceCapAnswerFirst,
 } from "@/lib/price-cap";
-import { PRICE_CAP_H1 } from "@/lib/site";
+import { PRICE_CAP_H1, PRICE_CAP_TITLE } from "@/lib/site";
 
 export const revalidate = 86_400;
 export const dynamic = "force-static";
@@ -54,13 +54,31 @@ export default async function PriceCapPage() {
         title={PRICE_CAP_H1}
         breadcrumb={[{ label: "Explained" }, { label: "Price cap" }]}
         cite={<p data-cite>{cite}</p>}
-        citation={`Grid, "Will energy bills go up in January 2027?", grid.vahaah.com/explained/price-cap, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}. Data: Ofgem.`}
+        citation={`Grid, "${PRICE_CAP_TITLE.replace(" | Grid", "")}", grid.vahaah.com/explained/price-cap, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}. Data: Ofgem.`}
         updated={
           <p className="text-label-13 text-gray-900">
             Ofgem figures as published · Next announcement {OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}
           </p>
         }
       >
+        <section id="january-2027">
+          <h2 className="text-heading-24 text-gray-1000">January 2027 energy price cap</h2>
+          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">
+            Ofgem announces the January–March 2027 cap on {OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}. Grid
+            is not showing a January 2027 figure until Ofgem publishes one.
+          </p>
+          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">
+            The current cap ({CURRENT_PRICE_CAP.periodLabel}) is £
+            {CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB")} a year for a
+            typical dual-fuel Direct Debit household.
+          </p>
+          <p className="mt-2 text-copy-16">
+            <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
+              Method
+            </Link>
+          </p>
+        </section>
+
         <section>
           <h2 className="text-heading-24 text-gray-1000">Published Ofgem caps</h2>
           <p className="mt-2 max-w-3xl text-copy-14 text-gray-900">

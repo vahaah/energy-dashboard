@@ -8,9 +8,11 @@ import sitemap, {
   generateSitemaps,
   lastModifiedForPath,
   latestCommodityTimestamp,
+  pageLastModified,
   SITEMAP_BYTE_LIMIT,
   SITEMAP_URL_LIMIT,
 } from "@/lib/sitemap-document";
+import { contentRevision } from "@/lib/sitemap-content-revision";
 import { loadAssetCatalogue } from "@/lib/assets/load";
 import { loadProjectCatalogue } from "@/lib/projects/load";
 import { assetDetailIndexable, projectDetailIndexable } from "@/lib/seo/indexable";
@@ -67,7 +69,13 @@ describe("sitemap", () => {
     const assets = await sitemap({ id: "assets" });
     expect(assets[0]?.lastModified).toEqual(catalogueLastModified().assets);
     const pageEntries = await sitemap({ id: "pages" });
-    expect(pageEntries.every((entry) => entry.lastModified instanceof Date)).toBe(true);
+    const privacy = pageEntries.find((entry) => entry.url === "https://grid.vahaah.com/privacy");
+    const priceCap = pageEntries.find((entry) => entry.url === "https://grid.vahaah.com/explained/price-cap");
+    expect(privacy?.lastModified).toBeInstanceOf(Date);
+    expect(priceCap?.lastModified).toBeInstanceOf(Date);
+    const privacyTime = privacy?.lastModified instanceof Date ? privacy.lastModified.getTime() : 0;
+    expect(privacyTime).toBeGreaterThan(Date.parse("2024-01-01T00:00:00.000Z"));
+    expect(privacyTime).toBeLessThan(Date.now() + 60_000);
   });
 
   it("assigns lastmod only to data-driven routes", () => {
@@ -97,6 +105,12 @@ describe("sitemap", () => {
     expect(lastModifiedForPath("/directory/identifiers", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/tools", stamps)).toBeUndefined();
     expect(lastModifiedForPath("/changes", stamps)).toBeUndefined();
+    expect(pageLastModified("", stamps)).toBe(grid);
+    expect(pageLastModified("/explained/price-cap", stamps)).toEqual(contentRevision("/explained/price-cap"));
+    expect(pageLastModified("/tools", {})).toBeInstanceOf(Date);
+    expect(pageLastModified("/directory", {})).toBeInstanceOf(Date);
+    expect(pageLastModified("/projects", {})).toBeInstanceOf(Date);
+    expect(contentRevision("/privacy")?.toISOString()).not.toBe(new Date().toISOString());
     expect(latestCommodityTimestamp([{ date: "2026-10-08", commodity: "gb_gas_sap", price: 3, currency: "GBP", unit: "p/kWh" }, { date: "2026-10-09", commodity: "henry_hub_gas", price: 2, currency: "USD", unit: "$/MMBTU" }])?.toISOString()).toBe(
       "2026-10-09T00:00:00.000Z"
     );

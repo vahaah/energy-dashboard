@@ -1,10 +1,10 @@
-import { CC_BY_4_0_LICENSE_URL, ELEXON_BMRS_LICENCE_URL, NESO_OPEN_DATA_ATTRIBUTION, elexonBmrsAttribution } from "@/lib/attribution";
+import { CC_BY_4_0_LICENSE_URL, ELEXON_BMRS_LICENCE_URL, NESO_OPEN_DATA_ATTRIBUTION, NESO_OPEN_DATA_LICENCE_URL, elexonBmrsAttribution } from "@/lib/attribution";
 import { BALANCING_DESCRIPTION, BALANCING_FAQS, BALANCING_TITLE, NESO_DAILY_BALANCING_URL } from "@/lib/balancing/copy";
 import { formatBalancingDate, formatMissingDays } from "@/lib/balancing/dates";
 import { TYPICAL_HOUSEHOLD_KWH } from "@/lib/balancing/household";
 import { formatPounds, formatShare, formatTariff } from "@/lib/balancing/money";
 import type { BalancingPageModel } from "@/lib/balancing/page-model";
-import { pageJsonLd } from "@/lib/jsonld";
+import { datasetOrganisation, pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
 
 export const BALANCING_DATASET_ID = `${SITE_ORIGIN}/system/balancing#dataset`;
@@ -79,7 +79,7 @@ export function balancingPageSchema(model: BalancingPageModel, faqs: readonly Ba
     faqs: [...faqs],
     dateModified: model.generatedAt ?? undefined,
     mainEntityId: BALANCING_DATASET_ID,
-    extra: [balancingDatasetNode(model)],
+    extra: [datasetOrganisation(), balancingDatasetNode(model)],
   });
 }
 
@@ -104,8 +104,8 @@ function balancingDatasetNode(model: BalancingPageModel): Record<string, unknown
     },
     license: CC_BY_4_0_LICENSE_URL,
     creditText: "Grid (grid.vahaah.com), with upstream attributions listed in isBasedOn",
-    creator: { "@id": "https://vahaah.com/#person" },
-    publisher: { "@id": "https://grid.vahaah.com/#app" },
+    creator: datasetOrganisation(),
+    publisher: datasetOrganisation(),
     isAccessibleForFree: true,
     inLanguage: "en-GB",
     ...(model.generatedAt ? { dateModified: model.generatedAt } : {}),
@@ -114,13 +114,17 @@ function balancingDatasetNode(model: BalancingPageModel): Record<string, unknown
         "@type": "Dataset",
         name: "NESO Daily Balancing Costs and BSUoS Fixed Tariffs",
         url: NESO_DAILY_BALANCING_URL,
+        description: "Daily balancing costs and BSUoS fixed tariffs published by the National Energy System Operator.",
         creditText: NESO_OPEN_DATA_ATTRIBUTION,
+        license: NESO_OPEN_DATA_LICENCE_URL,
       },
       {
         "@type": "Dataset",
         name: "Elexon BMRS / Insights",
         url: ELEXON_BMRS_LICENCE_URL,
+        description: "Half-hourly GB electricity generation, demand and prices from the Balancing Mechanism Reporting Service.",
         creditText: elexonBmrsAttribution(),
+        license: ELEXON_BMRS_LICENCE_URL,
       },
     ],
   };

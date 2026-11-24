@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DirectoryNameSearch } from "@/components/directory/name-search";
+import { DirectoryPreviewTable } from "@/components/directory/preview-table";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
 import { FaqList } from "@/components/ui/faq-list";
-import { DIRECTORY_DESCRIPTION, DIRECTORY_FAQS, DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE } from "@/lib/directory/copy";
+import { DIRECTORY_DESCRIPTION, DIRECTORY_FAQS, DIRECTORY_H1, DIRECTORY_STANDFIRST, DIRECTORY_TITLE, NOT_AN_MPAN_LOOKUP } from "@/lib/directory/copy";
+import { directoryOrganisationPreview } from "@/lib/directory/preview";
+import { getDirectoryReader } from "@/lib/directory/reader";
 import { pageJsonLd } from "@/lib/jsonld";
 import { SITE_ORIGIN } from "@/lib/site";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
@@ -22,8 +25,10 @@ export const metadata: Metadata = buildPageMetadata({
   imageAlt: DIRECTORY_TITLE,
 });
 
-export default function DirectoryPage() {
+export default async function DirectoryPage() {
   const today = getLondonDate(new Date());
+  const snapshot = await getDirectoryReader().readDirectory();
+  const organisations = snapshot ? directoryOrganisationPreview(snapshot) : [];
   return (
     <SeoPage
       section="Directory"
@@ -41,7 +46,8 @@ export default function DirectoryPage() {
       header={
         <section>
           <h1 className="text-heading-32 text-gray-1000">{DIRECTORY_H1}</h1>
-          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{DIRECTORY_STANDFIRST}</p>
+          <p className="mt-3 max-w-3xl text-copy-16 text-gray-1000">{NOT_AN_MPAN_LOOKUP}</p>
+          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">{DIRECTORY_STANDFIRST}</p>
         </section>
       }
     >
@@ -58,6 +64,7 @@ export default function DirectoryPage() {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
+          <DirectoryPreviewTable rows={organisations} caption="Organisations and a code on each" />
           <p className="text-copy-14 text-gray-900">
             <Link href="/directory/identifiers" className="text-blue-700 underline-offset-2 hover:underline">
               Look up an MPID or industry code

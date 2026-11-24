@@ -7,6 +7,10 @@ export const DIRECTORY_H1 = "Who is behind this name or code?";
 export const DIRECTORY_STANDFIRST =
   "Organisations, their identifiers and their published roles, with dates.";
 
+export const NOT_AN_MPAN_LOOKUP = "This is not an MPAN or electricity meter serial lookup.";
+
+export const NO_METER_NUMBERS = "Grid does not publish MPAN, MPRN or meter serial numbers.";
+
 export const IDENTIFIERS_TITLE = "MPID, BM Unit ID and GSP group lookup | Grid";
 export const IDENTIFIERS_DESCRIPTION =
   "Which organisation held an MPID, BM Unit ID or GSP group code on a given date in the GB electricity market. Free lookup of Elexon standing data.";

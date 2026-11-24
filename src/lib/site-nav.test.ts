@@ -44,7 +44,7 @@ describe("site nav shell", () => {
       expect(routeExists(href)).toBe(discovered.includes(href));
     }
     expect(visibleNavHrefs()).toEqual([
-      "/",
+      "/today",
       "/gas",
       "/map",
       "/assets",

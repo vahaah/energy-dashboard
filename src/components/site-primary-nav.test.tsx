@@ -8,14 +8,17 @@ import { sectionRepeatsCompactNav } from "@/lib/site-nav";
 describe("primary nav", () => {
   it("marks the active route with aria-current and omits hidden routes", () => {
     const home = renderToStaticMarkup(<SitePrimaryNav pathname="/" idPrefix="test" />);
-    expect(home).toMatch(/<a[^>]*aria-current="page"[^>]*>Today<\/a>/);
+    expect(home).toMatch(/<a[^>]*href="\/today"[^>]*>Today<\/a>/);
+    expect(home).not.toContain('aria-current="page"');
+    const today = renderToStaticMarkup(<SitePrimaryNav pathname="/today" idPrefix="test" />);
+    expect(today).toMatch(/<a[^>]*href="\/today"[^>]*aria-current="page"[^>]*>Today<\/a>|<a[^>]*aria-current="page"[^>]*href="\/today"[^>]*>Today<\/a>/);
+    expect(today.match(/aria-current="page"/g)?.length).toBe(1);
     expect(home).toMatch(/<a[^>]*href="\/gas"[^>]*>Gas<\/a>/);
     expect(home.indexOf(">Today<")).toBeLessThan(home.indexOf(">Gas<"));
     expect(home.indexOf(">Gas<")).toBeLessThan(home.indexOf(">Map<"));
     expect(home).toMatch(/<a[^>]*href="\/map"[^>]*>Map<\/a>/);
     expect(home).toMatch(/<a[^>]*href="\/assets"[^>]*>Assets<\/a>/);
     expect(home).toMatch(/<a[^>]*href="\/api"[^>]*>API<\/a>/);
-    expect(home.match(/aria-current="page"/g)?.length).toBe(1);
     expect(home).toContain(">System<");
     expect(home).not.toContain('href="/system/constraints"');
     expect(home).not.toContain('href="/system/storage"');

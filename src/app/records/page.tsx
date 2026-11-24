@@ -29,12 +29,12 @@ import {
   type HistoricRecordPoint,
 } from "@/lib/historic-mix";
 import { recordsJsonLd } from "@/lib/jsonld";
+import { recordsStandfirst } from "@/lib/records-standfirst";
 import { getGridRecords, getHistoricPeriodView } from "@/lib/neso-historic";
 import { formatLondonDateTimeStamp, formatLondonDayMonthYear, parseUtcDateTime } from "@/lib/london-time";
 import {
   RECORDS_DESCRIPTION,
   RECORDS_H1,
-  RECORDS_SUBLINE,
   RECORDS_TITLE,
   SITE_OG_IMAGE,
   SITE_OG_TYPE,
@@ -101,7 +101,7 @@ export default async function RecordsPage() {
         <section>
           <p className="text-label-13 text-gray-900">Great Britain</p>
           <h1 className="mt-1 text-heading-32 text-gray-1000">{RECORDS_H1}</h1>
-          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{RECORDS_SUBLINE}</p>
+          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{recordsStandfirst(records)}</p>
         </section>
 
         <section className={`${CARD_GRID_CLASS} lg:grid-cols-6`}>

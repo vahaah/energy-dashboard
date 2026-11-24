@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { GasBoard } from "@/components/gas/gas-board";
 import { SeoPage } from "@/components/seo-page";
 import { DataStateNotice } from "@/components/ui/data-state";
@@ -50,7 +51,13 @@ export default async function GasSystemPage() {
         <section>
           <p className="text-label-12 text-gray-900">{GAS_EYEBROW}</p>
           <h1 className="mt-2 text-heading-32 text-gray-1000">{GAS_SYSTEM_H1}</h1>
-          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{GAS_SYSTEM_STANDFIRST}</p>
+          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">
+            {GAS_SYSTEM_STANDFIRST}{" "}
+            <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
+              GB wholesale gas price
+            </Link>
+            .
+          </p>
         </section>
       }
     >

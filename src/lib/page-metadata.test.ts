@@ -75,6 +75,7 @@ describe("page metadata", () => {
   it("points share landings at /og?focus= with a homepage canonical", () => {
     const carbon = sharePageMetadata("carbon");
     expect(carbon.alternates?.canonical).toBe("/");
+    expect(carbon.robots).toEqual({ index: false, follow: true });
     expect(carbon.openGraph?.url).toBe("/");
     expect(carbon.openGraph?.images).toEqual([
       {

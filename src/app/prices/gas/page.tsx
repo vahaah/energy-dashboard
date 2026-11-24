@@ -47,7 +47,15 @@ export default async function GasPricePage() {
         section="Gas price"
         title={GAS_H1}
         breadcrumb={[{ label: "Prices" }, { label: "Gas" }]}
-        cite={<p data-cite>{cite}</p>}
+        cite={
+          <p data-cite>
+            {cite}{" "}
+            <Link href="/gas" className="text-blue-700 underline-offset-2 hover:underline">
+              Britain&apos;s gas system
+            </Link>
+            .
+          </p>
+        }
         citation={gasCitation(model, accessed)}
         updated={
           <p className="text-label-13 text-gray-900">
