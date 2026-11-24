@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ProjectsBoard } from "@/components/projects/projects-board";
+import { Suspense } from "react";
+import { ProjectsBoard, ProjectsSearchBoard } from "@/components/projects/projects-board";
 import { SeoPage } from "@/components/seo-page";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -54,7 +55,13 @@ export default function ProjectsPage() {
         </section>
       }
     >
-      <ProjectsBoard document={data.document} counts={data.counts} facets={data.facets} list={data.list} />
+      <Suspense
+        fallback={
+          <ProjectsBoard document={data.document} counts={data.counts} facets={data.facets} list={data.list} urlQuery="" />
+        }
+      >
+        <ProjectsSearchBoard document={data.document} counts={data.counts} facets={data.facets} list={data.list} />
+      </Suspense>
     </SeoPage>
   );
 }
