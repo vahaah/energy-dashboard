@@ -18,6 +18,7 @@ import {
   type ProjectSearchRow,
 } from "@/lib/search/project-index";
 import { projectSlug as searchSlug } from "@/lib/search/project-href";
+import { compareCatalogueHits } from "@/lib/search/rank";
 import { SEARCH_TASKS, searchTasks } from "@/lib/search/tasks";
 
 const eurocell: ProjectSearchRow = {
@@ -38,6 +39,19 @@ describe("header search", () => {
       "/projects/epj_3415e2e58a0ec470/eurocell-nickel-high-view-road-solar-pv-system",
     );
     expect(searchProjects([eurocell], "price cap", 5)).toEqual([]);
+  });
+
+  it("puts an operating station ahead of a same-named planning project", () => {
+    const hits = [
+      { title: "Beach View Holiday Park Sizewell Common", group: "Projects" as const },
+      { title: "Sizewell B", group: "Projects" as const },
+      { title: "Sizewell B", group: "Assets" as const },
+    ].sort((left, right) => compareCatalogueHits("Sizewell", left, right));
+    expect(hits.map((hit) => `${hit.group}:${hit.title}`)).toEqual([
+      "Assets:Sizewell B",
+      "Projects:Sizewell B",
+      "Projects:Beach View Holiday Park Sizewell Common",
+    ]);
   });
 
   it("offers the key pages, including an empty query", () => {

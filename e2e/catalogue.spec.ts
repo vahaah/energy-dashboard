@@ -81,9 +81,15 @@ test("search opens from the keyboard and links to an asset", async ({ page }) =>
   }).toPass();
   const input = dialog.getByRole("combobox");
   await input.fill("Sizewell");
-  const option = dialog.getByRole("option").first();
-  await expect(option).toBeVisible();
-  await input.press("ArrowDown");
+  const asset = dialog.locator("[role='option'][href^='/assets/']").first();
+  await expect(asset).toBeVisible();
+  for (let step = 0; step < 12; step += 1) {
+    const href = await dialog.locator("[role='option'][aria-selected='true']").getAttribute("href");
+    if (href?.startsWith("/assets/")) {
+      break;
+    }
+    await input.press("ArrowDown");
+  }
   await input.press("Enter");
   await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Sizewell/i);
@@ -118,7 +124,7 @@ test("clicking a search result closes the dialog", async ({ page }) => {
     await expect(dialog).toBeVisible({ timeout: 1000 });
   }).toPass();
   await dialog.getByRole("combobox").fill("Sizewell");
-  const option = dialog.getByRole("option").first();
+  const option = dialog.locator("[role='option'][href^='/assets/']").first();
   await expect(option).toBeVisible();
   await option.click();
   await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);

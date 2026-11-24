@@ -13,10 +13,11 @@ import {
   searchProjects,
   type ProjectSearchRow,
 } from "@/lib/search/project-index";
+import { compareCatalogueHits } from "@/lib/search/rank";
 import { searchTasks } from "@/lib/search/tasks";
 
-const PROJECT_LIMIT = 5;
-const ASSET_LIMIT = 5;
+const CANDIDATE_LIMIT = 8;
+const CATALOGUE_LIMIT = 8;
 
 type Hit = {
   key: string;
@@ -50,16 +51,9 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
   const [dismissed, setDismissed] = useState(false);
 
   const tasks = searchTasks(query);
-  const projectHits = projects ? searchProjects(projects, query, PROJECT_LIMIT) : [];
-  const assetHits = assets ? searchAssets(assets, query, ASSET_LIMIT) : [];
-  const hits: Hit[] = [
-    ...tasks.map((task) => ({
-      key: `page:${task.id}`,
-      href: task.href,
-      title: task.title,
-      detail: task.detail,
-      group: "Pages" as const,
-    })),
+  const projectHits = projects ? searchProjects(projects, query, CANDIDATE_LIMIT) : [];
+  const assetHits = assets ? searchAssets(assets, query, CANDIDATE_LIMIT) : [];
+  const catalogue: Hit[] = [
     ...projectHits.map((row) => ({
       key: `project:${row.id}`,
       href: projectSearchHref(row),
@@ -74,6 +68,17 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
       detail: assetDetail(row),
       group: "Assets" as const,
     })),
+  ];
+  catalogue.sort((left, right) => compareCatalogueHits(query, left, right));
+  const hits: Hit[] = [
+    ...tasks.map((task) => ({
+      key: `page:${task.id}`,
+      href: task.href,
+      title: task.title,
+      detail: task.detail,
+      group: "Pages" as const,
+    })),
+    ...catalogue.slice(0, CATALOGUE_LIMIT),
   ];
   const listOpen = !dismissed && hits.length > 0;
   const activeIndex = hits.length === 0 ? 0 : Math.min(active, hits.length - 1);
