@@ -153,6 +153,7 @@ export function AssetDirectory({
           setFailedKey(key);
           return;
         }
+        setFailedKey((current) => (current === key ? null : current));
         setRemote({ key, page: body });
       })
       .catch((error: unknown) => {
