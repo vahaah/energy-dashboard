@@ -18,7 +18,7 @@ import type { ProjectSearchRow } from "@/lib/search/project-index";
 import { balancingFromApi, balancingFromCard, balancingSources } from "@/lib/webmcp/balancing-summary";
 import type { EmbeddedWebMcp } from "@/lib/webmcp/embed";
 import { dataHealthFromApi } from "@/lib/webmcp/health";
-import { pageDataset } from "@/lib/webmcp/pages";
+import { assetIdFromPath, pageDataset } from "@/lib/webmcp/pages";
 import {
   greenestFromLookAhead,
   isDashboardPayload,
@@ -91,21 +91,21 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
     }
   }
 
-  async function carbonReading(signal: AbortSignal): Promise<{ reading: GridLiveReading | null; embedded: EmbeddedWebMcp | null }> {
+  async function carbonReading(signal: AbortSignal): Promise<{ reading: GridLiveReading | null; greenest: GridLiveReading["greenest"] }> {
     const loaded = await loadReading(signal);
-    if (!loaded.reading || loaded.reading.greenest) {
-      return loaded;
+    if (loaded.reading?.greenest) {
+      return { reading: loaded.reading, greenest: loaded.reading.greenest };
     }
     try {
       const body = await deps.fetchJson(LOOK_AHEAD_PATH, signal);
       const greenest = greenestFromLookAhead(body);
-      if (!greenest) {
-        return loaded;
+      if (greenest && loaded.reading) {
+        return { reading: { ...loaded.reading, greenest }, greenest };
       }
-      return { ...loaded, reading: { ...loaded.reading, greenest } };
+      return { reading: loaded.reading, greenest };
     } catch {
       throwIfAborted(signal);
-      return loaded;
+      return { reading: loaded.reading, greenest: null };
     }
   }
 
@@ -117,12 +117,13 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
         return toolResult("get_live_mix", retrievedAt, [], null, blocked);
       }
       const { reading } = await loadReading(signal);
+      const mix = reading && (reading.fuels.length > 0 || reading.demandMw != null || reading.generationMw != null) ? reading : null;
       return toolResult(
         "get_live_mix",
         retrievedAt,
-        reading?.sources ?? [],
-        reading,
-        reading ? (reading.stale ? "This half-hour is older than Grid's usual refresh." : null) : NOT_YET_AVAILABLE,
+        mix?.sources ?? [],
+        mix,
+        mix ? (mix.stale ? "This half-hour is older than Grid's usual refresh." : null) : NOT_YET_AVAILABLE,
       );
     },
 
@@ -132,23 +133,29 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
       if (blocked) {
         return toolResult("get_carbon_intensity", retrievedAt, [], null, blocked);
       }
-      const { reading } = await carbonReading(signal);
-      if (!reading) {
-        return toolResult("get_carbon_intensity", retrievedAt, [], null, NOT_YET_AVAILABLE);
+      const { reading, greenest } = await carbonReading(signal);
+      const carbon = reading?.carbon ?? null;
+      if (!carbon && !greenest) {
+        return toolResult("get_carbon_intensity", retrievedAt, reading?.sources ?? [], null, NOT_YET_AVAILABLE);
       }
+      const notice = !carbon
+        ? "The half-hour carbon intensity is not in this reading. The raw 48-hour forecast is not returned."
+        : greenest
+          ? null
+          : "The cleanest two-hour window is not in this reading. The raw 48-hour forecast is not returned.";
       return toolResult(
         "get_carbon_intensity",
         retrievedAt,
-        reading.sources,
+        reading?.sources ?? [],
         {
-          carbon: reading.carbon,
-          greenest: reading.greenest,
-          settlementStart: reading.settlementStart,
-          settlementStartUtc: reading.settlementStartUtc,
-          pageSentence: reading.pageSentence,
-          stale: reading.stale,
+          carbon,
+          greenest,
+          settlementStart: reading?.settlementStart ?? null,
+          settlementStartUtc: reading?.settlementStartUtc ?? greenest?.startUtc ?? null,
+          pageSentence: reading?.pageSentence ?? null,
+          stale: reading?.stale ?? false,
         },
-        reading.greenest ? null : "The cleanest two-hour window is not in this reading. The raw 48-hour forecast is not returned.",
+        notice,
       );
     },
 
@@ -159,20 +166,27 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
         return toolResult("get_wholesale_price", retrievedAt, [], null, blocked);
       }
       const { reading } = await loadReading(signal);
-      if (!reading) {
-        return toolResult("get_wholesale_price", retrievedAt, [], null, NOT_YET_AVAILABLE);
+      const marketIndex = reading?.marketIndex ?? null;
+      const imbalance = reading && reading.imbalance.gbpPerMwh != null ? reading.imbalance : null;
+      if (!marketIndex && !imbalance) {
+        return toolResult("get_wholesale_price", retrievedAt, reading?.sources ?? [], null, NOT_YET_AVAILABLE);
       }
+      const missing = !marketIndex
+        ? "The Market Index price is not in this reading. "
+        : !imbalance
+          ? "The imbalance price is not in this reading. "
+          : "";
       return toolResult(
         "get_wholesale_price",
         retrievedAt,
-        reading.sources,
+        reading?.sources ?? [],
         {
-          marketIndex: reading.marketIndex,
-          imbalance: reading.imbalance,
-          settlementStart: reading.settlementStart,
-          settlementStartUtc: reading.settlementStartUtc,
+          marketIndex,
+          imbalance,
+          settlementStart: reading?.settlementStart ?? null,
+          settlementStartUtc: reading?.settlementStartUtc ?? null,
         },
-        "Market Index (APXMIDP) is the short-term wholesale price. The system price is the imbalance price. They are different series.",
+        `${missing}Market Index (APXMIDP) is the short-term wholesale price. The system price is the imbalance price. They are different series.`,
       );
     },
 
@@ -252,6 +266,21 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
       }
       const embedded = deps.readEmbedded();
       const page = deps.page();
+      const assetId = assetIdFromPath(page.path);
+      let asset: { technology: string } | null = null;
+      let notice: string | null = null;
+      if (assetId) {
+        try {
+          const rows = await deps.loadAssets(signal);
+          asset = rows.find((row) => row.id === assetId) ?? null;
+          if (!asset) {
+            notice = "This asset is not in the register Grid holds.";
+          }
+        } catch {
+          throwIfAborted(signal);
+          notice = "The asset register could not be loaded.";
+        }
+      }
       const dataset = pageDataset({
         title: page.title,
         url: page.url,
@@ -260,8 +289,9 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
         year: yearOf(retrievedAt),
         reading: embedded?.reading ?? null,
         embeddedPath: embedded?.path ?? null,
+        asset,
       });
-      return toolResult("get_page_dataset", retrievedAt, dataset.sources, dataset, null);
+      return toolResult("get_page_dataset", retrievedAt, dataset.sources, dataset, notice);
     },
 
     async getBalancingSummary(_input: unknown, signal: AbortSignal) {

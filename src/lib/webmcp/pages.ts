@@ -160,10 +160,53 @@ export function canonicalPath(path: string): string {
   return bare.length > 0 ? bare : "/";
 }
 
-export function sourcesForPath(path: string, year: number): SourceCredit[] {
+export type AssetSourceHint = {
+  technology: string;
+};
+
+/** Id segment of `/assets/{id}` or `/assets/{id}/{slug}`. The directory itself has none. */
+export function assetIdFromPath(path: string): string | null {
+  const parts = canonicalPath(path).split("/").filter((part) => part.length > 0);
+  if (parts[0] !== "assets" || !parts[1]) {
+    return null;
+  }
+  return parts[1];
+}
+
+/**
+ * Interconnectors and gas terminals share `/assets/` with plants.
+ * Their credits are the Elexon or National Gas sentence plus GeoNames, the same pair the asset page shows.
+ */
+export function sourcesForAsset(asset: AssetSourceHint, year: number): SourceCredit[] {
+  switch (asset.technology) {
+    case "interconnector":
+      return [
+        GRID,
+        {
+          name: "Elexon BMRS",
+          attribution: elexonBmrsAttribution(year),
+          url: ELEXON_BMRS_LICENCE_URL,
+        },
+        { name: "GeoNames", attribution: GEONAMES_ATTRIBUTION, url: GEONAMES_URL },
+      ];
+    case "gas_terminal":
+      return [
+        GRID,
+        { name: "National Gas", attribution: NATIONAL_GAS_ATTRIBUTION, url: NATIONAL_GAS_PORTAL_URL },
+        { name: "GeoNames", attribution: GEONAMES_ATTRIBUTION, url: GEONAMES_URL },
+      ];
+    default:
+      return [GRID, OGL];
+  }
+}
+
+export function sourcesForPath(path: string, year: number, asset?: AssetSourceHint | null): SourceCredit[] {
   const canonical = canonicalPath(path);
   if ((SHIPPED_PAGE_ROUTES as readonly string[]).includes(canonical)) {
     return sourcesFor(canonical as Route, year);
+  }
+  if (assetIdFromPath(canonical)) {
+    return asset ? sourcesForAsset(asset, year) : [GRID, dataSourcesPointer()];
   }
   if (canonical.startsWith("/assets/")) {
     return [GRID, OGL];
@@ -171,14 +214,15 @@ export function sourcesForPath(path: string, year: number): SourceCredit[] {
   if (canonical.startsWith("/projects/")) {
     return [GRID, OGL, NESO];
   }
-  return [
-    GRID,
-    {
-      name: "Grid",
-      attribution: "Sources for this page are listed on the data sources page.",
-      url: `${SITE_ORIGIN}/data-sources`,
-    },
-  ];
+  return [GRID, dataSourcesPointer()];
+}
+
+function dataSourcesPointer(): SourceCredit {
+  return {
+    name: "Grid",
+    attribution: "Sources for this page are listed on the data sources page.",
+    url: `${SITE_ORIGIN}/data-sources`,
+  };
 }
 
 export type PageDataset = {
@@ -198,10 +242,11 @@ export function pageDataset(input: {
   year: number;
   reading: GridLiveReading | null;
   embeddedPath: string | null;
+  asset?: AssetSourceHint | null;
 }): PageDataset {
   const path = canonicalPath(input.path);
   const figures = input.embeddedPath === path ? input.reading : null;
-  const sources = figures?.sources ?? sourcesForPath(path, input.year);
+  const sources = figures?.sources ?? sourcesForPath(path, input.year, input.asset);
   return {
     title: input.title,
     url: input.url,

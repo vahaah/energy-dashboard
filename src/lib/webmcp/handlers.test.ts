@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AssetIndexRow } from "@/lib/assets/types";
-import { NATIONAL_GAS_ATTRIBUTION, OGL_V3_ATTRIBUTION } from "@/lib/attribution";
+import {
+  GEONAMES_ATTRIBUTION,
+  NATIONAL_GAS_ATTRIBUTION,
+  OGL_V3_ATTRIBUTION,
+  elexonBmrsAttribution,
+} from "@/lib/attribution";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 import { CURRENT_PRICE_CAP } from "@/lib/price-cap";
@@ -188,10 +193,10 @@ const signal = () => new AbortController().signal;
 describe("WebMCP handlers", () => {
   it("reads the mix, carbon and prices from the page snapshot and refuses a date", async () => {
     const reading = liveReadingFromPayload(payload(), "2026-11-24T12:00:00.000Z");
-    expect(reading?.topFuel.toLowerCase()).toContain("wind");
-    expect(reading?.carbon.gramsPerKwh).toBe(148);
-    expect(reading?.marketIndex.series).toBe("Market Index (APXMIDP)");
-    expect(reading?.marketIndex.gbpPerMwh).toBe(45.2);
+    expect(reading?.topFuel?.toLowerCase()).toContain("wind");
+    expect(reading?.carbon?.gramsPerKwh).toBe(148);
+    expect(reading?.marketIndex?.series).toBe("Market Index (APXMIDP)");
+    expect(reading?.marketIndex?.gbpPerMwh).toBe(45.2);
     expect(reading?.imbalance.gbpPerMwh).toBe(67);
     expect(reading?.imbalance.series).toContain("imbalance");
     expect(reading?.greenest).toBeNull();
@@ -251,15 +256,51 @@ describe("WebMCP handlers", () => {
       },
     }));
     const carbon = await handlers.getCarbonIntensity({}, signal());
-    expect(carbon.data?.carbon.unit).toBe("gCO₂/kWh");
+    expect(carbon.data?.carbon?.unit).toBe("gCO₂/kWh");
     expect(carbon.data?.greenest?.gramsPerKwh).toBe(40);
     expect(carbon.data?.greenest).not.toHaveProperty("carbonSeries");
     expect(fetches).toEqual([LIVE_DASHBOARD_PATH, LOOK_AHEAD_PATH]);
     expect(LIVE_DASHBOARD_PATH).not.toContain("date=");
     expect(() => assertNoHistoricalDate("/api/dashboard?period=day&date=2026-01-01")).toThrow(/historical date/);
     const price = await handlers.getWholesalePrice({}, signal());
-    expect(price.data?.marketIndex.gbpPerMwh).toBe(45.2);
+    expect(price.data?.marketIndex?.gbpPerMwh).toBe(45.2);
     expect(fetches.filter((url) => url === LIVE_DASHBOARD_PATH)).toHaveLength(1);
+  });
+
+  it("keeps a metric when an unrelated figure is missing", async () => {
+    const priced = payload();
+    priced.facts.price = { ...priced.facts.price, value: null };
+    const withoutMarket = liveReadingFromPayload(priced, "2026-11-24T12:00:00.000Z");
+    expect(withoutMarket?.fuels[0]?.fuel).toBe("wind");
+    expect(withoutMarket?.carbon?.gramsPerKwh).toBe(148);
+    expect(withoutMarket?.marketIndex).toBeNull();
+    expect(withoutMarket?.imbalance.gbpPerMwh).toBe(67);
+
+    const carbonless = payload();
+    carbonless.facts.carbon = { ...carbonless.facts.carbon, value: null };
+    carbonless.facts.systemPrice = { ...carbonless.facts.systemPrice, value: null };
+    const withoutCarbon = liveReadingFromPayload(carbonless, "2026-11-24T12:00:00.000Z");
+    expect(withoutCarbon?.carbon).toBeNull();
+    expect(withoutCarbon?.marketIndex?.gbpPerMwh).toBe(45.2);
+    expect(withoutCarbon?.fuels.length).toBeGreaterThan(0);
+
+    const handlers = createWebMcpHandlers(deps({
+      readEmbedded: () => ({
+        version: 1,
+        path: "/",
+        generatedAt: "2026-11-24T12:00:00.000Z",
+        reading: withoutMarket,
+        balancing: null,
+      }),
+    }));
+    const mix = await handlers.getLiveMix({}, signal());
+    const carbon = await handlers.getCarbonIntensity({}, signal());
+    const price = await handlers.getWholesalePrice({}, signal());
+    expect(mix.data?.fuels.length).toBeGreaterThan(0);
+    expect(carbon.data?.carbon?.gramsPerKwh).toBe(148);
+    expect(price.data?.marketIndex).toBeNull();
+    expect(price.data?.imbalance?.gbpPerMwh).toBe(67);
+    expect(price.notice).toMatch(/Market Index price is not in this reading/);
   });
 
   it("returns the published price cap and leaves January 2027 empty", async () => {
@@ -337,6 +378,44 @@ describe("WebMCP handlers", () => {
     expect(page.data?.path).toBe("/gas");
     expect(page.data?.figures).toBeNull();
     expect(page.sources.some((source) => source.attribution === NATIONAL_GAS_ATTRIBUTION)).toBe(true);
+    const link = createWebMcpHandlers(deps({
+      page: () => ({
+        title: "IFA",
+        url: "https://grid.vahaah.com/assets/ast_5c5dc7c6656c3f93/ifa",
+        path: "/assets/ast_5c5dc7c6656c3f93/ifa",
+      }),
+      loadAssets: () => Promise.resolve([{ ...sizewell, id: "ast_5c5dc7c6656c3f93", name: "IFA", technology: "interconnector", source: "Elexon", sources: ["Elexon"] }]),
+    }));
+    const ifa = await link.getPageDataset({}, signal());
+    expect(ifa.sources.map((source) => source.attribution)).toEqual([
+      "Grid's derived data is CC BY 4.0. Upstream licences still apply.",
+      elexonBmrsAttribution(2026),
+      GEONAMES_ATTRIBUTION,
+    ]);
+    expect(ifa.sources.some((source) => source.attribution === OGL_V3_ATTRIBUTION)).toBe(false);
+    const terminal = createWebMcpHandlers(deps({
+      page: () => ({
+        title: "Bacton",
+        url: "https://grid.vahaah.com/assets/ast_0789b8c8f94ec14a/bacton-ips",
+        path: "/assets/ast_0789b8c8f94ec14a/bacton-ips",
+      }),
+      loadAssets: () => Promise.resolve([{ ...sizewell, id: "ast_0789b8c8f94ec14a", name: "Bacton", technology: "gas_terminal", source: "National Gas", sources: ["National Gas"] }]),
+    }));
+    const bacton = await terminal.getPageDataset({}, signal());
+    expect(bacton.sources.some((source) => source.attribution === NATIONAL_GAS_ATTRIBUTION)).toBe(true);
+    expect(bacton.sources.some((source) => source.attribution === GEONAMES_ATTRIBUTION)).toBe(true);
+    expect(bacton.sources.some((source) => source.attribution === OGL_V3_ATTRIBUTION)).toBe(false);
+    const plant = createWebMcpHandlers(deps({
+      page: () => ({
+        title: "Sizewell B",
+        url: "https://grid.vahaah.com/assets/ast_0000000000000001/sizewell-b",
+        path: "/assets/ast_0000000000000001/sizewell-b",
+      }),
+      loadAssets: () => Promise.resolve([sizewell]),
+    }));
+    const station = await plant.getPageDataset({}, signal());
+    expect(station.sources.some((source) => source.attribution === OGL_V3_ATTRIBUTION)).toBe(true);
+    expect(station.sources.some((source) => source.attribution === NATIONAL_GAS_ATTRIBUTION)).toBe(false);
     const balancing = await handlers.getBalancingSummary({}, signal());
     expect(balancing.data?.financialYearLabel).toBe("2026/27");
     expect(balancing.data?.latestPence).toBe(12_500_000);

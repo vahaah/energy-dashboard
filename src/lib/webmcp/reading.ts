@@ -10,11 +10,18 @@ import {
   PV_LIVE_URL,
   elexonBmrsAttribution,
 } from "@/lib/attribution";
+import { fuelLabel } from "@/lib/colors";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
 import { getDisplayedPower } from "@/lib/displayed-demand";
 import { formatHeadlineGw } from "@/lib/facts";
 import { generationMixShares } from "@/lib/generation-share";
 import { buildHomepageCite, homepageCitePlainText } from "@/lib/homepage-briefing";
+import {
+  formatLondonCiteDate,
+  formatLondonClock,
+  formatLondonIsoOffset,
+  parseUtcDateTime,
+} from "@/lib/london-time";
 import type { SourceCredit } from "@/lib/webmcp/result";
 
 export type MixFuel = {
@@ -37,15 +44,15 @@ export type GreenestWindowReading = {
 };
 
 export type GridLiveReading = {
-  pageSentence: string;
+  pageSentence: string | null;
   stale: boolean;
-  settlementStart: string;
+  settlementStart: string | null;
   settlementStartUtc: string | null;
-  settlementTimeLabel: string;
-  settlementDateLabel: string;
-  topFuel: string;
-  topGw: string;
-  topShareOfGenerationPct: number;
+  settlementTimeLabel: string | null;
+  settlementDateLabel: string | null;
+  topFuel: string | null;
+  topGw: string | null;
+  topShareOfGenerationPct: number | null;
   gasShareOfGenerationPct: number | null;
   demandMw: number | null;
   demandGw: string | null;
@@ -59,7 +66,7 @@ export type GridLiveReading = {
     periodStartUtc: string | null;
     periodEndUtc: string | null;
     source: string;
-  };
+  } | null;
   marketIndex: {
     gbpPerMwh: number;
     unit: "£/MWh";
@@ -67,7 +74,7 @@ export type GridLiveReading = {
     periodStartUtc: string | null;
     periodEndUtc: string | null;
     source: string;
-  };
+  } | null;
   imbalance: {
     gbpPerMwh: number | null;
     unit: "£/MWh";
@@ -119,7 +126,8 @@ function gwOrNull(mw: number | null): string | null {
 }
 
 /**
- * The same half-hour the homepage sentence uses.
+ * Figures already on the dashboard payload.
+ * A missing carbon reading does not drop the mix or the wholesale price, and the reverse.
  * A historical payload is refused so a dated dashboard body cannot be treated as current.
  * The raw carbon forecast series is not copied.
  */
@@ -128,35 +136,35 @@ export function liveReadingFromPayload(payload: DashboardPayload | null, generat
     return null;
   }
   const hydrated = hydrateDashboardPayload(payload);
-  const cite = buildHomepageCite({
-    facts: hydrated.facts,
-    headlineSnapshots: hydrated.headlineSnapshots,
-  });
-  if (cite.kind !== "numbers") {
-    return null;
-  }
   const facts = hydrated.facts;
   const power = getDisplayedPower(facts, hydrated.headlineSnapshots);
   const shares = generationMixShares(facts.generationRows, power.generationStartUtc);
-  const top = shares[0];
-  if (!top) {
-    return null;
-  }
+  const cite = buildHomepageCite({
+    facts,
+    headlineSnapshots: hydrated.headlineSnapshots,
+  });
+  const top = shares[0] ?? null;
   const gas = shares.find((share) => share.fuel === "gas");
   const window = hydrated.lookAhead?.greenestWindow ?? null;
-  if (facts.carbon.value == null || facts.price.value == null) {
+  const carbon = facts.carbon.value;
+  const market = facts.price.value;
+  const imbalance = facts.systemPrice.value;
+  const hasMix = shares.length > 0 || power.demandMw != null || power.generationMw != null;
+  if (!hasMix && carbon == null && market == null && imbalance == null && !window) {
     return null;
   }
+  const startUtc = power.generationStartUtc ?? facts.carbon.periodStartUtc ?? facts.price.periodStartUtc ?? facts.systemPrice.periodStartUtc;
+  const at = startUtc ? parseUtcDateTime(startUtc) : null;
   return {
-    pageSentence: homepageCitePlainText(cite),
+    pageSentence: cite.kind === "numbers" ? homepageCitePlainText(cite) : null,
     stale: facts.isStale,
-    settlementStart: cite.datetime,
-    settlementStartUtc: power.generationStartUtc,
-    settlementTimeLabel: cite.timeLabel,
-    settlementDateLabel: cite.dateLabel,
-    topFuel: cite.topFuel,
-    topGw: cite.topGw,
-    topShareOfGenerationPct: top.displayPct,
+    settlementStart: at ? formatLondonIsoOffset(at) : null,
+    settlementStartUtc: startUtc,
+    settlementTimeLabel: at ? formatLondonClock(at) : null,
+    settlementDateLabel: at ? formatLondonCiteDate(at) : null,
+    topFuel: top ? fuelLabel(top.fuel) : null,
+    topGw: top ? formatHeadlineGw(top.mw) : null,
+    topShareOfGenerationPct: top ? top.displayPct : null,
     gasShareOfGenerationPct: gas ? gas.displayPct : null,
     demandMw: power.demandMw,
     demandGw: gwOrNull(power.demandMw),
@@ -169,22 +177,28 @@ export function liveReadingFromPayload(payload: DashboardPayload | null, generat
       gw: formatHeadlineGw(share.mw),
       shareOfGenerationPct: share.displayPct,
     })),
-    carbon: {
-      gramsPerKwh: facts.carbon.value,
-      unit: "gCO₂/kWh",
-      index: facts.carbon.index,
-      periodStartUtc: facts.carbon.periodStartUtc,
-      periodEndUtc: facts.carbon.periodEndUtc,
-      source: facts.carbon.source,
-    },
-    marketIndex: {
-      gbpPerMwh: facts.price.value,
-      unit: "£/MWh",
-      series: "Market Index (APXMIDP)",
-      periodStartUtc: facts.price.periodStartUtc,
-      periodEndUtc: facts.price.periodEndUtc,
-      source: facts.price.source,
-    },
+    carbon:
+      carbon == null
+        ? null
+        : {
+            gramsPerKwh: carbon,
+            unit: "gCO₂/kWh",
+            index: facts.carbon.index,
+            periodStartUtc: facts.carbon.periodStartUtc,
+            periodEndUtc: facts.carbon.periodEndUtc,
+            source: facts.carbon.source,
+          },
+    marketIndex:
+      market == null
+        ? null
+        : {
+            gbpPerMwh: market,
+            unit: "£/MWh",
+            series: "Market Index (APXMIDP)",
+            periodStartUtc: facts.price.periodStartUtc,
+            periodEndUtc: facts.price.periodEndUtc,
+            source: facts.price.source,
+          },
     imbalance: {
       gbpPerMwh: facts.systemPrice.value,
       unit: "£/MWh",
