@@ -13,14 +13,40 @@ export function SiteTopBar({
   section,
   trailing,
   footer,
+  skipHref = "#content",
+  skipLabel = "Skip to content",
 }: {
   idPrefix: string;
   section?: string;
   trailing?: ReactNode;
   footer?: ReactNode;
+  skipHref?: string;
+  skipLabel?: string;
 }) {
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) {
+      return;
+    }
+    const write = () => {
+      document.documentElement.style.setProperty("--site-header-height", `${header.getBoundingClientRect().height}px`);
+    };
+    write();
+    const observer = new ResizeObserver(write);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <header className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
+    <header ref={headerRef} className="sticky top-0 z-20 border-b border-gray-alpha-400 bg-background-100">
+      <a
+        href={skipHref}
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-4 focus:z-30 focus:inline-flex focus:min-h-11 focus:items-center focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
+      >
+        {skipLabel}
+      </a>
       <div className={`mx-auto max-w-[1200px] ${CARD_PAD_X}`}>
         <div className="flex min-h-16 items-center gap-3">
           <Link href="/" className="flex h-11 shrink-0 items-center gap-2 text-gray-1000">

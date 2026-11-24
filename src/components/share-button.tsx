@@ -28,6 +28,7 @@ export function ShareButton({ url, title }: { url: string; title: string }) {
     <button
       type="button"
       data-share
+      aria-live="polite"
       className={BUTTON}
       onClick={() => {
         void shareOrCopy(url, title).then((result) => {

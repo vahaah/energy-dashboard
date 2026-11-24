@@ -226,8 +226,11 @@ export function AssetDirectory({
           Search
           <input
             type="search"
+            name="q"
+            autoComplete="off"
+            spellCheck={false}
             value={url.q}
-            placeholder="Name, operator, technology, or location"
+            placeholder="Name, operator, technology, or location…"
             onChange={(event) => void setUrl({ q: event.target.value, page: 1 })}
             className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
           />
@@ -362,6 +365,8 @@ function FilterSelect({
     <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
       {label}
       <select
+        name={label.toLowerCase()}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full min-w-0 truncate rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000"

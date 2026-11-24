@@ -29,13 +29,17 @@ function retryable(error: unknown): boolean {
 
 /**
  * One attempt, then two retries. 429 and 5xx wait 200ms then 800ms.
- * Each attempt dies after 8 seconds. A caller abort stops the loop.
+ * Each attempt dies after 8 seconds. A 4xx other than 429 is returned.
+ * A caller abort stops the loop. `readJson` keeps the body read inside the
+ * same loop, so a download that dies after the headers still retries.
  */
-export async function fetchBoundedJson(
+async function fetchBoundedAttempt(
   url: string,
-  parent?: AbortSignal,
-  fetchImpl: typeof fetch = fetch,
-): Promise<unknown> {
+  init: RequestInit | undefined,
+  parent: AbortSignal | undefined,
+  fetchImpl: typeof fetch,
+  readJson: boolean,
+): Promise<Response | unknown> {
   let last: unknown;
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     if (parent?.aborted) {
@@ -43,9 +47,11 @@ export async function fetchBoundedJson(
     }
     try {
       const signal = parent ? AbortSignal.any([parent, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS);
-      const response = await fetchImpl(url, { signal });
+      const response = await fetchImpl(url, { ...init, signal });
       if (response.status === 429 || response.status >= 500) {
         last = new Error(`HTTP ${response.status}`);
+      } else if (!readJson) {
+        return response;
       } else if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       } else {
@@ -65,4 +71,21 @@ export async function fetchBoundedJson(
     }
   }
   throw last instanceof Error ? last : new Error("The request failed.");
+}
+
+export function fetchBounded(
+  url: string,
+  init?: RequestInit,
+  parent?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
+  return fetchBoundedAttempt(url, init, parent, fetchImpl, false) as Promise<Response>;
+}
+
+export function fetchBoundedJson(
+  url: string,
+  parent?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<unknown> {
+  return fetchBoundedAttempt(url, undefined, parent, fetchImpl, true);
 }

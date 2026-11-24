@@ -58,11 +58,13 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
           <label className="inline-flex items-center gap-2 text-label-13 text-gray-1000">
             <span className="sr-only">Gas day</span>
             <select
+              name="gas-day"
+              autoComplete="off"
               value={slice.day}
               onChange={(event) => {
                 void setParams({ day: event.target.value });
               }}
-              className="h-8 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-label-13 text-gray-1000"
+              className="h-11 min-h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-label-13 text-gray-1000 sm:h-8 sm:min-h-8"
             >
               {document.days.map((day) => (
                 <option key={day.label} value={day.label}>
@@ -274,7 +276,7 @@ function BasisControl({
           type="button"
           aria-pressed={item === basis}
           onClick={() => onChange(item)}
-          className={`inline-flex h-8 items-center rounded-md px-2 text-label-13 ${
+          className={`inline-flex h-11 min-h-11 items-center rounded-md px-2 text-label-13 sm:h-8 sm:min-h-8 ${
             item === basis ? "bg-background-100 text-gray-1000" : "text-gray-900"
           }`}
         >
@@ -341,7 +343,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
       footer={<p className="break-words">{slice.footer}</p>}
     >
       <p className="text-copy-14 text-gray-900">
-        {seriesUnit(slice.basis)}. as of {slice.stamp.publishedLabel}
+        {seriesUnit(slice.basis)}, as of {slice.stamp.publishedLabel}.
       </p>
       <ChartBoundary>
         <GasSeriesChart points={slice.series} now={slice.now} unit={seriesUnit(slice.basis)} />
@@ -352,7 +354,7 @@ function SeriesCard({ slice }: { slice: GasSlice }) {
           aria-expanded={showTable}
           aria-controls="gas-series-table"
           onClick={() => setOpened((current) => !current)}
-          className="inline-flex h-8 items-center text-label-13 text-gray-1000"
+          className="inline-flex min-h-11 items-center text-label-13 text-gray-1000"
         >
           {showTable ? "Hide table" : "Show table"}
         </button>

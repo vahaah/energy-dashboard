@@ -25,7 +25,7 @@ export function ShareFocusRedirect({
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
-      <main className={PAGE_STACK_CLASS}>
+      <main id="content" className={PAGE_STACK_CLASS}>
         <p className="text-copy-16 text-gray-900">Opening Grid…</p>
         <p className="mt-3 text-copy-16">
           <Link href={href} className="text-blue-700 underline-offset-2 hover:underline">

@@ -302,12 +302,6 @@ export function Dashboard({
 
   return (
     <div className="bg-background-100 text-gray-1000">
-      <a
-        href="#section-overview"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
-      >
-        Skip to content
-      </a>
       <SiteHeader
         activeDate={activeDate}
         minDate={getDashboardCoverageStart(now)}
@@ -369,7 +363,7 @@ export function Dashboard({
         />
       </div>
 
-      <main className={PAGE_STACK_CLASS}>
+      <main id="content" className={PAGE_STACK_CLASS}>
         {generation.error && !generationData ? (
           <Card>
             <CardError>

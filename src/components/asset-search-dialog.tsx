@@ -86,6 +86,26 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
   const registersLoading = (assets === null && !assetFailed) || (projects === null && !projectFailed);
 
   useEffect(() => {
+    const portal = dialogRef.current?.parentElement;
+    const inerted: HTMLElement[] = [];
+    for (const node of document.body.children) {
+      if (!(node instanceof HTMLElement) || node === portal || node.hasAttribute("inert")) {
+        continue;
+      }
+      node.setAttribute("inert", "");
+      inerted.push(node);
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      for (const node of inerted) {
+        node.removeAttribute("inert");
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     inputRef.current?.focus();
     let disposed = false;
     void loadSearchIndex()
@@ -146,7 +166,7 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 px-4 py-8 sm:px-6 sm:py-16">
+    <div className="fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-black/40 px-4 py-8 sm:px-6 sm:py-16">
       <div
         ref={dialogRef}
         role="dialog"
@@ -224,8 +244,11 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
             aria-expanded={listOpen}
             aria-controls={listId}
             aria-activedescendant={listOpen && hits[activeIndex] ? `${listId}-option-${activeIndex}` : undefined}
+            name="q"
+            autoComplete="off"
+            spellCheck={false}
             value={query}
-            placeholder="Assets, projects, or a page"
+            placeholder="Assets, projects, or a page…"
             onChange={(event) => {
               setQuery(event.target.value);
               setActive(0);
@@ -250,7 +273,7 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
           </p>
         ) : null}
         {listOpen ? (
-          <ul id={listId} role="listbox" aria-label="Search results" className="mt-3 flex max-h-[min(32rem,calc(100dvh-14rem))] flex-col overflow-y-auto">
+          <ul id={listId} role="listbox" aria-label="Search results" className="mt-3 flex max-h-[min(32rem,calc(100dvh-14rem))] flex-col overflow-y-auto overscroll-contain">
             {hits.map((hit, index) => {
               const heading = index === 0 || hits[index - 1]?.group !== hit.group ? hit.group : null;
               return (
@@ -279,6 +302,15 @@ export function AssetSearchDialog({ onClose }: { onClose: () => void }) {
             })}
           </ul>
         ) : null}
+        <p className="sr-only" aria-live="polite">
+          {trimmed.length > 0 && registersLoading && hits.length === 0
+            ? "Loading the registers…"
+            : trimmed.length > 0 && !registersLoading && hits.length === 0
+              ? "No matching pages, projects, or assets."
+              : listOpen
+                ? `${hits.length} ${hits.length === 1 ? "result" : "results"}`
+                : ""}
+        </p>
         {trimmed.length > 0 && !registersLoading && hits.length === 0 ? (
           <p className="mt-3 text-copy-14 text-gray-900">No matching pages, projects, or assets.</p>
         ) : null}

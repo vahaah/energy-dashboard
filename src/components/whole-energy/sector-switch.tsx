@@ -41,7 +41,7 @@ export function SectorSwitch({ sectors }: { sectors: readonly SectorPanel[] }) {
               type="button"
               aria-pressed={pressed}
               onClick={() => setSelected(id)}
-              className={`inline-flex h-8 items-center rounded-md px-2 text-label-13 ${
+              className={`inline-flex h-11 min-h-11 items-center rounded-md px-3 text-label-13 sm:h-8 sm:min-h-8 ${
                 pressed ? "bg-background-100 text-gray-1000" : "text-gray-900"
               }`}
             >

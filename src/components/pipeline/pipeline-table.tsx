@@ -246,11 +246,11 @@ export function PipelineTable({
           ))}
         </Filter>
       </div>
-      <p className="mt-4 text-label-13 text-gray-900">
+      <p className="mt-4 text-label-13 text-gray-900" aria-live="polite">
         {shownTotal == null
-          ? "Loading projects"
+          ? "Loading projects…"
           : `${shownTotal.toLocaleString("en-GB")} ${shownTotal === 1 ? "project" : "projects"}`}
-        {loading ? " · Loading" : ""}
+        {loading ? " · Loading…" : ""}
       </p>
       {failed ? (
         <p className="mt-4 break-words text-copy-14 text-gray-900" role="status">
@@ -336,6 +336,8 @@ function Filter({
     <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
       {label}
       <select
+        name={label.toLowerCase()}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"

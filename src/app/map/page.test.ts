@@ -72,7 +72,7 @@ describe("map and asset pages", () => {
       assets,
       detail,
       power,
-      flows.replaceAll("aria-live", "aria-region"),
+      flows,
       source("src/components/map-explorer.tsx"),
       search,
       dialog,
@@ -81,7 +81,7 @@ describe("map and asset pages", () => {
       source("src/components/asset-page-view.tsx"),
       source("src/components/copy-link-button.tsx"),
     ]) {
-      expect(containsLiveWord(file)).toBe(false);
+      expect(containsLiveWord(file.replaceAll("aria-live", "aria-region"))).toBe(false);
     }
   });
 });

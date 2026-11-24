@@ -84,7 +84,7 @@ export default async function Home() {
         fallback={
           <div className="min-h-0 bg-background-100">
             <HomepageFallbackHeader />
-            <div className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{briefing}</div>
+            <div id="content" className={`${PAGE_STACK_CLASS} pb-0 sm:pb-0`}>{briefing}</div>
           </div>
         }
       >
@@ -97,12 +97,6 @@ export default async function Home() {
 function HomepageFallbackHeader() {
   return (
     <>
-      <a
-        href="#section-overview"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-md focus:border focus:border-gray-alpha-400 focus:bg-background-100 focus:px-3 focus:py-2"
-      >
-        Skip to content
-      </a>
       <SiteTopBar idPrefix="home-fallback" trailing={<ThemeToggle />} />
     </>
   );
