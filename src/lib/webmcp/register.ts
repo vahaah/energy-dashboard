@@ -45,7 +45,7 @@ export async function registerGridTools(
   if (signal.aborted) {
     return;
   }
-  const tools = gridTools(deps);
+  const tools = gridTools(deps, signal);
   await Promise.all(
     tools.map(async (tool) => {
       if (signal.aborted) {

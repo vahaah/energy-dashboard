@@ -32,8 +32,8 @@ function bind(run: (input: unknown, signal: AbortSignal) => Promise<unknown> | u
   return (input, options) => Promise.resolve(run(input, options.signal));
 }
 
-export function gridTools(deps: WebMcpDeps): GridTool[] {
-  const handlers: WebMcpHandlers = createWebMcpHandlers(deps);
+export function gridTools(deps: WebMcpDeps, registration?: AbortSignal): GridTool[] {
+  const handlers: WebMcpHandlers = createWebMcpHandlers(deps, registration);
   return [
     {
       name: "get_live_mix",

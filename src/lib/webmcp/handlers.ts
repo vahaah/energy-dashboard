@@ -14,11 +14,12 @@ import {
   PUBLISHED_PRICE_CAPS,
   CURRENT_PRICE_CAP,
 } from "@/lib/price-cap";
+import { CLIENT_QUERY_MAX_AGE_MS } from "@/lib/client-query";
 import type { ProjectSearchRow } from "@/lib/search/project-index";
 import { balancingFromApi, balancingFromCard, balancingSources } from "@/lib/webmcp/balancing-summary";
 import type { EmbeddedWebMcp } from "@/lib/webmcp/embed";
 import { dataHealthFromApi } from "@/lib/webmcp/health";
-import { assetIdFromPath, pageDataset } from "@/lib/webmcp/pages";
+import { assetIdFromPath, canonicalPath, pageDataset } from "@/lib/webmcp/pages";
 import {
   greenestFromLookAhead,
   isDashboardPayload,
@@ -65,22 +66,40 @@ function throwIfAborted(signal: AbortSignal): void {
   }
 }
 
-export function createWebMcpHandlers(deps: WebMcpDeps) {
-  let cachedReading: GridLiveReading | null | undefined;
+function readingAgeMs(generatedAt: string, now: number): number | null {
+  const parsed = Date.parse(generatedAt);
+  return Number.isFinite(parsed) ? now - parsed : null;
+}
+
+export function createWebMcpHandlers(deps: WebMcpDeps, registration?: AbortSignal) {
+  let cachedReading: { reading: GridLiveReading | null; at: number } | undefined;
+  if (typeof document !== "undefined") {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        cachedReading = undefined;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    registration?.addEventListener("abort", () => {
+      document.removeEventListener("visibilitychange", onVisible);
+    });
+  }
 
   async function loadReading(signal: AbortSignal): Promise<{ reading: GridLiveReading | null; embedded: EmbeddedWebMcp | null }> {
     throwIfAborted(signal);
+    const now = deps.now().getTime();
     const embedded = deps.readEmbedded();
-    if (embedded?.reading) {
+    const age = embedded ? readingAgeMs(embedded.generatedAt, now) : null;
+    if (embedded?.reading && age != null && age >= 0 && age < CLIENT_QUERY_MAX_AGE_MS) {
       return { reading: embedded.reading, embedded };
     }
-    if (cachedReading !== undefined) {
-      return { reading: cachedReading, embedded };
+    if (cachedReading && now - cachedReading.at < CLIENT_QUERY_MAX_AGE_MS) {
+      return { reading: cachedReading.reading, embedded };
     }
     try {
       const body = await deps.fetchJson(LIVE_DASHBOARD_PATH, signal);
       const reading = isDashboardPayload(body) ? liveReadingFromPayload(body, deps.now().toISOString()) : null;
-      cachedReading = reading;
+      cachedReading = { reading, at: now };
       return { reading, embedded };
     } catch (error) {
       throwIfAborted(signal);
@@ -264,8 +283,10 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
       if (blocked) {
         return toolResult("get_page_dataset", retrievedAt, [], null, blocked);
       }
-      const embedded = deps.readEmbedded();
       const page = deps.page();
+      const embedded = deps.readEmbedded();
+      const samePage = embedded != null && canonicalPath(page.path) === canonicalPath(embedded.path);
+      const reading = samePage ? (await loadReading(signal)).reading : embedded?.reading ?? null;
       const assetId = assetIdFromPath(page.path);
       let asset: { technology: string } | null = null;
       let notice: string | null = null;
@@ -287,8 +308,8 @@ export function createWebMcpHandlers(deps: WebMcpDeps) {
         path: page.path,
         retrievedAt,
         year: yearOf(retrievedAt),
-        reading: embedded?.reading ?? null,
-        embeddedPath: embedded?.path ?? null,
+        reading,
+        embeddedPath: samePage ? embedded?.path ?? null : null,
         asset,
       });
       return toolResult("get_page_dataset", retrievedAt, dataset.sources, dataset, notice);

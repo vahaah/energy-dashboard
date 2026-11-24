@@ -9,6 +9,7 @@ import {
   elexonBmrsAttribution,
 } from "@/lib/attribution";
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
+import { CLIENT_QUERY_MAX_AGE_MS } from "@/lib/client-query";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
 import { CURRENT_PRICE_CAP } from "@/lib/price-cap";
 import type { ProjectSearchRow } from "@/lib/search/project-index";
@@ -301,6 +302,64 @@ describe("WebMCP handlers", () => {
     expect(price.data?.marketIndex).toBeNull();
     expect(price.data?.imbalance?.gbpPerMwh).toBe(67);
     expect(price.notice).toMatch(/Market Index price is not in this reading/);
+  });
+
+  it("replaces a snapshot once it is older than the dashboard cache, and again when the tab is shown", async () => {
+    const staleReading = liveReadingFromPayload(payload(), "2026-11-24T11:50:00.000Z");
+    const refreshed = payload();
+    refreshed.facts.carbon = { ...refreshed.facts.carbon, value: 90 };
+    const fetches: string[] = [];
+    let now = new Date("2026-11-24T12:00:00.000Z");
+    const handlers = createWebMcpHandlers(deps({
+      now: () => now,
+      readEmbedded: () => ({
+        version: 1,
+        path: "/",
+        generatedAt: "2026-11-24T11:50:00.000Z",
+        reading: staleReading,
+        balancing: null,
+      }),
+      fetchJson: (url) => {
+        fetches.push(url);
+        return Promise.resolve(refreshed);
+      },
+    }));
+    const mix = await handlers.getLiveMix({}, signal());
+    expect(mix.data?.carbon?.gramsPerKwh).toBe(90);
+    await handlers.getLiveMix({}, signal());
+    expect(fetches.filter((url) => url === LIVE_DASHBOARD_PATH)).toHaveLength(1);
+    now = new Date(now.getTime() + CLIENT_QUERY_MAX_AGE_MS);
+    await handlers.getLiveMix({}, signal());
+    expect(fetches.filter((url) => url === LIVE_DASHBOARD_PATH)).toHaveLength(2);
+
+    const listeners = new Map<string, () => void>();
+    const doc = {
+      visibilityState: "hidden",
+      addEventListener: (type: string, fn: () => void) => {
+        listeners.set(type, fn);
+      },
+      removeEventListener: (type: string) => {
+        listeners.delete(type);
+      },
+    };
+    const previous = globalThis.document;
+    Object.defineProperty(globalThis, "document", { configurable: true, value: doc });
+    try {
+      let calls = 0;
+      const watched = createWebMcpHandlers(deps({
+        fetchJson: () => {
+          calls += 1;
+          return Promise.resolve(payload());
+        },
+      }));
+      await watched.getLiveMix({}, signal());
+      doc.visibilityState = "visible";
+      listeners.get("visibilitychange")?.();
+      await watched.getLiveMix({}, signal());
+      expect(calls).toBe(2);
+    } finally {
+      Object.defineProperty(globalThis, "document", { configurable: true, value: previous });
+    }
   });
 
   it("returns the published price cap and leaves January 2027 empty", async () => {
