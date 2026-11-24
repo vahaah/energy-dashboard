@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CountColumns } from "@/components/count-columns";
 import { Card } from "@/components/ui/card";
 import { Quantity } from "@/components/ui/quantity";
@@ -21,6 +21,15 @@ import type { ProjectIndexRow } from "@/lib/projects/page-model";
 import type { ProjectsPageData } from "@/lib/projects/page-data";
 
 const HIDDEN_STATUS = "Unknown";
+
+function projectQueryFromLocation(): string {
+  return new URLSearchParams(window.location.search).get("q")?.slice(0, 80) ?? "";
+}
+
+function subscribeProjectQuery(listener: () => void): () => void {
+  window.addEventListener("popstate", listener);
+  return () => window.removeEventListener("popstate", listener);
+}
 
 type RemotePage = {
   projects: ProjectIndexRow[];
@@ -48,7 +57,9 @@ export function ProjectsBoard({
   facets: ProjectsPageData["facets"];
   list: ProjectsPageData["list"];
 }) {
-  const [query, setQuery] = useState("");
+  const urlQuery = useSyncExternalStore(subscribeProjectQuery, projectQueryFromLocation, () => "");
+  const [typed, setTyped] = useState<string | null>(null);
+  const query = typed ?? urlQuery;
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [stage, setStage] = useState("all");
   const [technology, setTechnology] = useState("all");
@@ -247,7 +258,7 @@ export function ProjectsBoard({
               value={query}
               placeholder="Name, technology, or status"
               onChange={(event) => {
-                setQuery(event.target.value);
+                setTyped(event.target.value);
                 setPage(1);
               }}
               className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"

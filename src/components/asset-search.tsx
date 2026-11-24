@@ -6,8 +6,9 @@ import dynamic from "next/dynamic";
 import { Search } from "lucide-react";
 
 /**
- * The dialog chunk and /search/assets.json load on the first open. The header
- * button stays on every page, including /, without that code in the initial bundle.
+ * The dialog chunk, /search/assets.json and /search/projects.json load on the
+ * first open. The header button stays on every page, including /, without that
+ * code in the initial bundle.
  */
 const AssetSearchDialog = dynamic(
   () => import("@/components/asset-search-dialog").then((module) => module.AssetSearchDialog),
@@ -56,7 +57,7 @@ export function AssetSearchButton() {
       ref={buttonRef}
       type="button"
       className="inline-flex h-8 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 text-gray-1000 sm:min-h-8"
-      aria-label="Search assets"
+      aria-label="Search"
       aria-keyshortcuts="Control+K Meta+K"
       aria-haspopup="dialog"
       aria-expanded={open}
@@ -76,7 +77,7 @@ export function AssetSearchDialogHost() {
         return;
       }
       event.preventDefault();
-      const buttons = [...document.querySelectorAll<HTMLButtonElement>("[aria-label='Search assets']")];
+      const buttons = [...document.querySelectorAll<HTMLButtonElement>("[aria-label='Search']")];
       showDialog(buttons.find((button) => buttonShown(button)) ?? null);
     };
     window.addEventListener("keydown", onKey);

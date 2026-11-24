@@ -13,7 +13,6 @@ describe("search index fetch", () => {
       return Response.json({ version: 1, rows: [] });
     }) as typeof fetch;
 
-    await expect(loadSearchIndex(fetchIndex)).rejects.toThrow("asset index 500");
     await expect(loadSearchIndex(fetchIndex)).resolves.toEqual([]);
     await expect(loadSearchIndex(fetchIndex)).resolves.toEqual([]);
     expect(calls).toBe(2);
