@@ -140,6 +140,8 @@ describe("llms.txt", () => {
     expect(text).toContain("# Grid");
     expect(text).toContain("https://grid.vahaah.com/today");
     expect(text).toContain("https://grid.vahaah.com/api");
+    expect(text).toContain("get_price_cap");
+    expect(text).toContain("document.modelContext");
     expect(text).toContain("gCO2/kWh");
     expect(text.replace(/PV Live/g, "")).not.toMatch(/\blive\b/i);
     expect(text).not.toMatch(/real-time/i);

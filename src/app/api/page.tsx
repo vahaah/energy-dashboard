@@ -9,6 +9,8 @@ import {
   API_DOCS_ERRORS,
   API_DOCS_INTRO,
   API_DOCS_LICENCE,
+  API_DOCS_WEBMCP,
+  API_DOCS_WEBMCP_HEADING,
 } from "@/lib/api/copy";
 import { loadHomepagePayload } from "@/lib/homepage-payload";
 import { apiDocsJsonLd } from "@/lib/jsonld";
@@ -71,6 +73,15 @@ export default async function ApiDocsPage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section>
+          <h2 className="text-heading-24 text-gray-1000">{API_DOCS_WEBMCP_HEADING}</h2>
+          {API_DOCS_WEBMCP.map((line) => (
+            <p key={line} className="mt-3 max-w-3xl break-words text-copy-16 text-gray-900">
+              {line}
+            </p>
+          ))}
         </section>
 
         <section>

@@ -32,6 +32,15 @@ export const API_DOCS_ERRORS = [
 export const API_DOCS_LICENCE =
   "Data in API responses is subject to each source's licence, listed in sources on every response and on the Data sources page.";
 
+export const API_DOCS_WEBMCP_HEADING = "WebMCP";
+
+export const API_DOCS_WEBMCP = [
+  "In a browser that provides document.modelContext.registerTool, Grid registers read-only tools for the figures on the page. A browser without that API does not download the tools.",
+  "The tools are get_live_mix, get_carbon_intensity, get_wholesale_price, get_price_cap, search_grid, get_page_dataset, get_balancing_summary and get_data_health. Each is marked read-only and returns the source, the unit and the time.",
+  "They read what the page already holds, static JSON, or the existing peek routes. They do not send a historical date, and they do not look up an MPAN, MPRN or meter serial.",
+  "Grid does not register tools that press buttons. The current draft is document.modelContext (https://webmachinelearning.github.io/webmcp/). A Chrome origin-trial token is not set.",
+] as const;
+
 export type ApiDocsEndpoint = {
   method: "GET" | "POST";
   path: string;
