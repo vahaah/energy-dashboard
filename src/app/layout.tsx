@@ -10,8 +10,10 @@ import {
   PLAUSIBLE_SCRIPT_PATH,
   isPlausibleEnabled,
 } from "@/lib/plausible";
+import { WebMcpRegistrar } from "@/app/webmcp-registrar";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_ORIGIN, SITE_TWITTER_CARD } from "@/lib/site";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
+import { WEBMCP_ORIGIN_TRIAL_TOKEN } from "@/lib/webmcp/origin-trial";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -46,9 +48,15 @@ export default function RootLayout({
     <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+        {WEBMCP_ORIGIN_TRIAL_TOKEN ? (
+          <meta httpEquiv="origin-trial" content={WEBMCP_ORIGIN_TRIAL_TOKEN} />
+        ) : null}
       </head>
       <body className="font-sans antialiased tabular-nums">
-        <NuqsAdapter>{children}</NuqsAdapter>
+        <NuqsAdapter>
+          {children}
+          <WebMcpRegistrar />
+        </NuqsAdapter>
         {plausible ? (
           <>
             <Script id="plausible-queue" strategy="afterInteractive">

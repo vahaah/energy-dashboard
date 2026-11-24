@@ -21,6 +21,8 @@ import {
   SITE_OG_TYPE,
   SITE_TWITTER_CARD,
 } from "@/lib/site";
+import { embeddedWebMcpJson, WEBMCP_PAGE_SCRIPT_ID } from "@/lib/webmcp/embed";
+import { liveReadingFromPayload } from "@/lib/webmcp/reading";
 
 /**
  * Homepage shell. Static/ISR so the CDN can HIT `/`. The cite sentence is in
@@ -65,9 +67,18 @@ export default async function Home() {
   const balancingRelease = await readBalancingRelease();
   const balancingCard = balancingRelease ? buildHomeCard(balancingRelease, getLondonDate(new Date())) : null;
   const briefing = <HomepageBriefing cite={cite} heading="p" />;
+  const generatedAt = new Date().toISOString();
+  const webmcpPage = embeddedWebMcpJson({
+    version: 1,
+    path: "/",
+    generatedAt,
+    reading: liveReadingFromPayload(payload, generatedAt),
+    balancing: balancingCard,
+  });
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">
+      <script id={WEBMCP_PAGE_SCRIPT_ID} type="application/json" dangerouslySetInnerHTML={{ __html: webmcpPage }} />
       <JsonLd data={homepageJsonLd(payload?.facts ?? null)} />
       <Suspense
         fallback={

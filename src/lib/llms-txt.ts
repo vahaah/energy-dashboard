@@ -52,7 +52,7 @@ ${priceCapLlmsLine()}
 - [Methodology](https://grid.vahaah.com/methodology): sources, cadence, definitions, data checks, how records work
 - [Data sources](https://grid.vahaah.com/data-sources): every source with its licence and required attribution
 - [Data health](https://grid.vahaah.com/data-health): when each source published and when Grid fetched it
-- [API](https://grid.vahaah.com/api): free JSON, no key, 60 requests a minute
+- [API](https://grid.vahaah.com/api): free JSON, no key, 60 requests a minute. The same page describes WebMCP: in a browser with document.modelContext, Grid registers read-only tools get_live_mix, get_carbon_intensity, get_wholesale_price, get_price_cap, search_grid, get_page_dataset, get_balancing_summary and get_data_health. They read the page or existing public JSON. No MPAN, MPRN or meter lookup.
 - [Snapshots JSON, last 24 hours](https://grid.vahaah.com/api/snapshots?range=24h)
 
 ## How to cite

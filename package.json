@@ -34,6 +34,8 @@
     "balancing:backfill": "tsx scripts/backfill-balancing.ts"
   },
   "dependencies": {
+    "@ui-sdk/core": "^0.1.0-beta.17",
+    "@ui-sdk/react": "^0.1.0-beta.17",
     "@upstash/redis": "^1.39.0",
     "@vercel/functions": "^3.9.11",
     "date-fns": "^4.1.0",
@@ -57,6 +59,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vercel/blob": "^2.8.2",
+    "@w3c/webmcp-polyfill": "^0.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
     "exceljs": "^4.4.0",

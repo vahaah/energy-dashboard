@@ -8,6 +8,7 @@ import {
   API_DOCS_INTRO,
   API_DOCS_LICENCE,
   API_DOCS_STANDFIRST,
+  API_DOCS_WEBMCP,
 } from "@/lib/api/copy";
 
 describe("API docs page", () => {
@@ -18,6 +19,9 @@ describe("API docs page", () => {
     expect(source).toContain("loadHomepagePayload");
     expect(source).toContain("API_DOCS_INTRO");
     expect(source).toContain("API_DOCS_LICENCE");
+    expect(source).toContain("API_DOCS_WEBMCP");
+    expect(API_DOCS_WEBMCP.join(" ")).not.toMatch(/real-time/i);
+    expect(API_DOCS_WEBMCP.join(" ")).toContain("document.modelContext.registerTool");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toMatch(/\bTTF\b/);
     expect(API_DOCS_STANDFIRST).toBe("Access Grid's GB electricity and gas data as JSON, no API key.");
