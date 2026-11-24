@@ -23,9 +23,26 @@ function projectSource(project: EnergyProject): string {
   return repd ? "DESNZ REPD" : "the NESO TEC register";
 }
 
+const SOLAR_PV_SYSTEM = /\s*(?:[-–—]\s*)?solar PV system$/i;
+
+/** Distinctive site name: normalise REPD "Solar Pv", then drop a trailing system label and a secondary address. */
+export function projectTitleName(name: string): string {
+  const normalised = name.replaceAll("Solar Pv", "solar PV").replace(/\s+/g, " ").trim();
+  const withoutSystem = normalised.replace(SOLAR_PV_SYSTEM, "").replace(/[-–—]\s*$/u, "").trim();
+  const head = withoutSystem.length > 0 ? withoutSystem : normalised;
+  const comma = head.indexOf(",");
+  if (comma >= 3) {
+    const distinctive = head.slice(0, comma).trim();
+    if (distinctive.length >= 3) {
+      return distinctive;
+    }
+  }
+  return head;
+}
+
 export function projectSeoTitle(project: EnergyProject): string {
   const stage = displayStageLabel(project.display_stage).toLowerCase();
-  return fitDetailTitle(project.name, stage);
+  return fitDetailTitle(projectTitleName(project.name), stage);
 }
 
 export function projectSeoDescription(project: EnergyProject): string {

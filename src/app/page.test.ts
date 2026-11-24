@@ -8,6 +8,9 @@ describe("homepage", () => {
     expect(source).toContain("loadHomepagePayload");
     expect(source).toContain("HomepageBriefing");
     expect(source).toContain("homepageJsonLd");
+    expect(source).not.toContain("SeoPage");
+    expect(readFileSync(resolve(import.meta.dirname, "../components/dashboard.tsx"), "utf8")).not.toContain("<h1");
+    expect(readFileSync(resolve(import.meta.dirname, "../components/dashboard.tsx"), "utf8")).not.toContain("SeoPage");
     expect(source).toContain("export const revalidate = 300");
     expect(source).toContain('export const dynamic = "force-static"');
     expect(source).toContain('canonical: "/"');

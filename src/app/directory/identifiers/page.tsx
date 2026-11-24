@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DirectoryCodeSearch } from "@/components/directory/code-search";
+import { DirectoryPreviewTable } from "@/components/directory/preview-table";
 import { SeoPage } from "@/components/seo-page";
 import { Card } from "@/components/ui/card";
 import { ELEXON_ISD_ATTRIBUTION, ELEXON_ISD_URL } from "@/lib/attribution";
@@ -10,8 +11,11 @@ import {
   IDENTIFIERS_STANDFIRST,
   IDENTIFIERS_TITLE,
   MPID_LABEL,
+  NOT_AN_MPAN_LOOKUP,
   ROLE_LABEL,
 } from "@/lib/directory/copy";
+import { directoryCodePreview } from "@/lib/directory/preview";
+import { getDirectoryReader } from "@/lib/directory/reader";
 import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { pageJsonLd } from "@/lib/jsonld";
 import { buildPageMetadata } from "@/lib/page-metadata";
@@ -28,8 +32,10 @@ export const metadata: Metadata = buildPageMetadata({
   imageAlt: IDENTIFIERS_TITLE,
 });
 
-export default function DirectoryIdentifiersPage() {
+export default async function DirectoryIdentifiersPage() {
   const today = getLondonDate(new Date());
+  const snapshot = await getDirectoryReader().readDirectory();
+  const codes = snapshot ? directoryCodePreview(snapshot) : [];
   return (
     <SeoPage
       section="Directory"
@@ -49,7 +55,8 @@ export default function DirectoryIdentifiersPage() {
       header={
         <section>
           <h1 className="text-heading-32 text-gray-1000">{IDENTIFIERS_H1}</h1>
-          <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{IDENTIFIERS_STANDFIRST}</p>
+          <p className="mt-3 max-w-3xl text-copy-16 text-gray-1000">{NOT_AN_MPAN_LOOKUP}</p>
+          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">{IDENTIFIERS_STANDFIRST}</p>
         </section>
       }
     >
@@ -66,6 +73,7 @@ export default function DirectoryIdentifiersPage() {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
+          <DirectoryPreviewTable rows={codes} caption="Codes and the organisation that holds each one" />
           <p className="text-copy-14 text-gray-900">{MPID_LABEL}</p>
           <p className="text-copy-14 text-gray-900">{ROLE_LABEL}</p>
           <p className="text-copy-14 text-gray-900">

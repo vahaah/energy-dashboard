@@ -14,30 +14,32 @@ import {
   priceCapJsonLd,
   recordsJsonLd,
   todayJsonLd,
-  APP_ID,
-  PERSON_ID,
+  ORGANIZATION_ID,
+  datasetOrganisation,
 } from "@/lib/jsonld";
+import { buildBalancingPage } from "@/lib/balancing/page-model";
+import { balancingPageSchema } from "@/lib/balancing/leads";
 import { emptyRecordsWithDocumentedCoal } from "@/lib/historic-mix";
-import { SITE_ORIGIN } from "@/lib/site";
+import { LEGAL_CONTROLLER, SITE_NAME, SITE_ORIGIN } from "@/lib/site";
 
 describe("JSON-LD", () => {
   it("emits WebSite, WebApplication, Dataset downloads and Person on the homepage", () => {
     const graph = homepageJsonLd(null)["@graph"];
     const types = graph.map((node) => node["@type"]);
-    expect(types).toEqual(["WebSite", "WebApplication", "WebPage", "Person", "Dataset"]);
-    expect(JSON.parse(JSON.stringify(homepageJsonLd(null)))["@graph"]).toHaveLength(5);
+    expect(types).toEqual(["WebSite", "WebApplication", "Organization", "WebPage", "Person", "Dataset"]);
+    expect(JSON.parse(JSON.stringify(homepageJsonLd(null)))["@graph"]).toHaveLength(6);
 
     const dataset = graph.find((node) => node["@type"] === "Dataset") as {
       license: Array<{ name: string; url: string }>;
       url: string;
       creditText: string;
-      creator: { "@id": string };
-      publisher: { "@id": string };
+      creator: { "@type": string; "@id": string; name: string; legalName: string };
+      publisher: { "@type": string; "@id": string };
       distribution: Array<{ name: string; contentUrl: string }>;
       variableMeasured: Array<{ name: string }>;
-      isBasedOn: Array<{ creditText?: string }>;
+      isBasedOn: Array<{ creditText?: string; description?: string; license?: unknown }>;
     };
-    expect(dataset.url).toBe(`${SITE_ORIGIN}/`);
+    expect(dataset.url).toBe(SITE_ORIGIN);
     expect(dataset.creditText).toBe(
       "Grid (grid.vahaah.com), with upstream attributions listed in isBasedOn",
     );
@@ -49,8 +51,14 @@ describe("JSON-LD", () => {
     ]);
     expect(dataset.license.map((item) => item.name).join(" ")).toContain("Elexon BMRS");
     expect(dataset.license).not.toBe(CC_BY_4_0_LICENSE_URL);
-    expect(dataset.creator).toEqual({ "@id": PERSON_ID });
-    expect(dataset.publisher).toEqual({ "@id": APP_ID });
+    expect(dataset.creator).toEqual(datasetOrganisation());
+    expect(dataset.creator["@type"]).toBe("Organization");
+    expect(dataset.creator["@id"]).toBe(ORGANIZATION_ID);
+    expect(dataset.creator.name).toBe(SITE_NAME);
+    expect(dataset.creator.legalName).toBe(LEGAL_CONTROLLER);
+    expect(dataset.publisher["@type"]).toBe("Organization");
+    expect(dataset.isBasedOn.every((item) => typeof item.description === "string" && item.description.length > 0)).toBe(true);
+    expect(dataset.isBasedOn.every((item) => item.license != null)).toBe(true);
     expect(dataset.distribution.map((item) => item.name)).toEqual([
       "Snapshots",
       "Generation",
@@ -81,12 +89,16 @@ describe("JSON-LD", () => {
       },
     })["@graph"];
 
-    const dataset = graph.find((node) => node["@type"] === "Dataset") as {
+    const dataset = graph.find((node) => node["@type"] === "Dataset" && node["name"] === "Great Britain electricity records") as {
       license: string;
-      creator: { "@id": string };
+      creator: { "@type": string; "@id": string };
+      isBasedOn: { description: string; license: string };
     };
     expect(dataset.license).toBe(CC_BY_4_0_LICENSE_URL);
-    expect(dataset.creator).toEqual({ "@id": APP_ID });
+    expect(dataset.creator["@type"]).toBe("Organization");
+    expect(dataset.creator["@id"]).toBe(ORGANIZATION_ID);
+    expect(dataset.isBasedOn.description.length).toBeGreaterThan(0);
+    expect(dataset.isBasedOn.license).toBe(NESO_OPEN_DATA_LICENCE_URL);
 
     const list = graph.find((node) => node["@type"] === "ItemList") as {
       itemListElement: Array<{ item: { name: string } }>;
@@ -108,7 +120,22 @@ describe("JSON-LD", () => {
     expect(JSON.stringify(cap)).toContain("/explained/price-cap");
 
     const api = apiDocsJsonLd(null)["@graph"];
-    const dataset = api.find((node) => node["@type"] === "Dataset") as { url: string };
+    const dataset = api.find((node) => node["@type"] === "Dataset") as {
+      url: string;
+      creator: { "@type": string };
+    };
     expect(dataset.url).toBe(`${SITE_ORIGIN}/api`);
+    expect(dataset.creator["@type"]).toBe("Organization");
+
+    const balancing = balancingPageSchema(buildBalancingPage(null, new Date("2026-11-24T12:00:00Z")), [])["@graph"];
+    const balancingDataset = balancing.find((node) => node["@type"] === "Dataset") as {
+      creator: { "@type": string };
+      publisher: { "@type": string };
+      isBasedOn: Array<{ description: string; license: string }>;
+    };
+    expect(balancingDataset.creator["@type"]).toBe("Organization");
+    expect(balancingDataset.publisher["@type"]).toBe("Organization");
+    expect(balancingDataset.creator["@type"]).not.toBe("WebApplication");
+    expect(balancingDataset.isBasedOn.every((item) => item.description.length > 0 && item.license.length > 0)).toBe(true);
   });
 });

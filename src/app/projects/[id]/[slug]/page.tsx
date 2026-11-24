@@ -9,6 +9,7 @@ import {
   PROJECTS_ATTRIBUTION,
   PROJECTS_EYEBROW,
   PROJECTS_PATH,
+  PROJECT_PROFILE_SOURCE,
   PROJECT_PROFILE_STANDFIRST,
   projectProfileH1,
 } from "@/lib/projects/copy";
@@ -92,6 +93,7 @@ export default async function ProjectSlugPage({ params }: { params: Promise<{ id
           <p className="text-label-12 text-gray-900">{PROJECTS_EYEBROW}</p>
           <h1 className="mt-2 break-words text-heading-32 text-gray-1000">{projectProfileH1(project.name)}</h1>
           <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{PROJECT_PROFILE_STANDFIRST}</p>
+          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">{PROJECT_PROFILE_SOURCE}</p>
         </section>
       }
     >

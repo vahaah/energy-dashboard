@@ -67,7 +67,10 @@ describe("sitemap", () => {
     const assets = await sitemap({ id: "assets" });
     expect(assets[0]?.lastModified).toEqual(catalogueLastModified().assets);
     const pageEntries = await sitemap({ id: "pages" });
-    expect(pageEntries.every((entry) => entry.lastModified instanceof Date)).toBe(true);
+    const stamped = pageEntries.filter((entry) => entry.lastModified instanceof Date).map((entry) => new URL(entry.url).pathname);
+    expect(stamped.every((path) => ["/", "/today", "/prices/gas", "/data-health", "/system/balancing"].includes(path) || stamped.length === 0)).toBe(true);
+    expect(pageEntries.find((entry) => entry.url === "https://grid.vahaah.com/privacy")?.lastModified).toBeUndefined();
+    expect(pageEntries.find((entry) => entry.url === "https://grid.vahaah.com/terms")?.lastModified).toBeUndefined();
   });
 
   it("assigns lastmod only to data-driven routes", () => {

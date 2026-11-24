@@ -17,6 +17,7 @@ import {
   todayCitePlainText,
   todayFaqs,
   TODAY_CITE_SOURCES,
+  TODAY_STANDFIRST,
 } from "@/lib/today-page";
 
 export const revalidate = 3600;
@@ -44,7 +45,7 @@ export default async function TodayPage() {
         cite={
           model.kind === "numbers" && model.untilDatetime && model.untilClock ? (
             <p data-cite>
-              So far today ({model.dateLabel}, to{" "}
+              {TODAY_STANDFIRST} So far today ({model.dateLabel}, to{" "}
               <time dateTime={model.untilDatetime}>{model.untilClock}</time>), wind supplied{" "}
               {Math.round(model.shares.windPct ?? 0)}% of GB generation, gas{" "}
               {Math.round(model.shares.gasPct ?? 0)}%, nuclear {Math.round(model.shares.nuclearPct ?? 0)}%
@@ -70,6 +71,20 @@ export default async function TodayPage() {
           )
         }
       >
+        <p className="text-copy-16 text-gray-900">
+          <Link href="/explained/price-cap" className="text-blue-700 underline-offset-2 hover:underline">
+            Energy price cap
+          </Link>
+          {" · "}
+          <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
+            GB gas price
+          </Link>
+          {" · "}
+          <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
+            Methodology
+          </Link>
+        </p>
+
         <section className={CARD_GRID_CLASS}>
           <Card as="article" title="Demand, latest half-hour" size="stat" id="demand">
             <p data-figure className="whitespace-nowrap font-sans text-heading-32 tabular-nums text-gray-1000">

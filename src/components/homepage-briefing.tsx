@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   HOME_CITE_FALLBACK,
   HOME_CITE_REFRESH,
@@ -24,6 +25,11 @@ export function HomepageBriefing({
         <h1 className="min-w-0 text-heading-32 text-gray-1000">{title}</h1>
         {controls ? <div className="shrink-0">{controls}</div> : null}
       </div>
+      <p className="mt-3 max-w-3xl text-copy-16">
+        <Link href="/today" className="text-blue-700 underline-offset-2 hover:underline">
+          Today&apos;s generation mix and the live wholesale electricity price
+        </Link>
+      </p>
       {showCite ? <HomepageCiteParagraph cite={cite} /> : null}
     </div>
   );

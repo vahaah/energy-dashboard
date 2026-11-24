@@ -36,6 +36,15 @@ describe("SEO titles and descriptions", () => {
     expect(SITE_URL).toBe(SITE_ORIGIN);
     expect(HOME_TITLE).toBe("What's powering electricity in Great Britain? | Grid");
     expect(RECORDS_TITLE).toBe("GB electricity records: wind, carbon, renewables | Grid");
+    expect(TODAY_TITLE).toBe("GB electricity today: live mix and wholesale price | Grid");
+    expect(PRICE_CAP_TITLE).toBe("Energy price cap January 2027: will bills go up? | Grid");
+    expect(HOME_DESCRIPTION).toContain("Live GB electricity mix");
+    expect(HOME_DESCRIPTION).toContain("wholesale prices");
+    expect(TODAY_DESCRIPTION).toContain("Elexon wholesale market price");
+    expect(PRICE_CAP_DESCRIPTION).toContain("£1,723");
+    expect(PRICE_CAP_DESCRIPTION).toContain("25 November 2026");
+    expect(GAS_DESCRIPTION).toContain("System Average Price");
+    expect(GAS_DESCRIPTION).toContain("p/therm");
     const titles = [
       HOME_TITLE,
       RECORDS_TITLE,

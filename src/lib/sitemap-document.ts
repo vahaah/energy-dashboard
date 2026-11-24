@@ -128,7 +128,7 @@ export async function sitemapEntries(id: SitemapId, now = new Date()): Promise<M
       return projectEntries(catalogueLastModified().projects);
     case "pages": {
       const stamps = await sitemapStamps(now).catch(() => ({}));
-      return pageEntries(stamps, now);
+      return pageEntries(stamps);
     }
     default: {
       const exhaustive: never = id;
@@ -191,7 +191,7 @@ function indexLastModified(
 }
 
 function latestEntryLastModified(entries: MetadataRoute.Sitemap, fallback: Date): Date {
-  let latest = fallback.getTime();
+  let latest = Number.NEGATIVE_INFINITY;
   for (const entry of entries) {
     const value = entry.lastModified;
     const time = value instanceof Date ? value.getTime() : typeof value === "string" ? Date.parse(value) : Number.NaN;
@@ -199,7 +199,7 @@ function latestEntryLastModified(entries: MetadataRoute.Sitemap, fallback: Date)
       latest = time;
     }
   }
-  return new Date(latest);
+  return Number.isFinite(latest) ? new Date(latest) : fallback;
 }
 
 function renderSitemapIndex(children: readonly { loc: string; lastmod: Date }[]): string {
@@ -243,13 +243,16 @@ function escapeXml(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
-function pageEntries(stamps: SitemapStamps, builtAt: Date): MetadataRoute.Sitemap {
-  return SITEMAP_PATHS.map((entry) => ({
-    url: `${SITE_URL}${entry.path}`,
-    changeFrequency: entry.changeFrequency,
-    priority: entry.priority,
-    lastModified: lastModifiedForPath(entry.path, stamps) ?? builtAt,
-  }));
+function pageEntries(stamps: SitemapStamps): MetadataRoute.Sitemap {
+  return SITEMAP_PATHS.map((entry) => {
+    const lastModified = lastModifiedForPath(entry.path, stamps);
+    return {
+      url: `${SITE_URL}${entry.path}`,
+      changeFrequency: entry.changeFrequency,
+      priority: entry.priority,
+      ...(lastModified ? { lastModified } : {}),
+    };
+  });
 }
 
 function assetEntries(lastModified: Date): MetadataRoute.Sitemap {

@@ -7,6 +7,7 @@ import {
   API_DOCS_ERRORS,
   API_DOCS_INTRO,
   API_DOCS_LICENCE,
+  API_DOCS_STANDFIRST,
 } from "@/lib/api/copy";
 
 describe("API docs page", () => {
@@ -19,9 +20,9 @@ describe("API docs page", () => {
     expect(source).toContain("API_DOCS_LICENCE");
     expect(source).not.toContain("queryPipe");
     expect(source).not.toMatch(/\bTTF\b/);
-    expect(API_DOCS_INTRO).toBe(
-      "Grid's API returns the figures shown on the dashboard as JSON. It is free, needs no account and allows 60 requests a minute per IP address. Data refreshes on the same schedule as the dashboard: hourly for electricity and physical gas, every 6 hours for oil and gas prices. Older endpoints keep working. New endpoints are under /api/v1.",
-    );
+    expect(API_DOCS_STANDFIRST).toBe("Access Grid's GB electricity and gas data as JSON, no API key.");
+    expect(API_DOCS_INTRO.startsWith(API_DOCS_STANDFIRST)).toBe(true);
+    expect(API_DOCS_INTRO).toContain("hourly for electricity and physical gas");
     expect(API_DOCS_CONVENTIONS).toEqual([
       "Times are UTC, ISO 8601 (2026-10-14T09:30:00Z). Convert to London time (Europe/London) yourself.",
       "Every value carries its unit, interval, source, publication time and the time Grid fetched it.",

@@ -21,6 +21,9 @@ import { snapshotPeriodAverages } from "@/lib/period-averages";
 import { getSettlementPeriod } from "@/lib/settlement-period";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
 
+export const TODAY_STANDFIRST =
+  "This page shows today's generation mix and the live wholesale electricity price.";
+
 export const TODAY_CITE_SOURCES =
   "Sources: Elexon (BMRS), NESO (embedded), Carbon Intensity API, solar (PV Live estimate). Grid refreshes every hour.";
 
@@ -306,9 +309,9 @@ export function buildTodayPageModel(input: {
 
 export function todayCitePlainText(model: TodayPageModel): string {
   if (model.kind === "fallback" || !model.untilClock) {
-    return `GB electricity mix, carbon intensity and market price. ${TODAY_CITE_SOURCES}`;
+    return `${TODAY_STANDFIRST} GB electricity mix, carbon intensity and market price. ${TODAY_CITE_SOURCES}`;
   }
-  return `So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of GB generation, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
+  return `${TODAY_STANDFIRST} So far today (${model.dateLabel}, to ${model.untilClock}), wind supplied ${pct(model.shares.windPct)}% of GB generation, gas ${pct(model.shares.gasPct)}%, nuclear ${pct(model.shares.nuclearPct)}% and solar ${pct(model.shares.solarPct)}%. Carbon intensity averaged ${avg(model.carbonAverage, 0)} gCO₂/kWh and the market index averaged £${avg(model.priceAverage, 0)}/MWh. ${TODAY_CITE_SOURCES}`;
 }
 
 export function todayCitation(model: TodayPageModel, accessed: Date): string {

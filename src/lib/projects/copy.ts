@@ -12,7 +12,8 @@ export function projectsDirectoryDescription(count: number): string {
 }
 export const PROJECTS_EYEBROW = "Projects";
 
-export const PROJECT_PROFILE_STANDFIRST = "Each status below comes from a named source and date.";
+export const PROJECT_PROFILE_STANDFIRST = "Where is it up to?";
+export const PROJECT_PROFILE_SOURCE = "Each status below comes from a named source and date.";
 
 export const PROJECT_EXPECTATION_CHANGE =
   "This is a change in the published expectation, not a confirmed commissioning date.";
@@ -22,7 +23,7 @@ export function projectProfileTitle(projectName: string): string {
 }
 
 export function projectProfileH1(projectName: string): string {
-  return `Where is ${projectName} up to?`;
+  return projectName.replaceAll("Solar Pv", "solar PV");
 }
 
 export const RATED_POWER = "Rated power";

@@ -32,7 +32,7 @@ export type SiteNavEntry = SiteNavLink | SiteNavMenu;
  * An item renders only when its page module is in SHIPPED_PAGE_ROUTES.
  */
 export const SITE_NAV_CATALOG: SiteNavEntry[] = [
-  { kind: "link", id: "today", label: "Today", href: "/" },
+  { kind: "link", id: "today", label: "Today", href: "/today" },
   { kind: "link", id: "gas", label: "Gas", href: "/gas" },
   { kind: "link", id: "map", label: "Map", href: "/map" },
   { kind: "link", id: "assets", label: "Assets", href: "/assets" },

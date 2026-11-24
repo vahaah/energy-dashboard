@@ -182,7 +182,9 @@ describe("today page model", () => {
     expect(text).toContain("gCO₂/kWh");
     expect(text).toContain("Sources: Elexon (BMRS), NESO (embedded)");
     expect(text).toContain("solar (PV Live estimate)");
-    expect(text.replace(/PV Live/g, "")).not.toMatch(/\blive\b/i);
+    expect(text).toContain("today's generation mix");
+    expect(text).toContain("live wholesale electricity price");
+    expect(text.replace(/PV Live/g, "").replace(/live wholesale electricity price/gi, "")).not.toMatch(/\blive\b/i);
     expect(model.dateModified).toBe("2026-10-10T11:30:00.000Z");
     expect(model.untilDatetime).toBe("2026-10-10T12:30:00+01:00");
     expect(parseUtcDateTime(model.untilDatetime ?? "").toISOString()).toBe(model.dateModified);

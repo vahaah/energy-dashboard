@@ -8,6 +8,7 @@ import {
   CONNECTION_CAPACITY,
   CONNECTION_DUPLICATE_WARNING,
   PROJECT_EXPECTATION_CHANGE,
+  PROJECT_PROFILE_SOURCE,
   PROJECT_PROFILE_STANDFIRST,
   PROJECTS_H1,
   PROJECTS_STANDFIRST,
@@ -380,8 +381,12 @@ describe("checked-in project register", () => {
       "Projects from public registers, with planning, construction and connection status shown separately.",
     );
     expect(projectProfileTitle("Hadyard Hill")).toBe("Hadyard Hill | Grid");
-    expect(projectProfileH1("Hadyard Hill")).toBe("Where is Hadyard Hill up to?");
-    expect(PROJECT_PROFILE_STANDFIRST).toBe("Each status below comes from a named source and date.");
+    expect(projectProfileH1("Hadyard Hill")).toBe("Hadyard Hill");
+    expect(projectProfileH1("Eurocell Nickel, High View Road - Solar Pv System")).toBe(
+      "Eurocell Nickel, High View Road - solar PV System",
+    );
+    expect(PROJECT_PROFILE_STANDFIRST).toBe("Where is it up to?");
+    expect(PROJECT_PROFILE_SOURCE).toBe("Each status below comes from a named source and date.");
     expect(PROJECT_EXPECTATION_CHANGE).toBe(
       "This is a change in the published expectation, not a confirmed commissioning date.",
     );

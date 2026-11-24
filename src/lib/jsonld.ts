@@ -3,17 +3,21 @@ import {
   CARBON_INTENSITY_API_URL,
   CARBON_INTENSITY_ATTRIBUTION,
   EIA_ATTRIBUTION,
+  EIA_LICENCE,
   EIA_URL,
   ELEXON_BMRS_LICENCE_URL,
   elexonBmrsAttribution,
   NATIONAL_GAS_ATTRIBUTION,
+  NATIONAL_GAS_LICENCE,
   NATIONAL_GAS_PORTAL_URL,
   NESO_HISTORIC_MIX_URL,
   NESO_OPEN_DATA_ATTRIBUTION,
   NESO_OPEN_DATA_LICENCE_URL,
   PV_LIVE_ATTRIBUTION,
+  PV_LIVE_LICENCE,
   PV_LIVE_URL,
   WORLD_BANK_PINK_SHEET_ATTRIBUTION,
+  WORLD_BANK_PINK_SHEET_LICENCE_URL,
   WORLD_BANK_PINK_SHEET_URL,
 } from "@/lib/attribution";
 import { COMMODITY_LABELS } from "@/lib/colors";
@@ -26,6 +30,7 @@ import {
   GAS_TITLE,
   HOME_DESCRIPTION,
   HOME_TITLE,
+  LEGAL_CONTROLLER,
   METHODOLOGY_DESCRIPTION,
   METHODOLOGY_TITLE,
   PRICE_CAP_DESCRIPTION,
@@ -42,10 +47,22 @@ import type { GridRecords, HistoricRecordPoint } from "@/lib/historic-mix";
 
 export const WEBSITE_ID = `${SITE_ORIGIN}/#website`;
 export const APP_ID = `${SITE_ORIGIN}/#app`;
+export const ORGANIZATION_ID = `${SITE_ORIGIN}/#organization`;
 export const DATASET_ID = `${SITE_ORIGIN}/#dataset`;
 export const PERSON_ID = "https://vahaah.com/#person";
 
 type JsonLdNode = Record<string, unknown>;
+
+/** Publisher and creator for Dataset nodes. Organization, not the WebApplication. */
+export function datasetOrganisation(): JsonLdNode {
+  return {
+    "@type": "Organization",
+    "@id": ORGANIZATION_ID,
+    name: SITE_NAME,
+    legalName: LEGAL_CONTROLLER,
+    url: SITE_ORIGIN,
+  };
+}
 
 export function homepageJsonLd(facts: LatestFacts | null): {
   "@context": "https://schema.org";
@@ -56,10 +73,11 @@ export function homepageJsonLd(facts: LatestFacts | null): {
     "@graph": [
       websiteNode(),
       webApplicationNode(),
+      datasetOrganisation(),
       webPageNode({
         name: HOME_TITLE,
         description: HOME_DESCRIPTION,
-        url: `${SITE_ORIGIN}/`,
+        url: SITE_ORIGIN,
         id: `${SITE_ORIGIN}/#webpage`,
         dateModified: utcIsoFromTimestamp(facts?.referenceTimestamp),
       }),
@@ -82,6 +100,7 @@ export function recordsJsonLd(input: {
         url: `${SITE_ORIGIN}/records`,
         id: `${SITE_ORIGIN}/records#webpage`,
       }),
+      datasetOrganisation(),
       recordsDatasetNode(),
       recordsItemListNode(input.records),
       breadcrumbNode({ name: "Records", item: `${SITE_ORIGIN}/records` }),
@@ -119,52 +138,78 @@ function measured(name: string, unitText: string): JsonLdNode {
   return { "@type": "PropertyValue", name, unitText };
 }
 
+function citedDataset(input: {
+  name: string;
+  url: string;
+  description: string;
+  creditText: string;
+  license?: string | JsonLdNode;
+}): JsonLdNode {
+  return {
+    "@type": "Dataset",
+    name: input.name,
+    url: input.url,
+    description: input.description,
+    creditText: input.creditText,
+    ...(input.license ? { license: input.license } : {}),
+  };
+}
+
+function licenceText(name: string): JsonLdNode {
+  return { "@type": "CreativeWork", name };
+}
+
 function homepageSources(): JsonLdNode[] {
   return [
-    {
-      "@type": "Dataset",
+    citedDataset({
       name: "Elexon BMRS / Insights",
       url: "https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/",
+      description: "Half-hourly GB electricity generation, demand and prices from the Balancing Mechanism Reporting Service.",
       creditText: elexonBmrsAttribution(),
-    },
-    {
-      "@type": "Dataset",
+      license: ELEXON_BMRS_LICENCE_URL,
+    }),
+    citedDataset({
       name: "NESO Data Portal",
       url: "https://www.neso.energy/data-portal",
+      description: "Open data from the National Energy System Operator, including embedded wind and historic generation.",
       creditText: NESO_OPEN_DATA_ATTRIBUTION,
-    },
-    {
-      "@type": "Dataset",
+      license: NESO_OPEN_DATA_LICENCE_URL,
+    }),
+    citedDataset({
       name: "NESO Carbon Intensity API",
       url: CARBON_INTENSITY_API_URL,
-      license: CC_BY_4_0_LICENSE_URL,
+      description: "National carbon intensity of electricity in Great Britain, in grams of CO₂ per kilowatt-hour.",
       creditText: CARBON_INTENSITY_ATTRIBUTION,
-    },
-    {
-      "@type": "Dataset",
+      license: CC_BY_4_0_LICENSE_URL,
+    }),
+    citedDataset({
       name: "Sheffield Solar PV_Live",
       url: PV_LIVE_URL,
+      description: "GB solar generation estimates, including embedded solar, from Sheffield Solar PV_Live.",
       creditText: PV_LIVE_ATTRIBUTION,
-    },
-    {
-      "@type": "Dataset",
+      license: licenceText(PV_LIVE_LICENCE),
+    }),
+    citedDataset({
       name: "National Gas Transmission Data Portal",
       url: NATIONAL_GAS_PORTAL_URL,
+      description: "GB gas System Average Price and National Transmission System operational data.",
       creditText: NATIONAL_GAS_ATTRIBUTION,
-    },
-    {
-      "@type": "Dataset",
+      license: licenceText(NATIONAL_GAS_LICENCE),
+    }),
+    citedDataset({
       name: "U.S. Energy Information Administration",
       url: EIA_URL,
+      description: "Brent, WTI and Henry Hub prices from the U.S. Energy Information Administration.",
       creditText: EIA_ATTRIBUTION,
-    },
-    {
-      "@type": "Dataset",
+      license: licenceText(EIA_LICENCE),
+    }),
+    citedDataset({
       name: "World Bank Commodity Price Data (The Pink Sheet)",
       url: WORLD_BANK_PINK_SHEET_URL,
-      license: CC_BY_4_0_LICENSE_URL,
+      description: "Monthly European natural gas and Japan LNG prices from the World Bank Pink Sheet.",
       creditText: WORLD_BANK_PINK_SHEET_ATTRIBUTION,
-    },
+      license: WORLD_BANK_PINK_SHEET_LICENCE_URL,
+    }),
   ];
 }
 
@@ -172,7 +217,7 @@ function websiteNode(): JsonLdNode {
   return {
     "@type": "WebSite",
     "@id": WEBSITE_ID,
-    url: `${SITE_ORIGIN}/`,
+    url: SITE_ORIGIN,
     name: SITE_NAME,
     description: "Free view of Great Britain's electricity and gas system, updated hourly from public data.",
     inLanguage: "en-GB",
@@ -186,7 +231,7 @@ function webApplicationNode(): JsonLdNode {
     "@type": "WebApplication",
     "@id": APP_ID,
     name: SITE_NAME,
-    url: `${SITE_ORIGIN}/`,
+    url: SITE_ORIGIN,
     applicationCategory: "ReferenceApplication",
     operatingSystem: "Any (web browser)",
     isAccessibleForFree: true,
@@ -205,7 +250,7 @@ function personNode(): JsonLdNode {
   };
 }
 
-export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`): JsonLdNode {
+export function datasetNode(facts: LatestFacts | null, url = SITE_ORIGIN): JsonLdNode {
   const dateModified = utcIsoFromTimestamp(facts?.referenceTimestamp);
 
   return {
@@ -217,8 +262,8 @@ export function datasetNode(facts: LatestFacts | null, url = `${SITE_ORIGIN}/`):
     url,
     license: homepageDatasetLicenses(),
     isAccessibleForFree: true,
-    creator: { "@id": PERSON_ID },
-    publisher: { "@id": APP_ID },
+    creator: datasetOrganisation(),
+    publisher: datasetOrganisation(),
     inLanguage: "en-GB",
     spatialCoverage: {
       "@type": "Place",
@@ -293,11 +338,18 @@ function recordsDatasetNode(): JsonLdNode {
     description:
       "Derived records from NESO historic generation mix and carbon intensity: wind, carbon, coal and wind milestones, since Grid's records began.",
     license: CC_BY_4_0_LICENSE_URL,
-    creator: { "@id": APP_ID },
+    creator: datasetOrganisation(),
+    publisher: datasetOrganisation(),
     temporalCoverage: "2009-01-01/..",
     spatialCoverage: "Great Britain",
     url: `${SITE_ORIGIN}/records`,
-    isBasedOn: NESO_HISTORIC_MIX_URL,
+    isBasedOn: citedDataset({
+      name: "NESO Historic Generation Mix",
+      url: NESO_HISTORIC_MIX_URL,
+      description: "Historic GB generation mix and carbon intensity published by the National Energy System Operator.",
+      creditText: NESO_OPEN_DATA_ATTRIBUTION,
+      license: NESO_OPEN_DATA_LICENCE_URL,
+    }),
     variableMeasured: ["Wind generation", "Carbon intensity", "Coal generation"],
     creditText: "Supported by National Energy SO Open Data",
   };
@@ -307,7 +359,7 @@ export function breadcrumbNode(...crumbs: Array<{ name: string; item?: string }>
   return {
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_ORIGIN}/` },
+      { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_ORIGIN },
       ...crumbs.map((crumb, index) => ({
         "@type": "ListItem",
         position: index + 2,
@@ -428,7 +480,7 @@ export function apiDocsJsonLd(facts: LatestFacts | null): {
     description: API_DOCS_DESCRIPTION,
     url: `${SITE_ORIGIN}/api`,
     breadcrumbs: [{ name: "API", item: `${SITE_ORIGIN}/api` }],
-    extra: [datasetNode(facts, `${SITE_ORIGIN}/api`)],
+    extra: [datasetOrganisation(), datasetNode(facts, `${SITE_ORIGIN}/api`)],
   });
 }
 

@@ -123,6 +123,9 @@ describe("homepage briefing", () => {
     expect(html).toContain(HOME_H1.replaceAll("'", "&#x27;"));
     expect(html).toContain("What&#x27;s powering electricity in Great Britain?");
     expect(html.match(/<h1/g)?.length).toBe(1);
+    expect(html).toContain('href="/today"');
+    expect(html).toContain("live wholesale electricity price");
+    expect(html).toContain("generation mix");
     expect(html).toContain("16.0 GW");
     expect(html).not.toContain("<dl");
     expect(html).toContain("<time");
