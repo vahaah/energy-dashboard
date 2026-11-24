@@ -11,6 +11,7 @@ import { loadProjectCatalogue } from "@/lib/projects/load";
 import { projectPath } from "@/lib/projects/href";
 import { assetDetailIndexable, projectDetailIndexable } from "@/lib/seo/indexable";
 import { SITE_URL } from "@/lib/site";
+import { contentRevision } from "@/lib/sitemap-content-revision";
 import { SITEMAP_PATHS } from "@/lib/sitemap-routes";
 import type { CommodityPrice, EnergySnapshot } from "@/lib/types";
 import { readBalancingRelease } from "@/lib/balancing/load";
@@ -69,6 +70,11 @@ export function lastModifiedForPath(path: string, stamps: SitemapStamps): Date |
     return stamps.balancing;
   }
   return undefined;
+}
+
+/** Live data stamp when the route has one, otherwise the last commit of the page sources. */
+export function pageLastModified(path: string, stamps: SitemapStamps): Date | undefined {
+  return lastModifiedForPath(path, stamps) ?? contentRevision(path);
 }
 
 export function latestCommodityTimestamp(
@@ -245,7 +251,7 @@ function escapeXml(value: string): string {
 
 function pageEntries(stamps: SitemapStamps): MetadataRoute.Sitemap {
   return SITEMAP_PATHS.map((entry) => {
-    const lastModified = lastModifiedForPath(entry.path, stamps);
+    const lastModified = pageLastModified(entry.path, stamps);
     return {
       url: `${SITE_URL}${entry.path}`,
       changeFrequency: entry.changeFrequency,
