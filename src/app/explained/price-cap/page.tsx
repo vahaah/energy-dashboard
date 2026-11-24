@@ -14,14 +14,11 @@ import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { priceCapPageMetadata } from "@/lib/page-metadata";
 import {
   CURRENT_PRICE_CAP,
-  OFGEM_JAN_2027_ANNOUNCEMENT_LABEL,
   OFGEM_PRICE_CAP_HUB_URL,
-  PRICE_CAP_FAQS,
   PRICE_CAP_OBSERVATION_WINDOW,
-  PUBLISHED_PRICE_CAPS,
-  priceCapAnswerFirst,
+  priceCapPresentation,
 } from "@/lib/price-cap";
-import { PRICE_CAP_H1, PRICE_CAP_TITLE } from "@/lib/site";
+import { PRICE_CAP_TITLE, SITE_ORIGIN } from "@/lib/site";
 
 export const revalidate = 86_400;
 export const dynamic = "force-static";
@@ -36,42 +33,38 @@ export default async function PriceCapPage() {
     PRICE_CAP_OBSERVATION_WINDOW.to
   );
   const sapSpark = sapWindowSeries(prices);
-  const footnotes = PUBLISHED_PRICE_CAPS.flatMap((cap, capIndex) =>
+  const model = priceCapPresentation();
+  const footnotes = model.caps.flatMap((cap, capIndex) =>
     cap.notes.map((note, noteIndex) => ({
       marker: capIndex + noteIndex + 1,
       periodFrom: cap.periodFrom,
       note,
     })),
   );
-  const cite = priceCapAnswerFirst();
-  const faqs = [...PRICE_CAP_FAQS];
+  const cite = model.answer;
+  const faqs = model.faqs;
 
   return (
     <>
       <JsonLd data={priceCapJsonLd({ faqs })} />
       <SeoPage
         section="Explained"
-        title={PRICE_CAP_H1}
+        title={model.h1}
         breadcrumb={[{ label: "Explained" }, { label: "Price cap" }]}
         cite={<p data-cite>{cite}</p>}
         citation={`Grid, "${PRICE_CAP_TITLE.replace(" | Grid", "")}", grid.vahaah.com/explained/price-cap, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}. Data: Ofgem.`}
+        share={{ url: `${SITE_ORIGIN}/explained/price-cap`, title: PRICE_CAP_TITLE }}
         updated={
-          <p className="text-label-13 text-gray-900">
-            Ofgem figures as published · Next announcement {OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}
-          </p>
+          <p className="text-label-13 text-gray-900">{model.updated}</p>
         }
       >
         <section id="january-2027">
           <h2 className="text-heading-24 text-gray-1000">January 2027 energy price cap</h2>
-          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">
-            Ofgem announces the January–March 2027 cap on {OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}. Grid
-            is not showing a January 2027 figure until Ofgem publishes one.
-          </p>
-          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">
-            The current cap ({CURRENT_PRICE_CAP.periodLabel}) is £
-            {CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB")} a year for a
-            typical dual-fuel Direct Debit household.
-          </p>
+          {model.januaryParagraphs.map((paragraph) => (
+            <p key={paragraph} className="mt-2 max-w-3xl text-copy-16 text-gray-900">
+              {paragraph}
+            </p>
+          ))}
           <p className="mt-2 text-copy-16">
             <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
               Method
@@ -107,7 +100,7 @@ export default async function PriceCapPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {PUBLISHED_PRICE_CAPS.map((cap) => (
+                  {model.caps.map((cap) => (
                     <tr key={cap.periodFrom} className="border-t border-gray-alpha-200">
                       <th scope="row" className="py-2 font-medium">
                         {cap.periodLabel}
@@ -147,14 +140,12 @@ export default async function PriceCapPage() {
           </ol>
         </section>
 
-        <section>
-          <h2 className="text-heading-24 text-gray-1000">What Ofgem has not published</h2>
-          <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">
-            Ofgem announces the next cap, covering 1 January to 31 March 2027, on{" "}
-            {OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}. That page may appear earlier. Grid is not showing a
-            January 2027 figure, and this page does not forecast one.
-          </p>
-        </section>
+        {model.unpublishedParagraph ? (
+          <section>
+            <h2 className="text-heading-24 text-gray-1000">What Ofgem has not published</h2>
+            <p className="mt-2 max-w-3xl text-copy-16 text-gray-900">{model.unpublishedParagraph}</p>
+          </section>
+        ) : null}
 
         <section>
           <h2 className="text-heading-24 text-gray-1000">How the wholesale part is set</h2>

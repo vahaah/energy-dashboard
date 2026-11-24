@@ -8,8 +8,8 @@ describe("price cap page", () => {
     expect(source).toContain("export const revalidate = 86_400");
     expect(source).toContain('export const dynamic = "force-static"');
     expect(source).toContain("priceCapPageMetadata");
-    expect(source).toContain("PUBLISHED_PRICE_CAPS");
-    expect(source).toContain("OFGEM_JAN_2027_ANNOUNCEMENT_LABEL");
+    expect(source).toContain("priceCapPresentation");
+    expect(source).toContain("share=");
     expect(source).toContain("January 2027 energy price cap");
     expect(source).toContain('href="/methodology"');
     expect(source).toContain("loadCachedPublicPrices");

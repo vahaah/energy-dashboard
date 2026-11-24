@@ -279,6 +279,10 @@ describe("og model", () => {
   it("peeks live Redis values onto today and gas cards", () => {
     const today = buildOgCard({ kind: "page", page: "today" }, snapshot);
     expect(today.metrics.find((metric) => metric.label === "Demand")?.value).toBe("32.4 GW");
+    expect(today.metrics.find((metric) => metric.label === "Wholesale")?.value).toContain("£");
+    expect(today.metrics.find((metric) => metric.label === "Carbon")?.value).toContain("g");
+    expect(today.mix.length).toBeGreaterThan(0);
+    expect(today.metrics.some((metric) => metric.label === "Cadence")).toBe(false);
     expect(today.mix[0]?.fuel).toBe("wind");
     expect(today.source).toBe(OG_TODAY_SOURCES);
 
@@ -341,6 +345,7 @@ describe("og model", () => {
 
   it("caches today and gas for an hour and other images for a day", () => {
     expect(ogCacheControl({ kind: "page", page: "today" })).toBe(OG_HOURLY_CACHE_CONTROL);
+    expect(ogCacheControl({ kind: "page", page: "price-cap" })).toBe(OG_HOURLY_CACHE_CONTROL);
     expect(ogCacheControl({ kind: "page", page: "gas" })).toBe(OG_HOURLY_CACHE_CONTROL);
     expect(ogCacheControl({ kind: "page", page: "privacy" })).toBe(OG_CACHE_CONTROL);
     expect(ogCacheControl({ kind: "focus", focus: "overview" })).toBe(OG_SETTLEMENT_CACHE_CONTROL);
@@ -357,6 +362,35 @@ describe("og model", () => {
     expect(buildOgCard({ kind: "focus", focus: "carbon" }, snapshot).eyebrow).toBe("Grid · Carbon");
     expect(buildOgCard({ kind: "focus", focus: "price" }, snapshot).source).toBe(OG_PRICE_SOURCE);
     expect(buildOgCard({ kind: "focus", focus: "carbon" }, snapshot).source).toBe(OG_CARBON_SOURCE);
+    const project = buildOgCard(
+      {
+        kind: "project",
+        title: "Eurocell Nickel, High View Road - Solar PV System",
+        technology: "Solar PV",
+        capacity: "0.6 MW",
+        status: "In planning",
+        region: "East Midlands",
+        source: "Contains public sector information licensed under the Open Government Licence v3.0.",
+      },
+      snapshot,
+    );
+    expect(project.eyebrow).toBe("Grid · Projects");
+    expect(project.title).toContain("Solar PV");
+    expect(project.title).not.toContain("Pv");
+    expect(project.metrics).toEqual([
+      { label: "Capacity", value: "0.6 MW" },
+      { label: "Status", value: "In planning" },
+      { label: "Region", value: "East Midlands" },
+    ]);
+    expect(ogCacheControl({
+      kind: "project",
+      title: "Eurocell",
+      technology: "Solar PV",
+      capacity: null,
+      status: "In planning",
+      region: null,
+      source: "Ofgem",
+    })).toBe(OG_CACHE_CONTROL);
     expect(formatOgDayStamp("2026-10-12")).toBe("Mon 12 Oct 2026");
   });
 });

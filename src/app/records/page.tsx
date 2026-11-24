@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnergyTransition } from "@/components/energy-transition";
+import { ShareButton } from "@/components/share-button";
 import { Sparkline } from "@/components/sparkline";
 import { JsonLd } from "@/components/json-ld";
 import { SiteLegalNav } from "@/components/site-legal-nav";
@@ -36,6 +37,7 @@ import {
   RECORDS_DESCRIPTION,
   RECORDS_H1,
   RECORDS_TITLE,
+  SITE_ORIGIN,
   SITE_OG_IMAGE,
   SITE_OG_TYPE,
   SITE_TWITTER_CARD,
@@ -102,6 +104,9 @@ export default async function RecordsPage() {
           <p className="text-label-13 text-gray-900">Great Britain</p>
           <h1 className="mt-1 text-heading-32 text-gray-1000">{RECORDS_H1}</h1>
           <p className="mt-3 max-w-3xl text-copy-16 text-gray-900">{recordsStandfirst(records)}</p>
+          <div className="mt-4">
+            <ShareButton url={`${SITE_ORIGIN}/records`} title={RECORDS_TITLE} />
+          </div>
         </section>
 
         <section className={`${CARD_GRID_CLASS} lg:grid-cols-6`}>

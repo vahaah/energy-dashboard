@@ -22,8 +22,13 @@ export function projectProfileTitle(projectName: string): string {
   return `${projectName} | Grid`;
 }
 
+/** REPD writes "Solar Pv". Show the acronym as PV. */
+export function displayProjectName(name: string): string {
+  return name.replace(/\bPv\b/g, "PV");
+}
+
 export function projectProfileH1(projectName: string): string {
-  return projectName.replaceAll("Solar Pv", "solar PV");
+  return displayProjectName(projectName);
 }
 
 export const RATED_POWER = "Rated power";
