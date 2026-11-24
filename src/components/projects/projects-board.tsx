@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { CountColumns } from "@/components/count-columns";
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import {
 import { isDefaultProjectQuery, type CountRow, type ProjectListQuery } from "@/lib/projects/list";
 import type { ProjectIndexRow } from "@/lib/projects/page-model";
 import type { ProjectsPageData } from "@/lib/projects/page-data";
+import { projectUrlQuery, typedQueryForUrl } from "@/lib/projects/url-query";
 
 const HIDDEN_STATUS = "Unknown";
 
@@ -37,23 +39,40 @@ function isRemotePage(value: unknown): value is RemotePage {
   return Array.isArray(body.projects) && typeof body.total === "number" && typeof body.page === "number" && typeof body.pages === "number";
 }
 
+type ProjectsBoardProps = {
+  document: ProjectsPageData["document"];
+  counts: { stage: CountRow[]; technology: CountRow[]; nation: CountRow[] };
+  facets: ProjectsPageData["facets"];
+  list: ProjectsPageData["list"];
+  urlQuery: string;
+};
+
+export function ProjectsSearchBoard(props: Omit<ProjectsBoardProps, "urlQuery">) {
+  const params = useSearchParams();
+  return <ProjectsBoard {...props} urlQuery={projectUrlQuery(params.get("q"))} />;
+}
+
 export function ProjectsBoard({
   document,
   counts,
   facets,
   list,
-}: {
-  document: ProjectsPageData["document"];
-  counts: { stage: CountRow[]; technology: CountRow[]; nation: CountRow[] };
-  facets: ProjectsPageData["facets"];
-  list: ProjectsPageData["list"];
-}) {
-  const [query, setQuery] = useState("");
+  urlQuery,
+}: ProjectsBoardProps) {
+  const [typed, setTyped] = useState<string | null>(null);
+  const [seenUrl, setSeenUrl] = useState(urlQuery);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [stage, setStage] = useState("all");
   const [technology, setTechnology] = useState("all");
   const [nation, setNation] = useState("all");
   const [page, setPage] = useState(1);
+  const urlChanged = seenUrl !== urlQuery;
+  if (urlChanged) {
+    setSeenUrl(urlQuery);
+    setTyped(typedQueryForUrl(typed, seenUrl, urlQuery));
+    setPage(1);
+  }
+  const query = (urlChanged ? null : typed) ?? urlQuery;
   const [remote, setRemote] = useState<{ key: string; page: RemotePage } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const request: ProjectListQuery = { q: debouncedQuery, stage, technology, nation, page };
@@ -247,7 +266,7 @@ export function ProjectsBoard({
               value={query}
               placeholder="Name, technology, or status"
               onChange={(event) => {
-                setQuery(event.target.value);
+                setTyped(event.target.value);
                 setPage(1);
               }}
               className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"

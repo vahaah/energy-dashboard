@@ -18,6 +18,7 @@ test("homepage does not request maplibre or pmtiles", async ({ page }) => {
   expect(joined).not.toMatch(/pmtiles/i);
   expect(joined).not.toMatch(/blob\.vercel-storage\.com/i);
   expect(joined).not.toMatch(/\/search\/assets\.json/);
+  expect(joined).not.toMatch(/\/search\/projects\.json/);
 });
 
 test("map is full bleed, starts on flows, and opens a link from the keyboard", async ({ page }) => {
@@ -69,8 +70,8 @@ test("asset filters stay in the URL and the detail page shows capacity", async (
 
 test("search opens from the keyboard and links to an asset", async ({ page }) => {
   await page.goto("/assets", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Search assets" }).first().waitFor();
-  const dialog = page.getByRole("dialog", { name: "Search assets" });
+  await page.getByRole("button", { name: "Search", exact: true }).first().waitFor();
+  const dialog = page.getByRole("dialog", { name: "Search", exact: true });
   await expect(async () => {
     if (await dialog.isVisible()) {
       return;
@@ -80,19 +81,41 @@ test("search opens from the keyboard and links to an asset", async ({ page }) =>
   }).toPass();
   const input = dialog.getByRole("combobox");
   await input.fill("Sizewell");
-  const option = dialog.getByRole("option").first();
-  await expect(option).toBeVisible();
-  await input.press("ArrowDown");
+  const asset = dialog.locator("[role='option'][href^='/assets/']").first();
+  await expect(asset).toBeVisible();
+  for (let step = 0; step < 12; step += 1) {
+    const href = await dialog.locator("[role='option'][aria-selected='true']").getAttribute("href");
+    if (href?.startsWith("/assets/")) {
+      break;
+    }
+    await input.press("ArrowDown");
+  }
   await input.press("Enter");
   await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/Sizewell/i);
 });
 
+test("search finds a planning project and a page", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const button = page.getByRole("button", { name: "Search", exact: true }).first();
+  await button.waitFor();
+  const dialog = page.getByRole("dialog", { name: "Search", exact: true });
+  await button.click();
+  await expect(dialog).toBeVisible();
+  const input = dialog.getByRole("combobox");
+  await input.fill("eurocell nickel");
+  await expect(dialog.getByRole("option", { name: /Eurocell Nickel/ })).toBeVisible();
+  await input.fill("price cap");
+  const priceCap = dialog.getByRole("option", { name: /Price cap/ });
+  await expect(priceCap).toBeVisible();
+  await expect(priceCap).toHaveAttribute("href", "/explained/price-cap");
+});
+
 test("clicking a search result closes the dialog", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const button = page.getByRole("button", { name: "Search assets" }).first();
+  const button = page.getByRole("button", { name: "Search", exact: true }).first();
   await button.waitFor();
-  const dialog = page.getByRole("dialog", { name: "Search assets" });
+  const dialog = page.getByRole("dialog", { name: "Search", exact: true });
   await expect(async () => {
     if (await dialog.isVisible()) {
       return;
@@ -101,11 +124,11 @@ test("clicking a search result closes the dialog", async ({ page }) => {
     await expect(dialog).toBeVisible({ timeout: 1000 });
   }).toPass();
   await dialog.getByRole("combobox").fill("Sizewell");
-  const option = dialog.getByRole("option").first();
+  const option = dialog.locator("[role='option'][href^='/assets/']").first();
   await expect(option).toBeVisible();
   await option.click();
   await expect(page).toHaveURL(/\/assets\/ast_[a-f0-9]{16}\/[a-z0-9-]+$/);
-  await expect(page.getByRole("dialog", { name: "Search assets" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Search", exact: true })).toHaveCount(0);
 });
 
 test("asset pages do not request maplibre or tiles", async ({ page }) => {

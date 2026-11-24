@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
+import { LiveMixPrompt } from "@/components/live-mix-prompt";
 import { SeoPage } from "@/components/seo-page";
 import { SiteFaq } from "@/components/site-faq";
 import { dataSources, sourceRefreshLabel } from "@/lib/catalogue/page-sources";
@@ -47,12 +48,15 @@ export default function MethodologyPage() {
         title={METHODOLOGY_H1}
         breadcrumb={[{ label: "Methodology" }]}
         cite={
-          <p data-cite>
-            Grid compiles half-hourly Great Britain electricity figures from Elexon BMRS, NESO, the
-            Carbon Intensity API and Sheffield Solar PV Live, plus slower oil and gas series from
-            EIA, World Bank and National Gas. Every number carries its source, unit and time.
-            Coverage starts {formatLondonDayMonthYear(DATASET_TEMPORAL_COVERAGE_START)}.
-          </p>
+          <>
+            <p data-cite>
+              Grid compiles half-hourly Great Britain electricity figures from Elexon BMRS, NESO, the
+              Carbon Intensity API and Sheffield Solar PV Live, plus slower oil and gas series from
+              EIA, World Bank and National Gas. Every number carries its source, unit and time.
+              Coverage starts {formatLondonDayMonthYear(DATASET_TEMPORAL_COVERAGE_START)}.
+            </p>
+            <LiveMixPrompt className="mt-4" />
+          </>
         }
         citation={`Grid, "How Grid's numbers are made", grid.vahaah.com/methodology, accessed ${formatLondonDayMonthYear(getLondonDate(new Date()))}.`}
       >

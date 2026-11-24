@@ -31,7 +31,11 @@ function retryable(error: unknown): boolean {
  * One attempt, then two retries. 429 and 5xx wait 200ms then 800ms.
  * Each attempt dies after 8 seconds. A caller abort stops the loop.
  */
-export async function fetchBoundedJson(url: string, parent?: AbortSignal): Promise<unknown> {
+export async function fetchBoundedJson(
+  url: string,
+  parent?: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<unknown> {
   let last: unknown;
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     if (parent?.aborted) {
@@ -39,7 +43,7 @@ export async function fetchBoundedJson(url: string, parent?: AbortSignal): Promi
     }
     try {
       const signal = parent ? AbortSignal.any([parent, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS);
-      const response = await fetch(url, { signal });
+      const response = await fetchImpl(url, { signal });
       if (response.status === 429 || response.status >= 500) {
         last = new Error(`HTTP ${response.status}`);
       } else if (!response.ok) {

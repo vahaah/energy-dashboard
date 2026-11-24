@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "predev": "tsx scripts/build-asset-index.ts && tsx scripts/build-today-map.ts && tsx scripts/copy-map-worker.ts",
-    "prebuild": "tsx scripts/build-asset-index.ts && tsx scripts/build-today-map.ts && tsx scripts/copy-map-worker.ts",
+    "predev": "tsx scripts/build-asset-index.ts && tsx scripts/build-project-index.ts && tsx scripts/build-today-map.ts && tsx scripts/copy-map-worker.ts",
+    "prebuild": "tsx scripts/build-asset-index.ts && tsx scripts/build-project-index.ts && tsx scripts/build-today-map.ts && tsx scripts/copy-map-worker.ts",
     "map:today": "tsx scripts/build-today-map.ts",
     "build": "next build",
     "start": "next start",
