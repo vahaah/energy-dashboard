@@ -9,8 +9,9 @@ import { loadDashboardPayload } from "@/lib/dashboard-payload";
 import { formatHeadlineGw } from "@/lib/facts";
 import { todayJsonLd } from "@/lib/jsonld";
 import { addUtcDays, formatLondonDayMonthYear } from "@/lib/london-time";
-import { todayPageMetadata } from "@/lib/page-metadata";
-import { TODAY_H1 } from "@/lib/site";
+import { peekOgCacheSnapshot } from "@/lib/og/peek";
+import { periodStartFromFacts, todayPageMetadata } from "@/lib/page-metadata";
+import { SITE_ORIGIN, TODAY_H1, TODAY_TITLE } from "@/lib/site";
 import {
   buildTodayPageModel,
   todayCitation,
@@ -22,7 +23,11 @@ import {
 
 export const revalidate = 3600;
 export const dynamic = "force-static";
-export const metadata: Metadata = todayPageMetadata();
+
+export async function generateMetadata(): Promise<Metadata> {
+  const snapshot = await peekOgCacheSnapshot();
+  return todayPageMetadata(periodStartFromFacts(snapshot.facts));
+}
 
 export default async function TodayPage() {
   const now = new Date();
@@ -58,6 +63,7 @@ export default async function TodayPage() {
           )
         }
         citation={todayCitation(model, now)}
+        share={{ url: `${SITE_ORIGIN}/today`, title: TODAY_TITLE }}
         updated={
           model.untilDatetime && model.untilClock ? (
             <p className="text-label-13 text-gray-900">

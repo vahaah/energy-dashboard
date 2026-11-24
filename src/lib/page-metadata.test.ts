@@ -15,6 +15,7 @@ import {
   privacyPageMetadata,
   recordsPageMetadata,
   shareFocusPath,
+  shareFocusRedirectPath,
   sharePageMetadata,
   termsPageMetadata,
   todayPageMetadata,
@@ -68,7 +69,19 @@ describe("page metadata", () => {
   it("keeps per-section cards on /og?focus= and off homepage metadata", () => {
     expect(ogFocusImagePath("carbon")).toBe("/og?focus=carbon");
     expect(ogFocusImagePath("overview")).toBe("/og?focus=overview");
+    expect(ogFocusImagePath("price", "2026-11-24T16:30:00.000Z")).toBe(
+      "/og?focus=price&p=2026-11-24T16:30Z",
+    );
     expect(shareFocusPath("carbon")).toBe("/share/carbon");
+    expect(shareFocusPath("price", { date: "2026-11-20", period: "day" })).toBe(
+      "/share/price?date=2026-11-20",
+    );
+    expect(shareFocusPath("overview", { date: "2026-11-20", period: "week" })).toBe(
+      "/share/overview?date=2026-11-20&period=week",
+    );
+    expect(shareFocusPath("generation", { date: "not-a-date", period: "nope" })).toBe(
+      "/share/generation",
+    );
     expect(JSON.stringify(homePageMetadata())).not.toContain("focus=");
   });
 
@@ -85,6 +98,10 @@ describe("page metadata", () => {
         alt: FOCUS_PAGE_COPY.carbon.title,
       },
     ]);
+    const stamped = sharePageMetadata("price", "2026-11-24T16:30:00.000Z");
+    expect(JSON.stringify(stamped.openGraph?.images)).toContain("/og?focus=price&p=2026-11-24T16:30Z");
+    expect(shareFocusRedirectPath("price", { date: "2026-11-20" })).toBe("/?focus=price&date=2026-11-20");
+    expect(shareFocusRedirectPath("overview")).toBe("/?focus=overview");
     expect(FOCUS_PAGE_COPY.generation.description.startsWith("Latest ")).toBe(true);
     expect(FOCUS_PAGE_COPY.generation.description).not.toMatch(/\bLive GB\b/);
   });
@@ -101,7 +118,13 @@ describe("page metadata", () => {
     expect(termsPageMetadata().alternates?.canonical).toBe("/terms");
     expect(dataSourcesPageMetadata().alternates?.canonical).toBe("/data-sources");
     expect(todayPageMetadata().alternates?.canonical).toBe("/today");
+    expect(JSON.stringify(todayPageMetadata().openGraph?.images)).toContain("/og?page=today");
+    expect(JSON.stringify(todayPageMetadata("2026-11-24T16:30:00.000Z").openGraph?.images)).toContain(
+      "/og?page=today&p=2026-11-24T16:30Z",
+    );
+    expect(JSON.stringify(todayPageMetadata().openGraph?.images)).not.toContain("/today/opengraph-image");
     expect(priceCapPageMetadata().alternates?.canonical).toBe("/explained/price-cap");
+    expect(JSON.stringify(priceCapPageMetadata().openGraph?.images)).toContain("/og?page=price-cap&v=pending");
     expect(gasPageMetadata().alternates?.canonical).toBe("/prices/gas");
     expect(methodologyPageMetadata().alternates?.canonical).toBe("/methodology");
     expect(apiDocsPageMetadata().alternates?.canonical).toBe("/api");

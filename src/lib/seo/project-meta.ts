@@ -3,6 +3,7 @@ import { fitDetailTitle } from "@/lib/seo/document-title";
 import { clampDescription } from "@/lib/seo/detail";
 import type { EnergyProject } from "@/lib/projects/schema";
 import { constructionLabel, displayStageLabel, planningLabel } from "@/lib/projects/status";
+import { displayProjectName } from "@/lib/projects/copy";
 import { technologyLabel } from "@/lib/projects/technology";
 
 function calendarLabel(day: string): string {
@@ -27,7 +28,7 @@ const SOLAR_PV_SYSTEM = /\s*(?:[-–—]\s*)?solar PV system$/i;
 
 /** Distinctive site name: normalise REPD "Solar Pv", then drop a trailing system label and a secondary address. */
 export function projectTitleName(name: string): string {
-  const normalised = name.replaceAll("Solar Pv", "solar PV").replace(/\s+/g, " ").trim();
+  const normalised = displayProjectName(name).replace(/\s+/g, " ").trim();
   const withoutSystem = normalised.replace(SOLAR_PV_SYSTEM, "").replace(/[-–—]\s*$/u, "").trim();
   const head = withoutSystem.length > 0 ? withoutSystem : normalised;
   const comma = head.indexOf(",");
@@ -58,6 +59,6 @@ export function projectSeoDescription(project: EnergyProject): string {
   const when = project.planning_decision_date ? ` on ${calendarLabel(project.planning_decision_date)}` : "";
   const construction = constructionLabel(project.construction_status).toLowerCase();
   return clampDescription(
-    `${project.name}, ${sized} project${where}: planning ${planning}${when}, construction ${construction}. Source: ${projectSource(project)}.`,
+    `${displayProjectName(project.name)}, ${sized} project${where}: planning ${planning}${when}, construction ${construction}. Source: ${projectSource(project)}.`,
   );
 }

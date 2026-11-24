@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import {
   DASHBOARD_FOCUSES,
+  isValidDashboardDate,
   type DashboardSearchParams,
 } from "@/lib/dashboard-search-params";
 import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-payload-model";
+import { isDashboardPeriod } from "@/lib/dashboard-period";
 import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-demand";
-import { CURRENT_PRICE_CAP, PUBLISHED_PRICE_CAPS } from "@/lib/price-cap";
+import type { LatestFacts } from "@/lib/facts";
+import { CURRENT_PRICE_CAP, priceCapOgImagePath, PUBLISHED_PRICE_CAPS } from "@/lib/price-cap";
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
@@ -160,33 +163,83 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
   };
 }
 
-export function ogFocusImagePath(focus: DashboardSearchParams["focus"]): string {
-  return `/og?focus=${focus}`;
+export type ShareView = {
+  date?: string | null;
+  period?: string | null;
+};
+
+function shareQuery(view?: ShareView): string {
+  const params = new URLSearchParams();
+  if (view?.date && isValidDashboardDate(view.date)) {
+    params.set("date", view.date);
+  }
+  if (view?.period && isDashboardPeriod(view.period) && view.period !== "day") {
+    params.set("period", view.period);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
-export function shareFocusPath(focus: DashboardSearchParams["focus"]): string {
-  return `/share/${focus}`;
+export function ogFocusImagePath(
+  focus: DashboardSearchParams["focus"],
+  periodStartUtc?: string | null,
+): string {
+  if (!periodStartUtc) {
+    return `/og?focus=${focus}`;
+  }
+  return `/og?focus=${focus}&p=${ogPeriodStamp(periodStartUtc)}`;
 }
 
-export function shareFocusRedirectPath(focus: DashboardSearchParams["focus"]): string {
-  return `/?focus=${focus}`;
+export function shareFocusPath(
+  focus: DashboardSearchParams["focus"],
+  view?: ShareView,
+): string {
+  return `/share/${focus}${shareQuery(view)}`;
 }
 
-export function sharePageMetadata(focus: DashboardSearchParams["focus"]): Metadata {
+export function shareFocusRedirectPath(
+  focus: DashboardSearchParams["focus"],
+  view?: ShareView,
+): string {
+  return `/?focus=${focus}${shareQuery(view).replace("?", "&")}`;
+}
+
+export function sharePageMetadata(
+  focus: DashboardSearchParams["focus"],
+  periodStartUtc?: string | null,
+): Metadata {
   const copy = FOCUS_PAGE_COPY[focus];
   return buildPageMetadata({
     title: copy.title,
     description: copy.description,
     path: "/",
-    imagePath: ogFocusImagePath(focus),
+    imagePath: ogFocusImagePath(focus, periodStartUtc),
     imageAlt: copy.title,
     index: false,
   });
 }
 
+export function periodStartFromFacts(facts: LatestFacts | null): string | null {
+  if (!facts || facts.empty) {
+    return null;
+  }
+  const power = getDisplayedPower(facts);
+  return power.generationStartUtc ?? power.demandStartUtc ?? null;
+}
+
+function ogPeriodStamp(periodStartUtc: string): string {
+  return `${new Date(periodStartUtc).toISOString().slice(0, 16)}Z`;
+}
+
 export function ogPeriodImagePath(periodStartUtc: string): string {
-  const stamp = `${new Date(periodStartUtc).toISOString().slice(0, 16)}Z`;
-  return `/og?p=${stamp}`;
+  return `/og?p=${ogPeriodStamp(periodStartUtc)}`;
+}
+
+export function todayOgImagePath(periodStartUtc?: string | null): string {
+  if (!periodStartUtc) {
+    return "/og?page=today";
+  }
+  return `/og?page=today&p=${ogPeriodStamp(periodStartUtc)}`;
 }
 
 export function homepageOgImage(payload: DashboardPayload | null): {
@@ -271,12 +324,12 @@ export function dataSourcesPageMetadata(): Metadata {
   });
 }
 
-export function todayPageMetadata(): Metadata {
+export function todayPageMetadata(periodStartUtc?: string | null): Metadata {
   return buildPageMetadata({
     title: TODAY_TITLE,
     description: TODAY_DESCRIPTION,
     path: "/today",
-    imagePath: "/today/opengraph-image",
+    imagePath: todayOgImagePath(periodStartUtc),
     imageAlt: TODAY_TITLE,
   });
 }
@@ -286,7 +339,7 @@ export function priceCapPageMetadata(): Metadata {
     title: PRICE_CAP_TITLE,
     description: PRICE_CAP_DESCRIPTION,
     path: "/explained/price-cap",
-    imagePath: "/explained/price-cap/opengraph-image",
+    imagePath: priceCapOgImagePath(),
     imageAlt: PRICE_CAP_TITLE,
     openGraphType: "article",
     publishedTime: PUBLISHED_PRICE_CAPS[0]?.announcedOn,

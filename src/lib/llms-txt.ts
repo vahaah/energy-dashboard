@@ -1,12 +1,11 @@
 import type { DashboardPayload } from "@/lib/dashboard-payload-model";
 import { homepageCiteFromPayload } from "@/lib/homepage-briefing";
-import { CURRENT_PRICE_CAP, OFGEM_JAN_2027_ANNOUNCEMENT_LABEL } from "@/lib/price-cap";
+import { priceCapLlmsLine, priceCapTitle } from "@/lib/price-cap";
 
 export const LLMS_TXT_REVALIDATE_SECONDS = 3600;
 
 export function buildLlmsTxt(payload: DashboardPayload | null, balancingLine?: string | null): string {
   const cite = homepageCiteFromPayload(payload);
-  const cap = CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp.toLocaleString("en-GB");
   const latest =
     cite.kind === "numbers"
       ? `Latest (GB, half-hour starting ${cite.timeLabel} on ${cite.dateLabel}): ${cite.topFuel.charAt(0).toLowerCase()}${cite.topFuel.slice(1)} supplied ${cite.topSharePct}% of generation (${cite.topGw} GW), gas ${cite.gasSharePct}%, carbon intensity ${cite.carbon} gCO2/kWh, market index £${cite.price}/MWh. Sources: Elexon BMRS, NESO, Carbon Intensity API, Sheffield Solar PV_Live.`
@@ -23,13 +22,13 @@ export function buildLlmsTxt(payload: DashboardPayload | null, balancingLine?: s
 ${latest}
 ${sapLine}
 ${balancingLine ?? "Latest GB balancing costs are on https://grid.vahaah.com/system/balancing. Source: NESO."}
-Ofgem price cap: £${cap} a year (typical dual-fuel Direct Debit, ${CURRENT_PRICE_CAP.periodLabel}). Next cap announced ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.
+${priceCapLlmsLine()}
 
 ## Answers
 - [GB electricity today](https://grid.vahaah.com/today): today's generation mix, gas share, carbon intensity, demand, imports and market price, with a visible FAQ
 - [What's powering electricity in Great Britain](https://grid.vahaah.com/): the latest half-hour, with day, week, year and all-time views
 - [GB gas price today](https://grid.vahaah.com/prices/gas): GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG
-- [Energy price cap January 2027: will bills go up?](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
+- [${priceCapTitle().replace(" | Grid", "")}](https://grid.vahaah.com/explained/price-cap): Ofgem price caps as published, and what sets the next one
 - [GB electricity records](https://grid.vahaah.com/records): records since Grid's records began, next to NESO's official records
 - [GB gas system](https://grid.vahaah.com/gas): National Transmission System supply, demand, linepack and storage by gas day
 - [GB grid balancing costs and BSUoS](https://grid.vahaah.com/system/balancing#summary): NESO daily balancing costs by category, the BSUoS tariff, a per-household estimate, and a separate estimate of electricity traded with neighbouring countries

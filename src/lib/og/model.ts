@@ -31,6 +31,7 @@ import { DNO_ATTRIBUTION, osBasemapAttribution } from "@/lib/map/constants";
 import { formatLondonCiteDate, parseUtcDateTime } from "@/lib/london-time";
 import { FOCUS_PAGE_COPY, isDashboardFocus } from "@/lib/page-metadata";
 import type { OgCacheSnapshot } from "@/lib/og/peek";
+import { priceCapPresentation } from "@/lib/price-cap";
 import { OG_CACHE_CONTROL, OG_HOURLY_CACHE_CONTROL, OG_SETTLEMENT_CACHE_CONTROL, SITE_ORIGIN } from "@/lib/site";
 
 export const OG_PAGE_IDS = [
@@ -67,7 +68,16 @@ export type OgFocus = (typeof DASHBOARD_FOCUSES)[number];
 export type OgVariant =
   | { kind: "focus"; focus: OgFocus }
   | { kind: "page"; page: OgPageId }
-  | { kind: "asset"; title: string; kicker: string; source: string };
+  | { kind: "asset"; title: string; kicker: string; source: string }
+  | {
+      kind: "project";
+      title: string;
+      technology: string;
+      capacity: string | null;
+      status: string;
+      region: string | null;
+      source: string;
+    };
 
 export type OgMetric = {
   label: string;
@@ -123,24 +133,27 @@ export function gridEyebrow(section?: string): string {
   return section ? `Grid${OG_EYEBROW_SEPARATOR}${section}` : "Grid";
 }
 
+const priceCap = priceCapPresentation();
+
 const LEGAL_CARDS: Record<Exclude<OgPageId, "records" | "pipeline">, Omit<OgCard, "cached">> = {
   today: {
     eyebrow: gridEyebrow("Today"),
     title: "GB electricity today",
-    kicker: "Mix, carbon intensity and market price, updated hourly.",
-    metrics: [{ label: "Cadence", value: "Hourly" }],
+    kicker: "Mix, carbon intensity and wholesale price, updated hourly.",
+    metrics: [
+      { label: "Carbon", value: "—" },
+      { label: "Wholesale", value: "—" },
+      { label: "Demand", value: "—" },
+    ],
     mix: [],
     stamp: null,
     source: OG_TODAY_SOURCES,
   },
   "price-cap": {
     eyebrow: gridEyebrow("Price cap"),
-    title: "Will energy bills go up in January 2027?",
-    kicker: "Ofgem announces the next cap on 25 November 2026.",
-    metrics: [
-      { label: "Current cap", value: "£1,723" },
-      { label: "Next announcement", value: "25 Nov 2026" },
-    ],
+    title: priceCap.og.title,
+    kicker: priceCap.og.kicker,
+    metrics: priceCap.og.metrics,
     mix: [],
     stamp: null,
     source: "Ofgem",
@@ -367,6 +380,8 @@ export function buildOgCard(variant: OgVariant, snapshot: OgCacheSnapshot): OgCa
       return finishCard(focusCard(variant.focus, snapshot));
     case "asset":
       return finishCard(assetOgCard(variant.title, variant.kicker, variant.source));
+    case "project":
+      return finishCard(projectOgCard(variant));
     default: {
       const exhaustive: never = variant;
       return exhaustive;
@@ -663,20 +678,20 @@ function todayCard(snapshot: OgCacheSnapshot): OgCard {
   return {
     eyebrow: gridEyebrow("Today"),
     title: "GB electricity today",
-    kicker: "Mix, carbon intensity and market price, updated hourly.",
+    kicker: "Mix, carbon intensity and wholesale price, updated hourly.",
     metrics: [
-      {
-        label: "Demand",
-        value: `${balanceFigure(power, "demand", power.demandMw)} GW`,
-      },
       {
         label: "Carbon",
         value: facts.carbon.value == null ? "—" : `${facts.carbon.value.toFixed(0)} g`,
         hint: "gCO₂/kWh",
       },
       {
-        label: "Market",
+        label: "Wholesale",
         value: formatPrice(facts.price.value),
+      },
+      {
+        label: "Demand",
+        value: `${balanceFigure(power, "demand", power.demandMw)} GW`,
       },
     ],
     mix: mixSlices(shares),
@@ -795,6 +810,8 @@ export function ogCacheControl(variant: OgVariant): string {
       return focusCacheControl(variant.focus);
     case "asset":
       return OG_SETTLEMENT_CACHE_CONTROL;
+    case "project":
+      return OG_CACHE_CONTROL;
     default: {
       const exhaustive: never = variant;
       return exhaustive;
@@ -826,12 +843,12 @@ function pageCacheControl(page: OgPageId): string {
     case "gas":
     case "gas-system":
     case "constraints":
+    case "price-cap":
       return OG_HOURLY_CACHE_CONTROL;
     case "records":
     case "privacy":
     case "terms":
     case "data-sources":
-    case "price-cap":
     case "methodology":
     case "api":
     case "map":
@@ -1087,6 +1104,29 @@ export function fixtureOgSnapshot(): OgCacheSnapshot {
   };
 }
 
+export function projectOgCard(
+  variant: Extract<OgVariant, { kind: "project" }>,
+): OgCard {
+  const metrics: OgMetric[] = [];
+  if (variant.capacity) {
+    metrics.push({ label: "Capacity", value: variant.capacity });
+  }
+  metrics.push({ label: "Status", value: variant.status });
+  if (variant.region) {
+    metrics.push({ label: "Region", value: variant.region });
+  }
+  return {
+    eyebrow: gridEyebrow("Projects"),
+    title: variant.title,
+    kicker: variant.technology,
+    metrics,
+    mix: [],
+    stamp: null,
+    source: variant.source,
+    cached: true,
+  };
+}
+
 export function assetOgCard(title: string, kicker: string, source: string): OgCard {
   return {
     eyebrow: gridEyebrow("Assets"),
@@ -1115,6 +1155,8 @@ export function ogSampleFilename(variant: OgVariant): string {
       return `page-${variant.page}.png`;
     case "asset":
       return "page-asset.png";
+    case "project":
+      return "card-project.png";
     default: {
       const exhaustive: never = variant;
       return exhaustive;

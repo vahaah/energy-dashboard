@@ -383,7 +383,7 @@ describe("checked-in project register", () => {
     expect(projectProfileTitle("Hadyard Hill")).toBe("Hadyard Hill | Grid");
     expect(projectProfileH1("Hadyard Hill")).toBe("Hadyard Hill");
     expect(projectProfileH1("Eurocell Nickel, High View Road - Solar Pv System")).toBe(
-      "Eurocell Nickel, High View Road - solar PV System",
+      "Eurocell Nickel, High View Road - Solar PV System",
     );
     expect(PROJECT_PROFILE_STANDFIRST).toBe("Where is it up to?");
     expect(PROJECT_PROFILE_SOURCE).toBe("Each status below comes from a named source and date.");

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CiteButton } from "@/components/cite-button";
+import { ShareButton } from "@/components/share-button";
 import { JsonLd } from "@/components/json-ld";
 import { SiteBreadcrumb, type BreadcrumbItem } from "@/components/site-breadcrumb";
 import { SiteLegalNav } from "@/components/site-legal-nav";
@@ -13,6 +14,7 @@ export function SeoPage({
   breadcrumb,
   cite,
   citation,
+  share,
   updated,
   header,
   skipHref,
@@ -25,6 +27,7 @@ export function SeoPage({
   breadcrumb: BreadcrumbItem[];
   cite: ReactNode;
   citation: string;
+  share?: { url: string; title: string };
   updated?: ReactNode;
   header?: ReactNode;
   skipHref?: string;
@@ -52,6 +55,7 @@ export function SeoPage({
             <div className="mt-3 max-w-3xl text-copy-16 text-gray-900">{cite}</div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <CiteButton text={citation} />
+              {share ? <ShareButton url={share.url} title={share.title} /> : null}
               {updated}
             </div>
           </section>

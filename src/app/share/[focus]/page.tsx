@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ShareFocusRedirect } from "@/components/share-focus-redirect";
 import { DASHBOARD_FOCUSES } from "@/lib/dashboard-search-params";
-import { isDashboardFocus, sharePageMetadata } from "@/lib/page-metadata";
+import { peekOgCacheSnapshot } from "@/lib/og/peek";
+import { isDashboardFocus, periodStartFromFacts, sharePageMetadata } from "@/lib/page-metadata";
 
-export const revalidate = 86_400;
+export const revalidate = 1800;
 export const dynamic = "force-static";
 export const dynamicParams = false;
 
@@ -21,7 +22,8 @@ export async function generateMetadata({
   if (!isDashboardFocus(focus)) {
     return {};
   }
-  return sharePageMetadata(focus);
+  const snapshot = await peekOgCacheSnapshot();
+  return sharePageMetadata(focus, periodStartFromFacts(snapshot.facts));
 }
 
 export default async function ShareFocusPage({
