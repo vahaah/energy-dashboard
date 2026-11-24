@@ -14,8 +14,14 @@ export function ShareFocusRedirect({
   const href = shareFocusRedirectPath(focus);
 
   useEffect(() => {
-    window.location.replace(href);
-  }, [href]);
+    const query = new URLSearchParams(window.location.search);
+    window.location.replace(
+      shareFocusRedirectPath(focus, {
+        date: query.get("date"),
+        period: query.get("period"),
+      }),
+    );
+  }, [focus]);
 
   return (
     <div className="min-h-screen bg-background-100 text-gray-1000">

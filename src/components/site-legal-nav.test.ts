@@ -23,7 +23,8 @@ describe("legal nav", () => {
     expect(dashboard).not.toContain("URL state is canonical");
     expect(generationDesk).toContain("captionGeneration(neso)");
     expect(dashboard).toContain("captionGeneration(isNesoPeriod(mixPeriod))");
-    expect(dashboard).toContain("shareFocusPath(focus)");
+    expect(dashboard).toContain("shareFocusPath(focus,");
+    expect(dashboard).toContain("shareOrCopy");
     expect(dashboard).not.toContain("window.location.href");
     expect(dashboard).toContain("captionElexon()");
     expect(dashboard).toContain("captionTransfers(");

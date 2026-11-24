@@ -1,4 +1,5 @@
 import { formatGrouped } from "@/lib/format/quantity";
+import { priceCapDescription, priceCapH1, priceCapTitle } from "@/lib/price-cap";
 
 export const SITE_ORIGIN = "https://grid.vahaah.com";
 export const SITE_URL = SITE_ORIGIN;
@@ -17,10 +18,9 @@ export const TODAY_DESCRIPTION =
   "Live GB electricity mix today: wind, gas, nuclear, solar and imports, plus carbon intensity and the Elexon wholesale market price. Free, updated hourly.";
 export const TODAY_H1 = "GB electricity today";
 
-export const PRICE_CAP_TITLE = "Energy price cap January 2027: will bills go up? | Grid";
-export const PRICE_CAP_DESCRIPTION =
-  "Ofgem's January–March 2027 price cap is announced on 25 November 2026. The cap is £1,723 a year now. What sets it, what gas has done, and what it covers.";
-export const PRICE_CAP_H1 = "Will energy bills go up in January 2027?";
+export const PRICE_CAP_TITLE = priceCapTitle();
+export const PRICE_CAP_DESCRIPTION = priceCapDescription();
+export const PRICE_CAP_H1 = priceCapH1();
 
 export const GAS_TITLE = "GB gas price today: SAP, Henry Hub and LNG | Grid";
 export const GAS_DESCRIPTION =

@@ -1,5 +1,5 @@
 import { formatDisplay, roundDisplay } from "@/lib/display-rounding";
-import { NO_DATE_PUBLISHED, PROJECT_EXPECTATION_CHANGE } from "@/lib/projects/copy";
+import { displayProjectName, NO_DATE_PUBLISHED, PROJECT_EXPECTATION_CHANGE } from "@/lib/projects/copy";
 import { formatProjectDate } from "@/lib/projects/dates";
 import { projectPath } from "@/lib/projects/href";
 import type { ChangeEvent, EnergyProject } from "@/lib/projects/schema";
@@ -121,7 +121,7 @@ export function projectIndexRow(project: EnergyProject): ProjectIndexRow {
   return {
     id: project.project_id,
     href: projectPath(project.project_id, project.name),
-    name: project.name,
+    name: displayProjectName(project.name),
     technology: technologyLabel(project.technology),
     displayStage: displayStageLabel(project.display_stage),
     planning: planningLabel(project.planning_status),
@@ -152,9 +152,9 @@ export function buildProjectProfile(project: EnergyProject, events: readonly Cha
   );
   return {
     id: project.project_id,
-    name: project.name,
+    name: displayProjectName(project.name),
     href: projectPath(project.project_id, project.name),
-    title: project.name,
+    title: displayProjectName(project.name),
     technology: technologyLabel(project.technology),
     country: projectPlace(project.country, project.region),
     statuses: [

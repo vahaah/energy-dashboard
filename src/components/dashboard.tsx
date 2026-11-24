@@ -71,6 +71,7 @@ import { HomepageBriefing } from "@/components/homepage-briefing";
 import { HOME_H1, historicalHomepageH1, type HomepageCite } from "@/lib/homepage-briefing";
 import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
+import { shareOrCopy } from "@/components/share-button";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { BalancingHomeCard } from "@/components/balancing-home-card";
@@ -318,12 +319,18 @@ export function Dashboard({
         stamp={facts.headerStamp}
         stale={facts.isStale}
         copied={copied}
-        onShare={async () => {
-          await navigator.clipboard.writeText(
-            `${window.location.origin}${shareFocusPath(focus)}`
-          );
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1400);
+        onShare={() => {
+          const url = `${window.location.origin}${shareFocusPath(focus, {
+            date: dayQueryDate,
+            period,
+          })}`;
+          void shareOrCopy(url, document.title).then((result) => {
+            if (result !== "copied") {
+              return;
+            }
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1400);
+          });
         }}
       />
 
