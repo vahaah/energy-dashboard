@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "description": "Grid, a live dashboard of Great Britain's electricity and gas.",
+  "author": "Alex Vakhitov (Comonad Ltd)",
+  "homepage": "https://grid.vahaah.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vahaah/energy-dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vahaah/energy-dashboard/issues"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
