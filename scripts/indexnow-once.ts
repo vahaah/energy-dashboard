@@ -2,19 +2,20 @@
 /**
  * Post-deploy IndexNow one-shot.
  *
- *   INDEXNOW_KEY=... npm run indexnow:once
+ *   npm run indexnow:once
  *
  * Waits until https://grid.vahaah.com/release-1b.txt serves the Phase 1B marker,
  * then POSTs sitemap URLs that the Phase 1A one-shot did not already submit.
  * A 200 from /gas or /release-1a.txt is not enough: those are the previous
- * production deployment. The key is read from the environment and is never
- * printed. A second run of the full sitemap script is a separate command
- * and is not this path.
+ * production deployment. The key is the checked-in public constant, confirmed
+ * against the public key file, and is never printed. A second run of the full
+ * sitemap script is a separate command and is not this path.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   INDEXNOW_HOST,
+  INDEXNOW_KEY,
   INDEXNOW_KEY_PATH,
   INDEXNOW_PHASE_1A_PREFIXES,
   INDEXNOW_PHASE_1B_MARKER,
@@ -37,17 +38,13 @@ function fail(key: string, line: string): never {
   process.exit(1);
 }
 
-function keyFromEnv(): string {
-  const key = (process.env.INDEXNOW_KEY ?? "").trim();
-  if (key.length === 0) {
-    console.error("INDEXNOW_KEY is unset");
-    process.exit(1);
-  }
+/** Checked-in public key, the same value `runIndexNow` uses when no key is passed. */
+export function publishedIndexNowKey(): string {
   const published = readFileSync(resolve(process.cwd(), `public${INDEXNOW_KEY_PATH}`), "utf8").trim();
-  if (key !== published) {
-    fail(key, "INDEXNOW_KEY does not match the public key file");
+  if (published !== INDEXNOW_KEY) {
+    throw new Error("public IndexNow key file does not match the checked-in key");
   }
-  return key;
+  return INDEXNOW_KEY;
 }
 
 async function waitForProbe(key: string): Promise<void> {
@@ -107,7 +104,7 @@ export async function submitNewIndexNowUrls(key: string): Promise<number> {
 }
 
 async function main(): Promise<void> {
-  const code = await submitNewIndexNowUrls(keyFromEnv());
+  const code = await submitNewIndexNowUrls(publishedIndexNowKey());
   if (code !== 0) {
     process.exit(code);
   }

@@ -26,6 +26,6 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      # Same key as indexnow-submit.yml: the checked-in public file.
+      # Do not pass an Actions secret, and do not echo the key.
       - run: npm run indexnow:once
-        env:
-          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
