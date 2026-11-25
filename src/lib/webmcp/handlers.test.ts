@@ -15,7 +15,6 @@ import { CURRENT_PRICE_CAP } from "@/lib/price-cap";
 import type { ProjectSearchRow } from "@/lib/search/project-index";
 import { SHIPPED_PAGE_ROUTES } from "@/lib/site-nav";
 import type { EnergySnapshot, Generation5min } from "@/lib/types";
-import { WEBMCP_ORIGIN_TRIAL_TOKEN } from "@/lib/webmcp/origin-trial";
 import { embeddedWebMcpJson, parseEmbeddedWebMcp } from "@/lib/webmcp/embed";
 import { createWebMcpHandlers, type WebMcpDeps } from "@/lib/webmcp/handlers";
 import { sourcesForPath } from "@/lib/webmcp/pages";
@@ -580,7 +579,9 @@ describe("WebMCP handlers", () => {
     });
     expect(escaped).not.toContain("<");
     expect(parseEmbeddedWebMcp(JSON.parse(escaped))?.path).toBe("/");
-    expect(WEBMCP_ORIGIN_TRIAL_TOKEN).toBe("");
+    const originTrial = readFileSync(resolve(process.cwd(), "src/lib/webmcp/origin-trial.ts"), "utf8");
+    expect(originTrial).toContain("process.env.WEBMCP_ORIGIN_TRIAL_TOKEN");
+    expect(originTrial).toContain(".trim()");
     const home = readFileSync(resolve(process.cwd(), "src/app/page.tsx"), "utf8");
     const island = readFileSync(resolve(process.cwd(), "src/app/webmcp-registrar.tsx"), "utf8");
     const registrar = readFileSync(resolve(process.cwd(), "src/lib/webmcp/register.ts"), "utf8");

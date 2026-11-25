@@ -1,11 +1,11 @@
 /**
  * Chrome WebMCP origin-trial token.
  *
- * Alex decides whether to register https://grid.vahaah.com for the trial.
- * Do not register it from this repository. Leave the string empty.
- * A token is public (it is served in the page) and is not a credential.
- * When a token exists, set it here. The root layout then emits
+ * The token is public: the root layout serves it in
  * <meta http-equiv="origin-trial" content="...">.
- * An empty string emits no tag.
+ * It is not a credential. Do not log it.
+ *
+ * Read at build time from WEBMCP_ORIGIN_TRIAL_TOKEN.
+ * The value is trimmed. Unset, empty, or whitespace emits no tag.
  */
-export const WEBMCP_ORIGIN_TRIAL_TOKEN = "";
+export const WEBMCP_ORIGIN_TRIAL_TOKEN = (process.env.WEBMCP_ORIGIN_TRIAL_TOKEN ?? "").trim();
