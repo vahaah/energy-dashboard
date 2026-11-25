@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("price cap page", () => {
-  it("launches without January 2027 figures or an update promise", () => {
+  it("renders the January 2027 rates from the model, with no pending copy", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./page.tsx"), "utf8");
     expect(source).toContain("export const revalidate = 86_400");
     expect(source).toContain('export const dynamic = "force-static"');
@@ -11,6 +11,9 @@ describe("price cap page", () => {
     expect(source).toContain("priceCapPresentation");
     expect(source).toContain("share=");
     expect(source).toContain("January 2027 energy price cap");
+    expect(source).toContain("model.rates");
+    expect(source).toContain("vatNote");
+    expect(source).not.toMatch(/pending/i);
     expect(source).toContain('href="/methodology"');
     expect(source).toContain("loadCachedPublicPrices");
     expect(source).toContain('loadCachedPublicPrices("1y")');

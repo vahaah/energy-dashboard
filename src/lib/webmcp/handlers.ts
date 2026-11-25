@@ -11,7 +11,10 @@ import {
   OFGEM_PRICE_CAP_HUB_URL,
   PRICE_CAP_OBSERVATION_WINDOW,
   priceCapAnswerFirst,
-  PUBLISHED_PRICE_CAPS,
+  priceCapRatesView,
+  january2027Record,
+  visiblePriceCaps,
+  JANUARY_2027_PRICE_CAP,
   CURRENT_PRICE_CAP,
 } from "@/lib/price-cap";
 import { CLIENT_QUERY_MAX_AGE_MS } from "@/lib/client-query";
@@ -215,21 +218,27 @@ export function createWebMcpHandlers(deps: WebMcpDeps, registration?: AbortSigna
       if (blocked) {
         return toolResult("get_price_cap", retrievedAt, [], null, blocked);
       }
+      const next = JANUARY_2027_PRICE_CAP;
+      const january = next ? january2027Record(next) : null;
+      const rates = next ? priceCapRatesView(next, CURRENT_PRICE_CAP.typicalDualFuelDirectDebitGbp) : null;
       return toolResult(
         "get_price_cap",
         retrievedAt,
-        [{ name: "Ofgem", attribution: "Source: Ofgem.", url: CURRENT_PRICE_CAP.sourceUrl }],
+        [
+          { name: "Ofgem", attribution: "Source: Ofgem.", url: january?.sourceUrl ?? CURRENT_PRICE_CAP.sourceUrl },
+          ...(rates ? [{ name: "Ofgem", attribution: "Source: Ofgem.", url: rates.ratesUrl }] : []),
+        ],
         {
           current: CURRENT_PRICE_CAP,
-          published: PUBLISHED_PRICE_CAPS,
-          january2027: null,
+          published: visiblePriceCaps(),
+          january2027: january ? { ...january, rates } : null,
           nextAnnouncementDate: OFGEM_JAN_2027_ANNOUNCEMENT_DATE,
           nextAnnouncementLabel: OFGEM_JAN_2027_ANNOUNCEMENT_LABEL,
           observationWindow: PRICE_CAP_OBSERVATION_WINDOW,
           hubUrl: OFGEM_PRICE_CAP_HUB_URL,
           sentence: priceCapAnswerFirst(),
         },
-        "Grid does not show a January 2027 cap until Ofgem publishes that figure.",
+        january ? null : "Grid does not show a January 2027 cap until Ofgem publishes that figure.",
       );
     },
 

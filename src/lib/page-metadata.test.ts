@@ -124,7 +124,11 @@ describe("page metadata", () => {
     );
     expect(JSON.stringify(todayPageMetadata().openGraph?.images)).not.toContain("/today/opengraph-image");
     expect(priceCapPageMetadata().alternates?.canonical).toBe("/explained/price-cap");
-    expect(JSON.stringify(priceCapPageMetadata().openGraph?.images)).toContain("/og?page=price-cap&v=pending");
+    expect(JSON.stringify(priceCapPageMetadata().openGraph?.images)).toContain(
+      "/og?page=price-cap&v=2026-11-25-2166",
+    );
+    expect(JSON.stringify(priceCapPageMetadata().openGraph?.images)).not.toContain("v=pending");
+    expect(priceCapPageMetadata().openGraph).toMatchObject({ modifiedTime: "2026-11-25" });
     expect(gasPageMetadata().alternates?.canonical).toBe("/prices/gas");
     expect(methodologyPageMetadata().alternates?.canonical).toBe("/methodology");
     expect(apiDocsPageMetadata().alternates?.canonical).toBe("/api");

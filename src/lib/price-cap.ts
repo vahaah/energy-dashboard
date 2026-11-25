@@ -1,5 +1,16 @@
 export const OFGEM_PRICE_CAP_HUB_URL =
-  "https://www.ofgem.gov.uk/information-consumers/energy-advice-households/energy-price-cap-unit-rates-and-standing-charges";
+  "https://www.ofgem.gov.uk/information-consumers/energy-advice-households/get-energy-price-cap-standing-charges-and-unit-rates-region";
+
+/** Ofgem's 2026 typical domestic consumption values, used to turn unit rates into the annual cap. */
+export const PRICE_CAP_ELECTRICITY_KWH = 2_500;
+export const PRICE_CAP_GAS_KWH = 9_500;
+export const PRICE_CAP_BILLING_DAYS = 365;
+
+export const PRICE_CAP_VAT_NOTE =
+  "Figures are rounded to two decimal places and include 5% VAT on gas. There is no VAT on electricity from 1 October 2026 to 30 June 2027. Costs cannot be compared directly to previous periods because of this change.";
+
+export const PRICE_CAP_CONTEXT =
+  "Ofgem says the Middle East conflict is pushing up gas prices, the cap covers about 20 million households on SVTs, and the Government is giving about 20 million households £100 from January.";
 
 export const OFGEM_JAN_2027_ANNOUNCEMENT_DATE = "2026-11-25";
 export const OFGEM_JAN_2027_ANNOUNCEMENT_LABEL = "25 November 2026";
@@ -20,30 +31,47 @@ export type PublishedPriceCap = {
   notes: string[];
 };
 
+export type DirectDebitRate = {
+  unitPencePerKwh: number;
+  standingChargePencePerDay: number;
+};
+
 export type January2027Cap = {
   typicalDualFuelDirectDebitGbp: number;
   announcedOn: string;
   sourceUrl: string;
+  ratesUrl?: string;
+  electricity?: DirectDebitRate;
+  gas?: DirectDebitRate;
+  previousElectricity?: DirectDebitRate;
+  previousGas?: DirectDebitRate;
+  /** Ofgem's stated rise. Not a ratio computed from the pound difference. */
+  ofgemRisePercent?: number;
 };
 
 /**
  * January–March 2027 cap. This is the only place to enter Ofgem's figure.
  *
- * Leave `null` until the number is on ofgem.gov.uk. Then set:
- * - `typicalDualFuelDirectDebitGbp`: typical dual-fuel Direct Debit, whole pounds a year
- * - `announcedOn`: the press-release date, `YYYY-MM-DD`
- * - `sourceUrl`: the `https://www.ofgem.gov.uk/` page that states the figure
+ * Page copy, the FAQ, JSON-LD, the Open Graph card, /today, the home card,
+ * llms.txt and WebMCP all read this value. Do not estimate the figure.
  *
- * Page copy, the FAQ, JSON-LD and the Open Graph card all read this value.
- * Do not estimate the figure.
- *
- * Checked 24 November 2026. The unit-rates page and the price-cap guidance
- * still publish £1,723 for 1 October to 31 December 2026, and say the next
- * level is announced by 25 November 2026. No January 2027 figure was there.
- * https://www.ofgem.gov.uk/information-consumers/energy-advice-households/energy-price-cap-unit-rates-and-standing-charges
- * https://www.ofgem.gov.uk/energy-regulation/domestic-and-non-domestic/energy-pricing-rules/energy-price-cap
+ * Checked 25 November 2026 against the press release and the unit-rates page.
+ * Direct Debit averages: electricity 32.69p/kWh and 54.77p/day, gas 10.96p/kWh
+ * and 29.65p/day. The typical dual-fuel bill is £2,166.
+ * https://www.ofgem.gov.uk/press-release/energy-price-cap-rise-26-january-2027
+ * https://www.ofgem.gov.uk/information-consumers/energy-advice-households/get-energy-price-cap-standing-charges-and-unit-rates-region
  */
-export const JANUARY_2027_PRICE_CAP: January2027Cap | null = null;
+export const JANUARY_2027_PRICE_CAP: January2027Cap | null = {
+  typicalDualFuelDirectDebitGbp: 2166,
+  announcedOn: "2026-11-25",
+  sourceUrl: "https://www.ofgem.gov.uk/press-release/energy-price-cap-rise-26-january-2027",
+  ratesUrl: OFGEM_PRICE_CAP_HUB_URL,
+  electricity: { unitPencePerKwh: 32.69, standingChargePencePerDay: 54.77 },
+  gas: { unitPencePerKwh: 10.96, standingChargePencePerDay: 29.65 },
+  previousElectricity: { unitPencePerKwh: 26.32, standingChargePencePerDay: 54.83 },
+  previousGas: { unitPencePerKwh: 7.97, standingChargePencePerDay: 29.68 },
+  ofgemRisePercent: 26,
+};
 
 export const PUBLISHED_PRICE_CAPS: PublishedPriceCap[] = [
   {
@@ -112,6 +140,36 @@ export type PriceCapOgFields = {
   metrics: { label: string; value: string }[];
 };
 
+export type PriceCapFuelBill = {
+  unit: string;
+  standing: string;
+  annualGbp: number;
+};
+
+export type PriceCapPeriodBill = {
+  label: string;
+  electricity: PriceCapFuelBill;
+  gas: PriceCapFuelBill;
+  totalGbp: number;
+};
+
+export type PriceCapRatesView = {
+  periods: [PriceCapPeriodBill, PriceCapPeriodBill];
+  totalGbp: number;
+  previousTotalGbp: number;
+  changeGbp: number;
+  ofgemRisePercent: number;
+  vatNote: string;
+  context: string;
+  ratesUrl: string;
+  basis: string;
+};
+
+export type PriceCapHomeCopy = {
+  figure: string;
+  detail: string;
+};
+
 export type PriceCapPresentation = {
   title: string;
   description: string;
@@ -125,6 +183,8 @@ export type PriceCapPresentation = {
   revision: string;
   caps: PublishedPriceCap[];
   llms: string;
+  rates: PriceCapRatesView | null;
+  home: PriceCapHomeCopy;
 };
 
 const PENDING_TITLE = "Energy price cap January 2027: will bills go up? | Grid";
@@ -134,6 +194,102 @@ const PENDING_H1 = "Will energy bills go up in January 2027?";
 
 export function formatCapPounds(gbp: number): string {
   return `£${gbp.toLocaleString("en-GB")}`;
+}
+
+function penceLabel(pence: number, unit: "kWh" | "day"): string {
+  return `${pence.toFixed(2)}p/${unit}`;
+}
+
+/** Unit rate × kWh plus standing charge × days, in pence, from rates stored at 0.01p. */
+function annualPence(ratePence: number, quantity: number): number {
+  const hundredths = Math.round(ratePence * 100);
+  return (hundredths * quantity) / 100;
+}
+
+/** Nearest pound, the same rounding that makes the fuel rows add to Ofgem's annual cap. */
+export function annualCapPounds(rate: DirectDebitRate, kwh: number): number {
+  const pence =
+    annualPence(rate.unitPencePerKwh, kwh) + annualPence(rate.standingChargePencePerDay, PRICE_CAP_BILLING_DAYS);
+  return Math.round(pence / 100);
+}
+
+function fuelBill(rate: DirectDebitRate, kwh: number): PriceCapFuelBill {
+  return {
+    unit: penceLabel(rate.unitPencePerKwh, "kWh"),
+    standing: penceLabel(rate.standingChargePencePerDay, "day"),
+    annualGbp: annualCapPounds(rate, kwh),
+  };
+}
+
+function assertOfgemUrl(value: string, field: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${field} must be an ofgem.gov.uk URL`);
+  }
+  if (url.protocol !== "https:" || url.hostname !== "www.ofgem.gov.uk") {
+    throw new Error(`${field} must be an https://www.ofgem.gov.uk/ page`);
+  }
+}
+
+/**
+ * Direct Debit averages turned into the annual cap. Electricity and gas are
+ * each rounded to the nearest pound, then added. The pound change is the
+ * difference of those totals. `ofgemRisePercent` is copied from Ofgem.
+ */
+export function priceCapRatesView(cap: January2027Cap, previousTotalGbp: number): PriceCapRatesView | null {
+  const { electricity, gas, previousElectricity, previousGas, ofgemRisePercent, ratesUrl } = cap;
+  const anyRate =
+    electricity != null ||
+    gas != null ||
+    previousElectricity != null ||
+    previousGas != null ||
+    ofgemRisePercent != null ||
+    ratesUrl != null;
+  if (!anyRate) {
+    return null;
+  }
+  if (!electricity || !gas || !previousElectricity || !previousGas || ofgemRisePercent == null || !ratesUrl) {
+    throw new Error("JANUARY_2027_PRICE_CAP rates are incomplete");
+  }
+  assertOfgemUrl(ratesUrl, "JANUARY_2027_PRICE_CAP.ratesUrl");
+  if (!Number.isInteger(ofgemRisePercent) || ofgemRisePercent <= 0 || ofgemRisePercent >= 100) {
+    throw new Error("JANUARY_2027_PRICE_CAP.ofgemRisePercent must be a whole number of percent");
+  }
+  const previous: PriceCapPeriodBill = {
+    label: "1 October to 31 December 2026",
+    electricity: fuelBill(previousElectricity, PRICE_CAP_ELECTRICITY_KWH),
+    gas: fuelBill(previousGas, PRICE_CAP_GAS_KWH),
+    totalGbp: 0,
+  };
+  previous.totalGbp = previous.electricity.annualGbp + previous.gas.annualGbp;
+  const next: PriceCapPeriodBill = {
+    label: "1 January to 31 March 2027",
+    electricity: fuelBill(electricity, PRICE_CAP_ELECTRICITY_KWH),
+    gas: fuelBill(gas, PRICE_CAP_GAS_KWH),
+    totalGbp: 0,
+  };
+  next.totalGbp = next.electricity.annualGbp + next.gas.annualGbp;
+  if (next.totalGbp !== cap.typicalDualFuelDirectDebitGbp) {
+    throw new Error(
+      `January 2027 rates sum to £${next.totalGbp}, not £${cap.typicalDualFuelDirectDebitGbp}`,
+    );
+  }
+  if (previous.totalGbp !== previousTotalGbp) {
+    throw new Error(`October 2026 rates sum to £${previous.totalGbp}, not £${previousTotalGbp}`);
+  }
+  return {
+    periods: [previous, next],
+    totalGbp: next.totalGbp,
+    previousTotalGbp: previous.totalGbp,
+    changeGbp: next.totalGbp - previous.totalGbp,
+    ofgemRisePercent,
+    vatNote: PRICE_CAP_VAT_NOTE,
+    context: PRICE_CAP_CONTEXT,
+    ratesUrl,
+    basis: `${PRICE_CAP_ELECTRICITY_KWH.toLocaleString("en-GB")} kWh of electricity and ${PRICE_CAP_GAS_KWH.toLocaleString("en-GB")} kWh of gas over ${PRICE_CAP_BILLING_DAYS} days. Each fuel is rounded to the nearest pound, then added.`,
+  };
 }
 
 export function ukDateLabel(iso: string, month: "long" | "short"): string {
@@ -168,15 +324,7 @@ function assertJanuaryCap(cap: January2027Cap): void {
   if (!isRealIsoDate(cap.announcedOn)) {
     throw new Error("JANUARY_2027_PRICE_CAP.announcedOn must be a real YYYY-MM-DD date");
   }
-  let url: URL;
-  try {
-    url = new URL(cap.sourceUrl);
-  } catch {
-    throw new Error("JANUARY_2027_PRICE_CAP.sourceUrl must be an ofgem.gov.uk URL");
-  }
-  if (url.protocol !== "https:" || url.hostname !== "www.ofgem.gov.uk") {
-    throw new Error("JANUARY_2027_PRICE_CAP.sourceUrl must be an https://www.ofgem.gov.uk/ page");
-  }
+  assertOfgemUrl(cap.sourceUrl, "JANUARY_2027_PRICE_CAP.sourceUrl");
 }
 
 export function january2027Record(cap: January2027Cap): PublishedPriceCap {
@@ -271,32 +419,50 @@ export function priceCapPresentation(next: January2027Cap | null = JANUARY_2027_
           { label: "Next announcement", value: ukDateLabel(OFGEM_JAN_2027_ANNOUNCEMENT_DATE, "short") },
         ],
       },
-      revision: "pending",
+      revision: "unpublished",
       caps: PUBLISHED_PRICE_CAPS,
       llms: `Ofgem price cap: ${currentFormatted} a year (typical dual-fuel Direct Debit, ${CURRENT_PRICE_CAP.periodLabel}). Next cap announced ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.`,
+      rates: null,
+      home: {
+        figure: `${currentFormatted} a year`,
+        detail: `The January 2027 cap is announced on ${OFGEM_JAN_2027_ANNOUNCEMENT_LABEL}.`,
+      },
     };
   }
 
   const record = january2027Record(next);
   const formatted = formatCapPounds(record.typicalDualFuelDirectDebitGbp);
+  const rates = priceCapRatesView(next, currentPounds);
   const h1 = januaryHeading(record.typicalDualFuelDirectDebitGbp, currentPounds, formatted);
   const description = `Ofgem set the January–March 2027 cap at ${formatted} a year. The cap in force until 31 December 2026 is ${currentFormatted}. Typical dual-fuel Direct Debit.`;
+  const rise = rates
+    ? ` That is ${formatCapPounds(rates.changeGbp)} more than ${currentFormatted}. Ofgem calls this a ${rates.ofgemRisePercent}% rise.`
+    : "";
+  const januaryElectricity = rates?.periods[1].electricity;
+  const januaryGas = rates?.periods[1].gas;
+  const rateSentence =
+    rates && januaryElectricity && januaryGas
+      ? ` Direct Debit averages: electricity ${januaryElectricity.unit} and a standing charge of ${januaryElectricity.standing}; gas ${januaryGas.unit} and a standing charge of ${januaryGas.standing}. Electricity ${formatCapPounds(januaryElectricity.annualGbp)} plus gas ${formatCapPounds(januaryGas.annualGbp)} is ${formatted}.`
+      : "";
   return {
     title: `January 2027 energy price cap: ${formatted} | Grid`,
     description,
     h1,
-    answer: `Ofgem published the price cap for 1 January to 31 March 2027 at ${formatted} a year for a typical dual-fuel Direct Debit household on ${record.announcedLabel}. The cap in force until 31 December 2026 is ${currentFormatted}. Source: Ofgem.`,
+    answer: `Ofgem published the price cap for 1 January to 31 March 2027 at ${formatted} a year for a typical dual-fuel Direct Debit household on ${record.announcedLabel}.${rise} The cap in force until 31 December 2026 is ${currentFormatted}. Source: Ofgem.`,
     updated: `Ofgem figures as published · January 2027 cap announced ${record.announcedLabel}`,
     januaryParagraphs: [
       `Ofgem published the cap for 1 January to 31 March 2027 at ${formatted} a year for a typical dual-fuel Direct Debit household on ${record.announcedLabel}.`,
-      `The cap in force until 31 December 2026 (${CURRENT_PRICE_CAP.periodLabel}) is ${currentFormatted} a year for the same household.`,
+      rates
+        ? `That is ${formatCapPounds(rates.changeGbp)} more than the ${currentFormatted} cap in force until 31 December 2026. Ofgem calls this a ${rates.ofgemRisePercent}% rise.`
+        : `The cap in force until 31 December 2026 (${CURRENT_PRICE_CAP.periodLabel}) is ${currentFormatted} a year for the same household.`,
+      ...(rates ? [rates.context] : []),
     ],
     unpublishedParagraph: null,
     faqs: [
       pendingFaqs()[0]!,
       {
         question: "What is the January 2027 price cap?",
-        answer: `${formatted} a year for a typical dual-fuel Direct Debit household (1 January to 31 March 2027), published by Ofgem on ${record.announcedLabel}. The cap in force until 31 December 2026 is ${currentFormatted}.`,
+        answer: `${formatted} a year for a typical dual-fuel Direct Debit household (1 January to 31 March 2027), published by Ofgem on ${record.announcedLabel}.${rateSentence}${rise} The cap in force until 31 December 2026 is ${currentFormatted}.${rates ? ` ${rates.vatNote}` : ""}`,
       },
       ...pendingFaqs().slice(2),
     ],
@@ -310,7 +476,16 @@ export function priceCapPresentation(next: January2027Cap | null = JANUARY_2027_
     },
     revision: `${record.announcedOn}-${record.typicalDualFuelDirectDebitGbp}`,
     caps: [...PUBLISHED_PRICE_CAPS, record],
-    llms: `Ofgem price cap for 1 January to 31 March 2027: ${formatted} a year (typical dual-fuel Direct Debit), announced ${record.announcedLabel}. The cap in force until 31 December 2026 is ${currentFormatted}.`,
+    llms: rates
+      ? `Ofgem price cap for 1 January to 31 March 2027: ${formatted} a year (typical dual-fuel Direct Debit), announced ${record.announcedLabel}. That is ${formatCapPounds(rates.changeGbp)} more than the ${currentFormatted} cap in force until 31 December 2026. Ofgem calls this a ${rates.ofgemRisePercent}% rise.`
+      : `Ofgem price cap for 1 January to 31 March 2027: ${formatted} a year (typical dual-fuel Direct Debit), announced ${record.announcedLabel}. The cap in force until 31 December 2026 is ${currentFormatted}.`,
+    rates,
+    home: {
+      figure: `${formatted} a year`,
+      detail: rates
+        ? `${formatCapPounds(rates.changeGbp)} more than the ${currentFormatted} cap in force until 31 December 2026. Ofgem calls this a ${rates.ofgemRisePercent}% rise.`
+        : `The cap in force until 31 December 2026 is ${currentFormatted}.`,
+    },
   };
 }
 
@@ -340,4 +515,12 @@ export function priceCapOgImagePath(): string {
 
 export function priceCapLlmsLine(): string {
   return PRESENTATION.llms;
+}
+
+export function priceCapHomeCardCopy(): PriceCapHomeCopy {
+  return PRESENTATION.home;
+}
+
+export function priceCapRates(): PriceCapRatesView | null {
+  return PRESENTATION.rates;
 }

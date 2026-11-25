@@ -12,6 +12,7 @@ import { addUtcDays, formatLondonDayMonthYear } from "@/lib/london-time";
 import { peekOgCacheSnapshot } from "@/lib/og/peek";
 import { periodStartFromFacts, todayPageMetadata } from "@/lib/page-metadata";
 import { SITE_ORIGIN, TODAY_H1, TODAY_TITLE } from "@/lib/site";
+import { priceCapHomeCardCopy } from "@/lib/price-cap";
 import {
   buildTodayPageModel,
   todayCitation,
@@ -36,6 +37,7 @@ export default async function TodayPage() {
     loadDashboardPayload({ period: "week", now }).catch(() => null),
   ]);
   const model = buildTodayPageModel({ day, week, now });
+  const priceCap = priceCapHomeCardCopy();
   const faqs = todayFaqs(model);
   const cite = todayCitePlainText(model);
   const dateModified = model.dateModified ?? undefined;
@@ -81,6 +83,7 @@ export default async function TodayPage() {
           <Link href="/explained/price-cap" className="text-blue-700 underline-offset-2 hover:underline">
             Energy price cap
           </Link>
+          {` from 1 January 2027: ${priceCap.figure}. ${priceCap.detail}`}
           {" · "}
           <Link href="/prices/gas" className="text-blue-700 underline-offset-2 hover:underline">
             GB gas price

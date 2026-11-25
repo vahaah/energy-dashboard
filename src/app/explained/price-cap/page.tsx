@@ -14,6 +14,7 @@ import { formatLondonDayMonthYear, getLondonDate } from "@/lib/london-time";
 import { priceCapPageMetadata } from "@/lib/page-metadata";
 import {
   CURRENT_PRICE_CAP,
+  formatCapPounds,
   OFGEM_PRICE_CAP_HUB_URL,
   PRICE_CAP_OBSERVATION_WINDOW,
   priceCapPresentation,
@@ -65,6 +66,74 @@ export default async function PriceCapPage() {
               {paragraph}
             </p>
           ))}
+          {model.rates ? (
+            <>
+              <p className="mt-4 max-w-3xl text-copy-14 text-gray-900">
+                Direct Debit averages for Great Britain. {model.rates.basis}
+              </p>
+              <Card className="mt-4">
+                <div className="relative min-w-0 overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-copy-14">
+                    <caption className="sr-only">
+                      Direct Debit unit rates, standing charges and the typical annual bill
+                    </caption>
+                    <thead className="text-label-13 text-gray-900">
+                      <tr>
+                        <th scope="col" className="pb-2 font-medium">
+                          Period
+                        </th>
+                        <th scope="col" className="pb-2 font-medium">
+                          Electricity
+                        </th>
+                        <th scope="col" className="pb-2 font-medium">
+                          Gas
+                        </th>
+                        <th scope="col" className="pb-2 text-right font-medium">
+                          Typical dual-fuel
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {model.rates.periods.map((period) => (
+                        <tr key={period.label} className="border-t border-gray-alpha-200">
+                          <th scope="row" className="py-2 font-medium">
+                            {period.label}
+                          </th>
+                          <td className="py-2 tabular-nums">
+                            {period.electricity.unit}
+                            {", "}
+                            {period.electricity.standing}
+                            {", "}
+                            {formatCapPounds(period.electricity.annualGbp)}
+                          </td>
+                          <td className="py-2 tabular-nums">
+                            {period.gas.unit}
+                            {", "}
+                            {period.gas.standing}
+                            {", "}
+                            {formatCapPounds(period.gas.annualGbp)}
+                          </td>
+                          <td className="py-2 text-right tabular-nums">
+                            {formatCapPounds(period.electricity.annualGbp)} + {formatCapPounds(period.gas.annualGbp)} ={" "}
+                            {formatCapPounds(period.totalGbp)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+              <p className="mt-3 max-w-3xl text-copy-14 text-gray-900">{model.rates.vatNote}</p>
+              <p className="mt-2 text-copy-16">
+                <a
+                  href={model.rates.ratesUrl}
+                  className="text-blue-700 underline-offset-2 hover:underline"
+                >
+                  Ofgem unit rates and standing charges
+                </a>
+              </p>
+            </>
+          ) : null}
           <p className="mt-2 text-copy-16">
             <Link href="/methodology" className="text-blue-700 underline-offset-2 hover:underline">
               Method

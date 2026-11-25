@@ -66,7 +66,7 @@ export function gridTools(deps: WebMcpDeps, registration?: AbortSignal): GridToo
       name: "get_price_cap",
       title: "Energy price cap",
       description:
-        "The Ofgem energy price cap now in force for a typical dual-fuel Direct Debit household, and the date of the next announcement. The January 2027 figure stays empty until Ofgem publishes it.",
+        "The Ofgem energy price cap in force for a typical dual-fuel Direct Debit household, and the published cap for 1 January to 31 March 2027. Does not accept a historical date.",
       inputSchema: EMPTY_INPUT,
       annotations: { readOnlyHint: true },
       execute: bind((input) => handlers.getPriceCap(input)),
