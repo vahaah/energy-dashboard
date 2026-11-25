@@ -1,0 +1,7 @@
+ui-sdk skill
+
+Source: https://github.com/vercel-labs/ui
+Path: packages/core/skills/ui-sdk
+Commit: 337d7d28f783c6bdd3ce84542698cae698accff4
+Licence: Apache License 2.0 (see LICENSE in this directory)
+Copyright 2026 Vercel, Inc.

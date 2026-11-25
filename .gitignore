@@ -43,6 +43,14 @@ yarn-error.log*
 .env*
 !.env.example
 
+# credentials and keys
+credentials.json
+*credentials*.json
+service-account*.json
+*.p12
+*.pfx
+*.key
+
 # vercel
 .vercel
 

@@ -1,5 +1,8 @@
 name: IndexNow
 
+permissions:
+  contents: read
+
 # Starts on the marker commit, then waits until production serves
 # public/release-1b.txt. A 200 from /gas or /release-1a.txt is the previous deployment.
 on:

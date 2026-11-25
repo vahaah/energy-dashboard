@@ -1,73 +1,9 @@
-# Agent Instructions — Grid
+# Agent notes
 
-## Quick Reference
+Grid is the live GB electricity and gas dashboard at https://grid.vahaah.com.
 
-| What | Where |
-|------|-------|
-| Framework | Next.js 16 (App Router) |
-| Styling | Tailwind CSS v4 (NO config file — all in CSS) |
-| Charts | Recharts 3 (client components) |
-| Database | Tinybird (ClickHouse) |
-| Types | `src/lib/types.ts` |
-| Colors | `src/lib/colors.ts` |
-| Architecture | `ARCHITECTURE.md` |
-| AI Context | `claude.md` |
+Read [README.md](./README.md), [CONTRIBUTING.md](./CONTRIBUTING.md), and [AGENTS.md](./AGENTS.md). The data model is in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
-## Development
+`/` stays `force-static` with `revalidate` 300 and does not import MapLibre. There is no database. Missing measurements are `null`. Attributions in `src/lib/attribution.ts` stay verbatim.
 
-```bash
-npm run dev     # Start dev server (Turbopack)
-npm run build   # Production build
-npm run lint    # ESLint
-```
-
-## Environment Variables
-
-See `.env.example`. The code uses:
-
-| Variable | Purpose | How to get |
-|----------|---------|------------|
-| `TINYBIRD_URL` | Tinybird region host | From Tinybird workspace settings |
-| `TINYBIRD_TOKEN` | Admin token for cron + backfill ingestion | `tb --cloud token ls` → Workspace admin token |
-| `TINYBIRD_READ_TOKEN` | Read-only token for pipe queries | `tb --cloud token ls` → `dashboard_read` (auto-created by deployment) |
-| `EIA_API_KEY` | US EIA API key | Real key required (`DEMO_KEY` is not used) |
-| `CRON_SECRET` | Vercel cron auth | Any random secret |
-
-Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored. Cron self-backfills EIA (400 days at 00:30 UTC) and World Bank Pink Sheet from 2025-01. `scripts/backfill-commodities.ts` is optional.
-
-**Token creation:** Resource-scoped tokens (`dashboard_read`, `ingest_token`) are defined via `TOKEN` directives in `.pipe` and `.datasource` files. They are created automatically by `tb --cloud deploy`. You cannot create them via `tb token create static` in Tinybird Forward.
-
-**Rate limiting:** in-memory 60 req/min per IP per instance in `src/proxy.ts`. Not distributed.
-
-## Key Patterns
-
-### Adding a feature
-1. Types in `src/lib/types.ts`
-2. Data fetching in `src/app/api/cron/route.ts` (if new data source)
-3. Tinybird schema in `tinybird/datasources/` (if new table)
-4. Chart component in `src/components/charts/` (with `"use client"`)
-5. Wire into `src/components/dashboard.tsx`
-
-### Tailwind v4
-- Config is in `src/app/globals.css`, not a JS/TS config file
-- Dark mode: `@custom-variant dark (&:is(.dark *))` — class-based, NOT media query
-- Theme tokens: `@theme inline { ... }`
-
-### Tinybird deployment
-```bash
-cd tinybird
-tb --cloud deploy    # Deploy datasources, pipes, and tokens
-tb --cloud token ls  # List generated tokens
-```
-
-### Backfill historical data
-```bash
-npx tsx scripts/backfill.ts --days 30          # Last 30 days
-npx tsx scripts/backfill.ts --days 7 --dry-run # Preview only
-npx tsx scripts/backfill.ts --only prices      # Only commodity prices
-npx tsx scripts/backfill.ts --only snapshots   # Only grid snapshots
-```
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local`.
-
-### Data flow
-External APIs → `/api/cron` (hourly) → Tinybird → Server Component (ISR 5min) → Client Dashboard
+`OIL_PRICE_API_KEY` and `FRED_API_KEY` are unused. Do not wire those feeds back up.
