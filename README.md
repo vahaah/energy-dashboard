@@ -196,8 +196,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports go to [alex@comonad.c
 
 ## Licence
 
-Application code is under the MIT licence in [LICENSE](./LICENSE), copyright 2026 Alex Vakhitov.
-
-Figures stay under the upstream licences in the table above. [/llms.txt](https://grid.vahaah.com/llms.txt) also says that Grid's derived data is CC BY 4.0.
+The code is MIT. See [LICENSE](./LICENSE). Grid's derived data is CC BY 4.0, with credit to Grid. Upstream data stays under each source's own licence and attribution, listed above and on [/data-sources](https://grid.vahaah.com/data-sources). [/llms.txt](https://grid.vahaah.com/llms.txt) uses the same three terms.
 
 Vendored agent skills under `.agents/skills/` keep their own licence files. `skills-lock.json` records the upstream commit for each one.

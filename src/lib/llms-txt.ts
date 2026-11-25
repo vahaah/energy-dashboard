@@ -17,7 +17,7 @@ export function buildLlmsTxt(payload: DashboardPayload | null, balancingLine?: s
 
   return `# Grid
 
-> Grid is a free view of Great Britain's electricity and gas system, updated hourly from public data: Elexon BMRS, NESO, the NESO Carbon Intensity API and Sheffield Solar PV_Live for electricity; National Gas, the U.S. EIA and the World Bank for gas and oil. Made by Alex Vakhitov (https://vahaah.com). Every figure carries its source, time and unit. Grid's derived data is CC BY 4.0; upstream licences and attributions are on https://grid.vahaah.com/data-sources.
+> Grid is a free view of Great Britain's electricity and gas system, updated hourly from public data: Elexon BMRS, NESO, the NESO Carbon Intensity API and Sheffield Solar PV_Live for electricity; National Gas, the U.S. EIA and the World Bank for gas and oil. Made by Alex Vakhitov (https://vahaah.com). Every figure carries its source, time and unit. The code is MIT. Grid's derived data is CC BY 4.0, with credit to Grid. Upstream data stays under each source's own licence and attribution: https://grid.vahaah.com/data-sources.
 
 ${latest}
 ${sapLine}
@@ -56,6 +56,6 @@ ${priceCapLlmsLine()}
 - [Snapshots JSON, last 24 hours](https://grid.vahaah.com/api/snapshots?range=24h)
 
 ## How to cite
-Grid (grid.vahaah.com), {page title}, data from {sources named on the page}, retrieved {D Mon YYYY, HH:MM} {BST|GMT}. Licence: CC BY 4.0 for Grid's derived data; upstream attributions apply.
+Grid (grid.vahaah.com), {page title}, data from {sources named on the page}, retrieved {D Mon YYYY, HH:MM} {BST|GMT}. The code is MIT. Grid's derived data is CC BY 4.0, with credit to Grid. Upstream data stays under each source's own licence and attribution.
 `;
 }
