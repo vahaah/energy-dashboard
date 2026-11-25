@@ -362,15 +362,21 @@ describe("WebMCP handlers", () => {
     }
   });
 
-  it("returns the published price cap and leaves January 2027 empty", async () => {
+  it("returns the published price cap, including January 2027", async () => {
     const handlers = createWebMcpHandlers(deps());
     const cap = await handlers.getPriceCap({});
     expect(cap.data?.current.typicalDualFuelDirectDebitGbp).toBe(1723);
     expect(cap.data?.current).toBe(CURRENT_PRICE_CAP);
-    expect(cap.data?.january2027).toBeNull();
+    expect(cap.data?.january2027?.typicalDualFuelDirectDebitGbp).toBe(2166);
+    expect(cap.data?.january2027?.rates?.periods[1]?.electricity.unit).toBe("32.69p/kWh");
+    expect(cap.data?.january2027?.rates?.changeGbp).toBe(443);
+    expect(cap.data?.published.at(-1)?.typicalDualFuelDirectDebitGbp).toBe(2166);
     expect(cap.data?.nextAnnouncementLabel).toBe("25 November 2026");
     expect(cap.sources[0]?.attribution).toBe("Source: Ofgem.");
-    expect(cap.data?.sentence).toContain("does not show a January 2027 cap");
+    expect(cap.notice).toBeNull();
+    expect(cap.data?.sentence).toContain("£2,166");
+    expect(cap.data?.sentence).not.toMatch(/pending/i);
+    expect(cap.data?.sentence).not.toContain("does not show a January 2027 cap");
   });
 
   it("searches pages, projects and assets with the header ranking", async () => {

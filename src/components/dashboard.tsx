@@ -75,6 +75,7 @@ import { shareOrCopy } from "@/components/share-button";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { BalancingHomeCard } from "@/components/balancing-home-card";
+import { PriceCapHomeCard } from "@/components/price-cap-home-card";
 import type { HomeCardFile } from "@/lib/balancing/types";
 import { TodayMapCard } from "@/components/today-map-card";
 import { SectionBlock } from "@/components/section-block";
@@ -418,6 +419,7 @@ export function Dashboard({
 
         <TodayMapCard />
         <BalancingHomeCard card={balancingCard} />
+        <PriceCapHomeCard />
 
         <SectionBlock
           id="section-price"

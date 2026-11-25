@@ -8,7 +8,7 @@ import { hydrateDashboardPayload, type DashboardPayload } from "@/lib/dashboard-
 import { isDashboardPeriod } from "@/lib/dashboard-period";
 import { balanceEquationSentence, getDisplayedPower } from "@/lib/displayed-demand";
 import type { LatestFacts } from "@/lib/facts";
-import { CURRENT_PRICE_CAP, priceCapOgImagePath, PUBLISHED_PRICE_CAPS } from "@/lib/price-cap";
+import { CURRENT_PRICE_CAP, JANUARY_2027_PRICE_CAP, priceCapOgImagePath, PUBLISHED_PRICE_CAPS } from "@/lib/price-cap";
 import {
   API_DOCS_DESCRIPTION,
   API_DOCS_TITLE,
@@ -343,7 +343,7 @@ export function priceCapPageMetadata(): Metadata {
     imageAlt: PRICE_CAP_TITLE,
     openGraphType: "article",
     publishedTime: PUBLISHED_PRICE_CAPS[0]?.announcedOn,
-    modifiedTime: CURRENT_PRICE_CAP?.announcedOn,
+    modifiedTime: JANUARY_2027_PRICE_CAP?.announcedOn ?? CURRENT_PRICE_CAP.announcedOn,
   });
 }
 

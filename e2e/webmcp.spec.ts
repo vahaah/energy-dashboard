@@ -70,7 +70,10 @@ test("lists and calls the read-only tools with the polyfill", async ({ page }) =
     }
     const cap = JSON.parse(await context.executeTool(priceCap, {})) as {
       readOnly: boolean;
-      data: { current: { typicalDualFuelDirectDebitGbp: number }; january2027: null };
+      data: {
+        current: { typicalDualFuelDirectDebitGbp: number };
+        january2027: { typicalDualFuelDirectDebitGbp: number } | null;
+      };
       sources: { attribution: string }[];
       retrievedAt: string;
     };
@@ -85,7 +88,7 @@ test("lists and calls the read-only tools with the polyfill", async ({ page }) =
 
   expect(called.cap.readOnly).toBe(true);
   expect(called.cap.data.current.typicalDualFuelDirectDebitGbp).toBe(1723);
-  expect(called.cap.data.january2027).toBeNull();
+  expect(called.cap.data.january2027?.typicalDualFuelDirectDebitGbp).toBe(2166);
   expect(called.cap.sources.some((source) => source.attribution.includes("Ofgem"))).toBe(true);
   expect(called.cap.retrievedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   expect(called.found.data?.hits.some((hit) => hit.href === "/explained/price-cap")).toBe(true);
