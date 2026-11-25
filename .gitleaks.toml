@@ -1,0 +1,16 @@
+title = "Grid"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "NESO datastore package id used as a public catalogue key"
+regexTarget = "match"
+regexes = ['''177f6fa4-ae49-4182-81ea-0c6b35f26ca6''']
+
+[[allowlists]]
+description = "IndexNow verification key. It is served as a public file on purpose."
+paths = [
+  '''(^|/)src/lib/indexnow\.ts$''',
+  '''(^|/)public/[0-9a-f]{32}\.txt$''',
+]

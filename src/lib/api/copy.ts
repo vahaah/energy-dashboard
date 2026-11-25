@@ -1,7 +1,7 @@
 /**
- * API docs copy. Sentences are the specified text.
- * Electricity ingest in vercel.json runs every 30 minutes, not hourly.
- * The intro keeps the specified sentence. See the pull request.
+ * API docs copy. The sentences below are the public text.
+ * Electricity ingest in vercel.json runs every 30 minutes.
+ * The intro still says hourly.
  */
 
 export const API_DOCS_STANDFIRST =

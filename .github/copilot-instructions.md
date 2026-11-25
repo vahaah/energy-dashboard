@@ -73,7 +73,7 @@ contentStyle={{
 
 ## API Routes
 
-- `/api/cron` — GET, protected with Bearer token, called by Vercel Cron hourly
+- `/api/cron` — GET, protected with Bearer token, called by Vercel Cron every 30 minutes (`vercel.json`)
 - `/api/snapshots?range=24h|7d|30d|90d|1y` — GET, public, returns grid snapshots
 - `/api/generation?range=24h|7d|30d|90d|1y` — GET, public, FUELINST + NESO + PV Live
 - `/api/interconnectors?range=24h|7d` — GET, public, interconnector flows
@@ -96,7 +96,7 @@ contentStyle={{
 
 - Don't add authentication to the public API endpoints
 - Don't switch from Recharts to another charting library
-- Don't use `localStorage` or `sessionStorage` (not needed)
+- Theme preference uses the `grid-theme` localStorage key. Do not store tokens or personal data there.
 - Don't add a `tailwind.config.ts` — config lives in CSS for v4
 - Don't use `moment.js` — use `date-fns`
 - Don't restart the dev server after code changes — just reload the browser

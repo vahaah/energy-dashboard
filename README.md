@@ -1,300 +1,201 @@
 # Grid
 
-GB electricity dashboard — half-hourly Great Britain grid data, with commodity context.
+Live dashboard of Great Britain's electricity and gas. Half-hourly settlement data, updated through the day, with the registers and prices around it.
 
 **Live:** [grid.vahaah.com](https://grid.vahaah.com)
+**Publisher:** Comonad Ltd · [alex@comonad.co.uk](mailto:alex@comonad.co.uk)
 
-**Data sources:**
-- [Carbon Intensity API](https://api.carbonintensity.org.uk) — carbon intensity, generation mix
-- [Elexon BMRS/Insights](https://bmrs.elexon.co.uk) — Market Index (APXMIDP) short-term wholesale price, imbalance (cash-out) prices, demand, generation by fuel type
-- [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) — national GB solar (including embedded)
-- [NESO](https://www.neso.energy/) — embedded wind (UK settlement periods); [embedded wind and solar forecast](https://www.neso.energy/data-portal/embedded-wind-and-solar-forecasts) added to Elexon NDF so demand look-ahead matches the embedded-inclusive demand line; [historic generation mix](https://www.neso.energy/data-portal/historic-generation-mix) for Year / All time and records (NESO Open Data Licence)
-- [US EIA](https://www.eia.gov/opendata/) — Brent crude, WTI crude, Henry Hub natural gas
-- [National Gas Data Portal](https://data.nationalgas.com) — GB System Average Price (`gb_gas_sap`, PUBOB603), p/kWh, no auth
+![Grid homepage, light theme, 1280px](docs/home-light-1280.png)
+
+## Pages
+
+| Page | What it shows |
+| --- | --- |
+| [/](https://grid.vahaah.com/) | Latest half-hour: generation, demand, carbon intensity, market price |
+| [/today](https://grid.vahaah.com/today) | Today's mix, with a short answer and a map card |
+| [/gas](https://grid.vahaah.com/gas) | National Transmission System supply, demand, linepack and storage |
+| [/prices/gas](https://grid.vahaah.com/prices/gas) | GB System Average Price, Henry Hub, World Bank Europe gas and Japan LNG |
+| [/map](https://grid.vahaah.com/map) | Interconnector and gas entry flows, power stations, DNO areas |
+| [/assets](https://grid.vahaah.com/assets) | Operating stations from REPD and DUKES |
+| [/projects](https://grid.vahaah.com/projects) | Planning, construction and connection status |
+| [/pipeline](https://grid.vahaah.com/pipeline) | Renewable and storage projects by stage |
+| [/system/storage](https://grid.vahaah.com/system/storage) | Pumped storage and batteries |
+| [/system/constraints](https://grid.vahaah.com/system/constraints) | Transmission constraint cost and volume |
+| [/system/balancing](https://grid.vahaah.com/system/balancing) | Balancing costs and BSUoS |
+| [/system/whole-energy](https://grid.vahaah.com/system/whole-energy) | UK annual energy balance (DUKES), not today's figures |
+| [/power-cuts](https://grid.vahaah.com/power-cuts) | Reported cuts in parts of England and Wales |
+| [/electricity/northern-ireland](https://grid.vahaah.com/electricity/northern-ireland) | Northern Ireland and all-island electricity, kept out of GB totals |
+| [/records](https://grid.vahaah.com/records) | Records since Grid's series began |
+| [/explained/price-cap](https://grid.vahaah.com/explained/price-cap) | Ofgem price cap, as published |
+| [/changes](https://grid.vahaah.com/changes) | Changes found in published registers |
+| [/directory](https://grid.vahaah.com/directory) | MPID and industry-code lookup |
+| [/tools](https://grid.vahaah.com/tools) | Official services, grouped by task |
+| [/data-sources](https://grid.vahaah.com/data-sources) | Every source, with its licence and attribution |
+| [/data-health](https://grid.vahaah.com/data-health) | When each series was published and when Grid fetched it |
+| [/methodology](https://grid.vahaah.com/methodology) | Cadence, definitions, and how records are chosen |
+| [/api](https://grid.vahaah.com/api) | JSON API and WebMCP tools |
+
+## Data sources
+
+Attributions on the site are the sentences below. Do not paraphrase them in the product.
+
+| Source | Used for | Licence | Attribution |
+| --- | --- | --- | --- |
+| [Elexon BMRS](https://www.elexon.co.uk/bsc/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/) | Demand, FUELINST, Market Index, imbalance price, interconnectors | BMRS copyright licence | Contains BMRS data © Elexon Limited copyright and database right {year}. |
+| Elexon ISD | MPID and role lookup | The ISD page does not identify the extract as BSC Open Data. Lookup only. Export is refused. | Industry Standing Data from the Elexon ISD Data Store. The store is publicly available. Grid shows the fields needed to look up a code. Elexon has not identified ISD under the BSC Open Data Licence, so Grid does not offer a download of the extract. |
+| [NESO Open Data](https://www.neso.energy/data-portal/neso-open-licence) | Embedded wind, historic mix, constraints, TEC register, DNO areas | NESO Open Data Licence | Supported by National Energy SO Open Data |
+| [Carbon Intensity API](https://carbonintensity.org.uk/) | National carbon intensity | CC BY 4.0 | National carbon intensity from the NESO Carbon Intensity API (CC BY 4.0). Developed by NESO with the University of Oxford, Environmental Defense Fund Europe and WWF. |
+| [Sheffield Solar PV Live](https://www.solar.sheffield.ac.uk/pvlive/) | GB solar, including embedded | Open access | GB solar estimates from Sheffield Solar PV_Live, University of Sheffield, developed with NESO. |
+| [EIA](https://www.eia.gov/) | Brent, WTI, Henry Hub | US government work | Source: U.S. Energy Information Administration. |
+| [World Bank Pink Sheet](https://www.worldbank.org/en/research/commodity-markets) | Europe gas, Japan LNG | CC BY 4.0 | Source: World Bank Commodity Price Data (The Pink Sheet), CC BY 4.0. |
+| [National Gas Data Portal](https://data.nationalgas.com) | System Average Price and NTS physical flows | Written consent, 14 Oct 2026 | Data sourced from the National Gas Transmission Data Portal. |
+| DESNZ REPD and DUKES | Stations, projects, whole-energy balance | [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/) | Contains public sector information licensed under the Open Government Licence v3.0. |
+| [EirGrid Smart Grid Dashboard](https://www.smartgriddashboard.com/all/open-data-license/) | Northern Ireland and all-island series | EirGrid Group Open Data Licence | Supported by EirGrid Group Data |
+| [GeoNames](https://www.geonames.org/) | Approximate landing points and terminal pins | CC BY 4.0 | Place coordinates from GeoNames, CC BY 4.0. |
+| ONS National Statistics Postcode Lookup (August 2026) | Postcode to local authority. BT postcodes are excluded. | OGL and the OS / Royal Mail notices | Contains OS data © Crown copyright and database right 2026. Contains Royal Mail data © Royal Mail copyright and database right 2026. Source: Office for National Statistics licensed under the Open Government Licence v.3.0 |
+| OS Open Zoomstack | Basemap on `/map` | OGL v3.0 | Ordnance Survey credit is on the map. |
+
+The raw forecast series from the Carbon Intensity API is not republished. Grid shows a derived cleanest-window answer.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Vercel (Next.js)                         │
-│                                                                 │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ Dashboard │    │ /api/cron    │    │ /api/snapshots       │   │
-│  │ (SSR)     │    │ (hourly)     │    │ /api/generation      │   │
-│  └─────┬─────┘    └──────┬───────┘    │ /api/interconnectors │   │
-│        │                 │            │ /api/prices /health  │   │
-│        │                 │            │ (public, rate-limited│   │
-│        │                 │            └──────────┬───────────┘   │
-└────────┼─────────────────┼───────────────────────┼──────────────┘
-         │                 │                       │
-         │    ┌────────────▼──────────────┐        │
-         │    │   External APIs           │        │
-         │    │ • Carbon Intensity API    │        │
-         │    │ • Elexon BMRS/Insights    │        │
-         │    │ • NESO / Sheffield PV Live│        │
-         │    │ • EIA / National Gas      │        │
-         │    └────────────┬──────────────┘        │
-         │                 │ ingest                 │
-         │    ┌────────────▼──────────────┐        │
-         └────► Tinybird (ClickHouse)     ◄────────┘
-              │ • energy_snapshots        │ query
-              │ • generation_5min         │
-              │ • commodity_prices        │
-              └───────────────────────────┘
+Next.js on Vercel. Time series for the GB electricity dashboard and commodity prices sit in Tinybird (ClickHouse). Upstash Redis holds the slot lock, the daily Tinybird counter, workflow step bodies, and warmed envelopes. Vercel Blob holds gas releases, constraints, Northern Ireland, the directory snapshot, map flows, and the postcode shards. Plant registers, projects, and the whole-energy edition are JSON and NDJSON in `data/catalogue/`. There is no database.
+
+`/` is `force-static` with `revalidate` 300. It does not load MapLibre. A successful ingest calls `revalidatePath("/")`.
+
+```mermaid
+flowchart TB
+  sources[Elexon, NESO, Carbon Intensity, PV Live, National Gas, EIA, World Bank, EirGrid]
+  cron[Vercel Cron routes]
+  tb[(Tinybird)]
+  redis[(Upstash Redis)]
+  blob[(Vercel Blob)]
+  files[Checked-in catalogue]
+  app[Next.js on Vercel]
+  site[grid.vahaah.com]
+
+  sources --> cron
+  cron --> tb
+  cron --> blob
+  cron --> redis
+  tb --> redis
+  redis --> app
+  blob --> app
+  files --> app
+  app --> site
 ```
 
-## Stack
+Electricity ingest runs every 30 minutes (`/api/cron`). Physical gas is hourly. Oil and gas prices run every 6 hours. The schedules are in `vercel.json`.
 
-- **Next.js 16** (App Router, static/ISR shell, client-side range switching)
-- **Tinybird** (ClickHouse-backed time-series storage + API)
-- **Upstash Redis** (optional REST read-through cache in front of Tinybird / NESO / Elexon / Carbon Intensity)
-- **Vercel** (hosting, cron jobs)
-- **Recharts** (client-side charts)
+## Public API
 
-## Quick Start
+No API key. The limit is 60 requests a minute per IP, per instance, in `src/proxy.ts`. `/api/health` and the cron routes are excluded.
 
-### 1. Clone and install
+The human page is [/api](https://grid.vahaah.com/api). Older routes still answer:
+
+- `GET /api/dashboard`
+- `GET /api/snapshots`
+- `GET /api/generation`
+- `GET /api/interconnectors`
+- `GET /api/prices`
+- `GET /api/look-ahead`
+- `GET /api/health`
+
+Newer routes are under `/api/v1/` (gas, constraints, projects, changes, identifiers, map layers, balancing, data health, Northern Ireland). `POST /api/v1/postcode` takes the postcode in the body. It is not logged. `GET` and `POST /api/v1/identifiers/export` return 403.
+
+[/llms.txt](https://grid.vahaah.com/llms.txt) is a short index for agents.
+
+In a browser that provides `document.modelContext`, Grid registers read-only WebMCP tools: `get_live_mix`, `get_carbon_intensity`, `get_wholesale_price`, `get_price_cap`, `search_grid`, `get_page_dataset`, `get_balancing_summary`, `get_data_health`. They read the page or the existing public JSON. They do not look up an MPAN, MPRN, or meter.
+
+## Local development
 
 ```bash
 git clone https://github.com/vahaah/energy-dashboard.git
 cd energy-dashboard
 npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-### 2. Set up Tinybird
+Node.js 22.12 or newer. `package.json` sets `"private": true` so the package is not published to npm. That flag is independent of the GitHub repository's visibility.
 
-See [`tinybird/README.md`](./tinybird/README.md) for full instructions.
+| Name | Purpose |
+| --- | --- |
+| `TINYBIRD_URL` | Tinybird API host |
+| `TINYBIRD_TOKEN` | Workspace admin token, used by cron ingest |
+| `TINYBIRD_READ_TOKEN` | `dashboard_read` token for pipe queries |
+| `EIA_API_KEY` | EIA open data, required for price ingest |
+| `CRON_SECRET` | Bearer token for cron routes. Required. They fail closed without it. |
+| `UPSTASH_REDIS_REST_URL` | Optional Upstash REST URL (`https://` only) |
+| `UPSTASH_REDIS_REST_TOKEN` | Paired with the REST URL |
+| `KV_REST_API_URL` | Marketplace Redis alias for the REST URL |
+| `KV_REST_API_TOKEN` | Marketplace Redis alias for the REST token |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob for basemap upload and published releases |
+| `DIRECTORY_BLOB_STORE_ID` | Private Blob store id for the ISD snapshot |
+| `DIRECTORY_BLOB_READ_WRITE_TOKEN` | Token for that private store |
+| `INDEXNOW_KEY` | Must match the public key file. Submit scripts only. |
+| `BASEMAP_MBTILES` | Optional local MBTiles path for a basemap rebuild |
+| `OIL_PRICE_API_KEY` | Unused. Ingest is disabled. |
+| `FRED_API_KEY` | Unused. Ingest is disabled. |
+
+Tinybird setup is in [`tinybird/README.md`](./tinybird/README.md).
 
 ```bash
 pip install tinybird-cli
 tb login
 cd tinybird && tb --cloud deploy
-```
-
-After deployment, get your tokens:
-
-```bash
 tb --cloud token ls
 ```
 
-You need two values:
-- **Workspace admin token** → set as `TINYBIRD_TOKEN` (cron uses this to ingest)
-- **`dashboard_read` token** → set as `TINYBIRD_READ_TOKEN` (dashboard uses this to query pipes)
-
-### 3. Configure environment
-
-```bash
-cp .env.example .env.local
-# Edit .env.local with your Tinybird tokens
-```
-
-### 4. Run locally
-
-```bash
-npm run dev
-```
-
-### 5. Seed initial data
-
-Hit the cron endpoint manually to populate your first snapshot (`CRON_SECRET` is required):
+Seed a local snapshot with `CRON_SECRET` set:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron
 ```
 
-### 6. Backfill historical data (optional)
+## Scripts
 
-Load historical data from all sources into Tinybird:
+| Command | What it does |
+| --- | --- |
+| `npm run dev` / `npm run build` | Next.js. `predev` and `prebuild` rebuild search indexes and the homepage map card. They do not fetch. |
+| `npm test` | Vitest |
+| `npm run test:layout` | Playwright layout tests |
+| `npm run publish-check` | Catalogue schema, referential integrity, and immutable release lines |
+| `npm run indexnow` | Submit sitemap URLs whose `lastmod` is newer than the checkpoint |
+| `npm run indexnow:once` | One-shot after a release marker is live in production |
+| `npx tsx scripts/backfill.ts --days 30` | Historical grid and EIA backfill. `--from` / `--to` are UK settlement dates. |
+| `npx tsx scripts/backfill-commodities.ts --dry-run` | Commodity desk healer |
+| `npx tsx scripts/backfill-gb-gas-sap.ts` | GB gas SAP backfill. Dry-run unless you pass `--execute`. |
+| `npm run catalogue:assets` | Rebuild the plant register from a local REPD / DUKES cache |
+| `npm run catalogue:projects` | Rebuild projects from local REPD and TEC files |
+| `npm run basemap` | Manual Zoomstack PMTiles upload. Exits immediately when `BLOB_READ_WRITE_TOKEN` is unset. |
 
-```bash
-# Last 30 days (default)
-npx tsx scripts/backfill.ts --days 30
+Catalogue commands that say `--offline` read `data/catalogue/raw/` and fail if that cache is missing. They do not fall through to HTTP. The raw extracts are gitignored.
 
-# Custom UK settlement-date range (inclusive YYYY-MM-DD, not UTC midnights)
-npx tsx scripts/backfill.ts --from 2026-01-01 --to 2026-03-18
-
-# Dry run (preview without ingesting)
-npx tsx scripts/backfill.ts --days 7 --dry-run
-
-# Backfill only prices or only grid snapshots
-npx tsx scripts/backfill.ts --days 90 --only prices
-npx tsx scripts/backfill.ts --days 30 --only snapshots
-```
-
-`--from` / `--to` are inclusive **UK settlement dates**. Do not pass UTC midnights — `--to 2026-09-27` during BST must not ingest 28 Sep.
-
-GB gas SAP is a separate one-off backfill (National Gas PUBOB603, 2025-01-01 → today). Dry-run is the default; `--execute` appends rows that are not already stored. Do not run `--execute` from CI or agents:
+## Testing
 
 ```bash
-npx tsx scripts/backfill-gb-gas-sap.ts
-npx tsx scripts/backfill-gb-gas-sap.ts --execute
+npm run lint
+npm run typecheck
+npm run publish-check
+npm test
+npm run test:layout
 ```
 
-Requires `TINYBIRD_URL` and `TINYBIRD_TOKEN` in `.env.local` at the **repo root**. A real `EIA_API_KEY` is required for EIA history (`DEMO_KEY` is not used). Commodity-desk healing:
+Playwright uses Chromium. Layout coverage is 1280, 1024, 768 and 375, light and dark. CI runs the unit job once and the layout job in four shards. The map specs run as their own project, one worker.
 
-```bash
-npx tsx scripts/backfill-commodities.ts --dry-run
-npx tsx scripts/backfill-commodities.ts --from 2025-01-01
-npx tsx scripts/backfill-commodities.ts --purge-stray --dry-run
-```
+## Deployment
 
-`/api/cron-prices` self-backfills: the 00:30 UTC slot writes a 400-day EIA window (other slots write 30 days), every run writes World Bank Pink Sheet months from 2025-01, and National Gas SAP stays on its 7-day window. Leftover `OIL_PRICE_API_KEY` / `FRED_API_KEY` values are ignored. History is complete within 24h of deploy.
+Vercel deploys `main`. Set the environment variables above in the project. Cron routes are in `vercel.json`.
 
-### Cleanup leftover future generation rows
+After a production deploy, `.github/workflows/indexnow-submit.yml` submits changed sitemap URLs. The IndexNow key in `public/` is public on purpose. Workflows do not print it. The one-shot workflow redacts `INDEXNOW_KEY` in its logs.
 
-NESO day-ahead forecasts were ingested with timestamps after `now()`. Latest pipes and `/api/health` ignore those rows, but they still sit in `generation_5min` until deleted.
+## Contributing
 
-Preview (safe):
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports go to [alex@comonad.co.uk](mailto:alex@comonad.co.uk). See [SECURITY.md](./SECURITY.md).
 
-```sql
-SELECT timestamp, fuel_type, source, generation_mw
-FROM generation_5min
-WHERE timestamp > now()
-ORDER BY timestamp
-```
+## Licence
 
-Delete only after reviewing the preview. Do not run this from CI or agents:
+The code is MIT. See [LICENSE](./LICENSE). Grid's derived data is CC BY 4.0, with credit to Grid. Upstream data stays under each source's own licence and attribution, listed above and on [/data-sources](https://grid.vahaah.com/data-sources). [/llms.txt](https://grid.vahaah.com/llms.txt) uses the same three terms.
 
-```sql
-DELETE FROM generation_5min WHERE timestamp > now()
-```
-
-Incomplete just-started snapshot rows can stay. `latest_snapshot` now requires non-null `demand_mw` and `price_gbp_mwh`. Preview leftovers with:
-
-```sql
-SELECT timestamp, demand_mw, price_gbp_mwh
-FROM energy_snapshots FINAL
-WHERE demand_mw IS NULL OR price_gbp_mwh IS NULL
-ORDER BY timestamp DESC
-```
-
-The homepage and `/api/prices` publish EIA oil/gas, World Bank monthly Europe gas and Japan LNG, and National Gas SAP. Other stored commodity rows stay in Tinybird but are not served.
-
-### 7. Deploy to Vercel
-
-```bash
-vercel deploy
-```
-
-Set environment variables in Vercel dashboard:
-- `TINYBIRD_URL`
-- `TINYBIRD_TOKEN`
-- `TINYBIRD_READ_TOKEN`
-- `EIA_API_KEY`
-- `CRON_SECRET`
-- `UPSTASH_REDIS_REST_URL` (optional — Vercel Marketplace Upstash Redis)
-- `UPSTASH_REDIS_REST_TOKEN` (optional — paired with the REST URL)
-- `OIL_PRICE_API_KEY` (optional, unused — ingest disabled in cron and backfill)
-- `FRED_API_KEY` (optional, unused — ingest disabled in cron and backfill)
-
-If the Upstash vars are missing, Redis errors, or the lock cannot be taken, `queryPipe` and the NESO / Elexon / Carbon Intensity fetches fall back to the existing Next.js cache. After each ingest, crons bump a cache epoch (invalidating live keys) and warm Day / Week / Year / All plus commodity ranges.
-
-The cron job runs automatically every hour via `vercel.json`. Commodity ingest (`/api/cron-prices`) runs every 6 hours and self-backfills EIA + World Bank history within 24h of deploy. `scripts/backfill-commodities.ts` is optional.
-
-### 8. Ping IndexNow
-
-After `public/79e85fd471ac4c8e8327acd532d0a9c9.txt` is live:
-
-```bash
-npm run indexnow
-npm run indexnow -- --all
-```
-
-`scripts/indexnow.ts` fetches `https://grid.vahaah.com/sitemap.xml`, follows the sitemap index, and reads `<loc>` and `<lastmod>` from each child. It POSTs `{ host, key, keyLocation, urlList }` to `https://api.indexnow.org/indexnow` in batches of at most 10,000 URLs. 200 and 202 are success. Transient failures retry up to three attempts. The default submits URLs whose lastmod is newer than that child sitemap's checkpoint. GitHub Actions keeps that checkpoint in the `indexnow-marker` artifact (`INDEXNOW_MARKER_FILE`). A missing marker submits every sitemap URL and does not fail the run. Redis or Vercel Blob is used only when that store is configured outside Actions. A pages build time does not hide an older catalogue stream. `--all` submits every page URL and needs no store. It prints the HTTP status of each batch and exits non-zero if the sitemap fetch or any batch fails.
-
-The IndexNow key is public by design. The file contains only `79e85fd471ac4c8e8327acd532d0a9c9` and is served at `https://grid.vahaah.com/79e85fd471ac4c8e8327acd532d0a9c9.txt`. `src/proxy.ts` matches `/api/:path*` and returns that path before the rate limiter, so key verification stays on the static file.
-
-## Public API
-
-All API endpoints are public. Rate limiting is an in-memory 60 req/min per IP **per instance** in `src/proxy.ts` (not shared across serverless isolates; resets on cold start). `/api/health`, `/api/cron`, and `/api/cron-prices` are excluded.
-
-### `GET /api/dashboard`
-
-Assembled homepage payload for client-side range switching. Used by `/` so Day / Week / Year / All never reload the page.
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `period` | `day\|week\|year\|all` | `day` | Global (or per-block) period |
-| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `period=day` |
-| `commodityRange` | `30d\|90d\|1y` | `90d` | Oil/gas window included on the payload |
-
-### `GET /api/snapshots`
-
-Returns GB grid energy snapshots. `price_mid_gbp_mwh` is the Elexon **short-term wholesale Market Index** (APXMIDP), not the day-ahead auction. Half-hours with zero volume or £0 are stored as `null`. `price_gbp_mwh` is the **imbalance / cash-out (system buy)** price. `gen_pumped_mw` and `gen_battery_mw` are nullable storage columns. `24h` is a rolling 24 hours unless a historical `date` is supplied (UK calendar day). Missing metrics are `null`. The JSON includes an `attribution` block with the exact BMRS credit and licence URL.
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `range` | `24h\|7d\|30d\|90d\|1y` | `24h` | Time range (invalid values return 400) |
-| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
-
-### `GET /api/generation`
-
-Returns FUELINST, NESO embedded wind, and Sheffield Solar PV Live series. PV Live is national GB solar, stored as `embedded_solar`.
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `range` | `24h\|7d\|30d\|90d\|1y` | `24h` | Time range |
-| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
-
-### `GET /api/interconnectors`
-
-Returns interconnector import/export flows (Elexon FUELINST `INT*` fuels).
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `range` | `24h\|7d` | `24h` | Time range |
-| `date` | `YYYY-MM-DD` | — | Optional UK calendar day when `range=24h` |
-
-### `GET /api/prices`
-
-Returns commodity prices. Public series are EIA Brent, WTI and Henry Hub; World Bank monthly Europe gas (`eu_natural_gas`) and Japan LNG (`lng_asia`); plus National Gas System Average Price (`gb_gas_sap`, stored in **p/kWh**; display as p/therm × 29.3071 or £/MWh × 10). Unknown commodity keys return 400.
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `range` | `30d\|90d\|1y` | `30d` | Time range |
-| `commodity` | `brent_crude\|wti_crude\|henry_hub_gas\|eu_natural_gas\|lng_asia\|gb_gas_sap` | all | Filter |
-
-### `GET /api/look-ahead`
-
-Derived next-48-hours answers only. Returns Grid’s cleanest 2-hour window from the NESO Carbon Intensity 48-hour forecast, plus a tonight/tomorrow wind sentence from Elexon WINDFOR. Cached 30 minutes. **Does not** pass through the raw carbon forecast series (Carbon Intensity API terms). Forecast times are when Grid fetched the source.
-
-### `GET /api/health`
-
-Freshness of snapshots, FUELINST, embedded generation, and prices. Thresholds follow ingest cadence (`/api/cron` hourly → 2.5h; `/api/cron-prices` every 6h → 4d). Returns **503** when a critical grid stream is stale. Suitable for an uptime monitor.
-
-### Rate Limiting
-
-- **60 requests per minute** per IP address, per serverless instance (`src/proxy.ts`)
-- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
-- Returns `429 Too Many Requests` when exceeded
-- In-memory only — not distributed. There is no Upstash (or other shared) limiter.
-- Public JSON uses `s-maxage` + `stale-while-revalidate` (`/api/dashboard`, `/api/snapshots`, `/api/generation`, `/api/prices`, `/api/look-ahead`).
-- Homepage range changes update the URL with `history.replaceState` and refetch only the affected charts. Per-block overrides (`generationPeriod`, `pricePeriod`, `transfersPeriod`, `mixPeriod`, `carbonPeriod`) keep `?focus=` share links working.
-
-## Data Model
-
-### `energy_snapshots` (half-hourly, UK settlement periods)
-- Carbon intensity (actual + forecast)
-- System demand (MW)
-- Short-term wholesale Market Index price and volume (`price_mid_gbp_mwh`, `mid_volume_mwh`)
-- Imbalance / cash-out price (`price_gbp_mwh`, £/MWh)
-- Generation mix (% and MW): gas, coal, nuclear, wind, solar, hydro, biomass, imports
-- Storage MW: pumped, battery (nullable)
-- Missing values are stored as `null` so averages skip gaps
-
-### `generation_5min`
-- Elexon FUELINST (5-min)
-- NESO embedded wind (half-hourly, UK local mapping)
-- Sheffield Solar PV Live (30-min national solar, used because NESO actuals are too coarse for midday solar)
-
-### `commodity_prices` (daily / monthly)
-- Brent Crude ($/bbl) — EIA
-- WTI Crude ($/bbl) — EIA
-- Henry Hub Natural Gas ($/MMBtu) — EIA
-- Natural gas, Europe ($/MMBtu, monthly) — World Bank Pink Sheet, CC BY 4.0
-- LNG, Japan import price ($/MMBtu, monthly) — World Bank Pink Sheet, CC BY 4.0
-- GB gas System Average Price (p/kWh, `gb_gas_sap`) — National Gas PUBOB603
-
-## License
-
-[MIT](./LICENSE) © 2026 Alex Vakhitov
+Vendored agent skills under `.agents/skills/` keep their own licence files. `skills-lock.json` records the upstream commit for each one.
