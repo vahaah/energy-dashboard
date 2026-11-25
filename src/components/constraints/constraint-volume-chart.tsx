@@ -83,7 +83,7 @@ export function ConstraintVolumeChart({ series }: { series: MeasuredVolumeChartS
   return (
     <div data-chart="constraint-volume" data-unit="MWh">
       <p className="mb-2 text-copy-14 text-gray-900">{gigawattHours ? "Volume, GWh" : "Volume, MWh"}</p>
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Constraint volume, megawatt-hours.">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={[...checked.points]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid {...chartGrid} />

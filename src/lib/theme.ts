@@ -51,6 +51,7 @@ export function applyTheme(theme: Theme): void {
   root.classList.toggle("dark", theme === "dark");
   root.classList.toggle("light", theme === "light");
   root.style.colorScheme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0a0a0a" : "#ffffff");
 }
 
 export function persistTheme(theme: Theme): void {
@@ -61,4 +62,4 @@ export function persistTheme(theme: Theme): void {
   }
 }
 
-export const THEME_BOOTSTRAP_SCRIPT = `(function(){var k=${JSON.stringify(THEME_STORAGE_KEY)};var s=null;try{s=localStorage.getItem(k);}catch(e){}var t=s==="light"||s==="dark"?s:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("light",t==="light");r.style.colorScheme=t;})();`;
+export const THEME_BOOTSTRAP_SCRIPT = `(function(){var k=${JSON.stringify(THEME_STORAGE_KEY)};var s=null;try{s=localStorage.getItem(k);}catch(e){}var t=s==="light"||s==="dark"?s:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.classList.toggle("light",t==="light");r.style.colorScheme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="dark"?"#0a0a0a":"#ffffff");})();`;

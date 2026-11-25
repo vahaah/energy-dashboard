@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { parseAsStringLiteral, useQueryStates } from "nuqs";
+import { ChoiceRow } from "@/components/ui/choice-row";
 import { displayedPercents } from "@/lib/display-rounding";
 import { WHOLE_ENERGY_SECTORS, type WholeEnergySectorId } from "@/lib/whole-energy/copy";
 
@@ -20,36 +21,27 @@ export type SectorPanel = {
   fuels: SectorFuel[];
 };
 
+const sectorParsers = {
+  sector: parseAsStringLiteral(WHOLE_ENERGY_SECTORS).withDefault("homes"),
+};
+
 export function SectorSwitch({ sectors }: { sectors: readonly SectorPanel[] }) {
-  const [selected, setSelected] = useState<WholeEnergySectorId>("homes");
+  const [params, setParams] = useQueryStates(sectorParsers, { history: "replace", shallow: true, scroll: false });
+  const selected = params.sector;
+  const options = WHOLE_ENERGY_SECTORS.flatMap((id) => {
+    const sector = sectors.find((item) => item.id === id);
+    return sector ? [{ value: id, label: sector.label }] : [];
+  });
   return (
     <div>
-      <div
-        className="inline-flex max-w-full flex-wrap rounded-md border border-gray-alpha-400 bg-background-200"
-        role="group"
-        aria-label="Final consumption"
-      >
-        {WHOLE_ENERGY_SECTORS.map((id) => {
-          const sector = sectors.find((item) => item.id === id);
-          if (!sector) {
-            return null;
-          }
-          const pressed = id === selected;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => setSelected(id)}
-              className={`inline-flex h-11 min-h-11 items-center rounded-md px-3 text-label-13 sm:h-8 sm:min-h-8 ${
-                pressed ? "bg-background-100 text-gray-1000" : "text-gray-900"
-              }`}
-            >
-              {sector.label}
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceRow
+        ariaLabel="Final consumption"
+        value={selected}
+        onChange={(sector) => {
+          void setParams({ sector });
+        }}
+        options={options}
+      />
       {sectors.map((sector) => (
         <div key={sector.id} className={sector.id === selected ? "mt-4" : "hidden"} data-sector={sector.id}>
           <p data-figure className="whitespace-nowrap font-sans text-heading-24 tabular-nums text-gray-1000">

@@ -1,3 +1,5 @@
+@layer ui-sdk;
+
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -180,6 +182,8 @@
 
 html {
   color-scheme: light;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 html.dark {

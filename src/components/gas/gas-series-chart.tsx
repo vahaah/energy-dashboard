@@ -55,7 +55,7 @@ export function GasSeriesChart({
 
   return (
     <div className="mt-4 min-w-0">
-      <ResponsiveChartFrame className="h-[200px] md:h-[280px]">
+      <ResponsiveChartFrame className="h-[200px] md:h-[280px]" summary="National Transmission System series. Values are in the table on this page.">
         <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="var(--gray-alpha-400)" vertical={false} />

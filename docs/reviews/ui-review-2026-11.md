@@ -68,24 +68,26 @@ src/components/storage/storage-board.tsx:265 - type and status selects have no n
 
 Phone controls that were already `min-h-11` below `sm` and `min-h-8` from `sm` were left on that pattern. The fixes above are the controls that stayed under 44px on a phone.
 
-## P2 — later
+## P2 — fixed
+
+Done in the UI SDK adoption. Phone targets use `min-h-11` below `sm` and `min-h-8` from `sm`. Filter state that was `useState` is now the page URL (`nuqs`, `history: replace`). Chart frames carry a visually hidden summary. The browser chrome colour follows the theme class.
 
 ```text
-src/app/layout.tsx:46 - no theme-color meta for the browser chrome
-src/app/globals.css:171 - no touch-action: manipulation, and no overscroll-behavior on html
-src/components/homepage-briefing.tsx:42 - h1 has no text-wrap: pretty
-src/components/seo-page.tsx:42 - page h1 has no text-wrap: pretty
-src/components/dashboard.tsx:387 - empty-state action is 32px tall
-src/components/site-public-nav.tsx:30 - footer links are 32px tall
-src/components/site-legal-nav.tsx:19 - footer links are 32px tall
-src/components/gas/gas-board.tsx:47 - coverage chips use py-0.5
-src/components/whole-energy/sector-switch.tsx:24 - selected sector is useState, not the URL
-src/components/changes/changes-board.tsx:25 - change-type filter is useState, not the URL
-src/components/projects/projects-board.tsx:65 - stage, technology, and nation filters are useState, not the URL
-src/components/storage/storage-board.tsx:245 - type and status filters are useState, not the URL
-src/components/power-cuts/view.tsx:100 - outward code, operator, and kind are useState, not the URL
-src/components/charts/carbon-intensity-chart.tsx:125 - chart has no text alternative beyond the tooltip; the card’s current figure is in the surrounding copy
-src/components/charts/responsive-chart-frame.tsx:20 - same pattern on the other Recharts frames
+src/app/layout.tsx - theme-color meta, updated by the theme bootstrap and applyTheme
+src/app/globals.css - touch-action: manipulation and overscroll-behavior on html
+src/components/homepage-briefing.tsx - h1 uses text-pretty
+src/components/seo-page.tsx - page h1 uses text-pretty
+src/components/dashboard.tsx - empty-state action is 44px on a phone
+src/components/site-public-nav.tsx - footer links are 44px on a phone
+src/components/site-legal-nav.tsx - footer links are 44px on a phone
+src/components/gas/gas-board.tsx - coverage chips are 44px on a phone
+src/components/whole-energy/sector-switch.tsx - selected sector is the sector query
+src/components/changes/changes-board.tsx - change-type filter is the type query
+src/components/projects/projects-board.tsx - stage, technology and nation are query parameters
+src/components/storage/storage-board.tsx - type and status are query parameters
+src/components/power-cuts/view.tsx - outward, operator and kind are query parameters
+src/components/charts/carbon-intensity-chart.tsx - visually hidden summary, including the latest actual
+src/components/charts/responsive-chart-frame.tsx - summary is required and rendered for every Recharts frame
 ```
 
 Long registers are already paged. `content-visibility` and virtualisation are not required for the current page sizes.

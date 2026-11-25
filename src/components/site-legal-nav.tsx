@@ -16,7 +16,7 @@ export function SiteLegalNav({ className = "" }: { className?: string }) {
         <Link
           key={link.href}
           href={link.href}
-          className="inline-flex min-h-8 items-center text-label-13 text-blue-700 underline-offset-2 hover:underline"
+          className="inline-flex min-h-11 items-center text-label-13 text-blue-700 underline-offset-2 hover:underline sm:min-h-8"
         >
           {link.label}
         </Link>

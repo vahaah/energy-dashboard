@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ConstraintCostChart } from "@/components/constraints/constraint-cost-chart";
+import { ChoiceRow } from "@/components/ui/choice-row";
 import { ConstraintVolumeChart } from "@/components/constraints/constraint-volume-chart";
 import {
   measuredCostChart,
@@ -27,14 +28,15 @@ export function ConstraintSeries({
   const volumeSeries = volume ? (grain === "week" ? weeklyVolume(volume) : volume) : null;
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <div className="inline-flex rounded-md border border-gray-alpha-400 bg-background-200" role="group" aria-label="Chart grain">
-        <GrainButton pressed={grain === "week"} onClick={() => setGrain("week")}>
-          Weekly
-        </GrainButton>
-        <GrainButton pressed={grain === "day"} onClick={() => setGrain("day")}>
-          Daily
-        </GrainButton>
-      </div>
+      <ChoiceRow
+        ariaLabel="Chart grain"
+        value={grain}
+        onChange={setGrain}
+        options={[
+          { value: "week", label: "Weekly" },
+          { value: "day", label: "Daily" },
+        ]}
+      />
       {costSeries ? <ConstraintCostChart series={costSeries} /> : null}
       {volumeSeries ? (
         <div>
@@ -44,29 +46,6 @@ export function ConstraintSeries({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function GrainButton({
-  pressed,
-  onClick,
-  children,
-}: {
-  pressed: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`inline-flex h-8 min-h-11 items-center rounded-md px-3 text-label-13 sm:min-h-8 ${
-        pressed ? "bg-background-100 text-gray-1000" : "text-gray-900"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

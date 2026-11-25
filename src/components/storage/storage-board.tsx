@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { Card } from "@/components/ui/card";
@@ -242,9 +244,16 @@ function InventoryTable({
   showEnergy: boolean;
   showDuration: boolean;
 }) {
-  const [technology, setTechnology] = useState("all");
-  const [status, setStatus] = useState("all");
   const technologies = useMemo(() => [...new Set(rows.map((row) => row.technologyLabel))].sort(), [rows]);
+  const [params, setParams] = useQueryStates(
+    {
+      type: parseAsString.withDefault("all"),
+      status: parseAsStringLiteral(["all", "operational"] as const).withDefault("all"),
+    },
+    { history: "replace", shallow: true, scroll: false },
+  );
+  const technology = params.type === "all" || technologies.includes(params.type) ? params.type : "all";
+  const status = params.status;
   const filtered = rows.filter((row) => {
     if (technology !== "all" && row.technologyLabel !== technology) {
       return false;
@@ -260,34 +269,29 @@ function InventoryTable({
   return (
     <div className="mt-4">
       <div className="mb-3 grid min-w-0 gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-          Type
-          <select
-            name="storage-type"
-            autoComplete="off"
-            value={technology}
-            onChange={(event) => setTechnology(event.target.value)}
-            className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
-          >
-            <option value="all">All types</option>
-            {technologies.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-          Status
-          <select
-            name="storage-status"
-            autoComplete="off"
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
-          >
-            <option value="all">All statuses</option>
-            <option value="operational">Operational</option>
-          </select>
-        </label>
+        <ChoiceSelect
+          label="Type"
+          name="storage-type"
+          value={technology}
+          onValueChange={(type) => {
+            void setParams({ type });
+          }}
+          options={[{ value: "all", label: "All types" }, ...technologies.map((item) => ({ value: item, label: item }))]}
+        />
+        <ChoiceSelect
+          label="Status"
+          name="storage-status"
+          value={status}
+          onValueChange={(next) => {
+            if (next === "all" || next === "operational") {
+              void setParams({ status: next });
+            }
+          }}
+          options={[
+            { value: "all", label: "All statuses" },
+            { value: "operational", label: "Operational" },
+          ]}
+        />
       </div>
       <div className={`hidden min-w-0 ${grid} gap-3 border-b border-gray-alpha-400 py-2 text-label-12 text-gray-900 md:grid`}>
         <p className="min-w-0 break-words">Station</p>

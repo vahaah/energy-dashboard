@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NuqsTestingAdapter } from "nuqs/adapters/testing";
 import { describe, expect, it } from "vitest";
 import { GET } from "@/app/api/v1/changes/route";
 import { ChangesBoard } from "@/components/changes/changes-board";
@@ -201,6 +202,7 @@ describe("change events", () => {
 
   it("renders one row per comparison", () => {
     const html = renderToStaticMarkup(
+      <NuqsTestingAdapter>
       <ChangesBoard
         rows={[
           {
@@ -225,7 +227,8 @@ describe("change events", () => {
           },
         ]}
         attribution="Supported by National Energy SO Open Data"
-      />,
+      />
+      </NuqsTestingAdapter>,
     );
     expect(html).toContain("2 changes");
     expect(html.match(/<article/g)).toHaveLength(2);

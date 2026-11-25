@@ -89,5 +89,5 @@ export function AssetSearchDialogHost() {
   if (!open) {
     return null;
   }
-  return createPortal(<AssetSearchDialog onClose={hideDialog} />, document.body);
+  return createPortal(<AssetSearchDialog onClose={hideDialog} returnFocus={opener} />, document.body);
 }

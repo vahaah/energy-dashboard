@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NuqsTestingAdapter } from "nuqs/adapters/testing";
 import { describe, expect, it } from "vitest";
 import { OGL_V3_ATTRIBUTION } from "@/lib/attribution";
 import { sha256Prefixed } from "@/lib/catalogue/canonical";
@@ -173,7 +174,11 @@ describe("whole energy balance", () => {
     expect(wholeEnergyUnitLabel(2025)).toBe("TWh, year 2025.");
     expect(WHOLE_ENERGY_ATTRIBUTION).toBe(OGL_V3_ATTRIBUTION);
 
-    const html = renderToStaticMarkup(<WholeEnergyBoard model={buildWholeEnergyPage(loadWholeEnergyEdition())} />);
+    const html = renderToStaticMarkup(
+      <NuqsTestingAdapter>
+        <WholeEnergyBoard model={buildWholeEnergyPage(loadWholeEnergyEdition())} />
+      </NuqsTestingAdapter>,
+    );
     expect(html).toContain("Whole energy flows");
     expect(html).toContain("TWh, year 2025.");
     expect(html).toContain("UK, including Northern Ireland. Annual, 2025.");

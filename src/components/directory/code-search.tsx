@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { fetchBounded } from "@/lib/http/bounded-json";
 import { LookupResults } from "@/components/directory/lookup-result";
+import { ChoiceSelect } from "@/components/ui/choice-select";
+import { Input } from "@ui-sdk/react/input";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { IDENTIFIER_SCHEMES, SCHEME_INTRO, SCHEME_LABEL, SCHEME_ROLE, type IdentifierScheme } from "@/lib/directory/copy";
 import { codeLookupReady, codeLookupRejection, type LookupResult } from "@/lib/directory/lookup";
@@ -71,33 +73,24 @@ export function DirectoryCodeSearch({ defaultDate }: { defaultDate: string }) {
     <form onSubmit={onSubmit} className="flex min-w-0 flex-col gap-4">
       <p className="text-copy-14 text-gray-900">{SCHEME_INTRO[scheme]}</p>
       <p className="text-copy-14 text-gray-900">{SCHEME_ROLE[scheme]}</p>
-      <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
-        Scheme
-        <select
-          name="scheme"
-          autoComplete="off"
-          value={scheme}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (next === "MPID" || next === "BM_UNIT_ID" || next === "GSP_GROUP") {
-              setScheme(next);
-              setResult(null);
-              setMessage("");
-              setNotice(null);
-            }
-          }}
-          className={FIELD}
-        >
-          {IDENTIFIER_SCHEMES.map((item) => (
-            <option key={item} value={item}>
-              {SCHEME_LABEL[item]}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ChoiceSelect
+        label="Scheme"
+        name="scheme"
+        value={scheme}
+        onValueChange={(next) => {
+          if (next === "MPID" || next === "BM_UNIT_ID" || next === "GSP_GROUP") {
+            setScheme(next);
+            setResult(null);
+            setMessage("");
+            setNotice(null);
+          }
+        }}
+        options={IDENTIFIER_SCHEMES.map((item) => ({ value: item, label: SCHEME_LABEL[item] }))}
+        className="max-w-[480px]"
+      />
       <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-1000">
         Code
-        <input
+        <Input
           name="code"
           value={code}
           onChange={(event) => setCode(event.target.value)}

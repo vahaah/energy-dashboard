@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQueryStates } from "nuqs";
+import { Input } from "@ui-sdk/react/input";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { assetHref } from "@/lib/assets/href";
 import { type AssetListRow, isDefaultAssetQuery } from "@/lib/assets/list";
 import { LOCATION_UNAVAILABLE, formatMw, technologyLabel } from "@/lib/assets/labels";
@@ -224,7 +226,7 @@ export function AssetDirectory({
       <form className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={(event) => event.preventDefault()}>
         <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900 sm:col-span-2 lg:col-span-3">
           Search
-          <input
+          <Input
             type="search"
             name="q"
             autoComplete="off"
@@ -362,22 +364,12 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-      {label}
-      <select
-        name={label.toLowerCase()}
-        autoComplete="off"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full min-w-0 truncate rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000"
-      >
-        <option value="">All</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ChoiceSelect
+      label={label}
+      name={label.toLowerCase()}
+      value={value}
+      onValueChange={onChange}
+      options={[{ value: "", label: "All" }, ...options]}
+    />
   );
 }

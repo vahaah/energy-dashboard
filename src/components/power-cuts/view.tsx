@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { parseAsString, useQueryStates } from "nuqs";
+import { Input } from "@ui-sdk/react/input";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { PowerCutsMap } from "@/components/power-cuts/map";
 import { PostcodeList } from "@/components/power-cuts/postcode-list";
 import { OfgemContext } from "@/components/power-cuts/ofgem-chart";
@@ -97,9 +100,17 @@ export function PowerCutsView({
   const previewState = useSyncExternalStore(subscribePreview, previewFromLocation, previewOnServer);
   const settled = previewState !== PREVIEW_PENDING;
   const preview = previewState === "empty" || previewState === "absent" ? previewState : null;
-  const [query, setQuery] = useState("");
-  const [operator, setOperator] = useState<"all" | Operator>("all");
-  const [kind, setKind] = useState<"all" | PowerCutKind>("all");
+  const [params, setParams] = useQueryStates(
+    {
+      outward: parseAsString.withDefault(""),
+      operator: parseAsString.withDefault("all"),
+      kind: parseAsString.withDefault("all"),
+    },
+    { history: "replace", shallow: true, scroll: false },
+  );
+  const query = params.outward;
+  const operator: "all" | Operator = (OPERATORS as readonly string[]).includes(params.operator) ? (params.operator as Operator) : "all";
+  const kind: "all" | PowerCutKind = params.kind === "planned" || params.kind === "unplanned" ? params.kind : "all";
   const [page, setPage] = useState(0);
 
   const now = useMemo(() => new Date(nowIso), [nowIso]);
@@ -246,58 +257,50 @@ export function PowerCutsView({
               Incidents
             </h2>
             <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
+              <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900 sm:w-40">
                 Outward postcode
-                <input
+                <Input
                   name="outward"
                   autoComplete="off"
                   spellCheck={false}
                   value={query}
                   placeholder="for example, SW1A…"
                   onChange={(event) => {
-                    setQuery(event.target.value);
+                    void setParams({ outward: event.target.value });
                     setPage(0);
                   }}
-                  className="h-11 min-h-11 w-full min-w-0 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-40"
+                  className="h-11 min-h-11 w-full min-w-0 rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000"
                 />
               </label>
-              <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-                Operator
-                <select
-                  name="operator"
-                  autoComplete="off"
-                  value={operator}
-                  onChange={(event) => {
-                    setOperator(event.target.value as "all" | Operator);
-                    setPage(0);
-                  }}
-                  className="h-11 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-64"
-                >
-                  <option value="all">All operators</option>
-                  {OPERATORS.map((item) => (
-                    <option key={item} value={item}>
-                      {operatorName(item)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-                Kind
-                <select
-                  name="kind"
-                  autoComplete="off"
-                  value={kind}
-                  onChange={(event) => {
-                    setKind(event.target.value as "all" | PowerCutKind);
-                    setPage(0);
-                  }}
-                  className="h-11 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-gray-alpha-400 bg-background-100 px-3 text-copy-14 text-gray-1000 sm:w-56"
-                >
-                  <option value="all">Planned and unplanned</option>
-                  <option value="unplanned">Unplanned</option>
-                  <option value="planned">Planned</option>
-                </select>
-              </label>
+              <ChoiceSelect
+                label="Operator"
+                name="operator"
+                value={operator}
+                onValueChange={(next) => {
+                  void setParams({ operator: next });
+                  setPage(0);
+                }}
+                options={[
+                  { value: "all", label: "All operators" },
+                  ...OPERATORS.map((item) => ({ value: item, label: operatorName(item) })),
+                ]}
+                className="sm:w-64"
+              />
+              <ChoiceSelect
+                label="Kind"
+                name="kind"
+                value={kind}
+                onValueChange={(next) => {
+                  void setParams({ kind: next });
+                  setPage(0);
+                }}
+                options={[
+                  { value: "all", label: "Planned and unplanned" },
+                  { value: "unplanned", label: "Unplanned" },
+                  { value: "planned", label: "Planned" },
+                ]}
+                className="sm:w-56"
+              />
             </div>
             {visible.length === 0 ? (
               <p className="mt-4 text-copy-16 text-gray-1000">{NO_POWER_CUTS}</p>

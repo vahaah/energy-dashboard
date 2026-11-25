@@ -77,7 +77,7 @@ function DailyPlot({ points, summary }: { points: DailyChartPoint[]; summary: bo
   const axis = poundChartAxis(extent(points));
   const categories = summary ? (["constraints"] as const) : BALANCING_CATEGORIES;
   return (
-    <ResponsiveChartFrame className={summary ? "h-[240px]" : "h-[280px]"}>
+    <ResponsiveChartFrame className={summary ? "h-[240px]" : "h-[280px]"} summary="Daily balancing cost, pounds. The latest total is in the card.">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid {...chartGrid} />

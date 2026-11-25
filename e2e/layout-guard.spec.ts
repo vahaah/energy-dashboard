@@ -473,7 +473,7 @@ async function auditPopovers(page: Page): Promise<LayoutIssue[]> {
     }
     await button.scrollIntoViewIfNeeded();
     await button.click();
-    const tip = page.locator('[role="tooltip"]');
+    const tip = page.getByRole("tooltip");
     try {
       await expect(tip).toBeVisible({ timeout: 2000 });
     } catch {

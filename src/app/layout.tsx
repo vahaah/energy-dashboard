@@ -47,6 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#ffffff" />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         {WEBMCP_ORIGIN_TRIAL_TOKEN ? (
           <meta httpEquiv="origin-trial" content={WEBMCP_ORIGIN_TRIAL_TOKEN} />

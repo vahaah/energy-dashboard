@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { PowerMap } from "@/components/power-map";
 import { Card } from "@/components/ui/card";
+import { ChoiceSelect } from "@/components/ui/choice-select";
+import { NamedCheckbox } from "@/components/ui/named-checkbox";
 import { assetHref } from "@/lib/assets/href";
 import {
   ASSET_PRECISION,
@@ -136,46 +138,25 @@ export function MapExplorer({
     >
       <fieldset className="flex min-w-0 flex-col gap-3">
         <legend className="sr-only">Map layers</legend>
-        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
-          <input
-            type="checkbox"
-            name="power-assets"
-            className="size-4 shrink-0"
-            checked={assetsOn}
-            onChange={(event) => setAssetsOn(event.target.checked)}
-          />
+        <NamedCheckbox name="power-assets" label="Power assets" checked={assetsOn} onCheckedChange={setAssetsOn}>
           <span className="flex min-w-0 flex-wrap items-center gap-2">
             Power assets
             <PrecisionTag precision={ASSET_PRECISION} />
           </span>
-        </label>
-        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
-          <input
-            type="checkbox"
-            name="interconnectors"
-            className="size-4 shrink-0"
-            checked={icOn}
-            onChange={(event) => setIc(event.target.checked)}
-          />
+        </NamedCheckbox>
+        <NamedCheckbox name="interconnectors" label="Interconnectors" checked={icOn} onCheckedChange={setIc}>
           <span className="flex min-w-0 flex-wrap items-center gap-2">
             Interconnectors
             <PrecisionTag precision="schematic" />
           </span>
-        </label>
+        </NamedCheckbox>
         <p className="break-words text-copy-14 text-gray-900">{SCHEMATIC_LINK_LABEL}</p>
-        <label className="flex min-h-11 min-w-0 items-center gap-2 text-copy-14 text-gray-1000">
-          <input
-            type="checkbox"
-            name="dno"
-            className="size-4 shrink-0"
-            checked={dnoOn}
-            onChange={(event) => setDnoOn(event.target.checked)}
-          />
+        <NamedCheckbox name="dno" label="DNO licence areas" checked={dnoOn} onCheckedChange={setDnoOn}>
           <span className="flex min-w-0 flex-wrap items-center gap-2">
             DNO licence areas
             <PrecisionTag precision={dno.precision} />
           </span>
-        </label>
+        </NamedCheckbox>
         <p className="flex min-w-0 flex-wrap items-center gap-2 text-copy-14 text-gray-1000">
           <span>OS basemap</span>
           <PrecisionTag precision={basemap.precision} />
@@ -271,22 +252,12 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-      {label}
-      <select
-        name={label.toLowerCase()}
-        autoComplete="off"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full min-w-0 truncate rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000"
-      >
-        <option value="">All</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ChoiceSelect
+      label={label}
+      name={label.toLowerCase()}
+      value={value}
+      onValueChange={onChange}
+      options={[{ value: "", label: "All" }, ...options]}
+    />
   );
 }

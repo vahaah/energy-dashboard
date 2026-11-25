@@ -47,7 +47,7 @@ export function TransfersChart({ data }: Props) {
   }
 
   return (
-    <ResponsiveChartFrame className="h-72">
+    <ResponsiveChartFrame className="h-72" summary="Transfers with neighbouring markets, megawatts.">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
