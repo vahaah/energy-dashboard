@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@ui-sdk/react/button";
-import { announce } from "@/components/ui/announce";
 
 const BUTTON =
   "inline-flex h-8 min-h-11 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-label-13 text-gray-1000 sm:min-h-8";
@@ -27,23 +25,22 @@ export function ShareButton({ url, title }: { url: string; title: string }) {
   const [label, setLabel] = useState("Share");
 
   return (
-    <Button
+    <button
       type="button"
       data-share
+      aria-live="polite"
       className={BUTTON}
       onClick={() => {
         void shareOrCopy(url, title).then((result) => {
           if (result === "dismissed") {
             return;
           }
-          const next = result === "copied" ? "Copied" : "Shared";
-          setLabel(next);
-          announce(next);
+          setLabel(result === "copied" ? "Copied" : "Shared");
           window.setTimeout(() => setLabel("Share"), 1400);
         });
       }}
     >
       {label}
-    </Button>
+    </button>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Toggle } from "@ui-sdk/react/toggle";
 import { Moon, Sun } from "lucide-react";
 import {
   applyTheme,
@@ -28,11 +27,12 @@ export function ThemeToggle() {
   }, []);
 
   return (
-    <Toggle
-      pressed={theme === "dark"}
+    <button
+      type="button"
       aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-      onPressedChange={(pressed) => {
-        const next = pressed ? "dark" : "light";
+      aria-pressed={theme === "dark"}
+      onClick={() => {
+        const next = theme === "dark" ? "light" : "dark";
         persistTheme(next);
         applyTheme(next);
         setTheme(next);
@@ -40,6 +40,6 @@ export function ThemeToggle() {
       className="relative inline-flex h-8 min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-alpha-400 bg-background-100 text-gray-1000 sm:min-h-8"
     >
       {theme === "dark" ? <Moon className="size-4" aria-hidden="true" /> : <Sun className="size-4" aria-hidden="true" />}
-    </Toggle>
+    </button>
   );
 }

@@ -11,7 +11,6 @@ import {
   isPlausibleEnabled,
 } from "@/lib/plausible";
 import { WebMcpRegistrar } from "@/app/webmcp-registrar";
-import { Announcer } from "@/components/ui/announce";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_ORIGIN, SITE_TWITTER_CARD } from "@/lib/site";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { WEBMCP_ORIGIN_TRIAL_TOKEN } from "@/lib/webmcp/origin-trial";
@@ -58,7 +57,6 @@ export default function RootLayout({
         <NuqsAdapter>
           {children}
           <WebMcpRegistrar />
-          <Announcer />
         </NuqsAdapter>
         {plausible ? (
           <>

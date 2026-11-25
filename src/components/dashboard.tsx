@@ -72,7 +72,6 @@ import { HOME_H1, historicalHomepageH1, type HomepageCite } from "@/lib/homepage
 import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
 import { shareOrCopy } from "@/components/share-button";
-import { announce } from "@/components/ui/announce";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { BalancingHomeCard } from "@/components/balancing-home-card";
@@ -324,7 +323,6 @@ export function Dashboard({
               return;
             }
             setCopied(true);
-            announce("Copied");
             window.setTimeout(() => setCopied(false), 1400);
           });
         }}

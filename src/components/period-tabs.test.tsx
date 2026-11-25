@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { PeriodTabs } from "@/components/period-tabs";
 
 describe("period tabs", () => {
-  it("checks the active period", () => {
+  it("puts aria-current on the active period", () => {
     const html = renderToStaticMarkup(
       <PeriodTabs period="week" pending={false} onPeriodChange={() => undefined} />
     );
-    expect(html).toContain('aria-checked="true"');
-    expect(html).toMatch(/Week/);
+    expect(html.match(/aria-current="page"/g)?.length).toBe(1);
+    expect(html).toMatch(/<button[^>]*aria-current="page"[^>]*>Week<\/button>/);
     expect(html).toContain(">Day<");
     expect(html).toContain(">Year<");
     expect(html).toContain(">All<");

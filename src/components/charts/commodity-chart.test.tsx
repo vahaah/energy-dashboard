@@ -109,7 +109,7 @@ describe("CommodityChart scale toggle", () => {
 
     expect(html).toContain("Indexed, start = 100 (log scale)");
     expect(html).toContain('aria-label="Price scale"');
-    expect(html).toContain('aria-checked="true"');
+    expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("h-11");
     expect(html).toContain("min-w-11");
     expect(html).toContain("Indexed");

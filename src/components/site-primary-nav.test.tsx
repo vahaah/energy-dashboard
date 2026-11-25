@@ -65,10 +65,11 @@ describe("primary nav", () => {
 
   it("exposes a keyboard menu button when a system route is rendered", () => {
     const source = readFileSync(resolve(import.meta.dirname, "./site-primary-nav.tsx"), "utf8");
-    expect(source).toContain('from "@ui-sdk/react/menu"');
-    expect(source).toContain("MenuTrigger");
-    expect(source).toContain("MenuContent");
-    expect(source).toContain("MenuItem");
+    expect(source).toContain('aria-haspopup="menu"');
+    expect(source).toContain("aria-expanded");
+    expect(source).toContain('role="menu"');
+    expect(source).toContain('role="menuitem"');
+    expect(source).toContain("menuKeyMotion");
     expect(source).toContain("ChevronDown");
     expect(source).toContain("flex-nowrap");
     const topBar = readFileSync(resolve(import.meta.dirname, "./site-top-bar.tsx"), "utf8");

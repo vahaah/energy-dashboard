@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@ui-sdk/react/button";
 import { CalendarDays, Check, Copy } from "lucide-react";
 import { SiteTopBar } from "@/components/site-top-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -54,15 +53,16 @@ export function SiteHeader({
               />
             </label>
           ) : null}
-          <Button
+          <button
             type="button"
             onClick={onShare}
+            aria-live="polite"
             aria-label={copied ? "Copied" : "Share"}
             className="inline-flex h-8 min-h-11 items-center justify-center gap-2 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-label-13 text-gray-1000 sm:min-h-8"
           >
             {copied ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
             {copied ? "Copied" : "Share"}
-          </Button>
+          </button>
           <ThemeToggle />
         </>
       }
