@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { parseAsString, useQueryStates } from "nuqs";
+import { Input } from "@ui-sdk/react/input";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { CountColumns } from "@/components/count-columns";
 import { Card } from "@/components/ui/card";
 import { Quantity } from "@/components/ui/quantity";
@@ -62,9 +65,17 @@ export function ProjectsBoard({
   const [typed, setTyped] = useState<string | null>(null);
   const [seenUrl, setSeenUrl] = useState(urlQuery);
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [stage, setStage] = useState("all");
-  const [technology, setTechnology] = useState("all");
-  const [nation, setNation] = useState("all");
+  const [filters, setFilters] = useQueryStates(
+    {
+      stage: parseAsString.withDefault("all"),
+      technology: parseAsString.withDefault("all"),
+      nation: parseAsString.withDefault("all"),
+    },
+    { history: "replace", shallow: true, scroll: false },
+  );
+  const stage = filters.stage;
+  const technology = filters.technology;
+  const nation = filters.nation;
   const [page, setPage] = useState(1);
   const urlChanged = seenUrl !== urlQuery;
   if (urlChanged) {
@@ -240,28 +251,40 @@ export function ProjectsBoard({
           }
         >
           <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-            <Filter label="Stage" value={stage} onChange={(value) => { setStage(value); setPage(1); }}>
-              <option value="all">All stages</option>
-              {facets.stages.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </Filter>
-            <Filter label="Technology" value={technology} onChange={(value) => { setTechnology(value); setPage(1); }}>
-              <option value="all">All technologies</option>
-              {facets.technologies.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </Filter>
-            <Filter label="Nation" value={nation} onChange={(value) => { setNation(value); setPage(1); }}>
-              <option value="all">All nations</option>
-              {facets.nations.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </Filter>
+            <ChoiceSelect
+              label="Stage"
+              name="stage"
+              value={stage}
+              onValueChange={(value) => {
+                void setFilters({ stage: value });
+                setPage(1);
+              }}
+              options={[{ value: "all", label: "All stages" }, ...facets.stages.map((item) => ({ value: item, label: item }))]}
+            />
+            <ChoiceSelect
+              label="Technology"
+              name="technology"
+              value={technology}
+              onValueChange={(value) => {
+                void setFilters({ technology: value });
+                setPage(1);
+              }}
+              options={[{ value: "all", label: "All technologies" }, ...facets.technologies.map((item) => ({ value: item, label: item }))]}
+            />
+            <ChoiceSelect
+              label="Nation"
+              name="nation"
+              value={nation}
+              onValueChange={(value) => {
+                void setFilters({ nation: value });
+                setPage(1);
+              }}
+              options={[{ value: "all", label: "All nations" }, ...facets.nations.map((item) => ({ value: item, label: item }))]}
+            />
           </div>
           <label className="mt-3 flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
             Search
-            <input
+            <Input
               type="search"
               name="q"
               autoComplete="off"
@@ -337,33 +360,6 @@ function ProjectLine({ row }: { row: ProjectIndexRow }) {
         </span>
       </Link>
     </li>
-  );
-}
-
-function Filter({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-      {label}
-      <select
-        name={label.toLowerCase()}
-        autoComplete="off"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full min-w-0 rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
-      >
-        {children}
-      </select>
-    </label>
   );
 }
 

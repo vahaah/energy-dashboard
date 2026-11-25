@@ -43,6 +43,7 @@ for (const theme of THEMES) {
     test(`sum block ${theme} ${viewport.name} shares baselines and does not overflow`, async ({ page }) => {
       await prepare(page, theme, viewport.width, viewport.height);
       await page.goto("/", { waitUntil: "load" });
+      await page.waitForLoadState("networkidle");
       await page.evaluate(() => document.fonts.ready);
       const card = page.locator("#section-generation");
       await expect(card).toBeVisible();

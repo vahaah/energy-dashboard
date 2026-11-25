@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { parseAsString, useQueryStates } from "nuqs";
 import { Card } from "@/components/ui/card";
+import { ChoiceRow } from "@/components/ui/choice-row";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { formatLondonDateLabel, formatLondonDayMonthYear, formatVisibleInstants, parseUtcDateTime } from "@/lib/london-time";
 
@@ -22,7 +23,11 @@ export type ChangeCard = {
 
 export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attribution: string }) {
   const types = [...new Set(rows.map((row) => row.fieldLabel).filter((label): label is string => Boolean(label)))];
-  const [selected, setSelected] = useState<string>("all");
+  const [params, setParams] = useQueryStates(
+    { type: parseAsString.withDefault("all") },
+    { history: "replace", shallow: true, scroll: false },
+  );
+  const selected = types.includes(params.type) ? params.type : "all";
   if (rows.length === 0) {
     return (
       <Card title="Changes">
@@ -39,12 +44,15 @@ export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attrib
           {rows.length} {rows.length === 1 ? "change" : "changes"}
         </p>
         {types.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Change type">
-            <FilterChip pressed={selected === "all"} onClick={() => setSelected("all")} label="All" />
-            {types.map((type) => (
-              <FilterChip key={type} pressed={selected === type} onClick={() => setSelected(type)} label={type} />
-            ))}
-          </div>
+          <ChoiceRow
+            ariaLabel="Change type"
+            variant="chips"
+            value={selected}
+            onChange={(type) => {
+              void setParams({ type });
+            }}
+            options={[{ value: "all", label: "All" }, ...types.map((type) => ({ value: type, label: type }))]}
+          />
         ) : null}
         {days.map((day) => (
           <section key={day.label} className="mt-6">
@@ -91,21 +99,6 @@ export function ChangesBoard({ rows, attribution }: { rows: ChangeCard[]; attrib
         ))}
       </div>
     </Card>
-  );
-}
-
-function FilterChip({ pressed, onClick, label }: { pressed: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`inline-flex h-11 min-h-11 items-center rounded-md border px-3 text-label-13 capitalize sm:h-8 sm:min-h-8 ${
-        pressed ? "border-gray-1000 text-gray-1000" : "border-gray-alpha-400 text-gray-900"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

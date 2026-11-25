@@ -43,8 +43,8 @@ describe("info tooltip hit area", () => {
     );
 
     expect(source).toContain("size-11");
-    expect(source).toContain("onFocus");
-    expect(source).toContain("onClick");
+    expect(source).toContain("TooltipTrigger");
+    expect(source).toContain("TooltipContent");
     expect(source).not.toContain("size-6");
   });
 });

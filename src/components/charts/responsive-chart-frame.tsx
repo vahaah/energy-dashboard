@@ -13,13 +13,16 @@ export function useIsClient(): boolean {
 export function ResponsiveChartFrame({
   className,
   children,
+  summary,
 }: {
   className: string;
   children: ReactNode;
+  summary: string;
 }) {
   const isClient = useIsClient();
   return (
     <div className={`${className} w-full min-h-0 min-w-0 overflow-hidden`}>
+      <p className="sr-only">{summary}</p>
       {isClient ? children : null}
     </div>
   );

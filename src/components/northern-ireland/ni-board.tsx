@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { Sparkline } from "@/components/sparkline";
 import { Absent } from "@/components/ui/absent";
 import { CARD_GRID_CLASS, Card } from "@/components/ui/card";
@@ -14,38 +15,38 @@ import type { NiFigure, NiPageModel, NiScopeId, NiScopeModel } from "@/lib/eirgr
 export function NiBoard({ model }: { model: NiPageModel }) {
   const [scope, setScope] = useState<NiScopeId>("ni");
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div role="tablist" aria-label="Scope" className="flex min-w-0 flex-wrap gap-2">
-        {model.scopes.map((item) => {
-          const selected = item.id === scope;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              className={`inline-flex min-h-11 items-center rounded-md border px-3 text-label-13 focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:outline-none ${
-                selected
-                  ? "border-gray-1000 bg-background-100 text-gray-1000"
-                  : "border-gray-alpha-400 text-gray-900 hover:text-gray-1000"
-              }`}
-              onClick={() => setScope(item.id)}
-            >
-              {item.id === "ni" ? NI_SCOPE_NI : NI_SCOPE_ALL}
-            </button>
-          );
-        })}
-      </div>
+    <Tabs
+      value={scope}
+      onValueChange={(next) => {
+        if (next === "ni" || next === "all") {
+          setScope(next);
+        }
+      }}
+      className="flex min-w-0 flex-col gap-4"
+    >
+      <TabsList aria-label="Scope" className="flex min-w-0 flex-wrap gap-2">
+        {model.scopes.map((item) => (
+          <TabsTab
+            key={item.id}
+            value={item.id}
+            className="inline-flex min-h-11 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-900 data-selected:border-gray-1000 data-selected:bg-background-100 data-selected:text-gray-1000"
+          >
+            {item.id === "ni" ? NI_SCOPE_NI : NI_SCOPE_ALL}
+          </TabsTab>
+        ))}
+      </TabsList>
       {model.scopes.map((item) => (
-        <ScopePanel key={item.id} model={item} hidden={item.id !== scope} />
+        <TabsPanel key={item.id} value={item.id}>
+          <ScopePanel model={item} />
+        </TabsPanel>
       ))}
-    </div>
+    </Tabs>
   );
 }
 
-function ScopePanel({ model, hidden }: { model: NiScopeModel; hidden: boolean }) {
+function ScopePanel({ model }: { model: NiScopeModel }) {
   return (
-    <div hidden={hidden} className="flex min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <div className={CARD_GRID_CLASS}>
         {model.figures.map((figure) => (
           <FigureCard key={figure.metricId} figure={figure} />

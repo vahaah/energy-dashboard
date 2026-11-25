@@ -72,6 +72,7 @@ import { HOME_H1, historicalHomepageH1, type HomepageCite } from "@/lib/homepage
 import { PeriodTabs } from "@/components/period-tabs";
 import { shareFocusPath } from "@/lib/page-metadata";
 import { shareOrCopy } from "@/components/share-button";
+import { announce } from "@/components/ui/announce";
 import { getLondonDate } from "@/lib/london-time";
 import { GenerationDesk, GenerationDeskSkeleton } from "@/components/generation-desk";
 import { BalancingHomeCard } from "@/components/balancing-home-card";
@@ -323,6 +324,7 @@ export function Dashboard({
               return;
             }
             setCopied(true);
+            announce("Copied");
             window.setTimeout(() => setCopied(false), 1400);
           });
         }}
@@ -384,7 +386,7 @@ export function Dashboard({
               <p className="text-copy-16 text-gray-900">{facts.emptyState.message}</p>
               <a
                 href={facts.emptyState.href}
-                className="mt-4 inline-flex h-8 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000"
+                className="mt-4 inline-flex h-11 min-h-11 items-center rounded-md border border-gray-alpha-400 px-3 text-label-13 text-gray-1000 sm:h-8 sm:min-h-8"
               >
                 {facts.emptyState.action}
               </a>

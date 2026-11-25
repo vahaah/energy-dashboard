@@ -66,7 +66,7 @@ export function GenerationStackChart({ data, range }: Props) {
   const chartData = buildGenerationStackSeries(data, range);
 
   return (
-    <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+    <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Generation mix over time, share of megawatts.">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid {...chartGrid} />

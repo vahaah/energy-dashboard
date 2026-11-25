@@ -146,7 +146,7 @@ describe("homepage briefing", () => {
       </>,
     );
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
-    expect(html).toContain("<p class=\"min-w-0 text-heading-32 text-gray-1000\">");
+    expect(html).toContain("<p class=\"min-w-0 text-pretty text-heading-32 text-gray-1000\">");
     expect(html).toContain("What&#x27;s powering electricity in Great Britain?");
     expect(html).toContain('class="shrink-0"');
     expect(html).toContain('href="/today"');

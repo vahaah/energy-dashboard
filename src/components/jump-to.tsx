@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 
 export function JumpTo({
   items,
@@ -8,6 +9,7 @@ export function JumpTo({
   items: readonly { href: string; label: string }[];
 }) {
   const navRef = useRef<HTMLElement>(null);
+  const [section, setSection] = useState("");
 
   useEffect(() => {
     const nav = navRef.current;
@@ -33,29 +35,21 @@ export function JumpTo({
       className="sticky z-10 -mx-[var(--card-pad)] border-b border-gray-alpha-400 bg-background-100 px-[var(--card-pad)] py-2"
       style={{ top: "var(--site-header-height, 4rem)" }}
     >
-      <label className="flex min-h-11 items-center gap-2 text-label-13 text-gray-900 lg:hidden">
-        <span>Jump to</span>
-        <select
+      <div className="flex min-h-11 items-center gap-2 lg:hidden">
+        <ChoiceSelect
+          label="Jump to"
           name="section"
-          autoComplete="off"
-          aria-label="Jump to"
-          defaultValue=""
-          onChange={(event) => {
-            const href = event.target.value;
+          value={section}
+          onValueChange={(href) => {
+            setSection(href);
             if (href) {
               window.location.hash = href;
             }
           }}
-          className="h-11 min-h-11 min-w-0 flex-1 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-copy-14 text-gray-1000 lg:h-8 lg:min-h-8"
-        >
-          <option value="">Choose a section</option>
-          {items.map((item) => (
-            <option key={item.href} value={item.href}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={[{ value: "", label: "Choose a section" }, ...items.map((item) => ({ value: item.href, label: item.label }))]}
+          className="min-w-0 flex-1"
+        />
+      </div>
       <ul className="hidden flex-wrap gap-x-4 gap-y-1 lg:flex">
         {items.map((item) => (
           <li key={item.href}>

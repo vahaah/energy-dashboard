@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { ChartBoundary } from "@/components/gas/chart-boundary";
+import { ChoiceRow } from "@/components/ui/choice-row";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { DataStateNotice } from "@/components/ui/data-state";
 import { Freshness } from "@/components/ui/freshness";
 import { Card } from "@/components/ui/card";
@@ -45,7 +47,7 @@ const gasParsers = {
 };
 
 const CHIP =
-  "inline-flex max-w-full items-center rounded-md border border-gray-alpha-400 px-1.5 py-0.5 text-label-12 text-gray-900";
+  "inline-flex min-h-11 max-w-full items-center rounded-md border border-gray-alpha-400 px-2 text-label-12 text-gray-900 sm:min-h-8 sm:px-1.5 sm:py-0.5";
 
 export function GasBoard({ document }: { document: Extract<GasDocument, { available: true }> }) {
   const [params, setParams] = useQueryStates(gasParsers, { history: "replace", shallow: true, scroll: false });
@@ -55,24 +57,17 @@ export function GasBoard({ document }: { document: Extract<GasDocument, { availa
     <div className="grid grid-cols-12 gap-4" data-gas-day-state={slice.state} data-gas-basis={slice.basis}>
       <header className="col-span-12 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 text-label-13 text-gray-1000">
-            <span className="sr-only">Gas day</span>
-            <select
-              name="gas-day"
-              autoComplete="off"
-              value={slice.day}
-              onChange={(event) => {
-                void setParams({ day: event.target.value });
-              }}
-              className="h-11 min-h-11 rounded-md border border-gray-alpha-400 bg-background-100 px-2 text-label-13 text-gray-1000 sm:h-8 sm:min-h-8"
-            >
-              {document.days.map((day) => (
-                <option key={day.label} value={day.label}>
-                  {day.text}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ChoiceSelect
+            label="Gas day"
+            name="gas-day"
+            hideLabel
+            value={slice.day}
+            onValueChange={(day) => {
+              void setParams({ day });
+            }}
+            options={document.days.map((day) => ({ value: day.label, label: day.text }))}
+            className="w-auto"
+          />
           <BasisControl
             bases={slice.bases}
             basis={slice.basis}
@@ -269,21 +264,12 @@ function BasisControl({
     return <p data-basis-label>{GAS_BASIS_LABEL[basis]}</p>;
   }
   return (
-    <div className="inline-flex flex-wrap rounded-md border border-gray-alpha-400 bg-background-200" role="group" aria-label="Basis">
-      {bases.map((item) => (
-        <button
-          key={item}
-          type="button"
-          aria-pressed={item === basis}
-          onClick={() => onChange(item)}
-          className={`inline-flex h-11 min-h-11 items-center rounded-md px-2 text-label-13 sm:h-8 sm:min-h-8 ${
-            item === basis ? "bg-background-100 text-gray-1000" : "text-gray-900"
-          }`}
-        >
-          {GAS_BASIS_LABEL[item]}
-        </button>
-      ))}
-    </div>
+    <ChoiceRow
+      ariaLabel="Basis"
+      value={basis}
+      onChange={onChange}
+      options={bases.map((item) => ({ value: item, label: GAS_BASIS_LABEL[item] }))}
+    />
   );
 }
 

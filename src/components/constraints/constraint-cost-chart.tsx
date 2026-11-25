@@ -81,7 +81,7 @@ export function ConstraintCostChart({ series }: { series: MeasuredCostChartSerie
   return (
     <div data-chart="constraint-cost" data-unit="GBP">
       <p className="mb-2 text-copy-14 text-gray-900">{millions ? "Cost, £ million" : "Cost, £"}</p>
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Constraint cost, pounds. Categories are not rescaled.">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={[...checked.points]} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid {...chartGrid} />

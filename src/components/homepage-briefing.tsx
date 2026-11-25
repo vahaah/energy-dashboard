@@ -39,7 +39,7 @@ export function HomepageBriefing({
 }
 
 function BriefingTitle({ heading, title }: { heading: "h1" | "p"; title: string }) {
-  const className = "min-w-0 text-heading-32 text-gray-1000";
+  const className = "min-w-0 text-pretty text-heading-32 text-gray-1000";
   switch (heading) {
     case "h1":
       return <h1 className={className}>{title}</h1>;

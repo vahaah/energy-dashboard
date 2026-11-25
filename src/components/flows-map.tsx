@@ -10,6 +10,9 @@ import { mapViewParsers } from "@/lib/assets/params";
 import { NI_FLOW_NOTE } from "@/lib/attribution";
 import { NI_PATH } from "@/lib/eirgrid/copy";
 import { SiteLegalNav } from "@/components/site-legal-nav";
+import { Dialog, DialogBackdrop, DialogClose, DialogContent, DialogTitle } from "@ui-sdk/react/dialog";
+import { Radio, RadioGroup, RadioIndicator } from "@ui-sdk/react/radio";
+import { NamedCheckbox } from "@/components/ui/named-checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FLOW_SHEET_PEEK_PX } from "@/lib/map/constants";
 import {
@@ -575,8 +578,18 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             </Link>
           </p>
         ) : null}
-        <fieldset className="flex min-w-0 flex-col gap-2">
-          <legend className="text-label-13 text-gray-900">View</legend>
+        <RadioGroup
+          name={radioName}
+          aria-label="View"
+          value={preset}
+          onValueChange={(next) => {
+            if (next === "flows" || next === "stations") {
+              applyPreset(next);
+            }
+          }}
+          className="flex min-w-0 flex-col gap-2"
+        >
+          <p className="text-label-13 text-gray-900">View</p>
           {(
             [
               ["flows", "Flows"],
@@ -584,16 +597,20 @@ export function FlowsMap({ model }: { model: FlowsPageModel }) {
             ] as const
           ).map(([id, label]) => (
             <label key={id} className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-1000">
-              <input type="radio" name={radioName} checked={preset === id} onChange={() => applyPreset(id)} />
+              <Radio value={id} className="inline-flex size-4 items-center justify-center rounded-full border border-gray-alpha-400">
+                <RadioIndicator className="size-2 rounded-full bg-gray-1000" />
+              </Radio>
               {label}
             </label>
           ))}
           <label className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-900">
-            <input type="radio" name={radioName} disabled />
+            <Radio value="projects" disabled className="inline-flex size-4 items-center justify-center rounded-full border border-gray-alpha-400">
+              <RadioIndicator className="size-2 rounded-full bg-gray-1000" />
+            </Radio>
             Projects
           </label>
           <p className="text-copy-14 text-gray-900">{PROJECTS_LAYER_NOTE}</p>
-        </fieldset>
+        </RadioGroup>
         <fieldset className="flex min-w-0 flex-col gap-2">
           <legend className="text-label-13 text-gray-900">Layers</legend>
           <LayerToggle name="interconnectors" label="Interconnectors" checked={electricity} onChange={setElectricity} />
@@ -818,18 +835,7 @@ function LayerToggle({
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  return (
-    <label className="flex min-h-11 items-center gap-2 text-copy-14 text-gray-1000">
-      <input
-        type="checkbox"
-        name={name}
-        className="size-4"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      {label}
-    </label>
-  );
+  return <NamedCheckbox name={name} label={label} checked={checked} onCheckedChange={onChange} />;
 }
 
 function AboutLayers({
@@ -843,46 +849,18 @@ function AboutLayers({
   dnoWarning: string | null;
   onClose: () => void;
 }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-  }, []);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="about-layers-title"
-      className="absolute inset-0 z-20 flex items-end justify-center overscroll-contain bg-background-100/80 p-4 sm:items-center"
-      onKeyDown={(event) => {
-        if (event.key !== "Tab") {
-          return;
-        }
-        const root = panelRef.current;
-        if (!root) {
-          return;
-        }
-        const nodes = [...root.querySelectorAll<HTMLElement>("a, button")].filter((node) => !node.hasAttribute("disabled"));
-        const first = nodes[0];
-        const last = nodes[nodes.length - 1];
-        if (!first || !last) {
-          return;
-        }
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose();
         }
       }}
     >
-      <div ref={panelRef} className="max-h-full w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-gray-alpha-400 bg-background-100 p-4">
-        <h2 id="about-layers-title" className="text-heading-16 text-gray-1000">
-          About these layers
-        </h2>
+      <DialogBackdrop className="absolute inset-0 bg-background-100/80" />
+      <DialogContent className="absolute inset-x-4 bottom-4 z-20 max-h-[calc(100%-2rem)] w-auto max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-gray-alpha-400 bg-background-100 p-4 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+        <DialogTitle className="text-heading-16 text-gray-1000">About these layers</DialogTitle>
         <div className="mt-3 flex flex-col gap-2 text-copy-14 text-gray-900">
           {credits.map((credit) => (
             <p key={credit.id}>{credit.text}</p>
@@ -891,15 +869,10 @@ function AboutLayers({
           {dnoWarning ? <p>{dnoWarning}</p> : null}
           <p>{PROJECTS_LAYER_NOTE}</p>
         </div>
-        <button
-          ref={closeRef}
-          type="button"
-          className="mt-4 inline-flex min-h-11 items-center text-blue-700 underline-offset-2 hover:underline"
-          onClick={onClose}
-        >
+        <DialogClose className="mt-4 inline-flex min-h-11 items-center text-blue-700 underline-offset-2 hover:underline">
           Close
-        </button>
-      </div>
-    </div>
+        </DialogClose>
+      </DialogContent>
+    </Dialog>
   );
 }

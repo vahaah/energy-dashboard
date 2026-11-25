@@ -11,6 +11,7 @@ import {
   isPlausibleEnabled,
 } from "@/lib/plausible";
 import { WebMcpRegistrar } from "@/app/webmcp-registrar";
+import { Announcer } from "@/components/ui/announce";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_OG_IMAGE, SITE_ORIGIN, SITE_TWITTER_CARD } from "@/lib/site";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { WEBMCP_ORIGIN_TRIAL_TOKEN } from "@/lib/webmcp/origin-trial";
@@ -47,6 +48,7 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#ffffff" />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         {WEBMCP_ORIGIN_TRIAL_TOKEN ? (
           <meta httpEquiv="origin-trial" content={WEBMCP_ORIGIN_TRIAL_TOKEN} />
@@ -56,6 +58,7 @@ export default function RootLayout({
         <NuqsAdapter>
           {children}
           <WebMcpRegistrar />
+          <Announcer />
         </NuqsAdapter>
         {plausible ? (
           <>

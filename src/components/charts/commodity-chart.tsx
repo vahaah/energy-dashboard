@@ -186,7 +186,7 @@ export function CommodityChart({ data, range, selectedSeries }: Props) {
           ariaLabel="Price scale"
         />
       </div>
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Oil and gas prices. Each series keeps its own unit.">
         <ResponsiveContainer width="100%" height="100%">
           <CommodityPriceLines series={series} range={range} scale={scale} />
         </ResponsiveContainer>

@@ -120,7 +120,7 @@ export function InterconnectorFlowsChart({ data, range }: Props) {
   const series = overflow.length > 0 ? [...shown, "other"] : shown;
 
   return (
-    <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+    <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Interconnector flows, megawatts. Positive is into Great Britain.">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid {...chartGrid} />

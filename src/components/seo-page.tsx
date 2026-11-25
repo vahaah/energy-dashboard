@@ -39,7 +39,7 @@ export function SeoPage({
         <SiteBreadcrumb items={breadcrumb} />
         {header ?? (
           <section>
-            <h1 className="text-heading-32 text-gray-1000">{title}</h1>
+            <h1 className="text-pretty text-heading-32 text-gray-1000">{title}</h1>
             <div className="mt-3 max-w-3xl text-copy-16 text-gray-900">{cite}</div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <CiteButton text={citation} />

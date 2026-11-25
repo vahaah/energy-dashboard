@@ -30,8 +30,8 @@ test.describe("balancing widgets", () => {
         await expect(page.locator("#household").getByText("2,500 kWh").first()).toBeVisible();
 
         for (const label of ["1 year", "This financial year", "All", "90 days"]) {
-          await page.getByRole("button", { name: label, exact: true }).first().click();
-          await expect(page.getByRole("button", { name: label, exact: true }).first()).toHaveAttribute("aria-pressed", "true");
+          await page.getByRole("radio", { name: label, exact: true }).first().click();
+          await expect(page.getByRole("radio", { name: label, exact: true }).first()).toBeChecked();
           await expect(page.getByText("Estimated value of electricity traded with GB's neighbours").first()).toBeVisible();
         }
 

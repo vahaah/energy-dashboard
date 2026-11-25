@@ -76,7 +76,7 @@ export function ElectricityPriceChart({ data, range, series = "mid" }: Props) {
   }
 
   return (
-    <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+    <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Wholesale electricity price, pounds per megawatt-hour.">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid {...chartGrid} />

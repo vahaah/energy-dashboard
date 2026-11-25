@@ -111,6 +111,10 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
   );
   const ceiling = Math.ceil(yMax / 50) * 50;
   const multiDay = forecast.length > 0;
+  const latestActual = [...chartData].reverse().find((point) => point.actual != null);
+  const carbonSummary = latestActual
+    ? `Carbon intensity chart in grams of CO₂ per kilowatt-hour. Latest actual ${latestActual.actual}. The dashed line is the 48-hour forecast.`
+    : "Carbon intensity chart in grams of CO₂ per kilowatt-hour. The dashed line is the 48-hour forecast.";
 
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
@@ -122,7 +126,7 @@ export function CarbonIntensityChart({ data, range, forecast = [], now = null }:
           </p>
         </div>
       ) : null}
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary={carbonSummary}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}

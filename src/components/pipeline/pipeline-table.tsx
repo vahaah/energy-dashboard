@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Card } from "@/components/ui/card";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { fetchBoundedJson } from "@/lib/http/bounded-json";
 import { PIPELINE_CLEAR_FILTERS, PIPELINE_CSV_PATH, PIPELINE_EMPTY_FILTER, PIPELINE_NOT_PUBLISHED } from "@/lib/pipeline/copy";
@@ -223,28 +224,41 @@ export function PipelineTable({
       }
     >
       <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-        <Filter label="Stage" value={stage} onChange={(value) => { setStage(value); setPage(1); }}>
-          <option value="all">All stages</option>
-          <option value="under_construction">Under construction</option>
-          <option value="consented">{stageLabel("consented")}</option>
-          <option value="in_planning">In planning</option>
-        </Filter>
-        <Filter label="Technology" value={technology} onChange={(value) => { setTechnology(value); setPage(1); }}>
-          <option value="all">All technologies</option>
-          {technologies.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </Filter>
-        <Filter label="Nation" value={nation} onChange={(value) => { setNation(value); setPage(1); }}>
-          <option value="all">All nations</option>
-          {nations.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </Filter>
+        <ChoiceSelect
+          label="Stage"
+          name="stage"
+          value={stage}
+          onValueChange={(value) => {
+            setStage(value);
+            setPage(1);
+          }}
+          options={[
+            { value: "all", label: "All stages" },
+            { value: "under_construction", label: "Under construction" },
+            { value: "consented", label: stageLabel("consented") },
+            { value: "in_planning", label: "In planning" },
+          ]}
+        />
+        <ChoiceSelect
+          label="Technology"
+          name="technology"
+          value={technology}
+          onValueChange={(value) => {
+            setTechnology(value);
+            setPage(1);
+          }}
+          options={[{ value: "all", label: "All technologies" }, ...technologies.map((item) => ({ value: item, label: item }))]}
+        />
+        <ChoiceSelect
+          label="Nation"
+          name="nation"
+          value={nation}
+          onValueChange={(value) => {
+            setNation(value);
+            setPage(1);
+          }}
+          options={[{ value: "all", label: "All nations" }, ...nations.map((item) => ({ value: item, label: item }))]}
+        />
       </div>
       <p className="mt-4 text-label-13 text-gray-900" aria-live="polite">
         {shownTotal == null
@@ -318,33 +332,6 @@ export function PipelineTable({
         Capacity is rated power. {PIPELINE_NOT_PUBLISHED} means the extract has no megawatt figure.
       </p>
     </Card>
-  );
-}
-
-function Filter({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1 text-label-13 text-gray-900">
-      {label}
-      <select
-        name={label.toLowerCase()}
-        autoComplete="off"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full min-w-0 max-w-full rounded-md border border-gray-alpha-400 bg-background-100 px-3 text-copy-16 text-gray-1000"
-      >
-        {children}
-      </select>
-    </label>
   );
 }
 

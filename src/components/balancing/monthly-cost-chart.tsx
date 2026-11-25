@@ -70,7 +70,7 @@ export function MonthlyCostChart({ points }: { points: MonthlyChartPoint[] }) {
   const ticks = monthTicks(points.map((point) => point.month));
   return (
     <div className="relative min-w-0">
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Monthly balancing cost, pounds.">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid {...chartGrid} />

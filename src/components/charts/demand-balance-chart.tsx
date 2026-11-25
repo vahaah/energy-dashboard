@@ -198,7 +198,7 @@ export function DemandBalanceChart({
         {showImports || showExports ? <GapKey showImports={showImports} showExports={showExports} /> : null}
         {demandForecast.length > 0 ? <DataStateNotice state="forecast" /> : null}
       </div>
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Demand and generation, including embedded wind and solar, megawatts.">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={plotMargin}>
             <CartesianGrid {...chartGrid} />

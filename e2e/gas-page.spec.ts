@@ -18,7 +18,7 @@ test("shows a stale published time, partial and complete days, and the table wit
   await tableToggle.click();
   await expect(page.locator("[data-gas-table]")).toBeVisible();
 
-  await page.getByRole("button", { name: "Completed gas day" }).click();
+  await page.getByRole("radio", { name: "Completed gas day" }).click();
   await expect(page.locator("[data-gas-day-state=complete]")).toBeVisible();
   await expect(page.locator("[data-gas-partial]")).toHaveCount(0);
   await expect(page.getByText("Completed gas day").first()).toBeVisible();

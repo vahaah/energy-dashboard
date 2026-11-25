@@ -42,7 +42,7 @@ export function EnergyTransition({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
       <div className="min-w-0">
-      <ResponsiveChartFrame className={CHART_HEIGHT_SMALL}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_SMALL} summary="Energy transition chart. The figures are in the surrounding text.">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid {...chartGrid} />

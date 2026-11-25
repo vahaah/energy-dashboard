@@ -74,7 +74,7 @@ export function TradeChart({ rows }: { rows: TradeChartRow[] }) {
   const ticks = monthTicks(rows.map((row) => row.month));
   return (
     <div className="min-w-0">
-      <ResponsiveChartFrame className={CHART_HEIGHT_HERO}>
+      <ResponsiveChartFrame className={CHART_HEIGHT_HERO} summary="Balancing trades, megawatt-hours.">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid {...chartGrid} />
