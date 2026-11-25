@@ -41,7 +41,7 @@ export function ChoiceSelect({
       value={value}
       items={options.map((option) => ({ value: option.value, label: option.label }))}
       onValueChange={(next) => {
-        if (next) {
+        if (next != null) {
           onValueChange(next);
         }
       }}
