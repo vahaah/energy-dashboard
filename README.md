@@ -133,7 +133,6 @@ Node.js 22.12 or newer. `package.json` sets `"private": true` so the package is 
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob for basemap upload and published releases |
 | `DIRECTORY_BLOB_STORE_ID` | Private Blob store id for the ISD snapshot |
 | `DIRECTORY_BLOB_READ_WRITE_TOKEN` | Token for that private store |
-| `INDEXNOW_KEY` | Must match the public key file. Submit scripts only. |
 | `BASEMAP_MBTILES` | Optional local MBTiles path for a basemap rebuild |
 | `OIL_PRICE_API_KEY` | Unused. Ingest is disabled. |
 | `FRED_API_KEY` | Unused. Ingest is disabled. |
@@ -188,7 +187,7 @@ Playwright uses Chromium. Layout coverage is 1280, 1024, 768 and 375, light and 
 
 Vercel deploys `main`. Set the environment variables above in the project. Cron routes are in `vercel.json`.
 
-After a production deploy, `.github/workflows/indexnow-submit.yml` submits changed sitemap URLs. The IndexNow key in `public/` is public on purpose. Workflows do not print it. The one-shot workflow redacts `INDEXNOW_KEY` in its logs.
+After a production deploy, `.github/workflows/indexnow-submit.yml` submits changed sitemap URLs. `.github/workflows/indexnow.yml` is the release-marker one-shot and posts only URLs that one-shot has not already sent. Both read the checked-in public key. Neither uses an Actions secret, and neither prints the key.
 
 ## Contributing
 
