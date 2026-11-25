@@ -1,5 +1,8 @@
 name: IndexNow submit
 
+permissions:
+  contents: read
+
 # Changed mode after a successful production deploy of main.
 # workflow_dispatch submits every sitemap URL (--all).
 # The checkpoint is the previous successful run's indexnow-marker artifact,

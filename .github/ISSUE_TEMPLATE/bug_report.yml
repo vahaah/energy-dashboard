@@ -1,0 +1,23 @@
+name: Bug
+description: Something on Grid is wrong or broken.
+title: ""
+labels: []
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Page, time, and what you saw. Do not paste tokens or personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      placeholder: https://grid.vahaah.com/
