@@ -484,7 +484,7 @@ for (const theme of THEMES) {
         });
         expect(await sheet.evaluate((element) => element.scrollTop)).toBeGreaterThan(40);
         await sheet.getByRole("radio", { name: "Power stations" }).evaluate((element) => {
-          if (element instanceof HTMLInputElement) {
+          if (element instanceof HTMLElement) {
             element.click();
           }
         });
