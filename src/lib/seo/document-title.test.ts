@@ -35,7 +35,7 @@ describe("detail titles", () => {
       return;
     }
     const title = projectSeoTitle(eurocell);
-    expect(title).toBe("Eurocell Nickel: in planning | Grid");
+    expect(title).toBe("Eurocell Nickel solar, East Midlands: in planning | Grid");
     expect(pageTitleLength(title)).toBeLessThanOrEqual(TITLE_MAX_CHARS);
     expect(title).not.toContain("Solar…");
     expect(title).not.toContain("High View Road");
